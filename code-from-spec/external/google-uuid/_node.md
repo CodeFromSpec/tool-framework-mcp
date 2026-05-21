@@ -1,8 +1,3 @@
----
-version: 4
-parent_version: 2
----
-
 # ROOT/external/google-uuid
 
 UUID generation library for Go: `github.com/google/uuid`.

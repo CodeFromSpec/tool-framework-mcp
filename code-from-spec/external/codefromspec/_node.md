@@ -1,8 +1,3 @@
----
-version: 5
-parent_version: 2
----
-
 # ROOT/external/codefromspec
 
 The Code from Spec framework documentation. Defines the methodology,

@@ -1,15 +1,3 @@
----
-version: 36
-parent_version: 14
-depends_on:
-  - path: ROOT/external/codefromspec
-    version: 5
-  - path: ROOT/external/goccy-go-yaml
-    version: 3
-implements:
-  - internal/frontmatter/frontmatter.go
----
-
 # ROOT/tech_design/internal/frontmatter
 
 Reads and parses the YAML frontmatter from spec nodes, test nodes,
@@ -68,34 +56,3 @@ All errors wrap a sentinel so callers can use `errors.Is()`:
 | `ErrFrontmatterParse` | The YAML frontmatter is malformed. |
 | `ErrFrontmatterMissing` | No `---` delimiters found at the top of the file. |
 | `ErrMissingVersion` | The `version` field is absent or zero. |
-
-# Private
-
-## Implementation
-
-The frontmatter is the YAML block between the first `---` and the
-second `---` at the top of the file. Everything after the second
-`---` is ignored.
-
-Fields extracted:
-
-| Field | Type | Description |
-|---|---|---|
-| `version` | int | Node version. Required. |
-| `parent_version` | *int | Parent version. Nil if absent. |
-| `subject_version` | *int | Subject version (test nodes). Nil if absent. |
-| `depends_on` | []DependsOn | Cross-tree dependencies. |
-| `implements` | []string | Output files. |
-
-Unknown fields are ignored.
-
-Each `depends_on` entry has:
-
-| YAML key | Type | Required | Description |
-|---|---|---|---|
-| `path` | string | yes | Logical name of the dependency. |
-| `version` | int | yes | Known version of the dependency. |
-
-The parser reads line by line, extracts the frontmatter block, and
-stops as soon as the closing `---` is found. The file body is never
-read.

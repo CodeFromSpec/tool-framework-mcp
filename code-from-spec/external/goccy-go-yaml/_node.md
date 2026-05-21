@@ -1,8 +1,3 @@
----
-version: 3
-parent_version: 2
----
-
 # ROOT/external/goccy-go-yaml
 
 YAML parsing library for Go: `github.com/goccy/go-yaml`.

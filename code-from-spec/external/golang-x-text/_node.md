@@ -1,8 +1,3 @@
----
-version: 3
-parent_version: 2
----
-
 # ROOT/external/golang-x-text
 
 Unicode text processing packages for Go:

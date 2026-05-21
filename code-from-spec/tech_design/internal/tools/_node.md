@@ -1,8 +1,3 @@
----
-version: 8
-parent_version: 14
----
-
 # ROOT/tech_design/internal/tools
 
 Technical context shared by all tool handlers: how to return

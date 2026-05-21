@@ -1,8 +1,3 @@
----
-version: 17
-parent_version: 10
----
-
 # ROOT/tech_design
 
 Technical design decisions for implementing the MCP server in Go.

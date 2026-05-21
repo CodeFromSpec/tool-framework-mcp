@@ -1,8 +1,3 @@
----
-version: 15
-parent_version: 17
----
-
 # ROOT/tech_design/go_module
 
 Documents the Go module configuration and how it is managed.

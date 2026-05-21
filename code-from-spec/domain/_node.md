@@ -1,8 +1,3 @@
----
-version: 1
-parent_version: 10
----
-
 # ROOT/domain
 
 Product-level specification for the subagent-mcp server:

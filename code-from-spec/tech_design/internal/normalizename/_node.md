@@ -1,15 +1,3 @@
----
-version: 5
-parent_version: 14
-depends_on:
-  - path: ROOT/external/codefromspec
-    version: 5
-  - path: ROOT/external/golang-x-text
-    version: 3
-implements:
-  - internal/normalizename/normalizename.go
----
-
 # ROOT/tech_design/internal/normalizename
 
 Normalizes heading and logical name text for comparison.

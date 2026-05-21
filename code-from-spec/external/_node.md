@@ -1,8 +1,3 @@
----
-version: 2
-parent_version: 10
----
-
 # ROOT/external
 
 External dependencies — third-party libraries, APIs, and reference

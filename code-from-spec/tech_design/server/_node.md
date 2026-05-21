@@ -1,21 +1,3 @@
----
-version: 60
-parent_version: 17
-depends_on:
-  - path: ROOT/external/mcp-go-sdk
-    version: 4
-  - path: ROOT/tech_design/internal/tools
-    version: 8
-  - path: ROOT/tech_design/internal/tools/find_replace
-    version: 2
-  - path: ROOT/tech_design/internal/tools/load_chain
-    version: 67
-  - path: ROOT/tech_design/internal/tools/write_file
-    version: 41
-implements:
-  - cmd/subagent-mcp/main.go
----
-
 # ROOT/tech_design/server
 
 Entry point: handles argument validation, creates and configures

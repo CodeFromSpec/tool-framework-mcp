@@ -1,8 +1,3 @@
----
-version: 5
-parent_version: 2
----
-
 # ROOT/external/yuin-goldmark
 
 CommonMark Markdown parser for Go: `github.com/yuin/goldmark`.

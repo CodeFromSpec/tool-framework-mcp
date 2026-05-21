@@ -1,8 +1,3 @@
----
-version: 3
-parent_version: 2
----
-
 # ROOT/external/owasp-path-traversal
 
 OWASP guidance on path traversal attacks: attack vectors,

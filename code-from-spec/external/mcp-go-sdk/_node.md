@@ -1,8 +1,3 @@
----
-version: 4
-parent_version: 2
----
-
 # ROOT/external/mcp-go-sdk
 
 Official Go SDK for the Model Context Protocol:

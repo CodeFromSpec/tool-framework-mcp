@@ -1,13 +1,3 @@
----
-version: 33
-parent_version: 14
-depends_on:
-  - path: ROOT/external/codefromspec
-    version: 5
-implements:
-  - internal/logicalnames/logicalnames.go
----
-
 # ROOT/tech_design/internal/logical_names
 
 Centralizes conversion between logical names and file paths.
