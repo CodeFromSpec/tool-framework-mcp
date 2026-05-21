@@ -1,8 +1,9 @@
 ---
 depends_on:
-  - ROOT/external/codefromspec
   - ROOT/tech_design/internal/frontmatter
   - ROOT/tech_design/internal/logical_names
+external:
+  - path: CODE_FROM_SPEC.md
 outputs:
   - id: chainresolver
     path: internal/chainresolver/chainresolver.go

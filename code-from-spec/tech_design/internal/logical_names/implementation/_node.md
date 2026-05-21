@@ -1,6 +1,6 @@
 ---
-depends_on:
-  - ROOT/external/codefromspec
+external:
+  - path: CODE_FROM_SPEC.md
 outputs:
   - id: logicalnames
     path: internal/logicalnames/logicalnames.go

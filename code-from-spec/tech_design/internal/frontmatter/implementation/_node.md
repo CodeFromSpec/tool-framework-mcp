@@ -1,7 +1,8 @@
 ---
 depends_on:
-  - ROOT/external/codefromspec
   - ROOT/external/goccy-go-yaml
+external:
+  - path: CODE_FROM_SPEC.md
 outputs:
   - id: frontmatter
     path: internal/frontmatter/frontmatter.go

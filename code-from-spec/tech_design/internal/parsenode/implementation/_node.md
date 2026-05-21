@@ -1,9 +1,10 @@
 ---
 depends_on:
-  - ROOT/external/codefromspec
   - ROOT/external/yuin-goldmark
   - ROOT/tech_design/internal/logical_names
   - ROOT/tech_design/internal/normalizename
+external:
+  - path: CODE_FROM_SPEC.md
 outputs:
   - id: parsenode
     path: internal/parsenode/parsenode.go

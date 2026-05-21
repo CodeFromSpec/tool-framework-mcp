@@ -1,7 +1,8 @@
 ---
 depends_on:
-  - ROOT/external/codefromspec
   - ROOT/external/golang-x-text
+external:
+  - path: CODE_FROM_SPEC.md
 outputs:
   - id: normalizename
     path: internal/normalizename/normalizename.go
