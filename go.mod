@@ -1,4 +1,4 @@
-module github.com/CodeFromSpec/tool-subagent-mcp/v2
+module github.com/CodeFromSpec/tool-framework-mcp/v2
 
 go 1.25.0
 

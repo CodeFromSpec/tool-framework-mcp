@@ -1,28 +1,35 @@
 # ROOT/domain
 
-Product-level specification for the subagent-mcp server:
-invocation, deployment, concurrency, and operational
-preconditions.
+MCP server for Code from Spec projects. Provides tools for
+spec validation, artifact generation, and artifact management.
 
-# Public
+# Private
 
 ## Context
 
-Given unrestricted file access, a subagent will compensate for
-perceived gaps in its context by exploring the repository — reading
-generated source files, unrelated specs, or framework documentation
-— rather than stopping to report ambiguity. This produces
-hallucinated or inconsistent output and makes the process
-unpredictable. This server exists to mediate the subagent's
-access: it controls what the subagent can read and where it can
-write, so that the correct workflow is the only possible workflow.
+This server is the single point of interaction between agents
+and the spec tree. It controls what agents can read and where
+they can write, making the correct workflow the only possible
+workflow.
+
+For code generation, this means confinement: given unrestricted
+file access, a subagent will compensate for perceived gaps in
+its context by exploring the repository rather than stopping to
+report ambiguity. This produces hallucinated or inconsistent
+output. The server prevents this by exposing only the assembled
+chain and restricting writes to declared outputs.
+
+For validation, the server provides a single tool that checks
+the entire spec tree for format errors, circular references,
+and artifact staleness — replacing the need for a separate
+external tool.
 
 ## Contracts
 
 ### Invocation
 
 ```
-subagent-mcp
+framework-mcp
 ```
 
 Any argument causes the tool to print a usage message and exit.
@@ -42,9 +49,9 @@ configuration (`.claude/settings.json`):
 ```json
 {
   "mcpServers": {
-    "subagent-mcp": {
+    "framework-mcp": {
       "type": "stdio",
-      "command": "<path-to-subagent-mcp>"
+      "command": "<path-to-framework-mcp>"
     }
   }
 }
@@ -56,17 +63,19 @@ is needed.
 
 ### Concurrency
 
-Multiple instances may run in parallel without conflict. Each is an
-independent OS process with its own state.
+Multiple instances may run in parallel without conflict. Each is
+an independent OS process with its own state.
 
-### Preconditions
+## Tools
 
-The orchestrator must run `staleness-check` and confirm that the
-target node and its dependencies are up to date before invoking
-a subagent. Operating on a stale spec may produce incorrect
-results — enforcing this is the orchestrator's responsibility.
+| Tool | Purpose |
+|---|---|
+| `load_chain` | Load the spec chain for a node, including the chain hash |
+| `write_file` | Write a generated file to disk, validated against `outputs` |
+| `check` | Validate format, circular references, and artifact staleness |
+| `hash_fragment` | Calculate hash of a file line range for `external:` fragments |
 
-# Decisions
+## Decisions
 
 ### Confinement is the caller's responsibility
 
@@ -81,3 +90,9 @@ predictable.
 Purpose-built tools combined with caller-side restriction of
 which tools a subagent can call constrain the agent's action
 space, making correct behavior more likely by construction.
+
+### Validation is built in
+
+The `check` tool replaces the need for a separate
+`staleness-check` binary. Having validation inside the same
+server simplifies deployment — one binary instead of two.

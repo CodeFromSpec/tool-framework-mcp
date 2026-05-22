@@ -403,4 +403,4 @@ before returning or comparing them.
 | Tool | URL |
 |---|---|
 | `staleness-check` | https://github.com/CodeFromSpec/tool-staleness-check/releases/latest |
-| `subagent-mcp` | https://github.com/CodeFromSpec/tool-subagent-mcp/releases/latest |
+| `framework-mcp` | https://github.com/CodeFromSpec/tool-framework-mcp/releases/latest |

@@ -1,20 +1,21 @@
 # tool-framework-mcp
 
-MCP server for [Code from Spec](https://github.com/CodeFromSpec/framework)
-subagents. Provides confined tools for code generation — the
-subagent can only read the spec chain and write declared output
-files.
+MCP server for [Code from Spec](https://github.com/CodeFromSpec/framework).
+Provides tools for spec validation, code generation, and
+artifact management.
 
 ## Tools
 
 - **load_chain** — returns the complete spec chain for a given
   logical name, with frontmatter stripped from ancestors and
-  dependencies, duplicate files removed, and existing source
-  files included
+  dependencies, duplicate files removed, existing source files
+  included, and the chain hash for the artifact tag
 - **write_file** — writes a generated file to disk, validated
-  against the node's `implements` list
-- **find_replace** — replaces a specific string in an existing
-  file, validated against the node's `implements` list
+  against the node's `outputs` list
+- **check** — validates the spec tree for format errors, circular
+  references, and artifact staleness
+- **hash_fragment** — calculates the hash of a line range in a
+  file, for use in `external:` fragment declarations
 
 ## Install
 
@@ -57,14 +58,10 @@ Starts an MCP server over stdin/stdout for Code from Spec
 subagents.
 
 Tools:
-  load_chain     Load the spec chain for a node.
-  write_file     Write a generated file to disk.
-  find_replace   Replace a specific string in an existing file.
-
-The subagent should have no other tools available — no file
-read, write, or search capabilities beyond what this server
-provides. This confinement ensures the subagent works only
-from the provided context and writes only to declared outputs.
+  load_chain       Load the spec chain for a node.
+  write_file       Write a generated file to disk.
+  check            Validate specs and check artifact staleness.
+  hash_fragment    Calculate hash of a file line range.
 
 MCP configuration example:
   {

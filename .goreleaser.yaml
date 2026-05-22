@@ -1,10 +1,10 @@
 version: 2
 
-project_name: subagent-mcp
+project_name: framework-mcp
 
 builds:
-  - main: ./cmd/subagent-mcp
-    binary: subagent-mcp
+  - main: ./cmd/framework-mcp
+    binary: framework-mcp
     goos:
       - linux
       - darwin

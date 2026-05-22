@@ -19,8 +19,8 @@ or when `code_staleness` has items.
    on Windows, `tools/staleness-check` elsewhere). If not, follow the
    bootstrap instructions in `AGENTS.md`.
 
-2. Verify the subagent-mcp binary exists (`tools/subagent-mcp.exe` on
-   Windows, `tools/subagent-mcp` elsewhere). If not, follow the
+2. Verify the framework-mcp binary exists (`tools/framework-mcp.exe` on
+   Windows, `tools/framework-mcp` elsewhere). If not, follow the
    bootstrap instructions in `AGENTS.md`.
 
 3. Run the staleness-check tool. If `spec_staleness` or `test_staleness`

@@ -1,7 +1,7 @@
 ---
 name: code-from-spec-code-generation
 description: Use this agent when generating or regenerating source files from Code from Spec nodes.
-tools: "mcp__subagent-mcp__load_chain, mcp__subagent-mcp__write_file, mcp__subagent-mcp__find_replace"
+tools: "mcp__framework-mcp__load_chain, mcp__framework-mcp__write_file, mcp__framework-mcp__find_replace"
 model: "claude-sonnet-4-6[1m]"
 effort: medium
 ---
@@ -26,7 +26,7 @@ and `find_replace`. You have no other tools or filesystem access.
   must match exactly once.
 
 The orchestrator tells you which specification to implement by
-giving you a name (e.g., `ROOT/tech_design/server`).
+giving you a name (e.g., `ROOT/golang/server`).
 
 ## Workflow
 
