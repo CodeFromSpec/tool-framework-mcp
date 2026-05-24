@@ -163,7 +163,7 @@ Call `handleLoadChain` with
 `LogicalName: "INVALID/something"`.
 
 Expect: tool error containing `"target must be a
-ROOT/ or TEST/"`.
+ROOT/ logical name"`.
 
 ### Nonexistent spec file
 

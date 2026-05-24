@@ -17,9 +17,8 @@ Implementation of the write_file tool handler.
 
 ## Implementation
 
-1. Validate that `args.LogicalName` starts with `ROOT/` or
-   `TEST/` (or equals `ROOT` or `TEST`). If not, return a
-   tool error.
+1. Validate that `args.LogicalName` starts with `ROOT/`
+   (or equals `ROOT`). If not, return a tool error.
 2. Call `logicalnames.PathFromLogicalName`. If it returns false, return a
    tool error: `"invalid logical name: <name>"`.
 3. Call `ParseFrontmatter` on the resolved path. If it fails,

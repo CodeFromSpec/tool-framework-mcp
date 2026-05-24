@@ -21,10 +21,9 @@ Implementation of the load_chain tool handler.
 
 ## Implementation
 
-1. Validate that `args.LogicalName` starts with `ROOT/` or
-   `TEST/` (or equals `ROOT` or `TEST`). If not, return a
-   tool error: `"target must be a ROOT/ or TEST/
-   logical name: <name>"`.
+1. Validate that `args.LogicalName` starts with `ROOT/`
+   (or equals `ROOT`). If not, return a tool error:
+   `"target must be a ROOT/ logical name: <name>"`.
 2. Call `logicalnames.PathFromLogicalName`. If it returns false, return a
    tool error: `"invalid logical name: <name>"`.
 3. Call `ParseFrontmatter` on the resolved path. If it fails,

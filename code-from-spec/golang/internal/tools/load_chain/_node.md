@@ -12,10 +12,9 @@ content as a single MCP text response.
 
 ## Target node
 
-The target node is identified by its logical name — either a leaf
-spec node (`ROOT/...`) or a test node (`TEST/...`). Examples:
-`ROOT/payments/fees/calculation`,
-`TEST/payments/fees/calculation`.
+The target node is identified by its logical name — a leaf
+spec node (`ROOT/...`). Example:
+`ROOT/payments/fees/calculation`.
 
 ## Interface
 

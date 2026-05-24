@@ -99,35 +99,6 @@ Expect:
   - `Heading` = `"decisions"`, `Content` =
     `"Chose percentage-based over flat fees."`
 
-### Test node body
-
-Logical name: `TEST/x`
-
-```
----
-version: 2
-subject_version: 5
-implements:
-  - internal/x/x_test.go
----
-# TEST/x
-
-Test cases for x.
-
-## Happy path
-
-### Case one
-
-Check basic behavior.
-```
-
-Expect:
-- `NameSection.Heading` = `"test/x"`
-- `NameSection.Content` = `"Test cases for x."`
-- `NameSection.Subsections` has 1 entry:
-  - `Heading` = `"happy path"`, subsection content includes
-    the `### Case one` heading and its text as raw markdown
-
 ### Node with no public section
 
 Logical name: `ROOT/decisions`
