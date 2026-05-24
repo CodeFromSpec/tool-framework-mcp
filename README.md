@@ -12,8 +12,8 @@ artifact management.
   included, and the chain hash for the artifact tag
 - **write_file** — writes a generated file to disk, validated
   against the node's `outputs` list
-- **check** — validates the spec tree for format errors, circular
-  references, and artifact staleness
+- **validate_specs** — validates the spec tree for format errors,
+  circular references, and artifact staleness
 - **hash_fragment** — calculates the hash of a line range in a
   file, for use in `external:` fragment declarations
 
@@ -60,7 +60,7 @@ subagents.
 Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
-  check            Validate specs and check artifact staleness.
+  validate_specs   Validate specs and check artifact staleness.
   hash_fragment    Calculate hash of a file line range.
 
 MCP configuration example:

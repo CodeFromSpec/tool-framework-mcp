@@ -26,7 +26,7 @@ the MCP server, registers tools, and runs the server.
      on the tool so that `tools/list` advertises the maximum
      result size to the client.
    - `write_file.HandleWriteFile` with `WriteFileArgs`
-   - `check.HandleCheck` with `CheckArgs`
+   - `validate_specs.HandleValidateSpecs` with `ValidateSpecsArgs`
    - `hash_fragment.HandleHashFragment` with `HashFragmentArgs`
 5. Call `s.Run(context.Background(), &mcp.StdioTransport{})`.
 6. If `Run` returns an error, print it to stderr and exit 1.
@@ -43,7 +43,7 @@ projects.
 Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
-  check            Validate specs and check artifact staleness.
+  validate_specs   Validate specs and check artifact staleness.
   hash_fragment    Calculate hash of a file line range.
 
 MCP configuration example:

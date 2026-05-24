@@ -72,7 +72,7 @@ an independent OS process with its own state.
 |---|---|
 | `load_chain` | Load the spec chain for a node, including the chain hash |
 | `write_file` | Write a generated file to disk, validated against `outputs` |
-| `check` | Validate format, circular references, and artifact staleness |
+| `validate_specs` | Validate format, circular references, and artifact staleness |
 | `hash_fragment` | Calculate hash of a file line range for `external:` fragments |
 
 ## Decisions
@@ -93,6 +93,6 @@ space, making correct behavior more likely by construction.
 
 ### Validation is built in
 
-The `check` tool replaces the need for a separate
+The `validate_specs` tool replaces the need for a separate
 `staleness-check` binary. Having validation inside the same
 server simplifies deployment — one binary instead of two.

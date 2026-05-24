@@ -1,10 +1,10 @@
 ---
 outputs:
-  - id: check
-    path: code-from-spec/functional/tools/check/output.md
+  - id: validate_specs
+    path: code-from-spec/functional/tools/validate_specs/output.md
 ---
 
-# ROOT/functional/tools/check
+# ROOT/functional/tools/validate_specs
 
 Validates the spec tree for format errors, circular references,
 and artifact staleness.
