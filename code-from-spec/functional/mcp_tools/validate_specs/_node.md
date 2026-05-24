@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: validate_specs
-    path: code-from-spec/functional/tools/validate_specs/output.md
+    path: code-from-spec/functional/mcp_tools/validate_specs/output.md
 ---
 
-# ROOT/functional/tools/validate_specs
+# ROOT/functional/mcp_tools/validate_specs
 
 Validates the spec tree for format errors, circular references,
 and artifact staleness.
@@ -32,7 +32,8 @@ A structured report with three categories:
 
 For each `_node.md` file in the tree:
 - Frontmatter is parseable (if present).
-- The first heading matches the node's logical name.
+- The first heading matches the logical name derived from the
+  node's filesystem path (name verification).
 - `depends_on` entries resolve to existing nodes.
 - `depends_on` entries do not point to ancestors or descendants.
 - `external` file paths exist and fragments match (hash check).

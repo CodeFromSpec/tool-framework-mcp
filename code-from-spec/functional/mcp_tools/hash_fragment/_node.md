@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: hash_fragment
-    path: code-from-spec/functional/tools/hash_fragment/output.md
+    path: code-from-spec/functional/mcp_tools/hash_fragment/output.md
 ---
 
-# ROOT/functional/tools/hash_fragment
+# ROOT/functional/mcp_tools/hash_fragment
 
 Calculates the hash of a line range in a file, for use in
 `external:` fragment declarations.

@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: load_chain
-    path: code-from-spec/functional/tools/load_chain/output.md
+    path: code-from-spec/functional/mcp_tools/load_chain/output.md
 ---
 
-# ROOT/functional/tools/load_chain
+# ROOT/functional/mcp_tools/load_chain
 
 Loads the complete spec chain for a given node and returns it
 as a single text response, including the chain hash for the

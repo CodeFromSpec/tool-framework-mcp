@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: logical_names
-    path: code-from-spec/functional/logical_names/output.md
+    path: code-from-spec/functional/utils/logical_names/output.md
 ---
 
-# ROOT/functional/logical_names
+# ROOT/functional/utils/logical_names
 
 Maps logical names to file paths and provides utilities for
 navigating the spec tree hierarchy.
@@ -50,6 +50,20 @@ Every `ROOT/` node except `ROOT` itself has a parent:
 | `ROOT/x/y(z)` | `ROOT/x` |
 
 `ARTIFACT/` names do not participate in parent navigation.
+
+## Reverse resolution
+
+Given a file path relative to the project root, derives the
+logical name:
+
+| File path | Logical name |
+|---|---|
+| `code-from-spec/_node.md` | `ROOT` |
+| `code-from-spec/x/_node.md` | `ROOT/x` |
+| `code-from-spec/x/y/_node.md` | `ROOT/x/y` |
+
+Only handles `_node.md` files under `code-from-spec/`.
+Returns failure for paths that do not match.
 
 ## Qualifier extraction
 

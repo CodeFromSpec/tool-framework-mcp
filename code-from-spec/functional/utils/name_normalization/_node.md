@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: name_normalization
-    path: code-from-spec/functional/name_normalization/output.md
+    path: code-from-spec/functional/utils/name_normalization/output.md
 ---
 
-# ROOT/functional/name_normalization
+# ROOT/functional/utils/name_normalization
 
 Normalizes heading text and qualifier text for comparison.
 

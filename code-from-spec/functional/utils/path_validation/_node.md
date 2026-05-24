@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: path_validation
-    path: code-from-spec/functional/path_validation/output.md
+    path: code-from-spec/functional/utils/path_validation/output.md
 ---
 
-# ROOT/functional/path_validation
+# ROOT/functional/utils/path_validation
 
 Validates that a file path is safe to use within a project
 directory. Prevents path traversal attacks.

@@ -1,6 +1,7 @@
 ---
 depends_on:
   - ROOT/dependencies/goccy-go-yaml
+input: ARTIFACT/functional/utils/frontmatter(frontmatter)
 external:
   - path: CODE_FROM_SPEC.md
 outputs:
@@ -10,52 +11,20 @@ outputs:
 
 # ROOT/golang/internal/frontmatter/code
 
-Generates the frontmatter package implementation.
+Generates the frontmatter package implementation in Go.
 
 # Agent
 
-## Implementation
+Implement the pseudocode from the input as a Go package.
 
-The frontmatter is the YAML block between the first `---` and the
-second `---` at the top of the file. Everything after the second
-`---` is ignored.
+## Go-specific guidance
 
-If no `---` delimiters are found, return an empty `Frontmatter`
-struct (not an error).
-
-Fields extracted:
-
-| Field | Type | Description |
-|---|---|---|
-| `depends_on` | []string | Logical names of dependencies. |
-| `external` | []External | External file references. |
-| `input` | string | Single ARTIFACT/ logical name. |
-| `outputs` | []Output | Output file mappings. |
-
-Unknown fields are ignored.
-
-Each `external` entry has:
-
-| YAML key | Type | Required | Description |
-|---|---|---|---|
-| `path` | string | yes | Path to the external file. |
-| `fragments` | []ExternalFragment | no | List of referenced fragments. |
-
-Each fragment has:
-
-| YAML key | Type | Required | Description |
-|---|---|---|---|
-| `description` | string | no | Description of the fragment. |
-| `lines` | string | yes | Line range reference. |
-| `hash` | string | yes | Content hash for staleness detection. |
-
-Each `outputs` entry has:
-
-| YAML key | Type | Description |
-|---|---|---|
-| `id` | string | Identifier for the output. |
-| `path` | string | File path of the output. |
-
-The parser reads line by line, extracts the frontmatter block, and
-stops as soon as the closing `---` is found. The file body is never
-read.
+- Use `github.com/goccy/go-yaml` for YAML unmarshalling.
+  Define an unexported struct with `yaml` tags to map YAML
+  keys to Go fields, then convert to the exported types.
+- Error wrapping: wrap all errors with `fmt.Errorf` using
+  `%w` so callers can match with `errors.Is()`.
+- Use `os.ReadFile` to read the file.
+- Parse line by line using `bufio.Scanner` or
+  `strings.Split` — do not parse the body, stop after the
+  closing `---`.
