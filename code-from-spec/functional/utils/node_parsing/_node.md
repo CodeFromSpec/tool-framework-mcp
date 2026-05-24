@@ -11,49 +11,44 @@ representation of its sections and subsections.
 
 # Public
 
+## Interface
+
+```
+record Subsection
+  heading: string
+  content: string
+
+record Section
+  heading: string
+  content: string
+  subsections: list of Subsection
+
+record ParsedNode
+  name_section: Section
+  public: optional Section
+  agent: optional Section
+  private: list of Section
+
+function ParseNode(logical_name) -> ParsedNode
+  errors:
+    - unexpected content before first heading: file body has content before the first level-1 heading.
+    - node name does not match: the first heading does not match the logical name after normalization.
+    - duplicate public section: more than one `# Public` section exists.
+    - duplicate subsection: two `##` headings within `# Public` normalize to the same text.
+```
+
+# Agent
+
 ## Behavior
 
 Given a logical name, resolves the file path, skips the
 frontmatter, and parses the remaining body into sections.
 
-### Input
-
-A logical name (e.g., `ROOT/golang/server`).
-
-### Output
-
-A structured record with:
-
-| Field | Description |
-|---|---|
-| `name_section` | The first section — heading matches the logical name. |
-| `public` | The `# Public` section, if present. May be absent. |
-| `agent` | The `# Agent` section, if present. May be absent. |
-| `private` | All other sections. |
-
-Each **section** has:
-- `heading` — the normalized heading text.
-- `content` — raw markdown between this heading and the next.
-- `subsections` — list of level-2 sections within it.
-
-Each **subsection** has:
-- `heading` — the normalized heading text.
-- `content` — raw markdown between this heading and the next.
-
-## Heading normalization
+### Heading normalization
 
 Headings are normalized before comparison: trim whitespace,
 collapse internal whitespace to a single space, apply Unicode
 simple case folding. See `ROOT/functional/utils/name_normalization`.
-
-## Validation rules
-
-| Rule | Error condition |
-|---|---|
-| First element after frontmatter must be a level-1 heading | Unexpected content before first heading |
-| First heading must match the logical name (after normalization) | Node name does not match |
-| At most one `# Public` section | Duplicate public section |
-| All `##` headings within `# Public` must be unique (after normalization) | Duplicate subsection |
 
 ## Contracts
 

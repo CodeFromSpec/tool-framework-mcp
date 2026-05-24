@@ -11,22 +11,30 @@ spec tree.
 
 # Public
 
+## Interface
+
+```
+record DiscoveredNode
+  logical_name: string
+  file_path: string
+
+function WalkTree() -> list of DiscoveredNode
+  errors:
+    - directory not found: code-from-spec/ does not exist.
+    - walk error: filesystem error while traversing.
+    - no nodes found: code-from-spec/ contains no _node.md files.
+```
+
+The returned list is sorted alphabetically by logical name.
+
+# Agent
+
 ## Behavior
 
-### Input
+Starts from `code-from-spec/` relative to the project root
+(working directory). No parameters.
 
-No parameters. Starts from `code-from-spec/` relative to
-the project root (working directory).
-
-### Output
-
-A list of discovered nodes, each with:
-- `logical_name` — derived from the filesystem path.
-- `file_path` — path relative to project root.
-
-The list is sorted alphabetically by logical name.
-
-## Discovery rules
+### Discovery rules
 
 Walk `code-from-spec/` recursively. Every `_node.md` file
 produces a discovered node. Other files are ignored.
@@ -35,7 +43,7 @@ For each `_node.md` found, use reverse resolution (see
 `ROOT/functional/utils/logical_names`) to derive the logical
 name from the file path.
 
-## Node classification
+### Node classification
 
 After discovery, each node can be classified by checking
 whether it has child directories containing `_node.md`
@@ -44,10 +52,7 @@ files:
 - **Intermediate node** — has children with `_node.md`.
 - **Root node** — the `ROOT` node itself.
 
-## Error conditions
+## Contracts
 
-| Condition | Description |
-|---|---|
-| Directory not found | `code-from-spec/` does not exist. |
-| Walk error | Filesystem error while traversing. |
-| No nodes found | `code-from-spec/` contains no `_node.md` files. |
+- The returned list is sorted alphabetically by logical name.
+- Only `_node.md` files are considered nodes.

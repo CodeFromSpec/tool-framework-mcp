@@ -11,7 +11,35 @@ navigating the spec tree hierarchy.
 
 # Public
 
-## Logical name format
+## Interface
+
+```
+record ArtifactReference
+  node_path: string
+  artifact_id: string
+
+function ResolvePath(logical_name) -> string
+  errors:
+    - unrecognized prefix: the logical name does not start with ROOT/ or ARTIFACT/.
+
+function ResolveArtifactReference(logical_name) -> ArtifactReference
+  errors:
+    - unrecognized prefix: the logical name does not start with ARTIFACT/.
+    - missing qualifier: the logical name has no parenthetical qualifier.
+
+function GetParent(logical_name) -> string
+  errors:
+    - no parent: the logical name is ROOT itself.
+    - not a ROOT reference: the logical name is an ARTIFACT/ reference.
+
+function ReverseResolve(file_path) -> string
+  errors:
+    - invalid path: the path is not a _node.md file under code-from-spec/.
+
+function ExtractQualifier(logical_name) -> optional string
+```
+
+### Logical name format
 
 Logical names use two prefixes:
 
@@ -22,7 +50,7 @@ An optional parenthetical qualifier targets a specific part:
 - `ROOT/x/y(z)` — the `## z` subsection of `# Public`.
 - `ARTIFACT/x/y(id)` — the artifact with the given id.
 
-## Path resolution
+### Path resolution
 
 `ROOT/` names resolve to `_node.md` files:
 
@@ -39,7 +67,7 @@ require reading the target node's frontmatter to find the
 output with the matching id. The resolution function returns
 the node path and artifact id as separate values.
 
-## Parent navigation
+### Parent navigation
 
 Every `ROOT/` node except `ROOT` itself has a parent:
 
@@ -51,7 +79,7 @@ Every `ROOT/` node except `ROOT` itself has a parent:
 
 `ARTIFACT/` names do not participate in parent navigation.
 
-## Reverse resolution
+### Reverse resolution
 
 Given a file path relative to the project root, derives the
 logical name:
@@ -63,9 +91,8 @@ logical name:
 | `code-from-spec/x/y/_node.md` | `ROOT/x/y` |
 
 Only handles `_node.md` files under `code-from-spec/`.
-Returns failure for paths that do not match.
 
-## Qualifier extraction
+### Qualifier extraction
 
 | Logical name | Has qualifier | Qualifier |
 |---|---|---|
@@ -73,9 +100,17 @@ Returns failure for paths that do not match.
 | `ARTIFACT/x(y)` | yes | `y` |
 | `ROOT/x` | no | — |
 
+# Agent
+
+## Behavior
+
+All functions are pure — no I/O. They perform string
+manipulation on logical names and file paths.
+
 ## Contracts
 
 - All returned file paths use forward slashes as separators,
   regardless of the operating system.
-- All functions are pure — no I/O, no errors.
+- All functions are pure — no I/O, no errors (except where
+  noted in the interface).
 - Unrecognized prefixes return failure (false).

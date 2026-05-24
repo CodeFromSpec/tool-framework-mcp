@@ -10,7 +10,25 @@ Normalizes heading text and qualifier text for comparison.
 
 # Public
 
-## Algorithm
+## Interface
+
+```
+function NormalizeName(raw_string) -> string
+```
+
+### Examples
+
+| Input | Output |
+|---|---|
+| `"  Interface  "` | `"interface"` |
+| `"PUBLIC"` | `"public"` |
+| `"Straße"` | `"strasse"` |
+| `"Testes   de   aceitação"` | `"testes de aceitação"` |
+| `""` | `""` |
+
+# Agent
+
+## Behavior
 
 Given a raw string:
 
@@ -21,16 +39,6 @@ Given a raw string:
 
 Whitespace characters are space (U+0020) and horizontal tab
 (U+0009).
-
-## Examples
-
-| Input | Output |
-|---|---|
-| `"  Interface  "` | `"interface"` |
-| `"PUBLIC"` | `"public"` |
-| `"Straße"` | `"strasse"` |
-| `"Testes   de   aceitação"` | `"testes de aceitação"` |
-| `""` | `""` |
 
 ## Contracts
 

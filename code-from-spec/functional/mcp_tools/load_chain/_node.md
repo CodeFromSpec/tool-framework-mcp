@@ -12,7 +12,17 @@ artifact tag.
 
 # Public
 
-## Behavior
+## Interface
+
+```
+function LoadChain(logical_name) -> string
+  errors:
+    - invalid logical name: not a recognized ROOT/ reference.
+    - no outputs: target node has no outputs field.
+    - invalid output path: an output path fails path validation.
+    - chain resolution failure: a dependency cannot be resolved.
+    - unreadable file: a file in the chain cannot be read or parsed.
+```
 
 ### Input
 
@@ -30,6 +40,10 @@ The response also includes the **chain hash** — the SHA-1
 digest (base64url, 27 characters) computed from all positions
 in the chain, as defined in `CHAIN_HASH.md`.
 
+# Agent
+
+## Behavior
+
 ### Chain content
 
 | Section | Content included |
@@ -45,16 +59,6 @@ Before loading the chain:
 1. The logical name must be a valid `ROOT/` reference.
 2. The target node must have `outputs` declared.
 3. Each output path must pass path validation.
-
-## Error conditions
-
-| Condition | Description |
-|---|---|
-| Invalid logical name | Not a recognized `ROOT/` reference. |
-| No outputs | Target node has no `outputs` field. |
-| Invalid output path | An output path fails path validation. |
-| Chain resolution failure | A dependency cannot be resolved. |
-| Unreadable file | A file in the chain cannot be read or parsed. |
 
 ## Contracts
 

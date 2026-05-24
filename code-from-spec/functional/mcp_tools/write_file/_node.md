@@ -11,7 +11,18 @@ path against the node's declared outputs.
 
 # Public
 
-## Behavior
+## Interface
+
+```
+function WriteFile(logical_name, path, content) -> string
+  errors:
+    - invalid logical name: not a recognized ROOT/ reference.
+    - no outputs: target node has no outputs field.
+    - path validation failure: path is empty, absolute, traversal, or escapes root.
+    - path not in outputs: path is not declared in the node's outputs.
+    - directory creation failure: cannot create intermediate directories.
+    - write failure: cannot write the file to disk.
+```
 
 ### Input
 
@@ -24,6 +35,10 @@ path against the node's declared outputs.
 ### Output
 
 A success message: `"wrote <path>"`.
+
+# Agent
+
+## Behavior
 
 ### Validation
 
@@ -46,16 +61,11 @@ Before writing:
 - Overwrites the file if it already exists.
 - Writes exactly one file per call.
 
-## Error conditions
+## Contracts
 
-| Condition | Description |
-|---|---|
-| Invalid logical name | Not a recognized `ROOT/` reference. |
-| No outputs | Target node has no `outputs` field. |
-| Path validation failure | Path is empty, absolute, traversal, or escapes root. |
-| Path not in outputs | Path is not declared in the node's `outputs`. |
-| Directory creation failure | Cannot create intermediate directories. |
-| Write failure | Cannot write the file to disk. |
+- Only writes to paths declared in the node's `outputs`.
+- Creates intermediate directories as needed.
+- Overwrites existing files without warning.
 
 # Private
 

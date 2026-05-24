@@ -11,7 +11,21 @@ staleness detection.
 
 # Public
 
-## Artifact tag format
+## Interface
+
+```
+record ArtifactTag
+  logical_name: string
+  hash: string
+
+function ExtractArtifactTag(file_path) -> ArtifactTag
+  errors:
+    - file unreadable: the file cannot be opened or read.
+    - no tag found: the file has no code-from-spec: substring.
+    - malformed tag: the tag exists but cannot be parsed (no @, empty name, wrong hash length).
+```
+
+### Artifact tag format
 
 Generated files contain the string:
 
@@ -24,26 +38,17 @@ The tag may appear inside any comment syntax (`//`, `#`,
 comment syntax — it scans each line for the pattern
 regardless of context.
 
+# Agent
+
 ## Behavior
 
-### Input
-
-A file path.
-
-### Output
-
-A record with:
-- `logical_name` — the node that generated this file.
-- `hash` — the chain hash at the time of generation
-  (base64url, 27 characters).
-
-## Detection
+### Detection
 
 Read the file line by line from the top. For each line,
 look for the substring `code-from-spec: `. Stop reading
 as soon as a match is found.
 
-## Extraction
+### Extraction
 
 Once a line containing `code-from-spec: ` is found:
 
@@ -55,10 +60,8 @@ Once a line containing `code-from-spec: ` is found:
 5. Validate: logical name must not be empty, hash must
    be exactly 27 characters.
 
-## Error conditions
+## Contracts
 
-| Condition | Description |
-|---|---|
-| File unreadable | The file cannot be opened or read. |
-| No tag found | The file has no `code-from-spec: ` substring. |
-| Malformed tag | The tag exists but cannot be parsed (no `@`, empty name, wrong hash length). |
+- Reads the file only until the first match — does not
+  read the entire file.
+- The hash is always exactly 27 characters (base64url).

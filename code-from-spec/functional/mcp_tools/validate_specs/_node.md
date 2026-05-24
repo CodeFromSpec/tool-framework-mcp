@@ -11,22 +11,31 @@ and artifact staleness.
 
 # Public
 
-## Behavior
+## Interface
 
-### Input
+```
+record StalenessEntry
+  node: string
+  artifact_path: string
+  status: string
+
+record ValidationReport
+  format_errors: list of FormatError
+  circular_references: list of list of string
+  staleness: list of StalenessEntry
+
+function ValidateSpecs() -> ValidationReport
+  errors:
+    - unreadable file: a spec node file cannot be read.
+    - parse failure: a spec node file has invalid structure.
+```
 
 No parameters. Scans the entire spec tree starting from
 `code-from-spec/`.
 
-### Output
+# Agent
 
-A structured report with three categories:
-
-| Category | Description |
-|---|---|
-| `format_errors` | Structural problems in spec nodes. |
-| `circular_references` | Cycles in `depends_on`, `input`, `external`, or inheritance. |
-| `staleness` | Artifacts whose chain hash differs from their artifact tag. |
+## Behavior
 
 ### Format validation
 
@@ -45,7 +54,7 @@ For each `_node.md` file in the tree:
 ### Cycle detection
 
 Detect cycles across `depends_on`, `input`, `external`, and
-inheritance (parent → child). Any cycle is reported with the
+inheritance (parent -> child). Any cycle is reported with the
 full path of the cycle.
 
 ### Staleness detection
@@ -57,9 +66,7 @@ and compare it with the hash in each artifact's artifact tag
 - `missing` — artifact file does not exist.
 - `current` — hashes match (not included in report).
 
-## Error conditions
+## Contracts
 
-| Condition | Description |
-|---|---|
-| Unreadable file | A spec node file cannot be read. |
-| Parse failure | A spec node file has invalid structure. |
+- Reports all errors found — does not stop at the first.
+- Staleness check only runs for nodes that have `outputs`.

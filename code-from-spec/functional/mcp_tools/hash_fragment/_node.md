@@ -11,7 +11,15 @@ Calculates the hash of a line range in a file, for use in
 
 # Public
 
-## Behavior
+## Interface
+
+```
+function HashFragment(path, lines) -> string
+  errors:
+    - file not found: the file does not exist.
+    - invalid line range: the range format is invalid or out of bounds.
+    - path validation failure: the path is unsafe (traversal, absolute, etc.).
+```
 
 ### Input
 
@@ -23,7 +31,11 @@ Calculates the hash of a line range in a file, for use in
 ### Output
 
 A text response containing the computed hash — a SHA-1 digest,
-base64url encoded (RFC 4648 §5, no padding), 27 characters.
+base64url encoded (RFC 4648 S5, no padding), 27 characters.
+
+# Agent
+
+## Behavior
 
 ### Algorithm
 
@@ -33,10 +45,7 @@ base64url encoded (RFC 4648 §5, no padding), 27 characters.
 4. Compute SHA-1 of the extracted content.
 5. Encode as base64url without padding.
 
-## Error conditions
+## Contracts
 
-| Condition | Description |
-|---|---|
-| File not found | The file does not exist. |
-| Invalid line range | The range format is invalid or out of bounds. |
-| Path validation failure | The path is unsafe (traversal, absolute, etc.). |
+- Uses the same hashing algorithm as ContentHash.
+- The path must pass path validation before reading.

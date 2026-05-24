@@ -11,6 +11,19 @@ directory. Prevents path traversal attacks.
 
 # Public
 
+## Interface
+
+```
+function ValidatePath(relative_path, project_root) -> void
+  errors:
+    - path is empty: the path string is empty.
+    - path is absolute: the path starts with / or a drive letter like C:.
+    - directory traversal: the path contains .. components after normalization.
+    - resolves outside root: after resolving symlinks, the path is outside the project root.
+```
+
+# Agent
+
 ## Behavior
 
 Given a relative file path and a project root directory,
@@ -35,15 +48,6 @@ error describing the violation.
 5. Resolve the full absolute path by joining with project root.
 6. Resolve symlinks in the path.
 7. Verify the resolved path is within the project root.
-
-## Error conditions
-
-| Condition | Message |
-|---|---|
-| Empty path | `"path is empty"` |
-| Absolute path | `"path is absolute: <path>"` |
-| Directory traversal | `"path contains directory traversal: <path>"` |
-| Resolves outside root | `"path resolves outside project root: <path>"` |
 
 ## Contracts
 

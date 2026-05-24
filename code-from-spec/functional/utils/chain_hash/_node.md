@@ -16,17 +16,23 @@ hash determines whether an artifact is stale.
 
 # Public
 
+## Interface
+
+```
+function ComputeChainHash(logical_name) -> string
+  errors:
+    - chain resolution failure: cannot resolve the chain for the target.
+    - unreadable content: a file in the chain cannot be read.
+```
+
+The returned string is a 27-character base64url hash.
+
+If the target has no `# Public` or `# Agent` section, use
+empty content for that position.
+
+# Agent
+
 ## Behavior
-
-### Input
-
-A target logical name.
-
-### Output
-
-A 27-character base64url hash string.
-
-## Algorithm
 
 Compute a content hash for each position in the chain
 (in chain assembly order), then hash the concatenation
@@ -64,10 +70,8 @@ assembly order:
 
 The result is encoded as base64url (27 characters).
 
-## Error conditions
+## Contracts
 
-| Condition | Description |
-|---|---|
-| Chain resolution failure | Cannot resolve the chain for the target. |
-| Unreadable content | A file in the chain cannot be read. |
-| Missing section | Target has no `# Public` or `# Agent` (use empty content). |
+- Deterministic — same input always produces same hash.
+- Missing `# Public` or `# Agent` sections use empty content,
+  not an error.

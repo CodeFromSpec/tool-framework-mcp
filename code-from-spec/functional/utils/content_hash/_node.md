@@ -12,32 +12,41 @@ throughout the framework.
 
 # Public
 
+## Interface
+
+```
+function ContentHash(content) -> string
+
+function HashLineRange(file_path, line_range) -> string
+  errors:
+    - file unreadable: the file cannot be opened or read.
+    - invalid line range: the range is out of bounds or malformed.
+```
+
+ContentHash takes a byte sequence and returns a 27-character
+base64url string (SHA-1 digest, RFC 4648 S5, no padding).
+
+HashLineRange reads a file, extracts lines in the given range
+(1-indexed, inclusive), normalizes, and hashes the content.
+Used for `external:` fragment hash verification and by the
+`hash_fragment` tool.
+
+# Agent
+
 ## Behavior
 
-### Input
-
-A byte sequence (text content).
-
-### Output
-
-A 27-character string: SHA-1 digest encoded as base64url
-(RFC 4648 §5, no padding).
-
-## Normalization
+### Normalization
 
 Before hashing, normalize the content:
 - Convert CRLF line endings to LF.
 - No other normalization.
 
-## Line range hashing
+### Line range hashing
 
 Given a file path and a line range (e.g., `"150-210"`):
 1. Read the file.
 2. Extract lines in the range (1-indexed, inclusive).
 3. Normalize and hash the extracted content.
-
-This is used for `external:` fragment hash verification
-and by the `hash_fragment` tool.
 
 ## Contracts
 
