@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: frontmatter
-    path: code-from-spec/functional/utils/frontmatter/output.md
+    path: artifacts/functional/utils/parsing/frontmatter/output.md
 ---
 
-# ROOT/functional/utils/frontmatter
+# ROOT/functional/utils/parsing/frontmatter
 
 Parses structured metadata from the top of spec node files.
 

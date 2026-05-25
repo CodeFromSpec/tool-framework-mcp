@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: load_chain
-    path: code-from-spec/functional/mcp_tools/load_chain/output.md
+    path: artifacts/functional/mcp_tools/load_chain/output.md
 ---
 
 # ROOT/functional/mcp_tools/load_chain

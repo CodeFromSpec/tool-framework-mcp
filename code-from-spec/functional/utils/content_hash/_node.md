@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: content_hash
-    path: code-from-spec/functional/utils/content_hash/output.md
+    path: artifacts/functional/utils/content_hash/output.md
 ---
 
 # ROOT/functional/utils/content_hash

@@ -1,10 +1,10 @@
 ---
 outputs:
-  - id: tree_walker
-    path: code-from-spec/functional/utils/tree_walker/output.md
+  - id: node_discovery
+    path: artifacts/functional/utils/node_discovery/output.md
 ---
 
-# ROOT/functional/utils/tree_walker
+# ROOT/functional/utils/node_discovery
 
 Walks the filesystem to discover all spec nodes in the
 spec tree.

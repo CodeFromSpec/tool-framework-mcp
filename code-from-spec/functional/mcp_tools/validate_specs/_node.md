@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: validate_specs
-    path: code-from-spec/functional/mcp_tools/validate_specs/output.md
+    path: artifacts/functional/mcp_tools/validate_specs/output.md
 ---
 
 # ROOT/functional/mcp_tools/validate_specs

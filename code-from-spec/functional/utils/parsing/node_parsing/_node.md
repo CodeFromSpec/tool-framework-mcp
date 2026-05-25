@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: node_parsing
-    path: code-from-spec/functional/utils/node_parsing/output.md
+    path: artifacts/functional/utils/parsing/node_parsing/output.md
 ---
 
-# ROOT/functional/utils/node_parsing
+# ROOT/functional/utils/parsing/node_parsing
 
 Parses the body of a spec node file into a structured
 representation of its sections and subsections.
@@ -48,7 +48,7 @@ frontmatter, and parses the remaining body into sections.
 
 Headings are normalized before comparison: trim whitespace,
 collapse internal whitespace to a single space, apply Unicode
-simple case folding. See `ROOT/functional/utils/name_normalization`.
+simple case folding. See `ROOT/functional/utils/parsing/name_normalization`.
 
 ## Contracts
 

@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: hash_fragment
-    path: code-from-spec/functional/mcp_tools/hash_fragment/output.md
+    path: artifacts/functional/mcp_tools/hash_fragment/output.md
 ---
 
 # ROOT/functional/mcp_tools/hash_fragment

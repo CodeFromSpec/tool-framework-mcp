@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: chain_resolution
-    path: code-from-spec/functional/utils/chain_resolution/output.md
+    path: artifacts/functional/utils/chain_resolution/output.md
 ---
 
 # ROOT/functional/utils/chain_resolution

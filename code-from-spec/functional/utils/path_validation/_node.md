@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: path_validation
-    path: code-from-spec/functional/utils/path_validation/output.md
+    path: artifacts/functional/utils/path_validation/output.md
 ---
 
 # ROOT/functional/utils/path_validation

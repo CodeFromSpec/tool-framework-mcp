@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: cycle_detection
-    path: code-from-spec/functional/utils/cycle_detection/output.md
+    path: artifacts/functional/utils/cycle_detection/output.md
 ---
 
 # ROOT/functional/utils/cycle_detection

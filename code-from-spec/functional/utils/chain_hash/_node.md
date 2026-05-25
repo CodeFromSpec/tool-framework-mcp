@@ -6,7 +6,7 @@ external:
   - path: CHAIN_HASH.md
 outputs:
   - id: chain_hash
-    path: code-from-spec/functional/utils/chain_hash/output.md
+    path: artifacts/functional/utils/chain_hash/output.md
 ---
 
 # ROOT/functional/utils/chain_hash

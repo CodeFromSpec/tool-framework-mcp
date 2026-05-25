@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: write_file
-    path: code-from-spec/functional/mcp_tools/write_file/output.md
+    path: artifacts/functional/mcp_tools/write_file/output.md
 ---
 
 # ROOT/functional/mcp_tools/write_file

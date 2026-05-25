@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: artifact_tag
-    path: code-from-spec/functional/utils/artifact_tag/output.md
+    path: artifacts/functional/utils/parsing/artifact_tag/output.md
 ---
 
-# ROOT/functional/utils/artifact_tag
+# ROOT/functional/utils/parsing/artifact_tag
 
 Extracts the artifact tag from generated files for
 staleness detection.
