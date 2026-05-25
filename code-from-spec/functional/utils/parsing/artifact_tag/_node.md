@@ -1,4 +1,6 @@
 ---
+depends_on:
+  - ROOT/functional/utils/file_reader
 outputs:
   - id: artifact_tag
     path: artifacts/functional/utils/parsing/artifact_tag/output.md

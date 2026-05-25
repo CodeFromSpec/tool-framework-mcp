@@ -1,4 +1,15 @@
 ---
+depends_on:
+  - ROOT/functional/utils/chain_hash
+  - ROOT/functional/utils/cycle_detection
+  - ROOT/functional/utils/format_validation
+  - ROOT/functional/utils/logical_names
+  - ROOT/functional/utils/node_discovery
+  - ROOT/functional/utils/parsing/artifact_tag
+  - ROOT/functional/utils/parsing/frontmatter
+  - ROOT/functional/utils/parsing/name_normalization
+  - ROOT/functional/utils/parsing/node_parsing
+  - ROOT/functional/utils/path_validation
 outputs:
   - id: validate_specs
     path: artifacts/functional/mcp_tools/validate_specs/output.md

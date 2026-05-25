@@ -1,4 +1,8 @@
 ---
+depends_on:
+  - ROOT/functional/utils/logical_names
+  - ROOT/functional/utils/file_reader
+  - ROOT/functional/utils/parsing/name_normalization
 outputs:
   - id: node_parsing
     path: artifacts/functional/utils/parsing/node_parsing/output.md

@@ -1,4 +1,7 @@
 ---
+depends_on:
+  - ROOT/functional/utils/file_reader
+  - ROOT/functional/utils/path_validation
 outputs:
   - id: hash_fragment
     path: artifacts/functional/mcp_tools/hash_fragment/output.md
@@ -39,13 +42,22 @@ base64url encoded (RFC 4648 S5, no padding), 27 characters.
 
 ### Algorithm
 
-1. Read the file at the given path.
-2. Extract lines in the declared range (1-indexed, inclusive).
-3. Normalize line endings: convert CRLF to LF.
-4. Compute SHA-1 of the extracted content.
-5. Encode as base64url without padding.
+1. Validate the path using path validation.
+2. Open the file with file_reader.
+3. Skip to the start of the line range.
+4. Read lines in the range (1-indexed, inclusive).
+5. Join the extracted lines with LF.
+6. Compute SHA-1 of the joined content.
+7. Encode as base64url (RFC 4648 §5, no padding) — 27 characters.
+
+### Line range format
+
+`"start-end"` where start and end are 1-indexed, inclusive.
+If start > end, or end exceeds the file's line count, raise
+"invalid line range".
 
 ## Contracts
 
-- Uses the same hashing algorithm as ContentHash.
 - The path must pass path validation before reading.
+- Line endings are already normalized by file_reader.
+- Uses SHA-1 + base64url (no padding), same as chain_hash.

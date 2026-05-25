@@ -1,4 +1,12 @@
 ---
+depends_on:
+  - ROOT/functional/utils/chain_hash
+  - ROOT/functional/utils/chain_resolution
+  - ROOT/functional/utils/logical_names
+  - ROOT/functional/utils/parsing/frontmatter
+  - ROOT/functional/utils/parsing/name_normalization
+  - ROOT/functional/utils/parsing/node_parsing
+  - ROOT/functional/utils/path_validation
 outputs:
   - id: load_chain
     path: artifacts/functional/mcp_tools/load_chain/output.md

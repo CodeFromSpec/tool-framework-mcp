@@ -1,7 +1,6 @@
 ---
 depends_on:
   - ROOT/functional/utils/chain_resolution
-  - ROOT/functional/utils/content_hash
 external:
   - path: CHAIN_HASH.md
 outputs:
@@ -25,7 +24,8 @@ function ComputeChainHash(logical_name) -> string
     - unreadable content: a file in the chain cannot be read.
 ```
 
-The returned string is a 27-character base64url hash.
+The returned string is a 27-character base64url encoded
+SHA-1 digest (RFC 4648 §5, no padding).
 
 If the target has no `# Public` or `# Agent` section, use
 empty content for that position.

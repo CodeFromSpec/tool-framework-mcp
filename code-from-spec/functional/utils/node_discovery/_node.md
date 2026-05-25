@@ -1,4 +1,6 @@
 ---
+depends_on:
+  - ROOT/functional/utils/logical_names
 outputs:
   - id: node_discovery
     path: artifacts/functional/utils/node_discovery/output.md

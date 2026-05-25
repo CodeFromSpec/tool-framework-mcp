@@ -1,4 +1,6 @@
 ---
+depends_on:
+  - ROOT/functional/utils/file_reader
 outputs:
   - id: frontmatter
     path: artifacts/functional/utils/parsing/frontmatter/output.md

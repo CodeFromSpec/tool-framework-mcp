@@ -1,4 +1,8 @@
 ---
+depends_on:
+  - ROOT/functional/utils/logical_names
+  - ROOT/functional/utils/parsing/frontmatter
+  - ROOT/functional/utils/path_validation
 outputs:
   - id: write_file
     path: artifacts/functional/mcp_tools/write_file/output.md

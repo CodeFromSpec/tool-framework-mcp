@@ -1,4 +1,7 @@
 ---
+depends_on:
+  - ROOT/functional/utils/logical_names
+  - ROOT/functional/utils/parsing/frontmatter
 outputs:
   - id: chain_resolution
     path: artifacts/functional/utils/chain_resolution/output.md
