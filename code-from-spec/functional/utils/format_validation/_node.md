@@ -1,8 +1,8 @@
 ---
 depends_on:
   - ROOT/functional/utils/logical_names
-  - ROOT/functional/utils/parsing/frontmatter
-  - ROOT/functional/utils/parsing/node_parsing
+  - ROOT/functional/utils/frontmatter
+  - ROOT/functional/utils/node_parsing
 external:
   - path: CODE_FROM_SPEC.md
 outputs:

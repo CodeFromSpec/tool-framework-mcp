@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/utils/logical_names
-  - ROOT/functional/utils/parsing/frontmatter
+  - ROOT/functional/utils/frontmatter
   - ROOT/functional/utils/path_validation
 outputs:
   - id: write_file

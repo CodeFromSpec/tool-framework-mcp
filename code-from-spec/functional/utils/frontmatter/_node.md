@@ -3,10 +3,10 @@ depends_on:
   - ROOT/functional/utils/file_reader
 outputs:
   - id: frontmatter
-    path: artifacts/functional/utils/parsing/frontmatter/output.md
+    path: artifacts/functional/utils/frontmatter/output.md
 ---
 
-# ROOT/functional/utils/parsing/frontmatter
+# ROOT/functional/utils/frontmatter
 
 Parses structured metadata from the top of spec node files.
 

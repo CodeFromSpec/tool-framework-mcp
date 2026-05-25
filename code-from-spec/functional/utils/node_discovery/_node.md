@@ -20,7 +20,7 @@ record DiscoveredNode
   logical_name: string
   file_path: string
 
-function WalkTree() -> list of DiscoveredNode
+function DiscoverNodes() -> list of DiscoveredNode
   errors:
     - directory not found: code-from-spec/ does not exist.
     - walk error: filesystem error while traversing.
@@ -38,21 +38,13 @@ Starts from `code-from-spec/` relative to the project root
 
 ### Discovery rules
 
-Walk `code-from-spec/` recursively. Every `_node.md` file
-produces a discovered node. Other files are ignored.
+Find every `_node.md` file inside `code-from-spec/` and
+all its subdirectories. Each `_node.md` file produces a
+discovered node. Other files are ignored.
 
 For each `_node.md` found, use reverse resolution (see
 `ROOT/functional/utils/logical_names`) to derive the logical
 name from the file path.
-
-### Node classification
-
-After discovery, each node can be classified by checking
-whether it has child directories containing `_node.md`
-files:
-- **Leaf node** — no children with `_node.md`.
-- **Intermediate node** — has children with `_node.md`.
-- **Root node** — the `ROOT` node itself.
 
 ## Contracts
 

@@ -60,4 +60,5 @@ If start > end, or end exceeds the file's line count, raise
 
 - The path must pass path validation before reading.
 - Line endings are already normalized by file_reader.
-- Uses SHA-1 + base64url (no padding), same as chain_hash.
+- Uses SHA-1 + base64url (no padding), same algorithm as
+  the chain hash in load_chain.

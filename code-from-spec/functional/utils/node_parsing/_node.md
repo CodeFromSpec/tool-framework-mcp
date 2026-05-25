@@ -2,13 +2,13 @@
 depends_on:
   - ROOT/functional/utils/logical_names
   - ROOT/functional/utils/file_reader
-  - ROOT/functional/utils/parsing/name_normalization
+  - ROOT/functional/utils/name_normalization
 outputs:
   - id: node_parsing
-    path: artifacts/functional/utils/parsing/node_parsing/output.md
+    path: artifacts/functional/utils/node_parsing/output.md
 ---
 
-# ROOT/functional/utils/parsing/node_parsing
+# ROOT/functional/utils/node_parsing
 
 Parses the body of a spec node file into a structured
 representation of its sections and subsections.
@@ -52,7 +52,7 @@ frontmatter, and parses the remaining body into sections.
 
 Headings are normalized before comparison: trim whitespace,
 collapse internal whitespace to a single space, apply Unicode
-simple case folding. See `ROOT/functional/utils/parsing/name_normalization`.
+simple case folding. See `ROOT/functional/utils/name_normalization`.
 
 ## Contracts
 

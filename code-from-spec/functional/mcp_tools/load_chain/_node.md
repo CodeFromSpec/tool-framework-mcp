@@ -1,11 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/utils/chain_hash
-  - ROOT/functional/utils/chain_resolution
+  - ROOT/functional/utils/file_reader
   - ROOT/functional/utils/logical_names
-  - ROOT/functional/utils/parsing/frontmatter
-  - ROOT/functional/utils/parsing/name_normalization
-  - ROOT/functional/utils/parsing/node_parsing
+  - ROOT/functional/utils/frontmatter
+  - ROOT/functional/utils/name_normalization
+  - ROOT/functional/utils/node_parsing
   - ROOT/functional/utils/path_validation
 outputs:
   - id: load_chain
@@ -14,16 +13,15 @@ outputs:
 
 # ROOT/functional/mcp_tools/load_chain
 
-Loads the complete spec chain for a given node and returns it
-as a single text response, including the chain hash for the
-artifact tag.
+Loads the complete spec chain for a given node and returns
+the chain hash, context, and input as separate items.
 
 # Public
 
 ## Interface
 
 ```
-function LoadChain(logical_name) -> string
+function LoadChain(logical_name) -> list of text items
   errors:
     - invalid logical name: not a recognized ROOT/ reference.
     - no outputs: target node has no outputs field.
@@ -40,36 +38,114 @@ function LoadChain(logical_name) -> string
 
 ### Output
 
-A formatted text block containing all files in the chain,
-separated by heredoc-style delimiters. Each section includes
-metadata headers (`node:`, `path:`) and the file content.
+The result contains separate text items:
 
-The response also includes the **chain hash** — the SHA-1
-digest (base64url, 27 characters) computed from all positions
-in the chain, as defined in `CHAIN_HASH.md`.
+| Item | Always present | Content |
+|---|---|---|
+| Chain hash | yes | The 27-character base64url chain hash. |
+| Context | yes | All chain content concatenated as a single stream. |
+| Input | only if `input` field exists | Content of the input artifact, excluding frontmatter. |
 
 # Agent
 
 ## Behavior
 
-### Chain content
-
-| Section | Content included |
-|---|---|
-| Ancestors | `# Public` body only (heading stripped). Skipped if empty. |
-| Target | Full file with reduced frontmatter (only `outputs`). |
-| Dependencies | `# Public` body or specific subsections per qualifier. Skipped if empty. |
-| Code files | Existing source files as-is. Non-existing files omitted. |
-
 ### Validation
 
 Before loading the chain:
 1. The logical name must be a valid `ROOT/` reference.
-2. The target node must have `outputs` declared.
+2. Read the frontmatter of the node identified by
+   `logical_name`. It must have `outputs` declared.
 3. Each output path must pass path validation.
+
+### Context stream
+
+The context is a single continuous text block — no
+delimiters, no headers, no file boundaries. Content is
+concatenated in this exact order:
+
+**Step 1 — Ancestors** (root to target's parent)
+
+For each ancestor, from the root node down to the
+target's direct parent, in tree depth order:
+- Include the `# Public` section content (without the
+  `# Public` heading itself).
+- If `# Public` is absent or empty, skip this ancestor
+  entirely — do not emit empty content.
+
+**Step 2 — Dependencies** (`depends_on`)
+
+For each entry in the target's `depends_on`, in
+alphabetical order by logical name:
+- `ROOT/x/y` — include the `# Public` section content
+  of the referenced node (without the heading).
+- `ROOT/x/y(z)` — include only the `## z` subsection
+  content within `# Public` of the referenced node.
+- `ARTIFACT/x/y(id)` — include the full content of
+  the referenced artifact file, excluding any
+  frontmatter.
+
+**Step 3 — External files** (`external`)
+
+For each entry in the target's `external`, in
+alphabetical order by path:
+- If no `fragments` declared — include the full file
+  content.
+- If `fragments` declared — include only the content
+  at the declared line ranges, concatenated in
+  declaration order.
+
+**Step 4 — Target `# Public`**
+
+Include the target node's `# Public` section content
+(without the heading). Preceded by a reduced frontmatter
+block containing only `outputs`.
+
+**Step 5 — Target `# Agent`**
+
+Include the target node's `# Agent` section content
+(without the heading). If absent, skip.
+
+### Input separation
+
+If the target node has an `input` field, the referenced
+artifact content is returned as a separate text item,
+not concatenated into the context stream. This allows
+the subagent to distinguish context (what informs) from
+input (what to transform).
+
+### Chain hash computation
+
+The chain hash is computed incrementally as the context
+stream is assembled — not as a separate pass.
+
+As each step adds content to the stream, compute the
+SHA-1 of that content (raw 20 bytes). After all steps
+(including input if present), concatenate all raw hashes
+in order and compute the final SHA-1. Encode the result
+as base64url (RFC 4648 §5, no padding) — 27 characters.
+
+The positions that contribute to the hash, in order:
+
+1. Each ancestor's `# Public` content (including heading).
+2. Each `depends_on` entry's content.
+3. Each `external` entry's content.
+4. Target's `# Public` content (including heading).
+5. Target's `# Agent` content (including heading).
+6. Input artifact content (if present).
+
+Note: the content hashed includes the section headings
+(`# Public`, `# Agent`), even though the headings are
+stripped from the context stream. See `CHAIN_HASH.md`
+for the full specification.
+
+The chain hash is returned as a separate text item so
+the subagent can embed it in the artifact tag.
 
 ## Contracts
 
-- Returns the entire chain in one call — no pagination.
-- If any file in the chain is unreadable, returns an error
-  (no partial results).
+- Returns everything in one call — no pagination.
+- If any file in the chain is unreadable, returns an
+  error (no partial results).
+- The context stream contains no metadata or structural
+  markers — only spec content.

@@ -3,10 +3,10 @@ depends_on:
   - ROOT/functional/utils/file_reader
 outputs:
   - id: artifact_tag
-    path: artifacts/functional/utils/parsing/artifact_tag/output.md
+    path: artifacts/functional/utils/artifact_tag/output.md
 ---
 
-# ROOT/functional/utils/parsing/artifact_tag
+# ROOT/functional/utils/artifact_tag
 
 Extracts the artifact tag from generated files for
 staleness detection.

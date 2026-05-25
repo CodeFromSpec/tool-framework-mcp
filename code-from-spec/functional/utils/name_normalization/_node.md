@@ -1,10 +1,10 @@
 ---
 outputs:
   - id: name_normalization
-    path: artifacts/functional/utils/parsing/name_normalization/output.md
+    path: artifacts/functional/utils/name_normalization/output.md
 ---
 
-# ROOT/functional/utils/parsing/name_normalization
+# ROOT/functional/utils/name_normalization
 
 Normalizes heading text and qualifier text for comparison.
 

@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/utils/logical_names
-  - ROOT/functional/utils/parsing/frontmatter
+  - ROOT/functional/utils/frontmatter
 outputs:
   - id: cycle_detection
     path: artifacts/functional/utils/cycle_detection/output.md

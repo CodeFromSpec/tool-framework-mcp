@@ -1,14 +1,13 @@
 ---
 depends_on:
-  - ROOT/functional/utils/chain_hash
   - ROOT/functional/utils/cycle_detection
   - ROOT/functional/utils/format_validation
   - ROOT/functional/utils/logical_names
   - ROOT/functional/utils/node_discovery
-  - ROOT/functional/utils/parsing/artifact_tag
-  - ROOT/functional/utils/parsing/frontmatter
-  - ROOT/functional/utils/parsing/name_normalization
-  - ROOT/functional/utils/parsing/node_parsing
+  - ROOT/functional/utils/artifact_tag
+  - ROOT/functional/utils/frontmatter
+  - ROOT/functional/utils/name_normalization
+  - ROOT/functional/utils/node_parsing
   - ROOT/functional/utils/path_validation
 outputs:
   - id: validate_specs
@@ -48,36 +47,63 @@ No parameters. Scans the entire spec tree starting from
 
 ## Behavior
 
-### Format validation
+### Step 1 — Discover nodes
 
-For each `_node.md` file in the tree:
-- Frontmatter is parseable (if present).
-- The first heading matches the logical name derived from the
-  node's filesystem path (name verification).
-- `depends_on` entries resolve to existing nodes.
-- `depends_on` entries do not point to ancestors or descendants.
-- `external` file paths exist and fragments match (hash check).
-- `outputs` paths pass path validation.
-- `# Agent` section only on leaf nodes.
-- Frontmatter fields (`depends_on`, `external`, `input`, `outputs`)
-  only on leaf nodes.
+Use `node_discovery` to find all `_node.md` files in the
+spec tree. Derive each node's logical name using
+`logical_names` reverse resolution.
 
-### Cycle detection
+### Step 2 — Parse all nodes
 
-Detect cycles across `depends_on`, `input`, `external`, and
-inheritance (parent -> child). Any cycle is reported with the
-full path of the cycle.
+For each discovered node:
+- Use `frontmatter` to parse the YAML frontmatter.
+- Use `node_parsing` to parse the body into sections.
 
-### Staleness detection
+Cache the results — each node is parsed once and reused
+by subsequent steps.
 
-For each node with `outputs`, compute the current chain hash
-and compare it with the hash in each artifact's artifact tag
-(`code-from-spec: <name>@<hash>`). Report:
-- `stale` — hash mismatch.
-- `missing` — artifact file does not exist.
-- `current` — hashes match (not included in report).
+### Step 3 — Format validation
+
+Use `format_validation` to check each node against the
+structural rules. This uses:
+- `logical_names` to verify `depends_on` targets resolve.
+- `name_normalization` to compare headings with logical
+  names derived from filesystem paths.
+- `path_validation` to verify `outputs` paths are safe.
+
+Collect all `FormatError` entries.
+
+### Step 4 — Cycle detection
+
+Use `cycle_detection` to find circular references across
+`depends_on`, `input`, and inheritance. Pass the full set
+of discovered nodes with their parsed frontmatter.
+
+Collect all cycles as lists of logical names.
+
+### Step 5 — Staleness detection
+
+For each node with `outputs`:
+1. Compute the chain hash using the same algorithm as
+   `load_chain` (SHA-1 of concatenated position hashes,
+   base64url encoded).
+2. For each output, use `artifact_tag` to extract the
+   hash from the generated file.
+3. Compare:
+   - File does not exist → report `missing`.
+   - File exists but has no artifact tag → report `missing`.
+   - Hash mismatch → report `stale`.
+   - Hash matches → skip (not included in report).
+
+### Output
+
+Assemble the `ValidationReport` with all collected
+format errors, cycles, and staleness entries. Return
+as the tool result.
 
 ## Contracts
 
 - Reports all errors found — does not stop at the first.
 - Staleness check only runs for nodes that have `outputs`.
+- Nodes that fail format validation are still checked for
+  staleness where possible.
