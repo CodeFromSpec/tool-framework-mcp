@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/dependencies/yuin-goldmark
+  - ROOT/golang/dependencies/yuin-goldmark
   - ROOT/golang/internal/logical_names
   - ROOT/golang/internal/normalizename
 external:
@@ -43,14 +43,14 @@ level-1 heading. If it is not, it is an error.
 #### Step 5 — Validate: node name section
 
 Extract the inline text content of the first level-1 heading
-(see "Extracting heading text" in `ROOT/dependencies/yuin-goldmark`).
+(see "Extracting heading text" in `ROOT/golang/dependencies/yuin-goldmark`).
 Apply `normalizename.NormalizeName` to it and to the logical name received
 as argument. If the results do not match, it is an error.
 
 #### Step 6 — Validate: no duplicate public section
 
 For each level-1 heading, extract its inline text content
-(see "Extracting heading text" in `ROOT/dependencies/yuin-goldmark`)
+(see "Extracting heading text" in `ROOT/golang/dependencies/yuin-goldmark`)
 and apply `normalizename.NormalizeName`. If more than one result equals
 `public`, it is an error.
 
@@ -58,7 +58,7 @@ and apply `normalizename.NormalizeName`. If more than one result equals
 
 For each level-2 heading within the public section, extract
 its inline text content (see "Extracting heading text" in
-`ROOT/dependencies/yuin-goldmark`) and apply `normalizename.NormalizeName`. If any
+`ROOT/golang/dependencies/yuin-goldmark`) and apply `normalizename.NormalizeName`. If any
 two results are equal, it is an error.
 
 #### Step 8 — Extract sections
@@ -71,18 +71,18 @@ that section.
 For each section, extract:
 - **Heading** — extract the inline text content of the level-1
   heading (see "Extracting heading text" in
-  `ROOT/dependencies/yuin-goldmark`) and apply `normalizename.NormalizeName`.
+  `ROOT/golang/dependencies/yuin-goldmark`) and apply `normalizename.NormalizeName`.
 - **Content** — the raw source bytes between the end of the
   level-1 heading and the start of the line of the first
   level-2 heading within the section (or the start of the line
   of the next level-1 heading / end of document if there are
   no level-2 headings). Use "Extracting raw source between
-  headings" in `ROOT/dependencies/yuin-goldmark` to determine heading
+  headings" in `ROOT/golang/dependencies/yuin-goldmark` to determine heading
   line boundaries.
 - **Subsections** — each level-2 heading within the section
   starts a subsection. A subsection's heading is obtained by
   extracting the inline text content of the level-2 heading
-  (see "Extracting heading text" in `ROOT/dependencies/yuin-goldmark`)
+  (see "Extracting heading text" in `ROOT/golang/dependencies/yuin-goldmark`)
   and applying `normalizename.NormalizeName`. A
   subsection's content is the raw source bytes between the end
   of the level-2 heading and the start of the line of the next

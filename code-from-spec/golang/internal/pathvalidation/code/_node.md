@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/dependencies/owasp-path-traversal
+  - ROOT/functional/dependencies/owasp-path-traversal
 outputs:
   - id: pathvalidation
     path: internal/pathvalidation/pathvalidation.go

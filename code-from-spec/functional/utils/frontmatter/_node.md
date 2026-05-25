@@ -47,12 +47,15 @@ absent from the YAML.
 
 ## Behavior
 
+Open the file with `file_reader`. Read line by line using
+`ReadLine`.
+
 The frontmatter is an optional YAML block delimited by `---` at
 the top of a file. If present, it contains metadata fields that
 the framework uses for dependency resolution, artifact tracking,
 and external file references.
 
-If the file has no `---` delimiters, return an empty Frontmatter
+If the first line is not `---`, return an empty Frontmatter
 record. This is not an error.
 
 ## Contracts

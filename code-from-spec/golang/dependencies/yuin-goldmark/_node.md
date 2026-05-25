@@ -1,4 +1,4 @@
-# ROOT/dependencies/yuin-goldmark
+# ROOT/golang/dependencies/yuin-goldmark
 
 CommonMark Markdown parser for Go: `github.com/yuin/goldmark`.
 

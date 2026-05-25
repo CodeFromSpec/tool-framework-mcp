@@ -46,9 +46,10 @@ regardless of context.
 
 ### Detection
 
-Read the file line by line from the top. For each line,
-look for the substring `code-from-spec: `. Stop reading
-as soon as a match is found.
+Open the file with `file_reader`. Read line by line
+using `ReadLine`. For each line, look for the substring
+`code-from-spec: `. Stop reading as soon as a match is
+found.
 
 ### Extraction
 

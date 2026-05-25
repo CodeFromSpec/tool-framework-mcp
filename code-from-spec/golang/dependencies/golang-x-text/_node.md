@@ -1,4 +1,4 @@
-# ROOT/dependencies/golang-x-text
+# ROOT/golang/dependencies/golang-x-text
 
 Unicode text processing packages for Go:
 `golang.org/x/text`.

@@ -1,4 +1,4 @@
-# ROOT/dependencies/owasp-path-traversal
+# ROOT/functional/dependencies/owasp-path-traversal
 
 OWASP guidance on path traversal attacks: attack vectors,
 common bypass techniques, and prevention recommendations.

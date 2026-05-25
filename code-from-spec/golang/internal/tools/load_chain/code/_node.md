@@ -1,7 +1,7 @@
 ---
 depends_on:
-  - ROOT/dependencies/google-uuid
-  - ROOT/dependencies/mcp-go-sdk
+  - ROOT/golang/dependencies/google-uuid
+  - ROOT/golang/dependencies/mcp-go-sdk
   - ROOT/golang/internal/chain_resolver
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/logical_names

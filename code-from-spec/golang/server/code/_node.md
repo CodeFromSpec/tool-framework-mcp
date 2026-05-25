@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/dependencies/mcp-go-sdk
+  - ROOT/golang/dependencies/mcp-go-sdk
   - ROOT/golang/internal/tools
   - ROOT/golang/internal/tools/load_chain
   - ROOT/golang/internal/tools/write_file

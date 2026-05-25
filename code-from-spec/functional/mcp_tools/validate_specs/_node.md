@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/functional/utils/cycle_detection
+  - ROOT/functional/utils/node_ranking
   - ROOT/functional/utils/format_validation
   - ROOT/functional/utils/logical_names
   - ROOT/functional/utils/node_discovery
@@ -73,17 +73,20 @@ structural rules. This uses:
 
 Collect all `FormatError` entries.
 
-### Step 4 — Cycle detection
+### Step 4 — Ranking and cycle detection
 
-Use `cycle_detection` to find circular references across
-`depends_on`, `input`, and inheritance. Pass the full set
-of discovered nodes with their parsed frontmatter.
+Use `node_ranking` to rank all nodes and artifacts
+and detect circular references. Pass the full set of
+discovered nodes with their parsed frontmatter.
 
-Collect all cycles as lists of logical names.
+The ranking determines processing order for staleness
+resolution: lower rank first. If cycles are detected,
+report the cycle participants.
 
 ### Step 5 — Staleness detection
 
-For each node with `outputs`:
+For each node with `outputs`, in rank order (lowest
+rank first):
 1. Compute the chain hash using the same algorithm as
    `load_chain` (SHA-1 of concatenated position hashes,
    base64url encoded).
@@ -98,8 +101,9 @@ For each node with `outputs`:
 ### Output
 
 Assemble the `ValidationReport` with all collected
-format errors, cycles, and staleness entries. Return
-as the tool result.
+format errors, cycles, and staleness entries. Staleness
+entries are ordered by rank (lowest first) so that the
+caller can resolve them in dependency order.
 
 ## Contracts
 

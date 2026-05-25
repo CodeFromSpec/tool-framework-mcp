@@ -1,4 +1,4 @@
-# ROOT/dependencies/goccy-go-yaml
+# ROOT/golang/dependencies/goccy-go-yaml
 
 YAML parsing library for Go: `github.com/goccy/go-yaml`.
 

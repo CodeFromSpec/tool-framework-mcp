@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/dependencies/mcp-go-sdk
+  - ROOT/golang/dependencies/mcp-go-sdk
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/logical_names
   - ROOT/golang/internal/pathvalidation

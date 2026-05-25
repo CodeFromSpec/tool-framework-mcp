@@ -1,4 +1,4 @@
-# ROOT/dependencies/google-uuid
+# ROOT/golang/dependencies/google-uuid
 
 UUID generation library for Go: `github.com/google/uuid`.
 

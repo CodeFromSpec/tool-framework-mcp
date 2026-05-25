@@ -45,8 +45,9 @@ function ParseNode(logical_name) -> ParsedNode
 
 ## Behavior
 
-Given a logical name, resolves the file path, skips the
-frontmatter, and parses the remaining body into sections.
+Given a logical name, resolves the file path using
+`logical_names`. Opens the file with `file_reader`. Skips
+the frontmatter and parses the remaining body into sections.
 
 ### Heading normalization
 

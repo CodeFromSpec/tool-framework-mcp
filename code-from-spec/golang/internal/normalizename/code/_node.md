@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/dependencies/golang-x-text
+  - ROOT/golang/dependencies/golang-x-text
 external:
   - path: CODE_FROM_SPEC.md
 outputs:

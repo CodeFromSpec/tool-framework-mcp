@@ -61,8 +61,9 @@ Before loading the chain:
 ### Context stream
 
 The context is a single continuous text block — no
-delimiters, no headers, no file boundaries. Content is
-concatenated in this exact order:
+delimiters, no headers, no file boundaries. All files
+are read using `file_reader`. Content is concatenated
+in this exact order:
 
 **Step 1 — Ancestors** (root to target's parent)
 

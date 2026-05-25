@@ -20,7 +20,7 @@ record ArtifactReference
 
 function ResolvePath(logical_name) -> string
   errors:
-    - unrecognized prefix: the logical name does not start with ROOT/ or ARTIFACT/.
+    - unsupported reference: only ROOT/ logical names can be resolved to a path. ARTIFACT/ requires frontmatter lookup.
 
 function ResolveArtifactReference(logical_name) -> ArtifactReference
   errors:
