@@ -49,46 +49,20 @@ func HandleLoadChain(
 
 ### Chain output format
 
-The chain is serialized as a sequence of file sections using
-heredoc-style delimiters with a UUID generated once per call
-to avoid collisions with file content.
+The chain is returned as a single MCP text response containing
+three concatenated text items, separated by blank lines:
 
-Opening delimiter: `<<<FILE_<uuid>>>`
-Closing delimiter: `<<<END_FILE_<uuid>>>`
+1. **Hash** — a content hash of the chain for staleness
+   detection.
+2. **Context** — the assembled chain content. Each chain item
+   is the spec node content (public section body for ancestors
+   and dependencies, public + agent sections for the target).
+   External files are included as raw file content.
+3. **Input** — the target node's `input` frontmatter field.
+   Empty string if no input is declared.
 
-The same UUID is used for all files in the chain. Each section
-includes `node:` and `path:` headers between the opening
-delimiter and the file content, separated by a blank line.
-Code files include only `path:`.
-
-```
-<<<FILE_550e8400-e29b-41d4-a716-446655440000>>>
-node: ROOT
-path: code-from-spec/_node.md
-
-<Public section body — no # Public heading>
-<<<END_FILE_550e8400-e29b-41d4-a716-446655440000>>>
-
-<<<FILE_550e8400-e29b-41d4-a716-446655440000>>>
-node: ROOT/payments/fees/calculation
-path: code-from-spec/payments/fees/calculation/_node.md
-
-<target content with reduced frontmatter>
-<<<END_FILE_550e8400-e29b-41d4-a716-446655440000>>>
-
-<<<FILE_550e8400-e29b-41d4-a716-446655440000>>>
-node: ROOT/architecture/backend
-path: code-from-spec/architecture/backend/_node.md
-
-<Public section body — no # Public heading>
-<<<END_FILE_550e8400-e29b-41d4-a716-446655440000>>>
-
-<<<FILE_550e8400-e29b-41d4-a716-446655440000>>>
-path: internal/payments/fees/calculation.go
-
-<existing source file content>
-<<<END_FILE_550e8400-e29b-41d4-a716-446655440000>>>
-```
+No heredoc delimiters, no `node:` or `path:` headers. The
+chain content is plain concatenated text.
 
 # Decisions
 

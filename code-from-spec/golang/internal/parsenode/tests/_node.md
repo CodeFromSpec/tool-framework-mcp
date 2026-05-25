@@ -30,8 +30,6 @@ Logical name: `ROOT/x`
 
 ```
 ---
-version: 3
-parent_version: 1
 ---
 # ROOT/x
 
@@ -51,13 +49,11 @@ Logical name: `ROOT/payments/fees`
 
 ```
 ---
-version: 5
-parent_version: 2
 depends_on:
-  - path: ROOT/architecture/backend
-    version: 3
-implements:
-  - internal/fees/fees.go
+  - ROOT/architecture/backend
+outputs:
+  - id: fees
+    path: internal/fees/fees.go
 ---
 # ROOT/payments/fees
 
@@ -105,7 +101,6 @@ Logical name: `ROOT/decisions`
 
 ```
 ---
-version: 1
 ---
 # ROOT/decisions
 
@@ -127,7 +122,6 @@ Logical name: `ROOT/a`
 
 ```
 ---
-version: 1
 ---
 # ROOT/a
 
@@ -154,7 +148,6 @@ Logical name: `ROOT/c`
 
 ```
 ---
-version: 1
 ---
 # ROOT/c
 
@@ -175,7 +168,6 @@ Logical name: `ROOT/d`
 
 ```
 ---
-version: 1
 ---
 # ROOT/d
 
@@ -196,7 +188,6 @@ Logical name: `ROOT/e`
 
 ```
 ---
-version: 1
 ---
 #    ROOT/e
 
@@ -211,7 +202,6 @@ Logical name: `ROOT/f`
 
 ```
 ---
-version: 1
 ---
 # ROOT/f
 
@@ -238,7 +228,6 @@ Logical name: `ROOT/g`
 
 ```
 ---
-version: 1
 ---
 # ROOT/g
 
@@ -263,7 +252,6 @@ Logical name: `ROOT/h`
 
 ```
 ---
-version: 1
 ---
 # ROOT/h
 
@@ -301,7 +289,6 @@ Logical name: `ROOT/i`
 
 ```
 ---
-version: 1
 ---
 # ROOT/i
 
@@ -332,7 +319,6 @@ Logical name: `ROOT/j`
 
 ```
 ---
-version: 1
 ---
 # ROOT/j
 
@@ -385,7 +371,6 @@ Logical name: `ROOT/o`
 
 ```
 ---
-version: 1
 ---
 Some text before any heading.
 
@@ -402,7 +387,6 @@ Logical name: `ROOT/p`
 
 ```
 ---
-version: 1
 ---
 ## Orphan subsection
 
@@ -419,7 +403,6 @@ Logical name: `ROOT/q`
 
 ```
 ---
-version: 1
 ---
 # ROOT/wrong
 
@@ -434,7 +417,6 @@ Logical name: `ROOT/q`
 
 ```
 ---
-version: 1
 ---
 # root/Q
 
@@ -449,7 +431,6 @@ Logical name: `ROOT/r`
 
 ```
 ---
-version: 1
 ---
 # ROOT/r
 
@@ -472,7 +453,6 @@ Logical name: `ROOT/s`
 
 ```
 ---
-version: 1
 ---
 # ROOT/s
 
@@ -495,7 +475,6 @@ Logical name: `ROOT/t`
 
 ```
 ---
-version: 1
 ---
 # ROOT/t
 
@@ -520,7 +499,6 @@ Logical name: `ROOT/u`
 
 ```
 ---
-version: 1
 ---
 # ROOT/u
 
@@ -545,7 +523,6 @@ Logical name: `ROOT/v`
 
 ```
 ---
-version: 1
 ---
 # ROOT/v
 
@@ -570,7 +547,6 @@ Logical name: `ROOT/w`
 
 ```
 ---
-version: 1
 ---
 This is a paragraph, not a heading.
 ```

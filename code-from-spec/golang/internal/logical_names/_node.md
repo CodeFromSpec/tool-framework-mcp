@@ -135,6 +135,24 @@ an ARTIFACT/ reference or has no qualifier.
 | `ARTIFACT/x` | `""` | `""` (false — no qualifier) |
 | `ROOT/x(y)` | `""` | `""` (false — not ARTIFACT/) |
 
+### LogicalNameFromPath
+
+Derives the logical name from a file path relative to the
+project root. This is the reverse of `PathFromLogicalName`.
+
+```go
+func LogicalNameFromPath(filePath string) (string, bool)
+```
+
+Only handles `_node.md` files under `code-from-spec/`.
+Returns `("", false)` for paths that do not match.
+
+| File path | Logical name |
+|---|---|
+| `code-from-spec/_node.md` | `ROOT` |
+| `code-from-spec/x/_node.md` | `ROOT/x` |
+| `code-from-spec/x/y/_node.md` | `ROOT/x/y` |
+
 ### Error handling
 
 These are pure functions operating on strings. They do

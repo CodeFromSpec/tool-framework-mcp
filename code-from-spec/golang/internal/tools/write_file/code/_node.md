@@ -4,6 +4,7 @@ depends_on:
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/logical_names
   - ROOT/golang/internal/pathvalidation
+input: ARTIFACT/functional/mcp_tools/write_file(write_file)
 outputs:
   - id: write_file
     path: internal/write_file/write_file.go
@@ -15,43 +16,17 @@ Implementation of the write_file tool handler.
 
 # Agent
 
-## Implementation
+Implement the pseudocode from the input as a Go package.
 
-1. Validate that `args.LogicalName` starts with `ROOT/`
-   (or equals `ROOT`). If not, return a tool error.
-2. Call `logicalnames.PathFromLogicalName`. If it returns false, return a
-   tool error: `"invalid logical name: <name>"`.
-3. Call `ParseFrontmatter` on the resolved path. If it fails,
-   return a tool error wrapping the underlying error.
-4. Validate `Outputs` is not empty → tool error:
-   `"node <name> has no outputs"`.
-5. Normalize `args.Path` to forward slashes using
-   `filepath.ToSlash`.
-6. Call `ValidatePath` on the normalized path against the
-   working directory. If it fails, return a tool error with
-   the validation error and the list of valid `outputs`
-   paths.
-7. Check that the normalized path appears in the `Path` fields
-   of the frontmatter's `Outputs` (exact string match). If
-   not, return a tool error listing the valid paths.
-8. Create any missing intermediate directories for the target
-   path.
-9. Write `args.Content` to the file, overwriting if it exists.
-10. Return a success result with text `"wrote <path>"`.
+## Go-specific guidance
 
-### Error handling
-
-- Invalid logical name → tool error with the name.
-- Frontmatter parse failure → tool error wrapping the error.
-- No outputs → tool error: `"node <name> has no outputs"`.
-- Path validation failure → tool error with the violation and
-  the list of allowed paths.
-- Path not in outputs → tool error: `"path not allowed:
-  <path>. allowed paths: <list>"`.
-- Directory creation failure → tool error: `"failed to create
-  directories for <path>: <err>"`.
-- Write failure → tool error: `"failed to write <path>:
-  <err>"`.
+- Use the `mcp-go` SDK types for tool results.
+- Call internal packages (`frontmatter`, `logicalnames`,
+  `pathvalidation`) for their respective operations.
+- Use `os.MkdirAll` for creating intermediate directories
+  and `os.WriteFile` for writing the file.
+- Use `filepath.ToSlash` to normalize paths to forward slashes.
+- The package name should be `write_file`.
 
 ## Constraints
 
