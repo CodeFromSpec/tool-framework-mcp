@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: logical_names
-    path: artifacts/functional/utils/logical_names/output.md
+    path: code-from-spec/functional/utils/logical_names/output.md
 ---
 
 # ROOT/functional/utils/logical_names

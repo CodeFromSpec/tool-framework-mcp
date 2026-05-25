@@ -3,7 +3,7 @@ depends_on:
   - ROOT/functional/utils/file_reader
 outputs:
   - id: frontmatter
-    path: artifacts/functional/utils/frontmatter/output.md
+    path: code-from-spec/functional/utils/frontmatter/output.md
 ---
 
 # ROOT/functional/utils/frontmatter

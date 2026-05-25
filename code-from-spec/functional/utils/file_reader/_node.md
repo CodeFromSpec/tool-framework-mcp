@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: file_reader
-    path: artifacts/functional/utils/file_reader/output.md
+    path: code-from-spec/functional/utils/file_reader/output.md
 ---
 
 # ROOT/functional/utils/file_reader

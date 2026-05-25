@@ -3,7 +3,7 @@ depends_on:
   - ROOT/functional/utils/file_reader
 outputs:
   - id: artifact_tag
-    path: artifacts/functional/utils/artifact_tag/output.md
+    path: code-from-spec/functional/utils/artifact_tag/output.md
 ---
 
 # ROOT/functional/utils/artifact_tag

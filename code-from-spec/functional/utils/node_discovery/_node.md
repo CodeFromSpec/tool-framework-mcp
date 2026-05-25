@@ -3,7 +3,7 @@ depends_on:
   - ROOT/functional/utils/logical_names
 outputs:
   - id: node_discovery
-    path: artifacts/functional/utils/node_discovery/output.md
+    path: code-from-spec/functional/utils/node_discovery/output.md
 ---
 
 # ROOT/functional/utils/node_discovery

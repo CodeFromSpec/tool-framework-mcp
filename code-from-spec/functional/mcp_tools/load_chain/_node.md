@@ -8,7 +8,7 @@ depends_on:
   - ROOT/functional/utils/path_validation
 outputs:
   - id: load_chain
-    path: artifacts/functional/mcp_tools/load_chain/output.md
+    path: code-from-spec/functional/mcp_tools/load_chain/output.md
 ---
 
 # ROOT/functional/mcp_tools/load_chain

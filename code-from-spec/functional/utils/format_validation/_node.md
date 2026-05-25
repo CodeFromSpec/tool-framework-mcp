@@ -10,7 +10,7 @@ external:
   - path: CODE_FROM_SPEC.md
 outputs:
   - id: format_validation
-    path: artifacts/functional/utils/format_validation/output.md
+    path: code-from-spec/functional/utils/format_validation/output.md
 ---
 
 # ROOT/functional/utils/format_validation

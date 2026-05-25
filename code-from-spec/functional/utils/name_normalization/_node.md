@@ -1,7 +1,7 @@
 ---
 outputs:
   - id: name_normalization
-    path: artifacts/functional/utils/name_normalization/output.md
+    path: code-from-spec/functional/utils/name_normalization/output.md
 ---
 
 # ROOT/functional/utils/name_normalization

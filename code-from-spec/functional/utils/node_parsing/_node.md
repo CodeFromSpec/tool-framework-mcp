@@ -5,7 +5,7 @@ depends_on:
   - ROOT/functional/utils/name_normalization
 outputs:
   - id: node_parsing
-    path: artifacts/functional/utils/node_parsing/output.md
+    path: code-from-spec/functional/utils/node_parsing/output.md
 ---
 
 # ROOT/functional/utils/node_parsing

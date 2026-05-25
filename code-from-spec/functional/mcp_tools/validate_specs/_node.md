@@ -11,7 +11,7 @@ depends_on:
   - ROOT/functional/utils/path_validation
 outputs:
   - id: validate_specs
-    path: artifacts/functional/mcp_tools/validate_specs/output.md
+    path: code-from-spec/functional/mcp_tools/validate_specs/output.md
 ---
 
 # ROOT/functional/mcp_tools/validate_specs

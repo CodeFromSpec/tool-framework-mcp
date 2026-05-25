@@ -5,7 +5,7 @@ depends_on:
   - ROOT/functional/utils/path_validation
 outputs:
   - id: write_file
-    path: artifacts/functional/mcp_tools/write_file/output.md
+    path: code-from-spec/functional/mcp_tools/write_file/output.md
 ---
 
 # ROOT/functional/mcp_tools/write_file

@@ -4,7 +4,7 @@ depends_on:
   - ROOT/functional/utils/frontmatter
 outputs:
   - id: node_ranking
-    path: artifacts/functional/utils/node_ranking/output.md
+    path: code-from-spec/functional/utils/node_ranking/output.md
 ---
 
 # ROOT/functional/utils/node_ranking
