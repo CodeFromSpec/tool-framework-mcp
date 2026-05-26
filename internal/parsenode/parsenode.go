@@ -132,10 +132,9 @@ func ParseNode(logicalName string) (*ParsedNode, error) {
 	}
 
 	// Step 8 — validate the first section's heading against the logical name.
-	expectedName := lastSegment(logicalName)
-	if normalizename.NormalizeName(sections[0].Heading) != normalizename.NormalizeName(expectedName) {
+	if normalizename.NormalizeName(sections[0].Heading) != normalizename.NormalizeName(logicalName) {
 		return nil, fmt.Errorf(
-			"%s: %w: first heading is %q, expected last segment of %q",
+			"%s: %w: first heading is %q, expected %q",
 			filePath, ErrInvalidNodeName, sections[0].Heading, logicalName,
 		)
 	}
@@ -303,7 +302,7 @@ func parseSections(body []byte) ([]Section, error) {
 		}
 		headings = append(headings, headingEntry{
 			level:     h.Level,
-			text:      headingText(h, source),
+			text:      normalizename.NormalizeName(headingText(h, source)),
 			lineStart: headingLineStart(h, source),
 			lineEnd:   headingLineEnd(h, source),
 		})
@@ -367,7 +366,7 @@ func parseSections(body []byte) ([]Section, error) {
 		case 1:
 			// Close any open subsection.
 			if cur != nil && subHeading != "" {
-				subContent := trimContent(source[subStart:cur.contentEnd])
+				subContent := trimContent(source[subStart:h.lineStart])
 				cur.sec.Subsections = append(cur.sec.Subsections, Subsection{
 					Heading: subHeading,
 					Content: subContent,
@@ -393,8 +392,7 @@ func parseSections(body []byte) ([]Section, error) {
 
 		case 2:
 			if cur == nil {
-				// Level-2 heading before any level-1 heading — ignore.
-				continue
+				return nil, ErrUnexpectedContent
 			}
 			if subHeading == "" {
 				// First subsection in this section: the section's direct content
@@ -529,23 +527,3 @@ func hasNonBlankContent(b []byte) bool {
 	return false
 }
 
-// ---------------------------------------------------------------------------
-// Logical name helpers
-// ---------------------------------------------------------------------------
-
-// lastSegment derives the expected heading text from a logical name:
-//  1. Strip any parenthetical qualifier: "ROOT/x/y(z)" → "ROOT/x/y".
-//  2. Return the last path segment after the final '/'. For "ROOT" with no
-//     '/', return "ROOT" itself.
-func lastSegment(logicalName string) string {
-	name := logicalName
-	// Strip qualifier.
-	if idx := strings.Index(name, "("); idx >= 0 {
-		name = name[:idx]
-	}
-	// Take last segment.
-	if idx := strings.LastIndex(name, "/"); idx >= 0 {
-		return name[idx+1:]
-	}
-	return name
-}

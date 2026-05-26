@@ -1,50 +1,70 @@
-<!-- code-from-spec: ROOT/functional/utils/chain_hash@1ZciGipwCMwdf-xzAMKkP8P56rQ -->
+<!-- code-from-spec: ROOT/functional/utils/chain_hash@YRLj-9uV__mZdA8VdWgDJVg0tUo -->
 
 # chain_hash
 
-Computes the chain hash for a given spec node. The chain hash is a
-27-character base64url-encoded SHA-1 digest used for artifact staleness
-detection.
+Computes the chain hash for a spec node. The chain hash is a 27-character
+base64url-encoded SHA-1 that captures the full set of inputs for a given
+node — ancestors, dependencies, external files, and the target itself.
 
 ---
 
-## Data Structures
+## Dependencies
 
-```
-record ContentHash
-  raw_bytes: 20 bytes   -- raw SHA-1 digest, not encoded
-```
+Uses the following utilities:
+
+- `file_reader` — sequential line-by-line file reading (OpenFileReader,
+  ReadLine, Close).
+- `frontmatter` — ParseFrontmatter for reading depends_on, external, input,
+  and outputs fields.
+- `logical_names` — ResolvePath, ResolveArtifactReference, GetParent,
+  ExtractQualifier.
 
 ---
 
 ## Helper: ExtractSection
 
 ```
-function ExtractSection(file_content, heading) -> string
+function ExtractSection(file_path, heading) -> string
+```
 
-  Parameters:
-    file_content  -- raw normalized text of the file (CRLF → LF already applied)
-    heading       -- the exact heading line to search for (e.g. "# Public", "## Interface")
+Reads `file_path` and returns the raw (CRLF-normalized to LF) text of the
+section that begins with `heading`, up to (but not including) the next line
+that starts with `#` at the same or higher level, or end of file.
 
-  Returns: the raw text from the heading line (inclusive) to the next
-           heading at the same or higher level (exclusive), or end of file.
-           Returns empty string if heading is not found.
+The heading line itself is included in the returned text.
 
-  1. Split file_content into lines.
+If the heading is not found in the file, returns an empty string.
 
-  2. Scan lines for a line that equals heading exactly.
-     If no such line is found, return empty string.
+Parameters:
+- file_path: string — path to the spec node file.
+- heading: string — exact heading text, e.g. `"# Public"` or `"## Interface"`.
 
-  3. Determine the heading level by counting the leading "#" characters
-     in heading (e.g. "# Public" → level 1, "## z" → level 2).
+Steps:
 
-  4. Starting from the found heading line, collect lines until:
-     - A line that starts with one to <level> "#" characters followed
-       by a space is encountered (a heading at the same or higher level).
-     - Or end of file is reached.
-     Include the heading line itself; exclude the terminating heading line.
+  1. Open a FileReader for file_path.
+     If the file cannot be opened, raise error "unreadable file: <file_path>".
 
-  5. Join the collected lines with LF and return.
+  2. Determine heading_level: count the leading `#` characters in heading.
+
+  3. Read lines one at a time, normalizing CRLF to LF, until end of file.
+     Keep a flag `inside` (initially false) and a buffer `lines` (initially
+     empty).
+
+     For each line:
+       If `inside` is false:
+         If the line equals heading, set `inside` to true and append the
+         line to `lines`.
+       Else (`inside` is true):
+         If the line starts with one or more `#` characters and the number
+         of leading `#` characters is less than or equal to heading_level:
+           Stop reading — the section has ended.
+         Else:
+           Append the line to `lines`.
+
+  4. Close the reader.
+
+  5. Join `lines` with LF and return the result.
+     If `lines` is empty, return an empty string.
 ```
 
 ---
@@ -52,59 +72,113 @@ function ExtractSection(file_content, heading) -> string
 ## Helper: ExtractSubsection
 
 ```
-function ExtractSubsection(file_content, parent_heading, subsection_heading) -> string
+function ExtractSubsection(file_path, parent_heading, sub_heading) -> string
+```
 
-  Parameters:
-    file_content         -- raw normalized text of the file
-    parent_heading       -- e.g. "# Public"
-    subsection_heading   -- e.g. "## z"
+Reads `file_path`, first locates the section beginning with `parent_heading`
+(a `#`-level heading), and within it locates the subsection beginning with
+`sub_heading` (a `##`-level heading). Returns the raw (CRLF-normalized to LF)
+text of that subsection.
 
-  Returns: the raw text of the subsection within the parent section.
-           Returns empty string if either heading is not found.
+Used for `depends_on: ROOT/x/y(z)` entries — the qualifier `z` is a `##`
+subsection inside `# Public`.
 
-  1. Call ExtractSection(file_content, parent_heading) to obtain the
-     parent section text.
-     If the result is empty, return empty string.
+Parameters:
+- file_path: string — path to the spec node file.
+- parent_heading: string — e.g. `"# Public"`.
+- sub_heading: string — e.g. `"## Interface"`.
 
-  2. Call ExtractSection(parent_section_text, subsection_heading) to
-     obtain the subsection text.
-     Return the result (may be empty).
+Steps:
+
+  1. Open a FileReader for file_path.
+     If the file cannot be opened, raise error "unreadable file: <file_path>".
+
+  2. Determine parent_level: count leading `#` in parent_heading.
+     Determine sub_level: count leading `#` in sub_heading.
+
+  3. Read lines one at a time (CRLF → LF).
+     Keep flags `in_parent` (false), `in_sub` (false), and buffer `lines`
+     (empty).
+
+     For each line:
+       If `in_sub` is true:
+         If line starts with `#` and leading `#` count <= sub_level:
+           Stop reading.
+         Else:
+           Append line to `lines`.
+       Else if `in_parent` is true:
+         If line starts with `#` and leading `#` count <= parent_level:
+           Stop reading — left parent without finding subsection.
+         Else if line equals sub_heading:
+           Set `in_sub` to true, append line to `lines`.
+       Else:
+         If line equals parent_heading:
+           Set `in_parent` to true.
+
+  4. Close the reader.
+
+  5. Join `lines` with LF and return. If `lines` is empty, return "".
 ```
 
 ---
 
-## Helper: StripFrontmatter
+## Helper: ReadFileStripFrontmatter
 
 ```
-function StripFrontmatter(file_content) -> string
+function ReadFileStripFrontmatter(file_path) -> string
+```
 
-  Returns the file content with the leading YAML frontmatter block removed.
-  If no frontmatter is present, returns the content unchanged.
+Reads a file, normalizes CRLF to LF, and removes any leading YAML frontmatter
+block (content between the first `---` delimiter pair, inclusive).
 
-  1. Split file_content into lines.
+Used for `ARTIFACT/` references in `depends_on` and `input`.
 
-  2. If the first line is not exactly "---", return file_content unchanged.
+Parameters:
+- file_path: string — path to an artifact file.
 
-  3. Scan subsequent lines for the next line that is exactly "---".
-     If not found, return file_content unchanged (treat as no frontmatter).
+Steps:
 
-  4. Return the content from the line after the closing "---" to end of
-     file, joined with LF.
-     The returned string begins with LF if there is a blank line after "---",
-     or with the first content character otherwise.
+  1. Open a FileReader for file_path.
+     If the file cannot be opened, raise error "unreadable file: <file_path>".
+
+  2. Read all lines (CRLF → LF) into a buffer `all_lines`.
+
+  3. Close the reader.
+
+  4. Check for frontmatter:
+     If the first non-empty line is exactly `---`:
+       Find the next line (after the first `---`) that is also exactly `---`.
+       If found, discard all lines up to and including that second `---`.
+       The remaining lines form the content.
+     Else:
+       All lines form the content.
+
+  5. Join the content lines with LF and return.
 ```
 
 ---
 
-## Helper: NormalizeCRLF
+## Helper: ReadFileRaw
 
 ```
-function NormalizeCRLF(raw_bytes) -> string
+function ReadFileRaw(file_path) -> string
+```
 
-  1. Replace every occurrence of CR+LF (byte sequence 0x0D 0x0A) with
-     a single LF (0x0A).
+Reads the entire file, normalizing CRLF to LF. No other processing.
 
-  2. Return the resulting string.
+Parameters:
+- file_path: string.
+
+Steps:
+
+  1. Open a FileReader for file_path.
+     If the file cannot be opened, raise error "unreadable file: <file_path>".
+
+  2. Read all lines (CRLF → LF) into `all_lines`.
+
+  3. Close the reader.
+
+  4. Return all lines joined with LF.
 ```
 
 ---
@@ -112,41 +186,39 @@ function NormalizeCRLF(raw_bytes) -> string
 ## Helper: SHA1Digest
 
 ```
-function SHA1Digest(content) -> 20 bytes
-
-  1. Compute the SHA-1 hash of content (treated as a byte sequence).
-
-  2. Return the raw 20-byte digest.
+function SHA1Digest(text) -> bytes (20 bytes)
 ```
+
+Computes the SHA-1 digest of `text` encoded as UTF-8.
+Returns the raw 20-byte digest.
 
 ---
 
 ## Helper: ResolveArtifactFilePath
 
 ```
-function ResolveArtifactFilePath(artifact_logical_name) -> string
+function ResolveArtifactFilePath(logical_name) -> string
+```
 
-  Parameters:
-    artifact_logical_name -- an "ARTIFACT/x/y(id)" logical name
+Resolves an `ARTIFACT/x/y(id)` logical name to the file path of the
+generated artifact.
 
-  Returns: the file path of the referenced artifact on disk.
+Parameters:
+- logical_name: string — must start with `ARTIFACT/` and have a qualifier.
 
-  1. Call ResolveArtifactReference(artifact_logical_name) to obtain
-     node_path and artifact_id.
-     If it raises an error, raise error "invalid logical name: <artifact_logical_name>".
+Steps:
 
-  2. Call ResolvePath(node_path) to obtain the _node.md file path for
-     the node.
+  1. Call ResolveArtifactReference(logical_name) to get
+     record { node_path, artifact_id }.
+     If it raises "unrecognized prefix" or "missing qualifier",
+     propagate as error "invalid logical name: <logical_name>".
 
-  3. Call ParseFrontmatter on the _node.md file path to obtain the
-     node's frontmatter.
-     If it raises an error, raise error "unreadable file: <node_path>".
+  2. Call ParseFrontmatter(node_path) to get the node's frontmatter.
+     For each entry in frontmatter.outputs:
+       If entry.id equals artifact_id, return entry.path.
 
-  4. Search the frontmatter's outputs list for an entry whose id equals
-     artifact_id.
-     If not found, raise error "invalid logical name: artifact id <artifact_id> not found in <node_path>".
-
-  5. Return the matched output's path.
+  3. If no matching output found, raise error
+     "invalid logical name: <logical_name> — artifact id not found".
 ```
 
 ---
@@ -155,172 +227,122 @@ function ResolveArtifactFilePath(artifact_logical_name) -> string
 
 ```
 function ComputeChainHash(logical_name) -> string
-
-  Parameters:
-    logical_name -- a ROOT/ logical name identifying the target spec node
-
-  Returns: a 27-character base64url-encoded SHA-1 string (RFC 4648 §5,
-           no padding).
-
-  Errors:
-    - "invalid logical name: <detail>"  -- cannot resolve the logical name
-    - "unreadable file: <path>"         -- a required file cannot be read
-
-  -- ----------------------------------------------------------------
-  -- Preparation
-  -- ----------------------------------------------------------------
-
-  1. Verify that logical_name starts with "ROOT/".
-     If not, raise error "invalid logical name: only ROOT/ names are supported".
-
-  2. Call ResolvePath(logical_name) to get the target node's file path.
-     Call OpenFileReader on that path.
-     If the file is unreadable, raise error "unreadable file: <path>".
-     Read the full file content and normalize CRLF → LF via NormalizeCRLF.
-     This is target_content.
-
-  3. Call ParseFrontmatter on the target node file path to obtain
-     target_frontmatter.
-
-  -- ----------------------------------------------------------------
-  -- Accumulator
-  -- ----------------------------------------------------------------
-
-  4. Initialize digest_list as an empty list of 20-byte values.
-     Each step below appends raw SHA-1 digests to digest_list.
-
-  -- ----------------------------------------------------------------
-  -- Step 1 — Ancestor # Public hashes
-  -- ----------------------------------------------------------------
-
-  5. Build the ancestor chain:
-     a. Start with current = logical_name.
-     b. Repeatedly call GetParent(current) and prepend the result to
-        the ancestor list until GetParent raises "no parent".
-        (This gives ancestors from ROOT down to the target's parent,
-        not including the target itself.)
-
-  6. For each ancestor in root-first order:
-     a. Call ResolvePath(ancestor) to get the file path.
-     b. Read the file content; normalize CRLF → LF.
-        If unreadable, raise error "unreadable file: <path>".
-     c. Call ExtractSection(content, "# Public").
-        If the result is empty, skip (do not append a digest).
-     d. Otherwise, compute SHA1Digest(section_text) and append to
-        digest_list.
-
-  -- ----------------------------------------------------------------
-  -- Step 2 — depends_on hashes
-  -- ----------------------------------------------------------------
-
-  7. Collect all depends_on entries from target_frontmatter.
-     Sort them alphabetically by their logical name string.
-
-  8. For each depends_on entry (in sorted order):
-
-     a. If the entry is a ROOT/ name without a qualifier
-        (e.g. "ROOT/x/y"):
-          i.  Call ResolvePath(entry) to get the file path.
-          ii. Read and normalize the file content.
-              If unreadable, raise error "unreadable file: <path>".
-          iii.Call ExtractSection(content, "# Public").
-              If empty, skip.
-          iv. Compute SHA1Digest(section_text) and append to digest_list.
-
-     b. If the entry is a ROOT/ name with a qualifier
-        (e.g. "ROOT/x/y(z)"):
-          i.  Call ExtractQualifier(entry) to get qualifier z.
-          ii. Call ResolvePath(entry) to get the file path
-              (qualifier is stripped automatically).
-          iii.Read and normalize the file content.
-              If unreadable, raise error "unreadable file: <path>".
-          iv. Call ExtractSubsection(content, "# Public", "## <z>").
-              If empty, skip.
-          v.  Compute SHA1Digest(subsection_text) and append to
-              digest_list.
-
-     c. If the entry is an ARTIFACT/ name (e.g. "ARTIFACT/x/y(id)"):
-          i.  Call ResolveArtifactFilePath(entry) to get the file path.
-          ii. Read and normalize the file content.
-              If unreadable, raise error "unreadable file: <path>".
-          iii.Call StripFrontmatter(content).
-          iv. Compute SHA1Digest(stripped_content) and append to
-              digest_list.
-
-  -- ----------------------------------------------------------------
-  -- Step 3 — external file hashes
-  -- ----------------------------------------------------------------
-
-  9. Collect all external entries from target_frontmatter.
-     Sort them alphabetically by their path field.
-
-  10. For each external entry (in sorted order):
-
-      a. If the entry has no fragments (fragments field is absent or empty):
-           i.  Read the file at entry.path; normalize CRLF → LF.
-               If unreadable, raise error "unreadable file: <entry.path>".
-           ii. Compute SHA1Digest(full_content) and append to digest_list.
-
-      b. If the entry has fragments:
-           i.  Read the file at entry.path; normalize CRLF → LF.
-               If unreadable, raise error "unreadable file: <entry.path>".
-           ii. Split the file content into a list of lines.
-           iii.For each fragment in declaration order:
-                 - Parse the fragment's lines field as a line range
-                   "<start>-<end>" (1-based, inclusive).
-                 - Extract lines[start-1 .. end] (inclusive both ends).
-                 - Join extracted lines with LF, appending a trailing LF.
-                 - Append the fragment text to a concatenation buffer.
-           iv. Compute SHA1Digest(concatenated_fragment_text) and append
-               to digest_list.
-
-  -- ----------------------------------------------------------------
-  -- Step 4 — Target # Public hash
-  -- ----------------------------------------------------------------
-
-  11. Call ExtractSection(target_content, "# Public").
-      If the result is not empty:
-        Compute SHA1Digest(section_text) and append to digest_list.
-
-  -- ----------------------------------------------------------------
-  -- Step 5 — Target # Agent hash
-  -- ----------------------------------------------------------------
-
-  12. Call ExtractSection(target_content, "# Agent").
-      If the result is not empty:
-        Compute SHA1Digest(section_text) and append to digest_list.
-
-  -- ----------------------------------------------------------------
-  -- Step 6 — Input hash
-  -- ----------------------------------------------------------------
-
-  13. If target_frontmatter.input is not empty:
-      a. Call ResolveArtifactFilePath(target_frontmatter.input) to get
-         the artifact file path.
-      b. Read and normalize the file content.
-         If unreadable, raise error "unreadable file: <path>".
-      c. Call StripFrontmatter(content).
-      d. Compute SHA1Digest(stripped_content) and append to digest_list.
-
-  -- ----------------------------------------------------------------
-  -- Step 7 — Final hash
-  -- ----------------------------------------------------------------
-
-  14. Concatenate all entries in digest_list as raw bytes
-      (each entry is exactly 20 bytes; the concatenation is
-      20 × len(digest_list) bytes).
-
-  15. Compute SHA1Digest(concatenated_raw_bytes) to get the final
-      20-byte digest.
-
-  16. Encode the final digest as base64url:
-      - Use the RFC 4648 §5 alphabet
-        ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_").
-      - Omit padding characters ("=").
-      - The result is exactly 27 characters.
-
-  17. Return the 27-character string.
+  errors:
+    - invalid logical name: cannot resolve the logical name.
+    - unreadable file: a file in the chain cannot be read.
 ```
+
+Returns a 27-character base64url-encoded SHA-1 string.
+
+### Steps
+
+**Step 1 — Validate and resolve target**
+
+  1. If logical_name does not start with `"ROOT/"` and is not `"ROOT"`,
+     raise error "invalid logical name: <logical_name>".
+
+  2. Call ResolvePath(logical_name) to get target_file_path.
+     If it raises an error, propagate as "invalid logical name: <logical_name>".
+
+  3. Read the target's frontmatter:
+     Call ParseFrontmatter(target_file_path) -> target_fm.
+     If it raises an error, propagate as
+     "unreadable file: <target_file_path>".
+
+**Step 2 — Collect ancestor content hashes**
+
+  Initialize `digest_list` as an empty list of byte sequences.
+
+  Build the ancestor chain:
+    Start with current = logical_name (stripped of any qualifier).
+    Repeatedly call GetParent(current) until "no parent" is raised.
+    Collect all returned values in a list — these are the ancestors from
+    root down to the target's parent.
+
+  For each ancestor in root-to-parent order:
+    a. Call ResolvePath(ancestor) -> ancestor_file_path.
+    b. Call ExtractSection(ancestor_file_path, "# Public") -> section_text.
+    c. If section_text is not empty:
+         Compute SHA1Digest(section_text) and append to digest_list.
+    d. If section_text is empty, skip (do not append).
+
+**Step 3 — Collect depends_on content hashes**
+
+  Sort target_fm.depends_on alphabetically by the logical name string.
+
+  For each entry in sorted order:
+
+    Case A — entry starts with `"ROOT/"` and has no qualifier
+    (ExtractQualifier returns absent):
+      a. Call ResolvePath(entry) -> dep_file_path.
+      b. Call ExtractSection(dep_file_path, "# Public") -> section_text.
+      c. Compute SHA1Digest(section_text) and append to digest_list.
+         (If section_text is empty, SHA1Digest of "" is still appended.)
+
+    Case B — entry starts with `"ROOT/"` and has a qualifier q:
+      a. Call ResolvePath(entry) -> dep_file_path.
+         (ResolvePath strips the qualifier.)
+      b. Call ExtractSubsection(dep_file_path, "# Public", "## <q>")
+         -> sub_text.
+      c. Compute SHA1Digest(sub_text) and append to digest_list.
+
+    Case C — entry starts with `"ARTIFACT/"`:
+      a. Call ResolveArtifactFilePath(entry) -> artifact_file_path.
+      b. Call ReadFileStripFrontmatter(artifact_file_path) -> content.
+      c. Compute SHA1Digest(content) and append to digest_list.
+
+    If any resolution or read raises an error, propagate it unchanged.
+
+**Step 4 — Collect external content hashes**
+
+  Sort target_fm.external alphabetically by the `path` field.
+
+  For each external entry in sorted order:
+
+    If external entry has no fragments (fragments is absent or empty):
+      a. Call ReadFileRaw(external.path) -> content.
+      b. Compute SHA1Digest(content) and append to digest_list.
+
+    If external entry has fragments:
+      a. Initialize `combined` as an empty string.
+      b. For each fragment in declaration order:
+           Parse fragment.lines as a line range "<start>-<end>" (1-based,
+           inclusive).
+           Open a FileReader for external.path.
+           Skip (start - 1) lines using SkipLines.
+           Read (end - start + 1) lines. Normalize CRLF → LF.
+           Append these lines (joined with LF) to `combined`.
+           Close the reader.
+      c. Compute SHA1Digest(combined) and append to digest_list.
+
+**Step 5 — Target # Public content hash**
+
+  a. Call ExtractSection(target_file_path, "# Public") -> pub_text.
+  b. If pub_text is not empty:
+       Compute SHA1Digest(pub_text) and append to digest_list.
+
+**Step 6 — Target # Agent content hash**
+
+  a. Call ExtractSection(target_file_path, "# Agent") -> agent_text.
+  b. If agent_text is not empty:
+       Compute SHA1Digest(agent_text) and append to digest_list.
+
+**Step 7 — Input content hash**
+
+  If target_fm.input is not empty:
+    a. Call ResolveArtifactFilePath(target_fm.input) -> input_file_path.
+    b. Call ReadFileStripFrontmatter(input_file_path) -> content.
+    c. Compute SHA1Digest(content) and append to digest_list.
+
+**Step 8 — Final hash**
+
+  a. Concatenate all byte sequences in digest_list in order.
+     Each SHA-1 digest is 20 raw bytes; the concatenation is
+     (N × 20) bytes where N is the length of digest_list.
+  b. Compute SHA1Digest of the concatenation -> final_bytes.
+  c. Encode final_bytes as base64url (RFC 4648 §5, no padding).
+     The result is 27 characters.
+  d. Return the 27-character string.
 
 ---
 
@@ -328,5 +350,14 @@ function ComputeChainHash(logical_name) -> string
 
 | Error | Trigger |
 |---|---|
-| `"invalid logical name: <detail>"` | logical_name does not start with ROOT/, or an ARTIFACT/ reference cannot be resolved |
-| `"unreadable file: <path>"` | any required file on disk cannot be opened or read |
+| `"invalid logical name: <name>"` | Logical name cannot be resolved, or ARTIFACT id not found |
+| `"unreadable file: <path>"` | Any file in the chain cannot be opened or read |
+
+---
+
+## Invariants
+
+- All content is read raw from disk, never from parsed or reconstructed data.
+- The only normalization applied before hashing is CRLF → LF.
+- Identical files on disk always produce the identical hash (deterministic).
+- The output is always exactly 27 characters (base64url, no padding, SHA-1).

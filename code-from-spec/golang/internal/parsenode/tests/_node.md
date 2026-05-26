@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - ROOT/golang/internal/parsenode
   - ROOT/golang/internal/logical_names
 input: ARTIFACT/golang/internal/parsenode/code(parsenode)
 outputs:
@@ -367,7 +366,9 @@ File content (no `---`):
 Just text.
 ```
 
-Expect `errors.Is(err, ErrFrontmatterMissing)`.
+Expect no error. Frontmatter is optional.
+`NameSection.Heading` = `"root/m"`.
+`NameSection.Content` = `"Just text."`.
 
 ### Content before first heading
 

@@ -1,19 +1,19 @@
-<!-- code-from-spec: ROOT/functional/utils/format_validation@uxv3UKsmqN0cbX6TW_NVjQp0OKc -->
+<!-- code-from-spec: ROOT/functional/utils/format_validation@SJUQ-YQtqnJOV4jn8Y5E0C7FCKs -->
 
-# ValidateFormat
+# Format Validation
 
 ## Records
 
 ```
 record FormatError
-  node:   string   -- logical name of the node that failed validation
-  rule:   string   -- short identifier for the rule that was violated
-  detail: string   -- human-readable explanation of the violation
+  node:   string   -- logical name of the node where the error was found
+  rule:   string   -- name of the rule that was violated
+  detail: string   -- human-readable description of the specific violation
 ```
 
----
-
 ## Functions
+
+---
 
 ### ValidateFormat(discovered_nodes) -> list of FormatError
 
@@ -21,176 +21,253 @@ record FormatError
 - `logical_name`: string
 - `file_path`: string
 
-Returns a list of FormatError records. Returns an empty list when all
-nodes are valid. All errors across all nodes are collected before
-returning — validation does not stop at the first error.
+Returns a (possibly empty) list of FormatError. All errors from
+all nodes are collected before returning — validation never stops
+at the first error.
 
-Errors:
-- "unreadable node": a node file cannot be opened or read.
+Steps:
 
-**Steps:**
+1. Initialize `errors` as an empty list.
 
-1. Initialize `all_errors` as an empty list.
+2. For each `node` in `discovered_nodes`:
 
-2. Build a set `all_logical_names` containing the `logical_name` of
-   every entry in `discovered_nodes`.
-   This set is used to classify nodes as leaf or intermediate, and
-   to verify dependency targets.
-
-3. For each `node` in `discovered_nodes`:
-
-   3a. Determine whether `node` is an **intermediate node** (has
-       children) or a **leaf node** (has no children).
-       A node is intermediate if any other entry in `all_logical_names`
-       starts with the node's `logical_name` followed by "/".
-       Otherwise the node is a leaf.
-
-   3b. Open the file at `node.file_path` using `file_reader`.
-       If the file cannot be read, append a FormatError:
+   2a. Open the file at `node.file_path` using `OpenFileReader`.
+       If the file cannot be opened, add a FormatError:
          node:   <node.logical_name>
          rule:   "unreadable node"
-         detail: "file at <node.file_path> cannot be opened"
-       Skip all remaining checks for this node and continue to the
-       next node.
+         detail: "cannot open file at <node.file_path>"
+       Skip remaining steps for this node and continue to the
+       next.
 
-   3c. Parse frontmatter from the file using `frontmatter`.
-       Store result as `fm` (fields: `depends_on`, `external`,
-       `input`, `outputs`).
-
-   3d. Parse the node body using `node_parsing`.
-       Store result as `parsed` (fields: `name_section`,
-       `public`, `agent`, `private`).
-
-   3e. **Rule: name verification.**
-       Use `logical_names` reverse resolution on `node.file_path`
-       to obtain the expected logical name `expected_name`.
-       Normalize both `parsed.name_section.heading` and
-       `expected_name` using `name_normalization`.
-       If the normalized values differ, append a FormatError:
+   2b. Parse the frontmatter from the file using `ParseFrontmatter`.
+       If parsing fails (malformed YAML or unreadable), add a
+       FormatError:
          node:   <node.logical_name>
-         rule:   "name mismatch"
-         detail: "heading \"<parsed.name_section.heading>\" does not
-                  match expected logical name \"<expected_name>\""
+         rule:   "unreadable node"
+         detail: "frontmatter parse error: <error message>"
+       Close the reader. Skip remaining steps for this node.
 
-   3f. **Rule: frontmatter field restrictions (intermediate nodes
-       only).**
-       If the node is intermediate:
-
-       If `fm.depends_on` is not empty, append a FormatError:
+   2c. Parse the body using `ParseNode`.
+       If parsing fails (unexpected content, duplicate sections,
+       etc.), add a FormatError:
          node:   <node.logical_name>
-         rule:   "depends_on on intermediate node"
-         detail: "field depends_on is not permitted on nodes with children"
+         rule:   "unreadable node"
+         detail: "body parse error: <error message>"
+       Close the reader. Skip remaining steps for this node.
 
-       If `fm.external` is not empty, append a FormatError:
-         node:   <node.logical_name>
-         rule:   "external on intermediate node"
-         detail: "field external is not permitted on nodes with children"
+   2d. Close the reader.
 
-       If `fm.input` is not empty, append a FormatError:
-         node:   <node.logical_name>
-         rule:   "input on intermediate node"
-         detail: "field input is not permitted on nodes with children"
+   2e. Determine whether this node is a leaf or intermediate.
+       A node is intermediate if any other node in
+       `discovered_nodes` has a logical name that starts with
+       `node.logical_name` followed by "/".
+       Otherwise it is a leaf.
 
-       If `fm.outputs` is not empty, append a FormatError:
-         node:   <node.logical_name>
-         rule:   "outputs on intermediate node"
-         detail: "field outputs is not permitted on nodes with children"
+   2f. Run all validation rules below against this node,
+       collecting any errors into `errors`.
 
-   3g. **Rule: agent section restriction (intermediate nodes only).**
-       If the node is intermediate and `parsed.agent` is present,
-       append a FormatError:
-         node:   <node.logical_name>
-         rule:   "agent section on intermediate node"
-         detail: "# Agent section is not permitted on nodes with children"
+3. Return `errors`.
 
-   3h. **Rule: dependency targets.**
-       For each `dep` in `fm.depends_on`:
+---
 
-       i. Resolve the logical name in `dep` to a file path using
-          `logical_names`.
-          If `dep` starts with "ARTIFACT/", use
-          `ResolveArtifactReference` to extract the node path, then
-          resolve that to a file path using `ResolvePath`.
-          If `dep` starts with "ROOT/", use `ResolvePath` directly.
-          If the resolved file does not exist in `all_logical_names`
-          (i.e., there is no discovered node whose `file_path` matches),
-          append a FormatError:
-            node:   <node.logical_name>
-            rule:   "missing dependency target"
-            detail: "depends_on entry \"<dep>\" does not resolve to a
-                     known node"
+### Rule: name_verification
 
-       ii. Strip any qualifier from the target's ROOT logical name to
-           get `target_bare`.
-           If `target_bare` is a prefix of `node.logical_name`
-           (i.e., `node.logical_name` starts with `target_bare`
-           followed by "/" or equals `target_bare`), the target is an
-           ancestor. Append a FormatError:
-             node:   <node.logical_name>
-             rule:   "depends_on ancestor"
-             detail: "depends_on entry \"<dep>\" points to an ancestor;
-                      ancestor content is already inherited"
+Applied to: all nodes.
 
-       iii. If `node.logical_name` is a prefix of `target_bare`
-            (i.e., `target_bare` starts with `node.logical_name`
-            followed by "/" or equals `node.logical_name`), the target
-            is a descendant. Append a FormatError:
-              node:   <node.logical_name>
-              rule:   "depends_on descendant"
-              detail: "depends_on entry \"<dep>\" points to a descendant;
-                       this would create a circular dependency"
+1. Derive the expected logical name from `node.file_path`
+   using `ReverseResolve` from `logical_names`.
+   If `ReverseResolve` returns an error, add a FormatError:
+     node:   <node.logical_name>
+     rule:   "name_verification"
+     detail: "cannot derive logical name from path: <error message>"
+   Stop this rule for the node.
 
-   3i. **Rule: external file existence and fragment hash verification.**
-       For each `ext` in `fm.external`:
+2. Obtain the actual first heading from `parsed_node.name_section.heading`.
 
-       i. Check whether the file at `ext.path` exists and can be
-          opened using `file_reader`.
-          If the file does not exist or cannot be read, append a
-          FormatError:
-            node:   <node.logical_name>
-            rule:   "missing external file"
-            detail: "external path \"<ext.path>\" does not exist or
-                     cannot be read"
-          Skip fragment checks for this entry and continue to the next.
+3. Normalize both the derived logical name and the first heading
+   using `NormalizeName` from `name_normalization`.
 
-       ii. If `ext.fragments` is not empty, for each `frag` in
-           `ext.fragments`:
+4. If the normalized values do not match, add a FormatError:
+     node:   <node.logical_name>
+     rule:   "name_verification"
+     detail: "heading \"<actual heading>\" does not match expected
+              logical name \"<expected logical name>\""
 
-           - Open the file at `ext.path` using `file_reader`.
-           - Parse `frag.lines` to obtain `start_line` and `end_line`
-             (the range is inclusive on both ends).
-           - Read lines from `start_line` to `end_line` (1-based).
-             Collect them as `extracted_content`.
-           - Normalize CRLF to LF in `extracted_content`.
-           - Compute the SHA-1 digest of `extracted_content`, encode
-             as base64url (RFC 4648 §5, no padding, 27 characters).
-           - If the computed hash does not equal `frag.hash`, append
-             a FormatError:
-               node:   <node.logical_name>
-               rule:   "fragment hash mismatch"
-               detail: "fragment at lines <frag.lines> of
-                        \"<ext.path>\" has hash <computed_hash> but
-                        declared hash is <frag.hash>"
+---
 
-   3j. **Rule: output path validation.**
-       For each `out` in `fm.outputs`:
-       Call `ValidatePath(out.path, project_root)`.
-       If `ValidatePath` raises an error, append a FormatError:
-         node:   <node.logical_name>
-         rule:   "invalid output path"
-         detail: "<the error message returned by ValidatePath>"
+### Rule: frontmatter_field_restrictions
 
-   3k. **Rule: duplicate public subsections.**
-       If `parsed.public` is present:
-       Collect the headings of all `##` subsections within
-       `parsed.public.subsections`.
-       Normalize each heading using `name_normalization`.
-       Build a list of seen normalized headings. For each normalized
-       heading, if it has already been seen, append a FormatError:
-         node:   <node.logical_name>
-         rule:   "duplicate public subsection"
-         detail: "subsection heading \"<original_heading>\" in
-                  # Public normalizes to \"<normalized>\" which
-                  conflicts with a previous subsection"
+Applied to: intermediate nodes only.
 
-4. Return `all_errors`.
+1. If the frontmatter has a non-empty `depends_on` list, add a
+   FormatError:
+     node:   <node.logical_name>
+     rule:   "frontmatter_field_restrictions"
+     detail: "intermediate node must not have \"depends_on\""
+
+2. If the frontmatter has a non-empty `external` list, add a
+   FormatError:
+     node:   <node.logical_name>
+     rule:   "frontmatter_field_restrictions"
+     detail: "intermediate node must not have \"external\""
+
+3. If the frontmatter has a non-empty `input`, add a FormatError:
+     node:   <node.logical_name>
+     rule:   "frontmatter_field_restrictions"
+     detail: "intermediate node must not have \"input\""
+
+4. If the frontmatter has a non-empty `outputs` list, add a
+   FormatError:
+     node:   <node.logical_name>
+     rule:   "frontmatter_field_restrictions"
+     detail: "intermediate node must not have \"outputs\""
+
+---
+
+### Rule: agent_section_restrictions
+
+Applied to: intermediate nodes only.
+
+1. If `parsed_node.agent` is present (not empty), add a
+   FormatError:
+     node:   <node.logical_name>
+     rule:   "agent_section_restrictions"
+     detail: "intermediate node must not have a \"# Agent\" section"
+
+---
+
+### Rule: dependency_targets
+
+Applied to: leaf nodes only (nodes that declare `depends_on`).
+
+For each `dep` in `frontmatter.depends_on`:
+
+1. Resolve `dep` to a file path using `ResolvePath` (for ROOT/
+   references) or `ResolveArtifactReference` (for ARTIFACT/
+   references) from `logical_names`.
+   If resolution fails, add a FormatError:
+     node:   <node.logical_name>
+     rule:   "dependency_targets"
+     detail: "cannot resolve depends_on entry \"<dep>\": <error message>"
+   Continue to the next entry.
+
+2. For ROOT/ references: verify that the resolved `_node.md` file
+   exists in `discovered_nodes` (i.e., a node with that file path
+   is present).
+   If not found, add a FormatError:
+     node:   <node.logical_name>
+     rule:   "dependency_targets"
+     detail: "depends_on target \"<dep>\" does not exist"
+   Continue to the next entry.
+
+3. For ROOT/ references: check ancestor relationship.
+   Strip any qualifier from `dep` to get the bare logical name.
+   If `node.logical_name` starts with `<dep>/` (i.e., `dep` is
+   an ancestor of this node), add a FormatError:
+     node:   <node.logical_name>
+     rule:   "dependency_targets"
+     detail: "depends_on \"<dep>\" points to an ancestor (already inherited)"
+
+4. For ROOT/ references: check descendant relationship.
+   If `<dep>` starts with `node.logical_name + "/"` (i.e., `dep`
+   is a descendant of this node), add a FormatError:
+     node:   <node.logical_name>
+     rule:   "dependency_targets"
+     detail: "depends_on \"<dep>\" points to a descendant
+              (creates circular dependency)"
+
+---
+
+### Rule: external_file_existence
+
+Applied to: leaf nodes only (nodes that declare `external`).
+
+For each `ext` in `frontmatter.external`:
+
+1. Validate `ext.path` using `ValidatePath` from `path_validation`.
+   If validation fails, add a FormatError:
+     node:   <node.logical_name>
+     rule:   "external_file_existence"
+     detail: "invalid path \"<ext.path>\": <error message>"
+   Continue to the next entry.
+
+2. Attempt to open the file at `ext.path` using `OpenFileReader`.
+   If it cannot be opened, add a FormatError:
+     node:   <node.logical_name>
+     rule:   "external_file_existence"
+     detail: "external file not found: \"<ext.path>\""
+   Continue to the next entry.
+
+3. If `ext.fragments` is empty or absent, close the reader and
+   continue to the next entry.
+
+4. If `ext.fragments` is declared, for each `fragment` in
+   `ext.fragments`:
+
+   a. Read all lines from the file (or reopen it for each
+      fragment to avoid reader state issues). Use `SkipLines` to
+      skip to the start of the declared range, then read the
+      lines in the range.
+      The `fragment.lines` field is a range in the form
+      "<start>-<end>" (1-based, inclusive).
+
+   b. Compute SHA-1 of the extracted content (CRLF normalized to
+      LF), then encode as base64url (no padding, 27 characters).
+
+   c. If the computed hash does not equal `fragment.hash`, add a
+      FormatError:
+        node:   <node.logical_name>
+        rule:   "external_file_existence"
+        detail: "fragment hash mismatch for \"<ext.path>\"
+                 lines <fragment.lines>: expected \"<fragment.hash>\",
+                 got \"<computed_hash>\""
+
+5. Close the reader.
+
+---
+
+### Rule: output_path_validation
+
+Applied to: leaf nodes only (nodes that declare `outputs`).
+
+For each `out` in `frontmatter.outputs`:
+
+1. Call `ValidatePath(out.path, project_root)` from
+   `path_validation`.
+   If validation fails, add a FormatError:
+     node:   <node.logical_name>
+     rule:   "output_path_validation"
+     detail: "invalid output path \"<out.path>\": <error message>"
+
+---
+
+### Rule: duplicate_public_subsections
+
+Applied to: all nodes that have a `# Public` section.
+
+1. If `parsed_node.public` is absent, skip this rule.
+
+2. Initialize `seen_headings` as an empty list.
+
+3. For each `subsection` in `parsed_node.public.subsections`:
+
+   a. Normalize `subsection.heading` using `NormalizeName`.
+
+   b. If the normalized heading already exists in `seen_headings`,
+      add a FormatError:
+        node:   <node.logical_name>
+        rule:   "duplicate_public_subsections"
+        detail: "duplicate \"##\" heading in \"# Public\":
+                 \"<subsection.heading>\" (normalized: \"<normalized>\")"
+
+   c. Otherwise, append the normalized heading to `seen_headings`.
+```
+
+## Contracts
+
+- Every discovered node is validated regardless of whether it is a
+  leaf or intermediate.
+- All errors for all nodes are collected before returning. Validation
+  never stops at the first error in a node or across nodes.
+- "Unreadable node" is the only error that causes remaining rules to
+  be skipped for that node.

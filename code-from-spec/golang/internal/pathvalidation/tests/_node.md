@@ -1,6 +1,4 @@
 ---
-depends_on:
-  - ROOT/golang/internal/pathvalidation
 input: ARTIFACT/golang/internal/pathvalidation/code(pathvalidation)
 outputs:
   - id: pathvalidation_test

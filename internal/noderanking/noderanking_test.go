@@ -1,269 +1,286 @@
-// code-from-spec: ROOT/golang/internal/node_ranking/tests@3NFi7tpxAVTgsL5oIJN9qMGu1_A
+// code-from-spec: ROOT/golang/internal/node_ranking/tests@6sQQEQ23Vu31ebNHl_I7s71tPFg
 
-// Package noderanking tests the DetectCycles function which ranks discovered
-// nodes by their dependency depth and detects circular dependencies.
+// Package noderanking contains tests for the DetectCycles ranking algorithm.
+//
+// Test strategy:
+//   - Each test creates real _node.md files under t.TempDir() so that
+//     frontmatter.ParseFrontmatter can read them without touching the actual
+//     code-from-spec/ tree.
+//   - nodediscovery.DiscoveredNode slices are built manually (DetectCycles
+//     accepts them directly, so no DiscoverNodes call is needed).
+//   - All helper types and functions are prefixed with "test" per convention.
 package noderanking
 
 import (
 	"errors"
 	"os"
 	"path/filepath"
-	"sort"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/nodediscovery"
 )
 
-// ----------------------------------------------------------------------------
-// Test helpers
-// ----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-// testNodeFile creates a _node.md file at <dir>/<relPath>/_node.md with the
-// given frontmatter content. It also creates all necessary parent directories.
-func testNodeFile(t *testing.T, dir, relPath, frontmatter string) {
+// testNodeFile writes a _node.md file at the given absolute path with the
+// supplied frontmatter content. If frontmatter is empty string, the file is
+// written with no frontmatter delimiters (so ParseFrontmatter returns an empty
+// Frontmatter, which is fine — no deps, no outputs).
+func testNodeFile(t *testing.T, path string, fmYAML string) {
 	t.Helper()
 
-	nodeDir := filepath.Join(dir, filepath.FromSlash(relPath))
-	if err := os.MkdirAll(nodeDir, 0o755); err != nil {
-		t.Fatalf("testNodeFile: MkdirAll(%q): %v", nodeDir, err)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("testNodeFile: MkdirAll: %v", err)
 	}
 
-	content := "---\n" + frontmatter + "---\n"
-	nodeFile := filepath.Join(nodeDir, "_node.md")
-	if err := os.WriteFile(nodeFile, []byte(content), 0o644); err != nil {
-		t.Fatalf("testNodeFile: WriteFile(%q): %v", nodeFile, err)
+	var content string
+	if fmYAML != "" {
+		content = "---\n" + fmYAML + "\n---\n"
+	}
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("testNodeFile: WriteFile: %v", err)
 	}
 }
 
-// testRankOf returns the rank for a given logicalName from a slice of
-// RankedEntry values. It fails the test if the name is not found.
-func testRankOf(t *testing.T, entries []RankedEntry, logicalName string) int {
+// testMakeNode returns a DiscoveredNode with the given logical name and a
+// _node.md file created under dir.
+//
+// The file path mirrors the logical name hierarchy so that the tests remain
+// easy to read: ROOT → root, ROOT/a → root/a, etc.
+func testMakeNode(t *testing.T, dir string, logicalName string, fmYAML string) nodediscovery.DiscoveredNode {
+	t.Helper()
+
+	// Derive a sub-path from the logical name for file placement.
+	// e.g. "ROOT/a/b" → "<dir>/ROOT/a/b/_node.md"
+	filePath := filepath.Join(dir, filepath.FromSlash(logicalName), "_node.md")
+	testNodeFile(t, filePath, fmYAML)
+
+	return nodediscovery.DiscoveredNode{
+		LogicalName: logicalName,
+		FilePath:    filePath,
+	}
+}
+
+// testFindRank returns the rank of the entry with the given logical name from
+// a slice of RankedEntry. It fails the test if the name is not found.
+func testFindRank(t *testing.T, entries []RankedEntry, logicalName string) int {
 	t.Helper()
 	for _, e := range entries {
 		if e.LogicalName == logicalName {
 			return e.Rank
 		}
 	}
-	t.Fatalf("testRankOf: %q not found in ranked entries", logicalName)
+	t.Fatalf("testFindRank: entry %q not found in ranked entries", logicalName)
 	return -1
 }
 
-// testContains returns true if the given string slice contains the value.
-func testContains(slice []string, value string) bool {
+// testContains returns true when slice contains target.
+func testContains(slice []string, target string) bool {
 	for _, s := range slice {
-		if s == value {
+		if s == target {
 			return true
 		}
 	}
 	return false
 }
 
-// testSortedNames returns a sorted copy of the logical names from RankedEntry
-// entries, for stable comparisons.
-func testSortedNames(entries []RankedEntry) []string {
-	names := make([]string, len(entries))
-	for i, e := range entries {
-		names[i] = e.LogicalName
-	}
-	sort.Strings(names)
-	return names
-}
+// ---------------------------------------------------------------------------
+// Happy-path tests
+// ---------------------------------------------------------------------------
 
-// ----------------------------------------------------------------------------
-// Happy path tests
-// ----------------------------------------------------------------------------
-
-// TestLinearChainHasIncrementingRanks verifies that a simple parent-child-
-// grandchild chain produces strictly increasing ranks: ROOT < ROOT/a < ROOT/a/b.
+// TestLinearChainHasIncrementingRanks verifies that a simple parent→child→
+// grandchild hierarchy gets ranks 0, 1, 2 respectively.
+//
+// Spec: "Create three nodes: ROOT, ROOT/a, ROOT/a/b (parent chain).
+// Expect ranks 0, 1, 2 respectively. No cycle participants."
 func TestLinearChainHasIncrementingRanks(t *testing.T) {
 	dir := t.TempDir()
 
-	// ROOT node — no dependencies, no parent
-	testNodeFile(t, dir, "ROOT", "")
+	// ROOT has no parent — expect rank 0.
+	// ROOT/a's parent is ROOT — expect rank 1.
+	// ROOT/a/b's parent is ROOT/a — expect rank 2.
+	nodes := []nodediscovery.DiscoveredNode{
+		testMakeNode(t, dir, "ROOT", ""),
+		testMakeNode(t, dir, "ROOT/a", ""),
+		testMakeNode(t, dir, "ROOT/a/b", ""),
+	}
 
-	// ROOT/a — child of ROOT (parent relationship, no explicit depends_on)
-	testNodeFile(t, dir, "ROOT/a", "")
-
-	// ROOT/a/b — child of ROOT/a
-	testNodeFile(t, dir, "ROOT/a/b", "")
-
-	nodes, err := nodediscovery.DiscoverNodes(dir)
+	ranked, cycles, err := DetectCycles(nodes)
 	if err != nil {
-		t.Fatalf("DiscoverNodes: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Errorf("expected no cycle participants, got %v", cycles)
 	}
 
-	entries, cycleParticipants, err := DetectCycles(nodes)
-	if err != nil {
-		t.Fatalf("DetectCycles: unexpected error: %v", err)
+	// Verify each rank individually.
+	tests := []struct {
+		name         string
+		expectedRank int
+	}{
+		{"ROOT", 0},
+		{"ROOT/a", 1},
+		{"ROOT/a/b", 2},
 	}
-
-	if len(cycleParticipants) != 0 {
-		t.Errorf("expected no cycle participants, got %v", cycleParticipants)
-	}
-
-	rankROOT := testRankOf(t, entries, "ROOT")
-	rankA := testRankOf(t, entries, "ROOT/a")
-	rankAB := testRankOf(t, entries, "ROOT/a/b")
-
-	// Each level must be strictly greater than the one above it.
-	if !(rankROOT < rankA) {
-		t.Errorf("expected rank(ROOT) < rank(ROOT/a), got %d >= %d", rankROOT, rankA)
-	}
-	if !(rankA < rankAB) {
-		t.Errorf("expected rank(ROOT/a) < rank(ROOT/a/b), got %d >= %d", rankA, rankAB)
+	for _, tc := range tests {
+		got := testFindRank(t, ranked, tc.name)
+		if got != tc.expectedRank {
+			t.Errorf("node %q: want rank %d, got %d", tc.name, tc.expectedRank, got)
+		}
 	}
 }
 
-// TestIndependentSiblingsHaveEqualRank verifies that two sibling nodes with
-// the same parent and no cross-dependencies receive the same rank.
+// TestIndependentSiblingsHaveEqualRank verifies that two children of ROOT
+// with no cross-dependencies receive identical ranks.
+//
+// Spec: "Create ROOT and two children ROOT/a and ROOT/b with no
+// cross-dependencies. Expect ROOT/a and ROOT/b have the same rank. No cycle
+// participants."
 func TestIndependentSiblingsHaveEqualRank(t *testing.T) {
 	dir := t.TempDir()
 
-	// ROOT — root node
-	testNodeFile(t, dir, "ROOT", "")
+	nodes := []nodediscovery.DiscoveredNode{
+		testMakeNode(t, dir, "ROOT", ""),
+		testMakeNode(t, dir, "ROOT/a", ""),
+		testMakeNode(t, dir, "ROOT/b", ""),
+	}
 
-	// ROOT/a and ROOT/b — independent siblings
-	testNodeFile(t, dir, "ROOT/a", "")
-	testNodeFile(t, dir, "ROOT/b", "")
-
-	nodes, err := nodediscovery.DiscoverNodes(dir)
+	ranked, cycles, err := DetectCycles(nodes)
 	if err != nil {
-		t.Fatalf("DiscoverNodes: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Errorf("expected no cycle participants, got %v", cycles)
 	}
 
-	entries, cycleParticipants, err := DetectCycles(nodes)
-	if err != nil {
-		t.Fatalf("DetectCycles: unexpected error: %v", err)
-	}
-
-	if len(cycleParticipants) != 0 {
-		t.Errorf("expected no cycle participants, got %v", cycleParticipants)
-	}
-
-	rankA := testRankOf(t, entries, "ROOT/a")
-	rankB := testRankOf(t, entries, "ROOT/b")
-
+	rankA := testFindRank(t, ranked, "ROOT/a")
+	rankB := testFindRank(t, ranked, "ROOT/b")
 	if rankA != rankB {
-		t.Errorf("expected ROOT/a and ROOT/b to have equal rank, got %d and %d", rankA, rankB)
+		t.Errorf("sibling ranks differ: ROOT/a=%d, ROOT/b=%d", rankA, rankB)
 	}
 }
 
-// TestDependsOnIncreasesRank verifies that when ROOT/b explicitly depends_on
-// ROOT/a, ROOT/b receives a strictly higher rank than ROOT/a.
+// TestDependsOnIncreasesRank verifies that an explicit depends_on edge pushes
+// the dependent node's rank above its dependency.
+//
+// Spec: "Create ROOT, ROOT/a, ROOT/b where ROOT/b depends_on ROOT/a.
+// Expect ROOT/b has higher rank than ROOT/a. No cycle participants."
 func TestDependsOnIncreasesRank(t *testing.T) {
 	dir := t.TempDir()
 
-	// ROOT — root node
-	testNodeFile(t, dir, "ROOT", "")
+	// ROOT/b explicitly depends on ROOT/a via the depends_on frontmatter key.
+	nodes := []nodediscovery.DiscoveredNode{
+		testMakeNode(t, dir, "ROOT", ""),
+		testMakeNode(t, dir, "ROOT/a", ""),
+		testMakeNode(t, dir, "ROOT/b", "depends_on:\n  - ROOT/a\n"),
+	}
 
-	// ROOT/a — no extra dependencies
-	testNodeFile(t, dir, "ROOT/a", "")
-
-	// ROOT/b — explicitly depends on ROOT/a
-	testNodeFile(t, dir, "ROOT/b", "depends_on:\n  - ROOT/a\n")
-
-	nodes, err := nodediscovery.DiscoverNodes(dir)
+	ranked, cycles, err := DetectCycles(nodes)
 	if err != nil {
-		t.Fatalf("DiscoverNodes: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Errorf("expected no cycle participants, got %v", cycles)
 	}
 
-	entries, cycleParticipants, err := DetectCycles(nodes)
-	if err != nil {
-		t.Fatalf("DetectCycles: unexpected error: %v", err)
-	}
-
-	if len(cycleParticipants) != 0 {
-		t.Errorf("expected no cycle participants, got %v", cycleParticipants)
-	}
-
-	rankA := testRankOf(t, entries, "ROOT/a")
-	rankB := testRankOf(t, entries, "ROOT/b")
-
-	if !(rankA < rankB) {
-		t.Errorf("expected rank(ROOT/a) < rank(ROOT/b), got %d >= %d", rankA, rankB)
+	rankA := testFindRank(t, ranked, "ROOT/a")
+	rankB := testFindRank(t, ranked, "ROOT/b")
+	if rankB <= rankA {
+		t.Errorf("expected ROOT/b rank (%d) > ROOT/a rank (%d)", rankB, rankA)
 	}
 }
 
-// TestArtifactGetsRankOneAboveNode verifies that an output artifact entry
-// receives a rank exactly one greater than its owning node.
+// TestArtifactGetsRankOneAboveNode verifies that an artifact output is
+// assigned a rank exactly one above its owning node.
+//
+// Spec: "Create ROOT/a with an output artifact. Expect the artifact entry has
+// rank = rank of ROOT/a + 1."
 func TestArtifactGetsRankOneAboveNode(t *testing.T) {
 	dir := t.TempDir()
 
-	// ROOT/a — node with a declared output artifact
-	testNodeFile(t, dir, "ROOT/a",
-		"outputs:\n  - id: out1\n    path: internal/foo/foo.go\n")
+	// ROOT/a declares one output artifact with id "impl".
+	// DetectCycles creates an artifact entry for it automatically.
+	nodes := []nodediscovery.DiscoveredNode{
+		testMakeNode(t, dir, "ROOT", ""),
+		testMakeNode(t, dir, "ROOT/a", "outputs:\n  - id: impl\n    path: some/path.go\n"),
+	}
 
-	nodes, err := nodediscovery.DiscoverNodes(dir)
+	ranked, cycles, err := DetectCycles(nodes)
 	if err != nil {
-		t.Fatalf("DiscoverNodes: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Errorf("expected no cycle participants, got %v", cycles)
 	}
 
-	entries, cycleParticipants, err := DetectCycles(nodes)
-	if err != nil {
-		t.Fatalf("DetectCycles: unexpected error: %v", err)
-	}
-
-	if len(cycleParticipants) != 0 {
-		t.Errorf("expected no cycle participants, got %v", cycleParticipants)
-	}
-
-	// The artifact logical name is formed as "<node>/<output-id>".
-	nodeRank := testRankOf(t, entries, "ROOT/a")
-	artifactRank := testRankOf(t, entries, "ROOT/a/out1")
+	// The artifact logical name is constructed as "ARTIFACT/a(impl)" because
+	// the algorithm strips the "ROOT/" prefix from the node name.
+	// See implementation: artifactKey = "ARTIFACT/" + nodePathWithoutRoot + "(" + out.ID + ")"
+	nodeRank := testFindRank(t, ranked, "ROOT/a")
+	artifactKey := "ARTIFACT/a(impl)"
+	artifactRank := testFindRank(t, ranked, artifactKey)
 
 	if artifactRank != nodeRank+1 {
-		t.Errorf("expected artifact rank = node rank + 1, got artifact=%d node=%d", artifactRank, nodeRank)
+		t.Errorf("artifact %q: want rank %d (node rank %d + 1), got %d",
+			artifactKey, nodeRank+1, nodeRank, artifactRank)
 	}
 }
 
-// ----------------------------------------------------------------------------
-// Failure case tests
-// ----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Failure-case tests
+// ---------------------------------------------------------------------------
 
-// TestCircularDependencyDetected verifies that a two-node cycle (ROOT/a
-// depends_on ROOT/b and ROOT/b depends_on ROOT/a) causes both names to appear
-// in the returned cycle participants list.
+// TestCircularDependencyDetected verifies that a mutual dependency between two
+// nodes is reported as a cycle.
+//
+// Spec: "Create ROOT/a depends_on ROOT/b and ROOT/b depends_on ROOT/a.
+// Expect both logical names appear in the cycle participants list."
 func TestCircularDependencyDetected(t *testing.T) {
 	dir := t.TempDir()
 
-	// ROOT/a depends on ROOT/b
-	testNodeFile(t, dir, "ROOT/a", "depends_on:\n  - ROOT/b\n")
+	// Both ROOT/a and ROOT/b depend on each other — classic two-node cycle.
+	nodes := []nodediscovery.DiscoveredNode{
+		testMakeNode(t, dir, "ROOT", ""),
+		testMakeNode(t, dir, "ROOT/a", "depends_on:\n  - ROOT/b\n"),
+		testMakeNode(t, dir, "ROOT/b", "depends_on:\n  - ROOT/a\n"),
+	}
 
-	// ROOT/b depends on ROOT/a — creates a cycle
-	testNodeFile(t, dir, "ROOT/b", "depends_on:\n  - ROOT/a\n")
-
-	nodes, err := nodediscovery.DiscoverNodes(dir)
+	_, cycles, err := DetectCycles(nodes)
 	if err != nil {
-		t.Fatalf("DiscoverNodes: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// DetectCycles may or may not return a non-nil error for cycles; the key
-	// contract is that both names appear in cycleParticipants.
-	_, cycleParticipants, _ := DetectCycles(nodes)
-
-	if !testContains(cycleParticipants, "ROOT/a") {
-		t.Errorf("expected ROOT/a in cycle participants, got %v", cycleParticipants)
+	// Both participants must appear in the cycle slice.
+	if !testContains(cycles, "ROOT/a") {
+		t.Errorf("expected ROOT/a in cycle participants, got %v", cycles)
 	}
-	if !testContains(cycleParticipants, "ROOT/b") {
-		t.Errorf("expected ROOT/b in cycle participants, got %v", cycleParticipants)
+	if !testContains(cycles, "ROOT/b") {
+		t.Errorf("expected ROOT/b in cycle participants, got %v", cycles)
 	}
 }
 
-// TestUnresolvableReference verifies that a node with a depends_on target
-// that does not exist causes DetectCycles to return ErrUnresolvableRef.
+// TestUnresolvableReference verifies that a depends_on pointing to an unknown
+// node returns ErrUnresolvableRef.
+//
+// Spec: "Create a node with depends_on pointing to a non-existent node.
+// Expect errors.Is(err, ErrUnresolvableRef)."
 func TestUnresolvableReference(t *testing.T) {
 	dir := t.TempDir()
 
-	// ROOT/a depends on a node that will never exist
-	testNodeFile(t, dir, "ROOT/a", "depends_on:\n  - ROOT/nonexistent\n")
-
-	nodes, err := nodediscovery.DiscoverNodes(dir)
-	if err != nil {
-		t.Fatalf("DiscoverNodes: %v", err)
+	// ROOT/a references "ROOT/nonexistent" which is not in the node list.
+	nodes := []nodediscovery.DiscoveredNode{
+		testMakeNode(t, dir, "ROOT", ""),
+		testMakeNode(t, dir, "ROOT/a", "depends_on:\n  - ROOT/nonexistent\n"),
 	}
 
-	_, _, err = DetectCycles(nodes)
+	_, _, err := DetectCycles(nodes)
+	if err == nil {
+		t.Fatal("expected an error for unresolvable reference, got nil")
+	}
 	if !errors.Is(err, ErrUnresolvableRef) {
-		t.Errorf("expected ErrUnresolvableRef, got %v", err)
+		t.Errorf("expected errors.Is(err, ErrUnresolvableRef), got: %v", err)
 	}
 }

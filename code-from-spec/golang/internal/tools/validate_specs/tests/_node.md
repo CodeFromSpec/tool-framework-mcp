@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - ROOT/golang/internal/tools/validate_specs
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/node_discovery
 input: ARTIFACT/golang/internal/tools/validate_specs/code(validate_specs)

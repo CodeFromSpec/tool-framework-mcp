@@ -49,7 +49,8 @@ regardless of context.
 Open the file with `file_reader`. Read line by line
 using `ReadLine`. For each line, look for the substring
 `code-from-spec: `. Stop reading as soon as a match is
-found.
+found. Close the reader when done (whether a match was
+found or not).
 
 ### Extraction
 

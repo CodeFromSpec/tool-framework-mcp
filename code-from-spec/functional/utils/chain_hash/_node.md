@@ -35,7 +35,8 @@ Returns a 27-character base64url encoded SHA-1 hash.
 Given a logical name, reads all chain positions from disk
 and computes the chain hash. Each position's content is
 read raw from the file (not from parsed/reconstructed data).
-The only normalization is CRLF → LF.
+The only normalization is CRLF → LF. Close each reader
+after reading its content.
 
 ### Algorithm
 

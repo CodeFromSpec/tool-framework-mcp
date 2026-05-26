@@ -51,7 +51,8 @@ valid).
 
 For each discovered node:
 
-1. Open the file with `file_reader`.
+1. Open the file with `file_reader`. Close the reader
+   when done with each file.
 2. Parse frontmatter using `frontmatter`.
 3. Parse body using `node_parsing`.
 4. Run all validation rules below. Collect all errors —

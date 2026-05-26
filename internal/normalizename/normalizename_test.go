@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/normalizename/tests@aRQlm0bZ8WeFyXh_DThTQg4Sly8
+// code-from-spec: ROOT/golang/internal/normalizename/tests@MZfFbtnbGsZmHP5zYJWS4UN6gEc
 
 // Package normalizename contains tests for the NormalizeName function.
 //

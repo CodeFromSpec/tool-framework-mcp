@@ -48,7 +48,7 @@ absent from the YAML.
 ## Behavior
 
 Open the file with `file_reader`. Read line by line using
-`ReadLine`.
+`ReadLine`. Close the reader when done.
 
 The frontmatter is an optional YAML block delimited by `---` at
 the top of a file. If present, it contains metadata fields that

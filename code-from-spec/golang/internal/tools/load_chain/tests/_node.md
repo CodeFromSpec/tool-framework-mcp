@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - ROOT/golang/internal/tools/load_chain
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/logical_names
   - ROOT/golang/internal/parsenode

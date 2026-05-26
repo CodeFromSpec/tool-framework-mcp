@@ -1,265 +1,268 @@
-<!-- code-from-spec: ROOT/functional/mcp_tools/load_chain@_lo5s-OsOb8GCKwZfrXpMIWRbYs -->
+<!-- code-from-spec: ROOT/functional/mcp_tools/load_chain@WqwpiA5knFV_2erXXhxVzoYflfE -->
 
 # LoadChain
 
-## Data Structures
+## Overview
+
+Assembles all spec context needed to generate an artifact for a
+given target node. Returns a chain hash, a continuous context
+stream, and optionally a separate input artifact.
+
+
+---
+
+
+## Data structures
 
 ```
+record HashAccumulator
+  raw_hashes: list of byte arrays  -- each entry is 20 raw SHA-1 bytes
+
 record ChainResult
-  chain_hash: string           -- 27-character base64url SHA-1 hash
-  context:    string           -- all chain content concatenated
-  input:      optional string  -- content of the input artifact, if declared
+  chain_hash:  string              -- 27-character base64url SHA-1
+  context:     string              -- full concatenated context stream
+  input:       optional string     -- input artifact content, if present
 ```
 
-## Function Signature
 
-```
-function LoadChain(logical_name) -> ChainResult
-  errors:
-    - "invalid logical name": logical_name is not a recognized ROOT/ reference.
-    - "no outputs": target node has no outputs field in its frontmatter.
+---
+
+
+## Functions
+
+
+### function LoadChain(logical_name) -> ChainResult
+
+  Parameters:
+    logical_name: string  -- the target node, must be a ROOT/ reference
+
+  Returns:
+    ChainResult record
+
+  Errors:
+    - "invalid logical name": logical_name is not a ROOT/ reference.
+    - "no outputs": target node has no outputs field.
     - "invalid output path": an output path fails path validation.
     - "chain resolution failure": a dependency cannot be resolved.
     - "unreadable file": a file in the chain cannot be read or parsed.
-```
 
-## Step-by-Step Logic
+  Steps:
 
-### Phase 1 — Validation
+  1. Validate the logical name.
+     Call ResolvePath(logical_name).
+     If ResolvePath raises "unsupported reference", raise error
+     "invalid logical name".
 
-1. Validate the logical name.
-   Call ResolvePath(logical_name).
-   If it raises "unsupported reference" or any error,
-     raise error "invalid logical name".
+  2. Parse the target node's frontmatter.
+     Call ParseFrontmatter on the file path resolved in step 1.
+     If it fails, raise error "unreadable file".
+     If the parsed frontmatter has no outputs (empty list), raise
+     error "no outputs".
 
-2. Parse the target node's frontmatter.
-   Call ParseFrontmatter(ResolvePath(logical_name)).
-   If parsing fails, raise error "unreadable file".
+  3. Validate all output paths.
+     For each output in frontmatter.outputs:
+       Call ValidatePath(output.path, project_root).
+       If it fails, raise error "invalid output path".
 
-3. Check that the frontmatter has an `outputs` field with at least one entry.
-   If `outputs` is absent or empty, raise error "no outputs".
+  4. Initialize state.
+     Set context_buffer to an empty string.
+     Initialize a HashAccumulator with an empty raw_hashes list.
 
-4. Validate each output path.
-   For each output in frontmatter.outputs:
-     Call ValidatePath(output.path, project_root).
-     If validation fails, raise error "invalid output path".
+  5. Build the ancestor list.
+     Collect all ancestors of logical_name from root down to the
+     target's direct parent, in tree-depth order.
+     (e.g. for ROOT/a/b/c the order is: ROOT, ROOT/a, ROOT/a/b)
+     If the target is ROOT itself, the ancestor list is empty.
 
-### Phase 2 — Assemble the Context Stream
+  6. Step 1 — Ancestors.
+     For each ancestor in the ancestor list (root to direct parent):
+       a. Call ParseNode(ancestor) to get its parsed sections.
+          If ParseNode fails, raise error "unreadable file".
+       b. If the node has no public section, or the public section
+          content is empty, skip this ancestor entirely.
+       c. Otherwise:
+          - Append the public section content (without the "# Public"
+            heading) to context_buffer.
+          - Compute SHA-1 of the public section content INCLUDING the
+            "# Public" heading (raw bytes, UTF-8 encoded).
+          - Append the resulting 20-byte raw hash to
+            accumulator.raw_hashes.
 
-Initialize:
-  - `context_parts` as an empty list of strings
-  - `hash_inputs`   as an empty list of raw SHA-1 byte sequences
+  7. Step 2 — Dependencies.
+     Sort target frontmatter.depends_on alphabetically by logical name.
+     For each dependency in sorted order:
 
-The context stream is built by appending to `context_parts`.
-Each piece that contributes to the hash is also appended to `hash_inputs`
-(see "Hash contribution" notes below).
+       Case A: Dependency is a ROOT/ reference with no qualifier
+         (e.g. ROOT/x/y):
+           - Call ParseNode(dependency).
+             If it fails, raise error "chain resolution failure".
+           - If the node has no public section or the public section
+             content is empty, skip.
+           - Append the public section content (without heading) to
+             context_buffer.
+           - Compute SHA-1 of the full public section content
+             INCLUDING its "# Public" heading.
+           - Append raw hash to accumulator.raw_hashes.
 
----
+       Case B: Dependency is a ROOT/ reference WITH a qualifier
+         (e.g. ROOT/x/y(z)):
+           - Call ExtractQualifier(dependency) to get qualifier z.
+           - Call ParseNode on the base path (logical name stripped
+             of the qualifier).
+             If it fails, raise error "chain resolution failure".
+           - Find the subsection within the public section whose
+             normalized heading matches NormalizeName(z).
+             If not found, raise error "chain resolution failure".
+           - Append the subsection content (without the "## z"
+             heading) to context_buffer.
+           - Compute SHA-1 of the subsection content INCLUDING the
+             "## z" heading.
+           - Append raw hash to accumulator.raw_hashes.
 
-**Step 1 — Ancestors (root down to target's direct parent)**
+       Case C: Dependency is an ARTIFACT/ reference
+         (e.g. ARTIFACT/x/y(id)):
+           - Call ResolveArtifactReference(dependency) to get
+             ArtifactReference (node_path, artifact_id).
+             If it fails, raise error "chain resolution failure".
+           - Call ParseFrontmatter on node_path to get the node's
+             frontmatter.
+             If it fails, raise error "chain resolution failure".
+           - Find the output in the frontmatter whose id matches
+             artifact_id.
+             If not found, raise error "chain resolution failure".
+           - Open a FileReader for that output's file path.
+             If it fails, raise error "unreadable file".
+           - Read all lines. Skip any frontmatter block at the top
+             (content between the first "---" and the closing "---").
+             Collect the remaining lines as artifact_content.
+           - Close the reader.
+           - Append artifact_content to context_buffer.
+           - Compute SHA-1 of artifact_content.
+           - Append raw hash to accumulator.raw_hashes.
 
-Collect all ancestor logical names of the target node.
-  Start from ROOT and walk down to the target's direct parent.
-  (Use GetParent repeatedly to build the ancestor list, then reverse it
-   so iteration goes root-first.)
+  8. Step 3 — External files.
+     Sort target frontmatter.external alphabetically by path.
+     For each external entry in sorted order:
 
-For each ancestor in root-to-parent order:
-  1. Parse the ancestor node: call ParseNode(ancestor_logical_name).
-     If parsing fails, raise error "unreadable file".
+       If external entry has no fragments declared:
+         - Open a FileReader for external.path.
+           If it fails, raise error "unreadable file".
+         - Read all content into external_content.
+         - Close the reader.
+         - Append external_content to context_buffer.
+         - Compute SHA-1 of external_content.
+         - Append raw hash to accumulator.raw_hashes.
 
-  2. If the parsed node has no `# Public` section, or the section content
-     is empty after stripping whitespace, skip this ancestor entirely.
+       If external entry has fragments declared:
+         - Open a FileReader for external.path.
+           If it fails, raise error "unreadable file".
+         - Read all lines into a line array (1-based index).
+         - Close the reader.
+         - Initialize fragment_content as an empty string.
+         - For each fragment in external.fragments (in declaration
+           order):
+             Parse fragment.lines as a line range (e.g. "10-20" or
+             "42").
+             Extract those lines from the line array.
+             If the range is out of bounds, raise error
+             "unreadable file".
+             Append the extracted lines to fragment_content.
+         - Append fragment_content to context_buffer.
+         - Compute SHA-1 of fragment_content.
+         - Append raw hash to accumulator.raw_hashes.
 
-  3. Otherwise:
-     Append the `# Public` section content (without the "# Public" heading)
-       to `context_parts`.
-     Compute SHA-1 of the full `# Public` section content
-       (with the "# Public" heading included).
-     Append the raw SHA-1 bytes to `hash_inputs`.
+  9. Step 4 — Target's # Public section.
+     Call ParseNode(logical_name).
+     If it fails, raise error "unreadable file".
 
----
+     Build a reduced frontmatter block:
+       Format as YAML fenced with "---" lines containing only the
+       outputs field from the target's frontmatter.
+       Example:
+         ---
+         outputs:
+           - id: <id>
+             path: <path>
+         ---
 
-**Step 2 — Dependencies (depends_on)**
+     Append reduced_frontmatter to context_buffer.
+     (The reduced frontmatter is NOT included in the hash.)
 
-Retrieve `depends_on` from the target node's frontmatter.
-Sort entries alphabetically by their logical name string.
+     If the target has a public section and its content is not empty:
+       - Append the public section content (without the "# Public"
+         heading) to context_buffer.
+       - Compute SHA-1 of the public section content INCLUDING the
+         "# Public" heading.
+       - Append raw hash to accumulator.raw_hashes.
 
-For each entry in sorted order:
+  10. Step 5 — Target's # Agent section.
+      If the target node has an agent section and its content is
+      not empty:
+        - Append the agent section content (without the "# Agent"
+          heading) to context_buffer.
+        - Compute SHA-1 of the agent section content INCLUDING the
+          "# Agent" heading.
+        - Append raw hash to accumulator.raw_hashes.
 
-  Case A: entry is a ROOT/ reference without a qualifier
-    -- e.g. ROOT/x/y
-    1. Parse the referenced node: call ParseNode(entry).
-       If parsing fails, raise error "chain resolution failure".
-    2. If the parsed node has no `# Public` section or it is empty,
-       skip this entry.
-    3. Append the `# Public` content (without heading) to `context_parts`.
-    4. Compute SHA-1 of the full `# Public` content (with heading).
-       Append raw bytes to `hash_inputs`.
+  11. Handle input artifact (if present).
+      If the target frontmatter has a non-empty input field:
+        - Call ResolveArtifactReference(frontmatter.input) to get
+          ArtifactReference.
+          If it fails, raise error "chain resolution failure".
+        - Call ParseFrontmatter on the resolved node_path to find
+          the output matching artifact_id.
+          If not found, raise error "chain resolution failure".
+        - Open a FileReader for that output's file path.
+          If it fails, raise error "unreadable file".
+        - Read all lines. Strip any frontmatter block at the top.
+          Collect remaining lines as input_content.
+        - Close the reader.
+        - Compute SHA-1 of input_content.
+        - Append raw hash to accumulator.raw_hashes.
+        - Store input_content separately (do NOT append to
+          context_buffer).
 
-  Case B: entry is a ROOT/ reference with a qualifier
-    -- e.g. ROOT/x/y(z)
-    1. Extract the qualifier using ExtractQualifier(entry).
-    2. Parse the referenced node using the path without the qualifier.
-       Call ParseNode(entry).
-       If parsing fails, raise error "chain resolution failure".
-    3. Find the subsection inside `# Public` whose heading normalizes
-       to the qualifier (use NormalizeName to compare).
-       If no matching subsection is found, raise error "chain resolution failure".
-    4. Append the subsection content (without the "## <qualifier>" heading)
-       to `context_parts`.
-    5. Compute SHA-1 of the subsection content (with its heading included).
-       Append raw bytes to `hash_inputs`.
+  12. Compute the final chain hash.
+      Concatenate all entries in accumulator.raw_hashes in order
+      into a single byte array (each entry is 20 bytes).
+      Compute SHA-1 of that concatenated byte array.
+      Encode the result using base64url (RFC 4648 §5, no padding).
+      The result is exactly 27 characters.
 
-  Case C: entry is an ARTIFACT/ reference with a qualifier
-    -- e.g. ARTIFACT/x/y(id)
-    1. Call ResolveArtifactReference(entry) to get node_path and artifact_id.
-       If it fails, raise error "chain resolution failure".
-    2. Parse the frontmatter of the node at node_path.
-       Find the output whose id matches artifact_id.
-       If not found, raise error "chain resolution failure".
-    3. Read the full content of the artifact file at that output path.
-       If unreadable, raise error "unreadable file".
-    4. Strip any frontmatter (content between the opening --- and closing ---
-       delimiters, inclusive) from the artifact content.
-    5. Append the stripped content to `context_parts`.
-    6. Compute SHA-1 of the stripped content.
-       Append raw bytes to `hash_inputs`.
+  13. Assemble and return ChainResult:
+      - chain_hash:  the 27-character base64url string from step 12.
+      - context:     context_buffer.
+      - input:       input_content from step 11, or absent if no
+                     input field was present.
 
----
-
-**Step 3 — External files (external)**
-
-Retrieve `external` from the target node's frontmatter.
-Sort entries alphabetically by their `path` field.
-
-For each entry in sorted order:
-
-  Case A: no fragments declared (entry.fragments is absent or empty)
-    1. Read the full file at entry.path.
-       If unreadable, raise error "unreadable file".
-    2. Append the full content to `context_parts`.
-    3. Compute SHA-1 of the full content.
-       Append raw bytes to `hash_inputs`.
-
-  Case B: fragments declared
-    1. Open a FileReader for entry.path using OpenFileReader(entry.path).
-       If unreadable, raise error "unreadable file".
-    2. Initialize `fragment_content` as empty string.
-    3. For each fragment in entry.fragments (in declaration order):
-         a. The fragment specifies a `lines` range (e.g. "10-20") and
-            optionally a `description` and `hash`.
-         b. Parse the start and end line numbers from fragment.lines.
-         c. Read lines from the FileReader up to and including the end line.
-            Collect only lines within [start, end].
-         d. Append the collected lines to `fragment_content`.
-    4. Append `fragment_content` to `context_parts`.
-    5. Compute SHA-1 of `fragment_content`.
-       Append raw bytes to `hash_inputs`.
-
----
-
-**Step 4 — Target's reduced frontmatter and `# Public` section**
-
-1. Parse the target node: call ParseNode(logical_name).
-   If parsing fails, raise error "unreadable file".
-
-2. Build the reduced frontmatter block:
-   Construct a YAML block containing only the `outputs` field,
-   wrapped in --- delimiters:
-     ---
-     outputs:
-       - id: <output.id>
-         path: <output.path>
-       ...
-     ---
-
-3. Append the reduced frontmatter block to `context_parts`.
-   (The reduced frontmatter is NOT included in `hash_inputs`.)
-
-4. If the target has a `# Public` section and it is not empty:
-     Append the `# Public` content (without heading) to `context_parts`.
-     Compute SHA-1 of the full `# Public` content (with heading).
-     Append raw bytes to `hash_inputs`.
-
----
-
-**Step 5 — Target's `# Agent` section**
-
-1. If the target node has a `# Agent` section and it is not empty:
-     Append the `# Agent` content (without heading) to `context_parts`.
-     Compute SHA-1 of the full `# Agent` content (with heading).
-     Append raw bytes to `hash_inputs`.
-   Otherwise, skip.
-
----
-
-### Phase 3 — Input artifact (if declared)
-
-1. Check whether the target node's frontmatter has an `input` field
-   with a non-empty value.
-
-2. If the `input` field is present:
-     a. Resolve the input reference (it is an ARTIFACT/ logical name).
-        Call ResolveArtifactReference(frontmatter.input).
-        If it fails, raise error "chain resolution failure".
-     b. Parse the frontmatter of that node to locate the artifact file path.
-     c. Read the artifact file content.
-        If unreadable, raise error "unreadable file".
-     d. Strip any frontmatter block from the content.
-     e. Compute SHA-1 of the stripped content.
-        Append raw bytes to `hash_inputs`.
-     f. Store the stripped content as `input_content`.
-        (It is NOT appended to `context_parts`.)
-
-3. If no `input` field, `input_content` remains absent.
-
----
-
-### Phase 4 — Compute the chain hash
-
-1. Concatenate all raw SHA-1 byte sequences in `hash_inputs`
-   (in the order they were appended) into a single byte sequence.
-
-2. Compute the SHA-1 of that concatenated byte sequence.
-
-3. Encode the resulting 20-byte SHA-1 as base64url
-   (RFC 4648 §5, no padding), yielding exactly 27 characters.
-
-4. This is the `chain_hash`.
 
 ---
 
-### Phase 5 — Assemble and return the result
 
-1. Join all strings in `context_parts` into a single `context` string
-   by concatenation (no separator).
+## Error conditions summary
 
-2. Build the ChainResult:
-   - chain_hash: the 27-character hash computed above.
-   - context:    the concatenated context string.
-   - input:      `input_content` if present, otherwise absent.
+| Error                    | Trigger                                                  |
+|--------------------------|----------------------------------------------------------|
+| "invalid logical name"   | logical_name is not a ROOT/ reference.                   |
+| "no outputs"             | Target node frontmatter has no outputs list.             |
+| "invalid output path"    | An output path fails ValidatePath.                       |
+| "chain resolution failure" | A dependency or input cannot be resolved or found.     |
+| "unreadable file"        | Any file in the chain cannot be opened, read, or parsed. |
 
-3. Return the ChainResult.
 
 ---
 
-## Error Conditions
 
-| Error                      | Condition                                                              |
-|----------------------------|------------------------------------------------------------------------|
-| "invalid logical name"     | logical_name does not start with ROOT/ or fails ResolvePath.           |
-| "no outputs"               | Target node frontmatter has no outputs field or it is empty.           |
-| "invalid output path"      | Any output path fails ValidatePath.                                    |
-| "chain resolution failure" | A depends_on entry cannot be resolved or a required subsection/artifact is missing. |
-| "unreadable file"          | Any file in the chain cannot be opened, read, or parsed.               |
+## Contracts and invariants
 
-## Contracts
-
-- Returns all chain content in one call — no pagination.
-- If any file in the chain is unreadable, returns an error — no partial results.
-- The context stream contains no metadata or structural markers — only spec content.
-- The reduced frontmatter block (Step 4) appears in the context stream but does
-  NOT contribute to the chain hash.
-- Section headings (# Public, # Agent) are stripped from the context stream
-  but ARE included in the hashed content.
-- Tools are stateless — each call resolves its own inputs independently.
+- The function is stateless; it resolves all inputs independently
+  on each call.
+- If any file in the chain is unreadable, the function raises an
+  error immediately — no partial results are returned.
+- The context stream contains no metadata, headers, or structural
+  markers — only raw spec content plus the reduced frontmatter block
+  immediately before the target's public section.
+- The chain hash includes section headings even though headings are
+  stripped from the context stream.
+- The input artifact content is returned as a separate item, not
+  included in the context stream.

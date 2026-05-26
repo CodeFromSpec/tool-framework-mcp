@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - ROOT/golang/internal/tools/write_file
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/logical_names
   - ROOT/golang/internal/pathvalidation

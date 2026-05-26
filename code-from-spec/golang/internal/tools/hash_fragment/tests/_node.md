@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - ROOT/golang/internal/tools/hash_fragment
   - ROOT/golang/internal/pathvalidation
 input: ARTIFACT/golang/internal/tools/hash_fragment/code(hash_fragment)
 outputs:

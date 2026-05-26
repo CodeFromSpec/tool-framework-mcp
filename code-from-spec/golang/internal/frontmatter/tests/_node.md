@@ -1,6 +1,4 @@
 ---
-depends_on:
-  - ROOT/golang/internal/frontmatter
 input: ARTIFACT/golang/internal/frontmatter/code(frontmatter)
 outputs:
   - id: frontmatter_test

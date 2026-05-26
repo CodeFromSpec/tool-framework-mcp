@@ -1,17 +1,9 @@
-// code-from-spec: ROOT/golang/internal/artifact_tag/code@d8JPsz2xvc5a2kzp7f_fTNsQvJA
+// code-from-spec: ROOT/golang/internal/artifact_tag/code@wnJl_i9eb3zBB_k3Ezvw_c4Xs54
 
-// Package artifacttag provides utilities for locating and parsing the
-// "code-from-spec" tag embedded in generated files.
-//
-// The tag format is:
-//
-//	code-from-spec: <logical-name>@<hash>
-//
-// where <logical-name> is the spec node name (e.g. "ROOT/golang/server")
-// and <hash> is exactly 27 characters (a base64url chain hash).
-//
-// The scan is purely substring-based — comment syntax is irrelevant.
-// Only the first matching line in the file is used.
+// Package artifacttag locates and extracts the "code-from-spec: <logical-name>@<hash>"
+// tag from a generated source file. The scanner searches every line for the
+// substring — it does not interpret comment delimiters, so the tag may appear
+// inside any comment syntax (// # /* */ -- etc.).
 package artifacttag
 
 import (
@@ -22,102 +14,114 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filereader"
 )
 
-// tagPrefix is the fixed substring we search for in each line.
-const tagPrefix = "code-from-spec: "
-
-// hashLength is the required exact length of the hash portion.
+// hashLength is the exact number of characters expected in a valid hash.
+// All hashes are base64url-encoded and always 27 characters long.
 const hashLength = 27
 
-// ArtifactTag holds the parsed contents of a code-from-spec tag.
+// tagPrefix is the substring that every artifact tag line must contain.
+const tagPrefix = "code-from-spec: "
+
+// ArtifactTag holds the two components of a parsed artifact tag.
 type ArtifactTag struct {
-	// LogicalName is the spec node path, e.g. "ROOT/golang/server".
+	// LogicalName is the spec node path that produced the file (e.g. "ROOT/golang/internal/artifact_tag/code").
 	LogicalName string
-	// Hash is the 27-character base64url chain hash.
+	// Hash is the 27-character chain hash embedded in the tag.
 	Hash string
 }
 
-// Sentinel errors — callers may match these with errors.Is().
+// Sentinel errors — callers should use errors.Is() to inspect returned errors.
 var (
-	// ErrFileUnreadable is returned when the file cannot be opened or read.
+	// ErrFileUnreadable is returned when the file cannot be opened or a read
+	// error occurs while scanning it.
 	ErrFileUnreadable = errors.New("file unreadable")
-	// ErrNoTagFound is returned when no "code-from-spec:" substring appears in the file.
+
+	// ErrNoTagFound is returned when the file was fully read and no line
+	// contained the "code-from-spec: " substring.
 	ErrNoTagFound = errors.New("no tag found")
-	// ErrMalformedTag is returned when the tag is found but cannot be parsed
-	// (missing "@", empty logical name, or hash length != 27).
+
+	// ErrMalformedTag is returned when a tag line is found but its value does
+	// not satisfy the format rules (missing "@", empty logical name, or hash
+	// length != 27).
 	ErrMalformedTag = errors.New("malformed tag")
 )
 
-// ExtractArtifactTag opens the file at filePath and scans it line by line
-// for the first occurrence of the "code-from-spec: <name>@<hash>" pattern.
+// ExtractArtifactTag opens the file at filePath, scans it line by line, and
+// returns the first artifact tag found.
 //
-// On success it returns a populated *ArtifactTag.
-// On failure it returns one of ErrFileUnreadable, ErrNoTagFound, or
-// ErrMalformedTag (all wrapped so errors.Is() works).
+// The function always closes the file before returning, regardless of outcome.
+//
+// Error cases:
+//   - ErrFileUnreadable — file cannot be opened or a read error occurs.
+//   - ErrNoTagFound     — no line in the file contains "code-from-spec: ".
+//   - ErrMalformedTag   — a tag line was found but could not be parsed.
 func ExtractArtifactTag(filePath string) (*ArtifactTag, error) {
-	// Step 1 — Open the file. Any open failure is reported as ErrFileUnreadable.
-	r, err := filereader.OpenFileReader(filePath)
+	// Step 1: Open the file for sequential line-by-line reading.
+	reader, err := filereader.OpenFileReader(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
-	// Step 2 — Read lines one by one, looking for the tag prefix.
+	// Steps 2-4: Scan lines until we find the tag or reach end-of-file.
+	tagLine := ""
+	found := false
+
 	for {
-		line, err := r.ReadLine()
-		if err != nil {
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				// Step 3 — Exhausted all lines with no match.
-				return nil, fmt.Errorf("%w: %s", ErrNoTagFound, filePath)
+		// Step 3a: Read the next line.
+		line, readErr := reader.ReadLine()
+		if readErr != nil {
+			if errors.Is(readErr, filereader.ErrEndOfFile) {
+				// Normal end of file — exit the scan loop.
+				break
 			}
-			// Any other read error is treated as file unreadable.
-			return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+			// Unexpected read error — close before returning.
+			reader.Close()
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, readErr)
 		}
 
-		// Step 2a — Check whether this line contains the tag prefix.
-		idx := strings.Index(line, tagPrefix)
-		if idx == -1 {
-			// No match on this line; move on.
-			continue
+		// Step 3b: Check whether this line carries the artifact tag.
+		if strings.Contains(line, tagPrefix) {
+			tagLine = line
+			found = true
+			// Stop at the first match; do not read the rest of the file.
+			break
 		}
-
-		// Step 2b — Extract the raw value: everything after the prefix,
-		// with trailing whitespace trimmed.
-		rawValue := strings.TrimRight(line[idx+len(tagPrefix):], " \t\r\n")
-
-		// Step 4 — Parse the raw value.
-		return parseRawValue(rawValue)
-	}
-}
-
-// parseRawValue splits rawValue on the last "@" and validates the parts.
-//
-// It returns ErrMalformedTag (wrapped) for any of these conditions:
-//   - no "@" present
-//   - logical name (part before last "@") is empty
-//   - hash (part after last "@") is not exactly 27 characters
-func parseRawValue(rawValue string) (*ArtifactTag, error) {
-	// Step 4a — Find the last "@".
-	// Using the last occurrence allows logical names that themselves contain "@".
-	lastAt := strings.LastIndex(rawValue, "@")
-	if lastAt == -1 {
-		return nil, fmt.Errorf("%w: no '@' separator in %q", ErrMalformedTag, rawValue)
 	}
 
-	// Step 4b — Split on the last "@".
-	logicalName := rawValue[:lastAt]
-	hash := rawValue[lastAt+1:]
+	// Step 4: Always close the reader before returning.
+	reader.Close()
 
-	// Step 4c — Logical name must not be empty.
+	// Step 5: Report if no tag line was found at all.
+	if !found {
+		return nil, ErrNoTagFound
+	}
+
+	// Step 6: Extract the raw value that follows the prefix.
+	//   a. Find the position of the prefix in the line.
+	prefixIdx := strings.Index(tagLine, tagPrefix)
+	//   b. Take the substring immediately after the prefix.
+	raw := tagLine[prefixIdx+len(tagPrefix):]
+	//   c. Trim trailing whitespace (handles CRLF remnants or trailing spaces).
+	raw = strings.TrimRight(raw, " \t\r\n")
+
+	// Step 7: Locate the last "@" that separates the logical name from the hash.
+	atIdx := strings.LastIndex(raw, "@")
+	if atIdx == -1 {
+		return nil, fmt.Errorf("%w: no '@' separator in %q", ErrMalformedTag, raw)
+	}
+
+	// Step 8: Split at the last "@".
+	logicalName := raw[:atIdx]
+	hash := raw[atIdx+1:]
+
+	// Step 9: Validate the two components.
 	if logicalName == "" {
-		return nil, fmt.Errorf("%w: empty logical name in %q", ErrMalformedTag, rawValue)
+		return nil, fmt.Errorf("%w: logical name is empty in %q", ErrMalformedTag, raw)
 	}
-
-	// Step 4d — Hash must be exactly 27 characters.
 	if len(hash) != hashLength {
-		return nil, fmt.Errorf("%w: hash length %d (want %d) in %q",
-			ErrMalformedTag, len(hash), hashLength, rawValue)
+		return nil, fmt.Errorf("%w: hash %q has length %d, want %d", ErrMalformedTag, hash, len(hash), hashLength)
 	}
 
-	// Step 5 — Return the populated record.
+	// Step 10: Return the populated record.
 	return &ArtifactTag{
 		LogicalName: logicalName,
 		Hash:        hash,

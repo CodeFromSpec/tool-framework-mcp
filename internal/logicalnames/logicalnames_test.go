@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/logical_names/tests@eC2P3molAP8jDKsxNeEVBhwUw2Q
+// code-from-spec: ROOT/golang/internal/logical_names/tests@QMiSLlIcVJHpJx30FVzMTXxIyhA
 
 // Package logicalnames — test file for all pure functions exported by this package.
 //

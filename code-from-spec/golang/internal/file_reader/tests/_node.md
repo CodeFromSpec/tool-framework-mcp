@@ -1,6 +1,4 @@
 ---
-depends_on:
-  - ROOT/golang/internal/file_reader
 input: ARTIFACT/golang/internal/file_reader/code(filereader)
 outputs:
   - id: filereader_test

@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - ROOT/golang/internal/chain_resolver
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/logical_names
 input: ARTIFACT/golang/internal/chain_resolver/code(chainresolver)

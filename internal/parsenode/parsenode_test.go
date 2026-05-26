@@ -1,13 +1,16 @@
-// code-from-spec: ROOT/golang/internal/parsenode/tests@qwIu1xrYxxguHNTW6s-oHlcUq2I
+// code-from-spec: ROOT/golang/internal/parsenode/tests@Vn9zubnZF143-L0KQART3Pj7OZc
 
-// Package parsenode contains tests for the ParseNode function.
-// Tests cover happy-path parsing, heading normalization, content extraction,
-// and all validation error paths defined in the specification.
+// Package parsenode contains tests for the ParseNode function and its helpers.
 //
-// Each test creates a temporary directory (via t.TempDir()), writes a node
-// file at the path that logicalnames.PathFromLogicalName would produce, then
-// changes the process working directory to that temp dir before calling
-// ParseNode, restoring the original working directory afterward.
+// Tests are in the same package (internal test file) to allow access to
+// unexported helpers if needed. All test helpers are prefixed with "test"
+// to avoid name collisions with the package under test.
+//
+// Each test that calls ParseNode:
+//   1. Creates files under t.TempDir() at the path returned by
+//      logicalnames.PathFromLogicalName.
+//   2. Changes the working directory to tmpdir before calling ParseNode.
+//   3. Restores the working directory after (via t.Cleanup).
 package parsenode
 
 import (
@@ -19,99 +22,128 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Test helpers
 // ---------------------------------------------------------------------------
 
-// testWriteNode creates the _node.md file for the given logicalName under
-// dir, mirroring the path that PathFromLogicalName would produce.
-// For logical name ROOT/x/y, the file is written to
-// <dir>/code-from-spec/x/y/_node.md.
-func testWriteNode(t *testing.T, dir string, logicalName string, content string) {
+// testWriteNode creates the spec node file for logicalName at the correct
+// path relative to dir, creating intermediate directories as needed.
+//
+// The path is derived by the same rules as logicalnames.PathFromLogicalName:
+//   ROOT                 -> <dir>/code-from-spec/_node.md
+//   ROOT/x/y             -> <dir>/code-from-spec/x/y/_node.md
+//   ROOT/x/y(z)          -> <dir>/code-from-spec/x/y/_node.md
+func testWriteNode(t *testing.T, dir, logicalName, content string) {
 	t.Helper()
 
-	// Strip the ROOT/ prefix, lower-case everything, then build the path.
-	// e.g. ROOT/payments/fees → code-from-spec/payments/fees/_node.md
-	rel := strings.TrimPrefix(logicalName, "ROOT/")
-	parts := strings.Split(rel, "/")
-	segments := append([]string{dir, "code-from-spec"}, parts...)
-	segments = append(segments, "_node.md")
-	fullPath := filepath.Join(segments...)
+	// Derive the relative path from the logical name.
+	relPath := testPathFromLogicalName(t, logicalName)
 
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+	absPath := filepath.Join(dir, filepath.FromSlash(relPath))
+	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
 		t.Fatalf("testWriteNode: MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(absPath, []byte(content), 0644); err != nil {
 		t.Fatalf("testWriteNode: WriteFile: %v", err)
 	}
 }
 
-// testChdir changes the working directory to dir for the duration of the
-// test, restoring the original directory when the test ends.
-func testChdir(t *testing.T, dir string) {
+// testPathFromLogicalName converts a logical name to a relative file path
+// (forward-slash separated) following the same rules as
+// logicalnames.PathFromLogicalName but implemented locally so the test helper
+// has no external dependency on the logicalnames package.
+//
+//   ROOT               -> code-from-spec/_node.md
+//   ROOT/x/y           -> code-from-spec/x/y/_node.md
+//   ROOT/x/y(z)        -> code-from-spec/x/y/_node.md
+func testPathFromLogicalName(t *testing.T, logicalName string) string {
+	t.Helper()
+
+	name := logicalName
+
+	// Strip qualifier (anything from '(' onward).
+	if idx := strings.Index(name, "("); idx >= 0 {
+		name = name[:idx]
+	}
+
+	if name == "ROOT" {
+		return "code-from-spec/_node.md"
+	}
+
+	const prefix = "ROOT/"
+	if !strings.HasPrefix(name, prefix) {
+		t.Fatalf("testPathFromLogicalName: unsupported logical name %q", logicalName)
+	}
+	rest := name[len(prefix):]
+	return "code-from-spec/" + rest + "/_node.md"
+}
+
+// testChDir changes the working directory to dir and registers a cleanup
+// function to restore the original working directory.
+func testChDir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("testChdir: Getwd: %v", err)
+		t.Fatalf("testChDir: Getwd: %v", err)
 	}
 	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("testChdir: Chdir to %q: %v", dir, err)
+		t.Fatalf("testChDir: Chdir: %v", err)
 	}
 	t.Cleanup(func() {
 		if err := os.Chdir(orig); err != nil {
-			t.Fatalf("testChdir cleanup: Chdir to %q: %v", orig, err)
+			t.Errorf("testChDir cleanup: Chdir back: %v", err)
 		}
 	})
 }
 
 // ---------------------------------------------------------------------------
-// Happy-path tests
+// Happy path tests
 // ---------------------------------------------------------------------------
 
-// TestMinimalNode verifies that a node containing only a name section is
-// parsed correctly, with nil Public and nil Private.
-func TestMinimalNode(t *testing.T) {
+// TestParseNode_MinimalNode verifies that a node with only a name section is
+// parsed correctly: Public and Private are nil/empty, and the NameSection
+// heading is normalised to lower-case.
+func TestParseNode_MinimalNode(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/x"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/x
 
 This node has only a name section.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.NameSection.Heading != "root/x" {
-		t.Errorf("NameSection.Heading = %q; want %q", node.NameSection.Heading, "root/x")
+	// NameSection checks.
+	if want := "root/x"; got.NameSection.Heading != want {
+		t.Errorf("NameSection.Heading = %q, want %q", got.NameSection.Heading, want)
 	}
-	if node.NameSection.Content != "This node has only a name section." {
-		t.Errorf("NameSection.Content = %q; want %q", node.NameSection.Content, "This node has only a name section.")
+	if want := "This node has only a name section."; got.NameSection.Content != want {
+		t.Errorf("NameSection.Content = %q, want %q", got.NameSection.Content, want)
 	}
-	if node.NameSection.Subsections != nil {
-		t.Errorf("NameSection.Subsections = %v; want nil", node.NameSection.Subsections)
+	if got.NameSection.Subsections != nil {
+		t.Errorf("NameSection.Subsections = %v, want nil", got.NameSection.Subsections)
 	}
-	if node.Public != nil {
-		t.Errorf("Public = %v; want nil", node.Public)
+
+	// Public and Private must be nil/empty.
+	if got.Public != nil {
+		t.Errorf("Public = %v, want nil", got.Public)
 	}
-	if node.Agent != nil {
-		t.Errorf("Agent = %v; want nil", node.Agent)
-	}
-	if node.Private != nil {
-		t.Errorf("Private = %v; want nil", node.Private)
+	if len(got.Private) != 0 {
+		t.Errorf("Private = %v, want empty", got.Private)
 	}
 }
 
-// TestFullNode verifies correct parsing of a node with name, public, and
-// multiple private sections including frontmatter with depends_on/outputs.
-func TestFullNode(t *testing.T) {
+// TestParseNode_FullNode verifies that a node with name, public, and private
+// sections is parsed correctly, including subsections within Public.
+func TestParseNode_FullNode(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/payments/fees"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 depends_on:
   - ROOT/architecture/backend
 outputs:
@@ -139,73 +171,79 @@ Step-by-step logic for fee calculation.
 # Decisions
 
 Chose percentage-based over flat fees.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// --- Name section ---
-	if node.NameSection.Heading != "root/payments/fees" {
-		t.Errorf("NameSection.Heading = %q; want %q", node.NameSection.Heading, "root/payments/fees")
+	// NameSection.
+	if want := "root/payments/fees"; got.NameSection.Heading != want {
+		t.Errorf("NameSection.Heading = %q, want %q", got.NameSection.Heading, want)
 	}
-	if node.NameSection.Content != "Calculates transaction fees." {
-		t.Errorf("NameSection.Content = %q; want %q", node.NameSection.Content, "Calculates transaction fees.")
-	}
-
-	// --- Public section ---
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
-	}
-	if node.Public.Heading != "public" {
-		t.Errorf("Public.Heading = %q; want %q", node.Public.Heading, "public")
-	}
-	if node.Public.Content != "" {
-		t.Errorf("Public.Content = %q; want empty string (no content before first ##)", node.Public.Content)
-	}
-	if len(node.Public.Subsections) != 2 {
-		t.Fatalf("len(Public.Subsections) = %d; want 2", len(node.Public.Subsections))
-	}
-	if node.Public.Subsections[0].Heading != "interface" {
-		t.Errorf("Public.Subsections[0].Heading = %q; want %q", node.Public.Subsections[0].Heading, "interface")
-	}
-	if node.Public.Subsections[0].Content != "Fee calculation types and functions." {
-		t.Errorf("Public.Subsections[0].Content = %q; want %q", node.Public.Subsections[0].Content, "Fee calculation types and functions.")
-	}
-	if node.Public.Subsections[1].Heading != "constraints" {
-		t.Errorf("Public.Subsections[1].Heading = %q; want %q", node.Public.Subsections[1].Heading, "constraints")
-	}
-	if node.Public.Subsections[1].Content != "Maximum fee is 5%." {
-		t.Errorf("Public.Subsections[1].Content = %q; want %q", node.Public.Subsections[1].Content, "Maximum fee is 5%.")
+	if want := "Calculates transaction fees."; got.NameSection.Content != want {
+		t.Errorf("NameSection.Content = %q, want %q", got.NameSection.Content, want)
 	}
 
-	// --- Private sections ---
-	if len(node.Private) != 2 {
-		t.Fatalf("len(Private) = %d; want 2", len(node.Private))
+	// Public section.
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	if node.Private[0].Heading != "implementation" {
-		t.Errorf("Private[0].Heading = %q; want %q", node.Private[0].Heading, "implementation")
+	if want := "public"; got.Public.Heading != want {
+		t.Errorf("Public.Heading = %q, want %q", got.Public.Heading, want)
 	}
-	if node.Private[0].Content != "Step-by-step logic for fee calculation." {
-		t.Errorf("Private[0].Content = %q; want %q", node.Private[0].Content, "Step-by-step logic for fee calculation.")
+	// Public.Content must be empty (no content before first ##).
+	if got.Public.Content != "" {
+		t.Errorf("Public.Content = %q, want %q", got.Public.Content, "")
 	}
-	if node.Private[1].Heading != "decisions" {
-		t.Errorf("Private[1].Heading = %q; want %q", node.Private[1].Heading, "decisions")
+	if want := 2; len(got.Public.Subsections) != want {
+		t.Fatalf("len(Public.Subsections) = %d, want %d", len(got.Public.Subsections), want)
 	}
-	if node.Private[1].Content != "Chose percentage-based over flat fees." {
-		t.Errorf("Private[1].Content = %q; want %q", node.Private[1].Content, "Chose percentage-based over flat fees.")
+
+	// First subsection: Interface.
+	sub0 := got.Public.Subsections[0]
+	if want := "interface"; sub0.Heading != want {
+		t.Errorf("Public.Subsections[0].Heading = %q, want %q", sub0.Heading, want)
+	}
+	if want := "Fee calculation types and functions."; sub0.Content != want {
+		t.Errorf("Public.Subsections[0].Content = %q, want %q", sub0.Content, want)
+	}
+
+	// Second subsection: Constraints.
+	sub1 := got.Public.Subsections[1]
+	if want := "constraints"; sub1.Heading != want {
+		t.Errorf("Public.Subsections[1].Heading = %q, want %q", sub1.Heading, want)
+	}
+	if want := "Maximum fee is 5%."; sub1.Content != want {
+		t.Errorf("Public.Subsections[1].Content = %q, want %q", sub1.Content, want)
+	}
+
+	// Private sections.
+	if want := 2; len(got.Private) != want {
+		t.Fatalf("len(Private) = %d, want %d", len(got.Private), want)
+	}
+	if want := "implementation"; got.Private[0].Heading != want {
+		t.Errorf("Private[0].Heading = %q, want %q", got.Private[0].Heading, want)
+	}
+	if want := "Step-by-step logic for fee calculation."; got.Private[0].Content != want {
+		t.Errorf("Private[0].Content = %q, want %q", got.Private[0].Content, want)
+	}
+	if want := "decisions"; got.Private[1].Heading != want {
+		t.Errorf("Private[1].Heading = %q, want %q", got.Private[1].Heading, want)
+	}
+	if want := "Chose percentage-based over flat fees."; got.Private[1].Content != want {
+		t.Errorf("Private[1].Content = %q, want %q", got.Private[1].Content, want)
 	}
 }
 
-// TestNoPublicSection verifies a node that has only a name section and a
-// private section produces nil Public.
-func TestNoPublicSection(t *testing.T) {
+// TestParseNode_NoPublicSection verifies that a node without a "# Public"
+// section has Public == nil, but private sections are parsed correctly.
+func TestParseNode_NoPublicSection(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/decisions"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/decisions
 
@@ -214,36 +252,35 @@ Architecture decisions.
 # Rationale
 
 Why we chose this approach.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public != nil {
-		t.Errorf("Public = %v; want nil", node.Public)
+	if got.Public != nil {
+		t.Errorf("Public = %v, want nil", got.Public)
 	}
-	if node.NameSection.Heading != "root/decisions" {
-		t.Errorf("NameSection.Heading = %q; want %q", node.NameSection.Heading, "root/decisions")
+	if want := "root/decisions"; got.NameSection.Heading != want {
+		t.Errorf("NameSection.Heading = %q, want %q", got.NameSection.Heading, want)
 	}
-	if len(node.Private) != 1 {
-		t.Fatalf("len(Private) = %d; want 1", len(node.Private))
+	if want := 1; len(got.Private) != want {
+		t.Fatalf("len(Private) = %d, want %d", len(got.Private), want)
 	}
-	if node.Private[0].Heading != "rationale" {
-		t.Errorf("Private[0].Heading = %q; want %q", node.Private[0].Heading, "rationale")
+	if want := "rationale"; got.Private[0].Heading != want {
+		t.Errorf("Private[0].Heading = %q, want %q", got.Private[0].Heading, want)
 	}
 }
 
-// TestPublicSectionWithContentBeforeSubsection verifies that text appearing
-// between the # Public heading and the first ## subsection is captured in
+// TestParseNode_PublicContentBeforeFirstSubsection verifies that text written
+// directly under "# Public" (before any ## heading) is captured in
 // Public.Content.
-func TestPublicSectionWithContentBeforeSubsection(t *testing.T) {
+func TestParseNode_PublicContentBeforeFirstSubsection(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/a"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/a
 
@@ -256,26 +293,25 @@ This is direct content of the public section.
 ## Interface
 
 Types and functions.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	if node.Public.Content != "This is direct content of the public section." {
-		t.Errorf("Public.Content = %q; want %q", node.Public.Content, "This is direct content of the public section.")
+	if want := "This is direct content of the public section."; got.Public.Content != want {
+		t.Errorf("Public.Content = %q, want %q", got.Public.Content, want)
 	}
-	if len(node.Public.Subsections) != 1 {
-		t.Fatalf("len(Public.Subsections) = %d; want 1", len(node.Public.Subsections))
+	if want := 1; len(got.Public.Subsections) != want {
+		t.Fatalf("len(Public.Subsections) = %d, want %d", len(got.Public.Subsections), want)
 	}
-	if node.Public.Subsections[0].Heading != "interface" {
-		t.Errorf("Public.Subsections[0].Heading = %q; want %q", node.Public.Subsections[0].Heading, "interface")
+	if want := "interface"; got.Public.Subsections[0].Heading != want {
+		t.Errorf("Public.Subsections[0].Heading = %q, want %q", got.Public.Subsections[0].Heading, want)
 	}
 }
 
@@ -283,12 +319,12 @@ Types and functions.
 // Heading normalization tests
 // ---------------------------------------------------------------------------
 
-// TestCaseInsensitivePublicDetection verifies that # PUBLIC (all caps) is
-// recognized as the public section and its heading is stored in lowercase.
-func TestCaseInsensitivePublicDetection(t *testing.T) {
+// TestParseNode_CaseInsensitivePublic verifies that "# PUBLIC" (all-caps) is
+// recognized as the public section and stored with normalized heading "public".
+func TestParseNode_CaseInsensitivePublic(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/c"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/c
 
@@ -299,87 +335,73 @@ Intent.
 ## Interface
 
 Content.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	if node.Public.Heading != "public" {
-		t.Errorf("Public.Heading = %q; want %q", node.Public.Heading, "public")
+	if want := "public"; got.Public.Heading != want {
+		t.Errorf("Public.Heading = %q, want %q", got.Public.Heading, want)
 	}
 }
 
-// TestPublicWithMixedCaseAndExtraWhitespace verifies that a heading like
-// "#   PuBLiC" (mixed case, extra leading spaces) is normalized and
-// recognized as the public section.
-func TestPublicWithMixedCaseAndExtraWhitespace(t *testing.T) {
+// TestParseNode_PublicMixedCaseAndWhitespace verifies that a heading like
+// "#   PuBLiC" (extra leading spaces, mixed case) is still recognized as the
+// public section.
+func TestParseNode_PublicMixedCaseAndWhitespace(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/d"
-	const content = `---
----
-# ROOT/d
+	// Note: the heading "#   PuBLiC" has extra spaces between # and the word.
+	testWriteNode(t, dir, logicalName, "---\n---\n# ROOT/d\n\nIntent.\n\n#   PuBLiC\n\n## Interface\n\nContent.\n")
+	testChDir(t, dir)
 
-Intent.
-
-#   PuBLiC
-
-## Interface
-
-Content.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
-
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	if node.Public.Heading != "public" {
-		t.Errorf("Public.Heading = %q; want %q", node.Public.Heading, "public")
+	if want := "public"; got.Public.Heading != want {
+		t.Errorf("Public.Heading = %q, want %q", got.Public.Heading, want)
 	}
 }
 
-// TestNodeNameWithVariedWhitespace verifies that extra leading spaces in the
-// node-name heading are stripped and the result is lowercased.
-func TestNodeNameWithVariedWhitespace(t *testing.T) {
+// TestParseNode_NodeNameVariedWhitespace verifies that extra whitespace in the
+// node name heading (e.g., "#    ROOT/e") does not prevent matching.
+func TestParseNode_NodeNameVariedWhitespace(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/e"
-	const content = `---
----
-#    ROOT/e
+	// The node name heading has 4 spaces between '#' and "ROOT/e".
+	// In CommonMark, goldmark strips the '#' prefix and trims; however the
+	// exact trimming depends on goldmark's behaviour. We write the content as
+	// the spec example shows.
+	testWriteNode(t, dir, logicalName, "---\n---\n#    ROOT/e\n\nIntent.\n")
+	testChDir(t, dir)
 
-Intent.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
-
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.NameSection.Heading != "root/e" {
-		t.Errorf("NameSection.Heading = %q; want %q", node.NameSection.Heading, "root/e")
+	if want := "root/e"; got.NameSection.Heading != want {
+		t.Errorf("NameSection.Heading = %q, want %q", got.NameSection.Heading, want)
 	}
 }
 
-// TestSubsectionHeadingsAreNormalized verifies that subsection headings with
-// extra whitespace or mixed case are lowercased and trimmed.
-func TestSubsectionHeadingsAreNormalized(t *testing.T) {
+// TestParseNode_SubsectionHeadingsNormalized verifies that subsection headings
+// with mixed case and extra whitespace are all stored in normalized form.
+func TestParseNode_SubsectionHeadingsNormalized(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/f"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/f
 
@@ -394,52 +416,50 @@ Types.
 ## CONSTRAINTS
 
 Rules.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	if len(node.Public.Subsections) != 2 {
-		t.Fatalf("len(Public.Subsections) = %d; want 2", len(node.Public.Subsections))
+	if want := 2; len(got.Public.Subsections) != want {
+		t.Fatalf("len(Public.Subsections) = %d, want %d", len(got.Public.Subsections), want)
 	}
-	if node.Public.Subsections[0].Heading != "interface" {
-		t.Errorf("Subsections[0].Heading = %q; want %q", node.Public.Subsections[0].Heading, "interface")
+	if want := "interface"; got.Public.Subsections[0].Heading != want {
+		t.Errorf("Public.Subsections[0].Heading = %q, want %q", got.Public.Subsections[0].Heading, want)
 	}
-	if node.Public.Subsections[1].Heading != "constraints" {
-		t.Errorf("Subsections[1].Heading = %q; want %q", node.Public.Subsections[1].Heading, "constraints")
+	if want := "constraints"; got.Public.Subsections[1].Heading != want {
+		t.Errorf("Public.Subsections[1].Heading = %q, want %q", got.Public.Subsections[1].Heading, want)
 	}
 }
 
-// TestTabCharactersInHeadingWhitespace verifies that tab characters
-// surrounding the heading text are treated as whitespace and stripped.
-func TestTabCharactersInHeadingWhitespace(t *testing.T) {
+// TestParseNode_TabCharactersInHeadingWhitespace verifies that a subsection
+// heading with tab characters around the heading text is normalized correctly.
+func TestParseNode_TabCharactersInHeadingWhitespace(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/g"
-	// The subsection heading contains a tab before and after "Interface".
-	content := "---\n---\n# ROOT/g\n\nIntent.\n\n# Public\n\n## \tInterface\t\n\nContent.\n"
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+	// The ## heading contains tabs around "Interface".
+	testWriteNode(t, dir, logicalName, "---\n---\n# ROOT/g\n\nIntent.\n\n# Public\n\n## \tInterface\t\n\nContent.\n")
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	if len(node.Public.Subsections) != 1 {
-		t.Fatalf("len(Public.Subsections) = %d; want 1", len(node.Public.Subsections))
+	if want := 1; len(got.Public.Subsections) != want {
+		t.Fatalf("len(Public.Subsections) = %d, want %d", len(got.Public.Subsections), want)
 	}
-	if node.Public.Subsections[0].Heading != "interface" {
-		t.Errorf("Subsections[0].Heading = %q; want %q", node.Public.Subsections[0].Heading, "interface")
+	if want := "interface"; got.Public.Subsections[0].Heading != want {
+		t.Errorf("Public.Subsections[0].Heading = %q, want %q", got.Public.Subsections[0].Heading, want)
 	}
 }
 
@@ -447,13 +467,13 @@ func TestTabCharactersInHeadingWhitespace(t *testing.T) {
 // Content extraction tests
 // ---------------------------------------------------------------------------
 
-// TestLevel3AndDeeperHeadingsAreContent verifies that level-3 and deeper
-// headings inside a subsection are treated as content, not structural
-// delimiters.
-func TestLevel3AndDeeperHeadingsAreContent(t *testing.T) {
+// TestParseNode_Level3AndDeeperAsContent verifies that level-3 and deeper
+// headings (### and ####) are treated as content, not as structural headings,
+// and are included verbatim in the subsection content.
+func TestParseNode_Level3AndDeeperAsContent(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/h"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/h
 
@@ -476,92 +496,84 @@ Even deeper content.
 ### Rule one
 
 Details.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	if len(node.Public.Subsections) != 2 {
-		t.Fatalf("len(Public.Subsections) = %d; want 2", len(node.Public.Subsections))
+	if want := 2; len(got.Public.Subsections) != want {
+		t.Fatalf("len(Public.Subsections) = %d, want %d", len(got.Public.Subsections), want)
 	}
 
-	// The "interface" subsection must contain the ### Types heading and its
-	// body plus the #### Nested detail heading and its body — all as raw
-	// markdown text.
-	interfaceContent := node.Public.Subsections[0].Content
-	for _, want := range []string{"### Types", "Type definitions here.", "#### Nested detail", "Even deeper content."} {
-		if !strings.Contains(interfaceContent, want) {
-			t.Errorf("interface subsection content missing %q; content = %q", want, interfaceContent)
+	// "interface" subsection must contain the ### and #### headings verbatim.
+	interfaceContent := got.Public.Subsections[0].Content
+	for _, wantFragment := range []string{"### Types", "Type definitions here.", "#### Nested detail", "Even deeper content."} {
+		if !strings.Contains(interfaceContent, wantFragment) {
+			t.Errorf("Public.Subsections[0].Content missing %q; got:\n%s", wantFragment, interfaceContent)
 		}
 	}
 
-	// The "constraints" subsection must contain the ### Rule one heading and
-	// its body.
-	constraintsContent := node.Public.Subsections[1].Content
-	for _, want := range []string{"### Rule one", "Details."} {
-		if !strings.Contains(constraintsContent, want) {
-			t.Errorf("constraints subsection content missing %q; content = %q", want, constraintsContent)
+	// "constraints" subsection must contain the ### heading verbatim.
+	constraintsContent := got.Public.Subsections[1].Content
+	for _, wantFragment := range []string{"### Rule one", "Details."} {
+		if !strings.Contains(constraintsContent, wantFragment) {
+			t.Errorf("Public.Subsections[1].Content missing %q; got:\n%s", wantFragment, constraintsContent)
 		}
 	}
 }
 
-// TestFencedCodeBlocksWithHeadingLikeContent verifies that # and ## markers
-// inside a fenced code block are not treated as headings.
-func TestFencedCodeBlocksWithHeadingLikeContent(t *testing.T) {
+// TestParseNode_FencedCodeBlockWithHeadingLikeContent verifies that # and ##
+// markers inside a fenced code block are not treated as structural headings.
+func TestParseNode_FencedCodeBlockWithHeadingLikeContent(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/i"
-	const content = `---
----
-# ROOT/i
+	testWriteNode(t, dir, logicalName, "---\n---\n# ROOT/i\n\nIntent.\n\n# Public\n\n## Interface\n\n~~~go\n// # This is not a heading\n// ## Neither is this\nfunc Foo() {}\n~~~\n\nAfter the code block.\n")
+	testChDir(t, dir)
 
-Intent.
-
-# Public
-
-## Interface
-
-` + "~~~go\n// # This is not a heading\n// ## Neither is this\nfunc Foo() {}\n~~~" + `
-
-After the code block.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
-
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	// The code-block markers inside the fenced block must NOT split subsections.
-	if len(node.Public.Subsections) != 1 {
-		t.Fatalf("len(Public.Subsections) = %d; want 1 (# inside code block must not create new section)", len(node.Public.Subsections))
+	// There should be exactly one subsection — the fenced-block content must
+	// not have created extra subsections.
+	if want := 1; len(got.Public.Subsections) != want {
+		t.Fatalf("len(Public.Subsections) = %d, want %d; subsections: %+v",
+			len(got.Public.Subsections), want, got.Public.Subsections)
 	}
-
-	subsContent := node.Public.Subsections[0].Content
-	if !strings.Contains(subsContent, "After the code block.") {
-		t.Errorf("subsection content missing %q; content = %q", "After the code block.", subsContent)
+	sub := got.Public.Subsections[0]
+	if want := "interface"; sub.Heading != want {
+		t.Errorf("subsection heading = %q, want %q", sub.Heading, want)
 	}
-	if !strings.Contains(subsContent, "func Foo()") {
-		t.Errorf("subsection content missing code block body; content = %q", subsContent)
+	// Content must include both the code block and the text after it.
+	for _, wantFragment := range []string{
+		"// # This is not a heading",
+		"// ## Neither is this",
+		"func Foo() {}",
+		"After the code block.",
+	} {
+		if !strings.Contains(sub.Content, wantFragment) {
+			t.Errorf("subsection content missing %q; got:\n%s", wantFragment, sub.Content)
+		}
 	}
 }
 
-// TestContentBetweenSectionsIsTrimmed verifies that leading and trailing blank
-// lines in section and subsection content are stripped.
-func TestContentBetweenSectionsIsTrimmed(t *testing.T) {
+// TestParseNode_ContentBetweenSectionsTrimmed verifies that leading and
+// trailing blank lines around content are stripped in both section-level
+// content and subsection content.
+func TestParseNode_ContentBetweenSectionsTrimmed(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/j"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/j
 
@@ -579,26 +591,25 @@ Content with surrounding blank lines.
 
 Also surrounded.
 
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	node, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if node.Public == nil {
-		t.Fatal("Public = nil; want non-nil")
+	if got.Public == nil {
+		t.Fatal("Public = nil, want non-nil")
 	}
-	if node.Public.Content != "Content with surrounding blank lines." {
-		t.Errorf("Public.Content = %q; want %q", node.Public.Content, "Content with surrounding blank lines.")
+	if want := "Content with surrounding blank lines."; got.Public.Content != want {
+		t.Errorf("Public.Content = %q, want %q", got.Public.Content, want)
 	}
-	if len(node.Public.Subsections) != 1 {
-		t.Fatalf("len(Public.Subsections) = %d; want 1", len(node.Public.Subsections))
+	if want := 1; len(got.Public.Subsections) != want {
+		t.Fatalf("len(Public.Subsections) = %d, want %d", len(got.Public.Subsections), want)
 	}
-	if node.Public.Subsections[0].Content != "Also surrounded." {
-		t.Errorf("Subsections[0].Content = %q; want %q", node.Public.Subsections[0].Content, "Also surrounded.")
+	if want := "Also surrounded."; got.Public.Subsections[0].Content != want {
+		t.Errorf("Public.Subsections[0].Content = %q, want %q", got.Public.Subsections[0].Content, want)
 	}
 }
 
@@ -606,146 +617,145 @@ Also surrounded.
 // Validation error tests
 // ---------------------------------------------------------------------------
 
-// TestFileDoesNotExist verifies that ParseNode returns ErrRead when the node
-// file is absent.
-func TestFileDoesNotExist(t *testing.T) {
+// TestParseNode_FileDoesNotExist verifies that calling ParseNode with a logical
+// name whose file does not exist returns an error wrapping ErrRead.
+func TestParseNode_FileDoesNotExist(t *testing.T) {
 	dir := t.TempDir()
-	testChdir(t, dir)
+	// Do NOT create any file — we want the read to fail.
+	testChDir(t, dir)
 
-	// Do NOT write any file — ParseNode must fail with ErrRead.
 	_, err := ParseNode("ROOT/nonexistent")
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrRead) {
-		t.Errorf("errors.Is(err, ErrRead) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrRead) = false; got: %v", err)
 	}
 }
 
-// TestNoFrontmatterDelimiters verifies that a file without the opening ---
-// delimiter returns ErrFrontmatterMissing.
-func TestNoFrontmatterDelimiters(t *testing.T) {
+// TestParseNode_NoFrontmatterDelimiters verifies that a file without "---"
+// delimiters is still parsed correctly — frontmatter is optional.
+func TestParseNode_NoFrontmatterDelimiters(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/m"
-	const content = `# ROOT/m
+	// No "---" delimiters at all.
+	testWriteNode(t, dir, logicalName, "# ROOT/m\n\nJust text.\n")
+	testChDir(t, dir)
 
-Just text.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
-
-	_, err := ParseNode(logicalName)
-	if err == nil {
-		t.Fatal("expected error; got nil")
+	got, err := ParseNode(logicalName)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !errors.Is(err, ErrFrontmatterMissing) {
-		t.Errorf("errors.Is(err, ErrFrontmatterMissing) = false; err = %v", err)
+
+	if want := "root/m"; got.NameSection.Heading != want {
+		t.Errorf("NameSection.Heading = %q, want %q", got.NameSection.Heading, want)
+	}
+	if want := "Just text."; got.NameSection.Content != want {
+		t.Errorf("NameSection.Content = %q, want %q", got.NameSection.Content, want)
 	}
 }
 
-// TestContentBeforeFirstHeading verifies that non-heading content appearing
-// before the first level-1 heading triggers ErrUnexpectedContent.
-func TestContentBeforeFirstHeading(t *testing.T) {
+// TestParseNode_ContentBeforeFirstHeading verifies that non-blank content
+// appearing before any level-1 heading results in ErrUnexpectedContent.
+func TestParseNode_ContentBeforeFirstHeading(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/o"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 Some text before any heading.
 
 # ROOT/o
 
 Intent.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrUnexpectedContent) {
-		t.Errorf("errors.Is(err, ErrUnexpectedContent) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrUnexpectedContent) = false; got: %v", err)
 	}
 }
 
-// TestLevel2HeadingBeforeLevel1Heading verifies that a level-2 heading
-// appearing before the first level-1 heading triggers ErrUnexpectedContent.
-func TestLevel2HeadingBeforeLevel1Heading(t *testing.T) {
+// TestParseNode_Level2BeforeLevel1 verifies that a level-2 heading appearing
+// before any level-1 heading results in ErrUnexpectedContent.
+func TestParseNode_Level2BeforeLevel1(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/p"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 ## Orphan subsection
 
 # ROOT/p
 
 Intent.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrUnexpectedContent) {
-		t.Errorf("errors.Is(err, ErrUnexpectedContent) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrUnexpectedContent) = false; got: %v", err)
 	}
 }
 
-// TestNodeNameDoesNotMatchLogicalName verifies that a mismatch between the
-// first level-1 heading and the expected logical name returns
-// ErrInvalidNodeName.
-func TestNodeNameDoesNotMatchLogicalName(t *testing.T) {
+// TestParseNode_NodeNameDoesNotMatchLogicalName verifies that when the first
+// level-1 heading does not match the logical name (after normalization), an
+// error wrapping ErrInvalidNodeName is returned.
+func TestParseNode_NodeNameDoesNotMatchLogicalName(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/q"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/wrong
 
 Intent.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrInvalidNodeName) {
-		t.Errorf("errors.Is(err, ErrInvalidNodeName) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrInvalidNodeName) = false; got: %v", err)
 	}
 }
 
-// TestNodeNameCaseMismatchIsNotAnError verifies that a heading whose text
-// differs only in case from the logical name is accepted (normalization makes
-// them equal).
-func TestNodeNameCaseMismatchIsNotAnError(t *testing.T) {
+// TestParseNode_NodeNameCaseMismatchIsNotError verifies that a heading like
+// "# root/Q" (wrong case) is accepted when it normalizes to the same value as
+// the logical name "ROOT/q".
+func TestParseNode_NodeNameCaseMismatchIsNotError(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/q"
-	// "root/Q" normalizes to "root/q", which equals the normalized logical
-	// name "root/q".
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # root/Q
 
 Intent.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
-	_, err := ParseNode(logicalName)
+	got, err := ParseNode(logicalName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	// After normalization both "root/Q" and "ROOT/q" become "root/q".
+	if want := "root/q"; got.NameSection.Heading != want {
+		t.Errorf("NameSection.Heading = %q, want %q", got.NameSection.Heading, want)
+	}
 }
 
-// TestDuplicatePublicSectionSameCase verifies that two # Public sections with
-// identical casing return ErrDuplicatePublic.
-func TestDuplicatePublicSectionSameCase(t *testing.T) {
+// TestParseNode_DuplicatePublicSameCase verifies that two "# Public" headings
+// (identical case) result in ErrDuplicatePublic.
+func TestParseNode_DuplicatePublicSameCase(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/r"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/r
 
@@ -758,25 +768,25 @@ First public.
 # Public
 
 Second public.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrDuplicatePublic) {
-		t.Errorf("errors.Is(err, ErrDuplicatePublic) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrDuplicatePublic) = false; got: %v", err)
 	}
 }
 
-// TestDuplicatePublicSectionDifferentCase verifies that two public sections
-// differing only in case (# Public vs # PUBLIC) return ErrDuplicatePublic.
-func TestDuplicatePublicSectionDifferentCase(t *testing.T) {
+// TestParseNode_DuplicatePublicDifferentCase verifies that two headings that
+// normalize to "public" (e.g., "# Public" and "# PUBLIC") result in
+// ErrDuplicatePublic.
+func TestParseNode_DuplicatePublicDifferentCase(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/s"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/s
 
@@ -789,25 +799,25 @@ First.
 # PUBLIC
 
 Second.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrDuplicatePublic) {
-		t.Errorf("errors.Is(err, ErrDuplicatePublic) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrDuplicatePublic) = false; got: %v", err)
 	}
 }
 
-// TestDuplicateSubsectionSameCase verifies that two ## Interface headings with
-// identical casing under # Public return ErrDuplicateSubsection.
-func TestDuplicateSubsectionSameCase(t *testing.T) {
+// TestParseNode_DuplicateSubsectionSameCase verifies that two ## headings with
+// the same text (identical case) within "# Public" result in
+// ErrDuplicateSubsection.
+func TestParseNode_DuplicateSubsectionSameCase(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/t"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/t
 
@@ -822,25 +832,25 @@ First interface.
 ## Interface
 
 Second interface.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrDuplicateSubsection) {
-		t.Errorf("errors.Is(err, ErrDuplicateSubsection) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrDuplicateSubsection) = false; got: %v", err)
 	}
 }
 
-// TestDuplicateSubsectionDifferentCase verifies that ## Interface and ##
-// INTERFACE under # Public are considered duplicates after normalization.
-func TestDuplicateSubsectionDifferentCase(t *testing.T) {
+// TestParseNode_DuplicateSubsectionDifferentCase verifies that two ## headings
+// that normalize to the same text (e.g., "Interface" and "INTERFACE") within
+// "# Public" result in ErrDuplicateSubsection.
+func TestParseNode_DuplicateSubsectionDifferentCase(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/u"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/u
 
@@ -855,25 +865,25 @@ First.
 ## INTERFACE
 
 Second.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrDuplicateSubsection) {
-		t.Errorf("errors.Is(err, ErrDuplicateSubsection) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrDuplicateSubsection) = false; got: %v", err)
 	}
 }
 
-// TestDuplicateSubsectionWhitespaceVariation verifies that ## Interface and
-// ##   Interface (extra spaces) are considered duplicates after normalization.
-func TestDuplicateSubsectionWhitespaceVariation(t *testing.T) {
+// TestParseNode_DuplicateSubsectionWhitespaceVariation verifies that two ##
+// headings that normalize to the same text via whitespace trimming within
+// "# Public" result in ErrDuplicateSubsection.
+func TestParseNode_DuplicateSubsectionWhitespaceVariation(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/v"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 # ROOT/v
 
@@ -888,37 +898,34 @@ First.
 ##   Interface
 
 Second.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrDuplicateSubsection) {
-		t.Errorf("errors.Is(err, ErrDuplicateSubsection) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrDuplicateSubsection) = false; got: %v", err)
 	}
 }
 
-// TestFirstElementIsParagraphMissingNodeName verifies that a file whose body
-// (after frontmatter) starts with a paragraph — rather than a level-1
-// heading — triggers ErrUnexpectedContent.
-func TestFirstElementIsParagraphMissingNodeName(t *testing.T) {
+// TestParseNode_ParagraphInsteadOfHeading verifies that a file whose body
+// starts with a paragraph (not a heading) results in ErrUnexpectedContent.
+func TestParseNode_ParagraphInsteadOfHeading(t *testing.T) {
 	dir := t.TempDir()
 	const logicalName = "ROOT/w"
-	const content = `---
+	testWriteNode(t, dir, logicalName, `---
 ---
 This is a paragraph, not a heading.
-`
-	testWriteNode(t, dir, logicalName, content)
-	testChdir(t, dir)
+`)
+	testChDir(t, dir)
 
 	_, err := ParseNode(logicalName)
 	if err == nil {
-		t.Fatal("expected error; got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, ErrUnexpectedContent) {
-		t.Errorf("errors.Is(err, ErrUnexpectedContent) = false; err = %v", err)
+		t.Errorf("errors.Is(err, ErrUnexpectedContent) = false; got: %v", err)
 	}
 }

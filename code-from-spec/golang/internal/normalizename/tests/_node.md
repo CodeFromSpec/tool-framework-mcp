@@ -1,6 +1,4 @@
 ---
-depends_on:
-  - ROOT/golang/internal/normalizename
 input: ARTIFACT/golang/internal/normalizename/code(normalizename)
 outputs:
   - id: normalizename_test

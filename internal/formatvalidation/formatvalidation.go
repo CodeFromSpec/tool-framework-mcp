@@ -1,12 +1,11 @@
-// code-from-spec: ROOT/golang/internal/format_validation/code@vCswtOL5eTVwJWdPAzRFgjNmNk4
+// code-from-spec: ROOT/golang/internal/format_validation/code@Rmdxg4i-zcRo8Nr9z5wX7ix6dmY
 
-// Package formatvalidation validates discovered spec nodes against structural
-// rules defined by the Code From Spec framework. It checks node names,
-// frontmatter field restrictions, dependency targets, external file integrity,
-// output path safety, and duplicate public subsections.
-//
-// All violations across all nodes are collected before returning — validation
-// does not stop at the first error.
+// Package formatvalidation validates spec nodes against structural rules.
+// It takes a list of discovered nodes and checks each one for conformance
+// with the framework's format requirements (frontmatter restrictions,
+// section rules, dependency targets, external file existence, output paths,
+// etc.). All errors across all nodes are collected before returning —
+// validation never stops at the first error.
 package formatvalidation
 
 import (
@@ -14,7 +13,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 	"strconv"
 	"strings"
 
@@ -22,503 +21,493 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/normalizename"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/nodediscovery"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/parsenode"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathvalidation"
+
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/nodediscovery"
 )
 
-// FormatError describes a single structural rule violation found on a node.
+// FormatError records a single format rule violation found in a spec node.
 type FormatError struct {
-	Node   string // logical name of the node that failed validation
-	Rule   string // short identifier for the rule that was violated
-	Detail string // human-readable explanation of the violation
+	Node   string // logical name of the node where the error was found
+	Rule   string // name of the rule that was violated
+	Detail string // human-readable description of the specific violation
 }
 
-// ErrUnreadableNode is returned (wrapped) when a node file cannot be read.
+// ErrUnreadableNode is the sentinel returned when a node file cannot be read.
 var ErrUnreadableNode = errors.New("unreadable node")
 
-// projectRoot is the working directory of the process, which by framework
-// convention is always the project root. All relative paths are resolved
-// against it.
-const projectRoot = "."
-
 // ValidateFormat takes a list of discovered nodes (logical name + file path)
-// and validates each one against the structural rules of the framework.
-//
-// It returns a slice of FormatError values, one per rule violation. The slice
-// is empty when all nodes are valid.
-//
-// The only error returned directly (not as a FormatError) is
-// ErrUnreadableNode, wrapped with context, when a node file cannot be opened.
-// In that case, remaining per-node checks are skipped but other nodes are
-// still validated.
+// and validates each one against all structural rules. Returns a slice of
+// FormatErrors (empty if all nodes are valid). All errors from all nodes are
+// collected before returning.
 func ValidateFormat(discoveredNodes []nodediscovery.DiscoveredNode) ([]FormatError, error) {
-	// Step 1: initialize the accumulator for all violations.
-	var allErrors []FormatError
+	var errs []FormatError
 
-	// Step 2: build a set of all logical names and a set of all file paths
-	// for efficient membership checks used throughout validation.
-	allLogicalNames := make(map[string]struct{}, len(discoveredNodes))
-	allFilePaths := make(map[string]struct{}, len(discoveredNodes))
+	// Build a set of file paths for quick ancestor/child lookup.
+	// Also build a map from file path to logical name for dependency checks.
+	nodeFilePathSet := make(map[string]bool, len(discoveredNodes))
 	for _, n := range discoveredNodes {
-		allLogicalNames[n.LogicalName] = struct{}{}
-		allFilePaths[n.FilePath] = struct{}{}
+		nodeFilePathSet[n.FilePath] = true
 	}
 
-	// Step 3: validate each node.
 	for _, node := range discoveredNodes {
-		errs, unreadable, err := validateNode(node, allLogicalNames, allFilePaths)
-		if err != nil {
-			// Propagate unexpected infrastructure errors directly.
-			return allErrors, err
-		}
-		if unreadable {
-			// The node file could not be opened; record and move on.
-			allErrors = append(allErrors, FormatError{
+		// Step 2a: Open the file to verify it is readable.
+		reader, openErr := filereader.OpenFileReader(node.FilePath)
+		if openErr != nil {
+			errs = append(errs, FormatError{
 				Node:   node.LogicalName,
 				Rule:   "unreadable node",
-				Detail: fmt.Sprintf("file at %s cannot be opened", node.FilePath),
+				Detail: fmt.Sprintf("cannot open file at %s", node.FilePath),
+			})
+			// Skip all remaining steps for this node.
+			continue
+		}
+
+		// Step 2b: Parse frontmatter.
+		fm, fmErr := frontmatter.ParseFrontmatter(node.FilePath)
+		if fmErr != nil {
+			errs = append(errs, FormatError{
+				Node:   node.LogicalName,
+				Rule:   "unreadable node",
+				Detail: fmt.Sprintf("frontmatter parse error: %s", fmErr.Error()),
+			})
+			reader.Close()
+			continue
+		}
+
+		// Step 2c: Parse the body.
+		parsed, parseErr := parsenode.ParseNode(node.LogicalName)
+		if parseErr != nil {
+			errs = append(errs, FormatError{
+				Node:   node.LogicalName,
+				Rule:   "unreadable node",
+				Detail: fmt.Sprintf("body parse error: %s", parseErr.Error()),
+			})
+			reader.Close()
+			continue
+		}
+
+		// Step 2d: Close the reader — we have all the data we need.
+		reader.Close()
+
+		// Step 2e: Determine leaf vs. intermediate.
+		// A node is intermediate if any other discovered node's logical name
+		// starts with this node's logical name followed by "/".
+		isIntermediate := false
+		prefix := node.LogicalName + "/"
+		for _, other := range discoveredNodes {
+			if other.LogicalName == node.LogicalName {
+				continue
+			}
+			if strings.HasPrefix(other.LogicalName, prefix) {
+				isIntermediate = true
+				break
+			}
+		}
+
+		// Step 2f: Run all validation rules, collecting errors.
+
+		// Rule: name_verification — applied to all nodes.
+		errs = append(errs, ruleNameVerification(node, parsed)...)
+
+		if isIntermediate {
+			// Rule: frontmatter_field_restrictions — intermediate nodes only.
+			errs = append(errs, ruleFrontmatterFieldRestrictions(node, fm)...)
+
+			// Rule: agent_section_restrictions — intermediate nodes only.
+			errs = append(errs, ruleAgentSectionRestrictions(node, parsed)...)
+		} else {
+			// Leaf-only rules.
+
+			// Rule: dependency_targets — leaf nodes with depends_on.
+			if len(fm.DependsOn) > 0 {
+				errs = append(errs, ruleDependencyTargets(node, fm, nodeFilePathSet)...)
+			}
+
+			// Rule: external_file_existence — leaf nodes with external.
+			if len(fm.External) > 0 {
+				errs = append(errs, ruleExternalFileExistence(node, fm)...)
+			}
+
+			// Rule: output_path_validation — leaf nodes with outputs.
+			if len(fm.Outputs) > 0 {
+				errs = append(errs, ruleOutputPathValidation(node, fm)...)
+			}
+		}
+
+		// Rule: duplicate_public_subsections — all nodes with a # Public section.
+		if parsed.Public != nil {
+			errs = append(errs, ruleDuplicatePublicSubsections(node, parsed)...)
+		}
+	}
+
+	return errs, nil
+}
+
+// ---------------------------------------------------------------------------
+// Rule implementations
+// ---------------------------------------------------------------------------
+
+// ruleNameVerification verifies that the first heading in the node file
+// matches the logical name derived from the file path.
+func ruleNameVerification(node nodediscovery.DiscoveredNode, parsed *parsenode.ParsedNode) []FormatError {
+	var errs []FormatError
+
+	// Derive the expected logical name from the file path.
+	expected, ok := logicalnames.LogicalNameFromPath(node.FilePath)
+	if !ok {
+		errs = append(errs, FormatError{
+			Node:   node.LogicalName,
+			Rule:   "name_verification",
+			Detail: fmt.Sprintf("cannot derive logical name from path: %s", node.FilePath),
+		})
+		return errs
+	}
+
+	// Get the actual first heading from the parsed node.
+	actual := parsed.NameSection.Heading
+
+	// Normalize both values before comparing.
+	normalizedExpected := normalizename.NormalizeName(expected)
+	normalizedActual := normalizename.NormalizeName(actual)
+
+	if normalizedExpected != normalizedActual {
+		errs = append(errs, FormatError{
+			Node:   node.LogicalName,
+			Rule:   "name_verification",
+			Detail: fmt.Sprintf("heading %q does not match expected logical name %q", actual, expected),
+		})
+	}
+
+	return errs
+}
+
+// ruleFrontmatterFieldRestrictions checks that intermediate nodes do not
+// declare frontmatter fields that are only permitted on leaf nodes.
+func ruleFrontmatterFieldRestrictions(node nodediscovery.DiscoveredNode, fm *frontmatter.Frontmatter) []FormatError {
+	var errs []FormatError
+
+	if len(fm.DependsOn) > 0 {
+		errs = append(errs, FormatError{
+			Node:   node.LogicalName,
+			Rule:   "frontmatter_field_restrictions",
+			Detail: `intermediate node must not have "depends_on"`,
+		})
+	}
+
+	if len(fm.External) > 0 {
+		errs = append(errs, FormatError{
+			Node:   node.LogicalName,
+			Rule:   "frontmatter_field_restrictions",
+			Detail: `intermediate node must not have "external"`,
+		})
+	}
+
+	if fm.Input != "" {
+		errs = append(errs, FormatError{
+			Node:   node.LogicalName,
+			Rule:   "frontmatter_field_restrictions",
+			Detail: `intermediate node must not have "input"`,
+		})
+	}
+
+	if len(fm.Outputs) > 0 {
+		errs = append(errs, FormatError{
+			Node:   node.LogicalName,
+			Rule:   "frontmatter_field_restrictions",
+			Detail: `intermediate node must not have "outputs"`,
+		})
+	}
+
+	return errs
+}
+
+// ruleAgentSectionRestrictions checks that intermediate nodes do not have
+// an # Agent section.
+func ruleAgentSectionRestrictions(node nodediscovery.DiscoveredNode, parsed *parsenode.ParsedNode) []FormatError {
+	var errs []FormatError
+
+	if parsed.Agent != nil {
+		errs = append(errs, FormatError{
+			Node:   node.LogicalName,
+			Rule:   "agent_section_restrictions",
+			Detail: `intermediate node must not have a "# Agent" section`,
+		})
+	}
+
+	return errs
+}
+
+// ruleDependencyTargets validates each depends_on entry on a leaf node:
+// - the reference must resolve to a known path
+// - ROOT/ targets must exist in discoveredNodes
+// - ROOT/ targets must not be ancestors or descendants of the node
+func ruleDependencyTargets(node nodediscovery.DiscoveredNode, fm *frontmatter.Frontmatter, nodeFilePathSet map[string]bool) []FormatError {
+	var errs []FormatError
+
+	for _, dep := range fm.DependsOn {
+		if logicalnames.IsArtifactRef(dep) {
+			// ARTIFACT/ reference — only resolution is checked (existence of
+			// the artifact file is not validated here per the spec pseudocode
+			// step 2 for ROOT/ references; ARTIFACT/ refs continue after step 1).
+			_, _, ok := logicalnames.ArtifactRefParts(dep)
+			if !ok {
+				errs = append(errs, FormatError{
+					Node:   node.LogicalName,
+					Rule:   "dependency_targets",
+					Detail: fmt.Sprintf("cannot resolve depends_on entry %q: not a valid ARTIFACT/ reference", dep),
+				})
+			}
+			// No further checks for ARTIFACT/ references per the spec.
+			continue
+		}
+
+		// ROOT/ reference.
+		resolvedPath, ok := logicalnames.PathFromLogicalName(dep)
+		if !ok {
+			errs = append(errs, FormatError{
+				Node:   node.LogicalName,
+				Rule:   "dependency_targets",
+				Detail: fmt.Sprintf("cannot resolve depends_on entry %q: not a valid ROOT/ reference", dep),
 			})
 			continue
 		}
-		allErrors = append(allErrors, errs...)
-	}
 
-	return allErrors, nil
-}
-
-// validateNode runs all structural checks on a single node. It returns:
-//   - errs: all FormatErrors collected for this node
-//   - unreadable: true if the node file could not be opened (caller must
-//     record the "unreadable node" error and skip remaining checks)
-//   - err: a hard infrastructure error to propagate immediately
-func validateNode(
-	node nodediscovery.DiscoveredNode,
-	allLogicalNames map[string]struct{},
-	allFilePaths map[string]struct{},
-) (errs []FormatError, unreadable bool, err error) {
-
-	// ── Step 3a: classify the node as leaf or intermediate ──────────────────
-	//
-	// A node is intermediate if any other known logical name starts with
-	// this node's logical name followed by "/".
-	prefix := node.LogicalName + "/"
-	isIntermediate := false
-	for name := range allLogicalNames {
-		if name != node.LogicalName && strings.HasPrefix(name, prefix) {
-			isIntermediate = true
-			break
+		// Step 2: Verify the resolved file exists in discoveredNodes.
+		if !nodeFilePathSet[resolvedPath] {
+			errs = append(errs, FormatError{
+				Node:   node.LogicalName,
+				Rule:   "dependency_targets",
+				Detail: fmt.Sprintf("depends_on target %q does not exist", dep),
+			})
+			continue
 		}
-	}
 
-	// ── Step 3b: verify the file can be opened ───────────────────────────────
-	//
-	// We use filereader.OpenFileReader to stay consistent with the rest of the
-	// framework, but we immediately discard the reader since we only need to
-	// confirm readability at this step.
-	fr, openErr := filereader.OpenFileReader(node.FilePath)
-	if openErr != nil {
-		// Signal the caller to record the "unreadable node" error.
-		return nil, true, nil
-	}
-	// We do not defer-close filereader because the type has no Close method;
-	// the underlying file handle is managed internally by the reader.
-	_ = fr // used only to verify the file is readable
-
-	// ── Step 3c: parse frontmatter ───────────────────────────────────────────
-	fm, fmErr := frontmatter.ParseFrontmatter(node.FilePath)
-	if fmErr != nil {
-		// A frontmatter parse error is reported as an "unreadable node" per
-		// the spec — if we cannot parse the file at all, treat it like an
-		// unreadable file for rule purposes.
-		if errors.Is(fmErr, frontmatter.ErrRead) {
-			return nil, true, nil
-		}
-		// ErrFrontmatterParse: record as a format error and continue with a
-		// zero-value frontmatter so remaining checks still run.
-		errs = append(errs, FormatError{
-			Node:   node.LogicalName,
-			Rule:   "unreadable node",
-			Detail: fmt.Sprintf("file at %s cannot be parsed: %v", node.FilePath, fmErr),
-		})
-		fm = &frontmatter.Frontmatter{}
-	}
-
-	// ── Step 3d: parse the node body ─────────────────────────────────────────
-	parsed, parseErr := parsenode.ParseNode(node.LogicalName)
-	if parseErr != nil {
-		if errors.Is(parseErr, parsenode.ErrRead) {
-			return nil, true, nil
-		}
-		// Other parse errors are recorded as format errors; use a zero-value
-		// ParsedNode so we can still run remaining checks.
-		errs = append(errs, FormatError{
-			Node:   node.LogicalName,
-			Rule:   "unreadable node",
-			Detail: fmt.Sprintf("file at %s cannot be parsed: %v", node.FilePath, parseErr),
-		})
-		parsed = &parsenode.ParsedNode{}
-	}
-
-	// ── Step 3e: rule — name verification ────────────────────────────────────
-	//
-	// Reverse-resolve the file path to an expected logical name, then compare
-	// the normalized heading against the normalized expected name.
-	if parsed != nil {
-		expectedName, ok := logicalnames.LogicalNameFromPath(node.FilePath)
-		if ok {
-			normalizedHeading := normalizename.NormalizeName(parsed.NameSection.Heading)
-			normalizedExpected := normalizename.NormalizeName(expectedName)
-			if normalizedHeading != normalizedExpected {
-				errs = append(errs, FormatError{
-					Node: node.LogicalName,
-					Rule: "name mismatch",
-					Detail: fmt.Sprintf(
-						"heading %q does not match expected logical name %q",
-						parsed.NameSection.Heading,
-						expectedName,
-					),
-				})
+		// Strip qualifier to get the bare logical name for relationship checks.
+		bareDep := dep
+		if _, hasQual := logicalnames.QualifierName(dep); hasQual {
+			// Strip the qualifier: remove the "(qualifier)" suffix.
+			// PathFromLogicalName already strips it, but we need the bare name
+			// for string prefix checks.
+			if idx := strings.Index(dep, "("); idx >= 0 {
+				bareDep = dep[:idx]
 			}
 		}
-	}
 
-	// ── Step 3f: rule — frontmatter field restrictions (intermediate only) ───
-	if isIntermediate {
-		if len(fm.DependsOn) > 0 {
+		// Step 3: Check ancestor relationship.
+		// If node.LogicalName starts with bareDep + "/" then dep is an ancestor.
+		if strings.HasPrefix(node.LogicalName, bareDep+"/") {
 			errs = append(errs, FormatError{
 				Node:   node.LogicalName,
-				Rule:   "depends_on on intermediate node",
-				Detail: "field depends_on is not permitted on nodes with children",
+				Rule:   "dependency_targets",
+				Detail: fmt.Sprintf("depends_on %q points to an ancestor (already inherited)", dep),
 			})
 		}
-		if len(fm.External) > 0 {
+
+		// Step 4: Check descendant relationship.
+		// If bareDep starts with node.LogicalName + "/" then dep is a descendant.
+		if strings.HasPrefix(bareDep, node.LogicalName+"/") {
 			errs = append(errs, FormatError{
 				Node:   node.LogicalName,
-				Rule:   "external on intermediate node",
-				Detail: "field external is not permitted on nodes with children",
-			})
-		}
-		if fm.Input != "" {
-			errs = append(errs, FormatError{
-				Node:   node.LogicalName,
-				Rule:   "input on intermediate node",
-				Detail: "field input is not permitted on nodes with children",
-			})
-		}
-		if len(fm.Outputs) > 0 {
-			errs = append(errs, FormatError{
-				Node:   node.LogicalName,
-				Rule:   "outputs on intermediate node",
-				Detail: "field outputs is not permitted on nodes with children",
+				Rule:   "dependency_targets",
+				Detail: fmt.Sprintf("depends_on %q points to a descendant (creates circular dependency)", dep),
 			})
 		}
 	}
 
-	// ── Step 3g: rule — agent section restriction (intermediate only) ────────
-	if isIntermediate && parsed != nil && parsed.Agent != nil {
-		errs = append(errs, FormatError{
-			Node:   node.LogicalName,
-			Rule:   "agent section on intermediate node",
-			Detail: "# Agent section is not permitted on nodes with children",
-		})
-	}
+	return errs
+}
 
-	// ── Step 3h: rule — dependency targets ──────────────────────────────────
-	for _, dep := range fm.DependsOn {
-		depErrs := validateDependency(node.LogicalName, dep, allFilePaths)
-		errs = append(errs, depErrs...)
-	}
+// ruleExternalFileExistence validates each external entry on a leaf node:
+// - path must pass ValidatePath
+// - the file must be openable
+// - if fragments are declared, each fragment's hash must match
+func ruleExternalFileExistence(node nodediscovery.DiscoveredNode, fm *frontmatter.Frontmatter) []FormatError {
+	var errs []FormatError
 
-	// ── Step 3i: rule — external file existence and fragment hash ────────────
+	// projectRoot is always the working directory per the framework spec.
+	const projectRoot = "."
+
 	for _, ext := range fm.External {
-		extErrs := validateExternal(node.LogicalName, ext)
-		errs = append(errs, extErrs...)
-	}
-
-	// ── Step 3j: rule — output path validation ───────────────────────────────
-	for _, out := range fm.Outputs {
-		if pathErr := pathvalidation.ValidatePath(out.Path, projectRoot); pathErr != nil {
+		// Step 1: Validate path.
+		if err := pathvalidation.ValidatePath(ext.Path, projectRoot); err != nil {
 			errs = append(errs, FormatError{
 				Node:   node.LogicalName,
-				Rule:   "invalid output path",
-				Detail: pathErr.Error(),
+				Rule:   "external_file_existence",
+				Detail: fmt.Sprintf("invalid path %q: %s", ext.Path, err.Error()),
 			})
+			continue
 		}
-	}
 
-	// ── Step 3k: rule — duplicate public subsections ─────────────────────────
-	if parsed != nil && parsed.Public != nil {
-		seen := make(map[string]struct{})
-		for _, sub := range parsed.Public.Subsections {
-			normalized := normalizename.NormalizeName(sub.Heading)
-			if _, exists := seen[normalized]; exists {
-				errs = append(errs, FormatError{
-					Node: node.LogicalName,
-					Rule: "duplicate public subsection",
-					Detail: fmt.Sprintf(
-						"subsection heading %q in # Public normalizes to %q which conflicts with a previous subsection",
-						sub.Heading,
-						normalized,
-					),
-				})
-			} else {
-				seen[normalized] = struct{}{}
-			}
-		}
-	}
-
-	return errs, false, nil
-}
-
-// validateDependency checks a single depends_on entry against the known set
-// of file paths. It returns any FormatErrors found.
-//
-// Checks performed:
-//  1. The target resolves to a known node file path.
-//  2. The target is not an ancestor of the current node.
-//  3. The target is not a descendant of the current node.
-func validateDependency(
-	nodeLogicalName string,
-	dep string,
-	allFilePaths map[string]struct{},
-) []FormatError {
-	var errs []FormatError
-
-	// Resolve the dependency reference to a file path and a bare logical name.
-	var resolvedFilePath string
-	var targetBareLogicalName string
-
-	if logicalnames.IsArtifactRef(dep) {
-		// ARTIFACT/ reference: extract the node path.
-		nodePath, _, ok := logicalnames.ArtifactRefParts(dep)
-		if !ok {
+		// Step 2: Verify the file can be opened.
+		r, openErr := filereader.OpenFileReader(ext.Path)
+		if openErr != nil {
 			errs = append(errs, FormatError{
-				Node:   nodeLogicalName,
-				Rule:   "missing dependency target",
-				Detail: fmt.Sprintf("depends_on entry %q does not resolve to a known node", dep),
+				Node:   node.LogicalName,
+				Rule:   "external_file_existence",
+				Detail: fmt.Sprintf("external file not found: %q", ext.Path),
 			})
-			return errs
+			continue
 		}
-		resolvedFilePath = nodePath
-		// Derive the bare logical name from the file path for ancestor/descendant checks.
-		if ln, ok2 := logicalnames.LogicalNameFromPath(nodePath); ok2 {
-			targetBareLogicalName = ln
+
+		// Step 3: If no fragments, close and continue.
+		if len(ext.Fragments) == 0 {
+			r.Close()
+			continue
 		}
-	} else if strings.HasPrefix(dep, "ROOT/") || dep == "ROOT" {
-		// ROOT/ reference: resolve directly, stripping any qualifier first.
-		filePath, ok := logicalnames.PathFromLogicalName(dep)
-		if !ok {
-			errs = append(errs, FormatError{
-				Node:   nodeLogicalName,
-				Rule:   "missing dependency target",
-				Detail: fmt.Sprintf("depends_on entry %q does not resolve to a known node", dep),
-			})
-			return errs
+
+		// Step 4: Validate each fragment's hash.
+		// Close the reader opened above — we reopen for each fragment to avoid
+		// reader state issues (as specified in the pseudocode).
+		r.Close()
+
+		for _, frag := range ext.Fragments {
+			fragErrs := validateFragment(node.LogicalName, ext.Path, frag)
+			errs = append(errs, fragErrs...)
 		}
-		resolvedFilePath = filePath
-		// The bare logical name is derived from the path (qualifier already stripped
-		// by PathFromLogicalName).
-		if ln, ok2 := logicalnames.LogicalNameFromPath(filePath); ok2 {
-			targetBareLogicalName = ln
-		}
-	} else {
-		// Unknown reference format.
-		errs = append(errs, FormatError{
-			Node:   nodeLogicalName,
-			Rule:   "missing dependency target",
-			Detail: fmt.Sprintf("depends_on entry %q does not resolve to a known node", dep),
-		})
-		return errs
-	}
-
-	// Check 3h-i: the resolved file must be among the discovered nodes.
-	if _, known := allFilePaths[resolvedFilePath]; !known {
-		errs = append(errs, FormatError{
-			Node:   nodeLogicalName,
-			Rule:   "missing dependency target",
-			Detail: fmt.Sprintf("depends_on entry %q does not resolve to a known node", dep),
-		})
-		// Still run ancestor/descendant checks if we have a bare logical name,
-		// because the logical name check is independent of file existence.
-	}
-
-	if targetBareLogicalName == "" {
-		// Cannot determine relationship without a logical name.
-		return errs
-	}
-
-	// Check 3h-ii: ancestor check — target_bare is a prefix of node.logical_name.
-	// i.e. node.logical_name starts with target_bare + "/" or equals target_bare.
-	if isAncestorOf(targetBareLogicalName, nodeLogicalName) {
-		errs = append(errs, FormatError{
-			Node: nodeLogicalName,
-			Rule: "depends_on ancestor",
-			Detail: fmt.Sprintf(
-				"depends_on entry %q points to an ancestor; ancestor content is already inherited",
-				dep,
-			),
-		})
-	}
-
-	// Check 3h-iii: descendant check — node.logical_name is a prefix of target_bare.
-	// i.e. target_bare starts with node.logical_name + "/" or equals node.logical_name.
-	if isAncestorOf(nodeLogicalName, targetBareLogicalName) {
-		errs = append(errs, FormatError{
-			Node: nodeLogicalName,
-			Rule: "depends_on descendant",
-			Detail: fmt.Sprintf(
-				"depends_on entry %q points to a descendant; this would create a circular dependency",
-				dep,
-			),
-		})
 	}
 
 	return errs
 }
 
-// isAncestorOf reports whether candidate is an ancestor of (or equal to)
-// subject in the logical name hierarchy. That is, it returns true when
-// subject starts with candidate+"/" or subject == candidate.
-func isAncestorOf(candidate, subject string) bool {
-	return subject == candidate || strings.HasPrefix(subject, candidate+"/")
-}
+// validateFragment opens the external file, reads the declared line range,
+// computes its SHA-1 hash (base64url, no padding), and compares with the
+// declared hash. Returns a FormatError slice (empty on success).
+func validateFragment(nodeName, filePath string, frag frontmatter.ExternalFragment) []FormatError {
+	// Parse "start-end" from frag.Lines.
+	start, end, parseErr := parseLineRange(frag.Lines)
+	if parseErr != nil {
+		return []FormatError{{
+			Node:   nodeName,
+			Rule:   "external_file_existence",
+			Detail: fmt.Sprintf("invalid fragment line range %q for %q: %s", frag.Lines, filePath, parseErr.Error()),
+		}}
+	}
 
-// validateExternal checks a single external file entry: confirms the file is
-// readable, then for each declared fragment verifies that the computed SHA-1
-// hash of the extracted lines matches the declared hash.
-func validateExternal(
-	nodeLogicalName string,
-	ext frontmatter.External,
-) []FormatError {
-	var errs []FormatError
-
-	// ── Step 3i-i: file existence ─────────────────────────────────────────────
-	fr, openErr := filereader.OpenFileReader(ext.Path)
+	// Reopen the file for this fragment.
+	r, openErr := filereader.OpenFileReader(filePath)
 	if openErr != nil {
-		errs = append(errs, FormatError{
-			Node:   nodeLogicalName,
-			Rule:   "missing external file",
-			Detail: fmt.Sprintf("external path %q does not exist or cannot be read", ext.Path),
-		})
-		return errs // no fragment checks if the file isn't readable
+		return []FormatError{{
+			Node:   nodeName,
+			Rule:   "external_file_existence",
+			Detail: fmt.Sprintf("external file not found: %q", filePath),
+		}}
 	}
-	_ = fr // opened successfully; we'll re-open below for fragment extraction
+	defer r.Close()
 
-	// ── Step 3i-ii: fragment hash verification ────────────────────────────────
-	for _, frag := range ext.Fragments {
-		fragErrs := validateFragment(nodeLogicalName, ext.Path, frag)
-		errs = append(errs, fragErrs...)
+	// Skip to (start - 1) lines to position at the first line of the range.
+	// Lines are 1-based; skip (start-1) lines to reach line `start`.
+	if start > 1 {
+		r.SkipLines(start - 1)
 	}
 
-	return errs
+	// Read (end - start + 1) lines.
+	count := end - start + 1
+	var sb strings.Builder
+	for i := 0; i < count; i++ {
+		line, readErr := r.ReadLine()
+		if readErr != nil {
+			if errors.Is(readErr, filereader.ErrEndOfFile) {
+				// Fewer lines than expected — still hash what we have.
+				break
+			}
+			// Unexpected read error.
+			return []FormatError{{
+				Node:   nodeName,
+				Rule:   "external_file_existence",
+				Detail: fmt.Sprintf("error reading fragment from %q lines %s: %s", filePath, frag.Lines, readErr.Error()),
+			}}
+		}
+		sb.WriteString(line)
+		if i < count-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	// Normalize CRLF to LF (ReadLine already strips terminators, but the
+	// content of lines themselves may contain embedded \r — normalize just in
+	// case).
+	content := strings.ReplaceAll(sb.String(), "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\r", "\n")
+
+	// Compute SHA-1 and encode as base64url (no padding, 27 chars).
+	h := sha1.New()
+	_, _ = io.WriteString(h, content)
+	computed := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+
+	if computed != frag.Hash {
+		return []FormatError{{
+			Node:   nodeName,
+			Rule:   "external_file_existence",
+			Detail: fmt.Sprintf("fragment hash mismatch for %q lines %s: expected %q, got %q", filePath, frag.Lines, frag.Hash, computed),
+		}}
+	}
+
+	return nil
 }
 
-// validateFragment reads the declared line range from filePath, computes the
-// SHA-1 hash of the extracted content (with CRLF normalized to LF), and
-// compares it to the declared hash.
-func validateFragment(
-	nodeLogicalName string,
-	filePath string,
-	frag frontmatter.ExternalFragment,
-) []FormatError {
+// parseLineRange parses a "start-end" string into two integers.
+// Both start and end are 1-based and inclusive.
+func parseLineRange(s string) (start, end int, err error) {
+	parts := strings.SplitN(s, "-", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("expected format \"start-end\", got %q", s)
+	}
+	start, err = strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid start line %q: %w", parts[0], err)
+	}
+	end, err = strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid end line %q: %w", parts[1], err)
+	}
+	if start < 1 || end < start {
+		return 0, 0, fmt.Errorf("invalid range %q: start must be >= 1 and end must be >= start", s)
+	}
+	return start, end, nil
+}
+
+// ruleOutputPathValidation validates each output path on a leaf node using
+// ValidatePath.
+func ruleOutputPathValidation(node nodediscovery.DiscoveredNode, fm *frontmatter.Frontmatter) []FormatError {
 	var errs []FormatError
 
-	// Parse the "start-end" line range from frag.Lines (1-based, inclusive).
-	startLine, endLine, parseOk := parseLineRange(frag.Lines)
-	if !parseOk {
-		// If the range can't be parsed it's a malformed spec; report it.
-		errs = append(errs, FormatError{
-			Node:   nodeLogicalName,
-			Rule:   "fragment hash mismatch",
-			Detail: fmt.Sprintf("cannot parse line range %q in %q", frag.Lines, filePath),
-		})
-		return errs
-	}
+	const projectRoot = "."
 
-	// Open the file and read lines from startLine to endLine (1-based, inclusive).
-	fr, err := filereader.OpenFileReader(filePath)
-	if err != nil {
-		errs = append(errs, FormatError{
-			Node:   nodeLogicalName,
-			Rule:   "missing external file",
-			Detail: fmt.Sprintf("external path %q does not exist or cannot be read", filePath),
-		})
-		return errs
-	}
-
-	var extractedLines []string
-	for lineNum := 1; ; lineNum++ {
-		line, readErr := fr.ReadLine()
-		if errors.Is(readErr, filereader.ErrEndOfFile) {
-			break
-		}
-		if readErr != nil {
-			// Unexpected read error during fragment extraction.
+	for _, out := range fm.Outputs {
+		if err := pathvalidation.ValidatePath(out.Path, projectRoot); err != nil {
 			errs = append(errs, FormatError{
-				Node:   nodeLogicalName,
-				Rule:   "missing external file",
-				Detail: fmt.Sprintf("external path %q could not be fully read: %v", filePath, readErr),
+				Node:   node.LogicalName,
+				Rule:   "output_path_validation",
+				Detail: fmt.Sprintf("invalid output path %q: %s", out.Path, err.Error()),
 			})
-			return errs
 		}
-		if lineNum >= startLine && lineNum <= endLine {
-			extractedLines = append(extractedLines, line)
-		}
-		if lineNum >= endLine {
-			break
-		}
-	}
-
-	// Join extracted lines with LF (CRLF normalization is already handled by
-	// filereader.ReadLine, which normalizes CRLF before splitting).
-	extractedContent := strings.Join(extractedLines, "\n")
-
-	// Compute SHA-1 and encode as base64url (RFC 4648 §5, no padding, 27 chars).
-	sum := sha1.Sum([]byte(extractedContent)) //nolint:gosec // SHA-1 required by spec
-	computedHash := base64.RawURLEncoding.EncodeToString(sum[:])
-
-	if computedHash != frag.Hash {
-		errs = append(errs, FormatError{
-			Node: nodeLogicalName,
-			Rule: "fragment hash mismatch",
-			Detail: fmt.Sprintf(
-				"fragment at lines %s of %q has hash %s but declared hash is %s",
-				frag.Lines,
-				filePath,
-				computedHash,
-				frag.Hash,
-			),
-		})
 	}
 
 	return errs
 }
 
-// parseLineRange parses a "start-end" line range string (e.g. "150-210")
-// into its inclusive integer bounds (both 1-based). Returns (0, 0, false) on
-// any parse failure.
-func parseLineRange(lines string) (start, end int, ok bool) {
-	parts := strings.SplitN(lines, "-", 2)
-	if len(parts) != 2 {
-		return 0, 0, false
-	}
-	s, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
-	e, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if err1 != nil || err2 != nil || s < 1 || e < s {
-		return 0, 0, false
-	}
-	return s, e, true
-}
+// ruleDuplicatePublicSubsections checks that no two ## headings within
+// # Public normalize to the same value.
+func ruleDuplicatePublicSubsections(node nodediscovery.DiscoveredNode, parsed *parsenode.ParsedNode) []FormatError {
+	var errs []FormatError
 
-// fileExists is a small helper that returns true when a file exists and is
-// accessible on the OS filesystem. Used to double-check external path
-// existence independently from filereader (which is the authoritative check).
-//
-// Note: this function is intentionally kept even if the compiler marks it
-// unused in some build configurations — it serves as documentation of intent
-// and may be used in future rules.
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	// parsed.Public is guaranteed non-nil by the caller.
+	seen := make(map[string]bool)
+
+	for _, sub := range parsed.Public.Subsections {
+		normalized := normalizename.NormalizeName(sub.Heading)
+		if seen[normalized] {
+			errs = append(errs, FormatError{
+				Node:   node.LogicalName,
+				Rule:   "duplicate_public_subsections",
+				Detail: fmt.Sprintf("duplicate \"##\" heading in \"# Public\": %q (normalized: %q)", sub.Heading, normalized),
+			})
+		} else {
+			seen[normalized] = true
+		}
+	}
+
+	return errs
 }

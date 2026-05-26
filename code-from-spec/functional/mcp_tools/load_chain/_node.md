@@ -62,8 +62,8 @@ Before loading the chain:
 
 The context is a single continuous text block — no
 delimiters, no headers, no file boundaries. All files
-are read using `file_reader`. Content is concatenated
-in this exact order:
+are read using `file_reader` (close each reader after
+reading). Content is concatenated in this exact order:
 
 **Step 1 — Ancestors** (root to target's parent)
 

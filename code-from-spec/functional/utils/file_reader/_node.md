@@ -65,3 +65,5 @@ call to `ReadLine` or `SkipLines` raises "end of file".
 - The reader is forward-only. No seeking or rewinding.
 - The file is read sequentially — memory usage does not
   depend on file size.
+- The caller must call `Close` when done reading. Failing
+  to close leaks the file handle.

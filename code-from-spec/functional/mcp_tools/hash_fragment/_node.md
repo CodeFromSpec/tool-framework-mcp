@@ -46,9 +46,10 @@ base64url encoded (RFC 4648 S5, no padding), 27 characters.
 2. Open the file with file_reader.
 3. Skip to the start of the line range.
 4. Read lines in the range (1-indexed, inclusive).
-5. Join the extracted lines with LF.
-6. Compute SHA-1 of the joined content.
-7. Encode as base64url (RFC 4648 §5, no padding) — 27 characters.
+5. Close the reader.
+6. Join the extracted lines with LF.
+7. Compute SHA-1 of the joined content.
+8. Encode as base64url (RFC 4648 §5, no padding) — 27 characters.
 
 ### Line range format
 
