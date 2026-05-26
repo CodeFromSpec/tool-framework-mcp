@@ -1,4 +1,11 @@
-// code-from-spec: ROOT/golang/internal/tools/hash_fragment/code@PENDING
+// code-from-spec: ROOT/golang/internal/tools/hash_fragment/code@ZMGDUERO3vWP5m2-mYkPlifghRU
+
+// Package hash_fragment implements the hash_fragment MCP tool.
+//
+// The tool accepts a file path and a line range (e.g. "150-210"), extracts
+// the specified lines from the file, and returns a SHA-1 hash of the joined
+// content encoded as base64url (RFC 4648 §5, no padding). This produces a
+// 27-character string suitable for use in external fragment declarations.
 package hash_fragment
 
 import (
@@ -7,6 +14,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -15,112 +23,165 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// HashFragmentArgs defines the input parameters for the hash_fragment tool.
+// HashFragmentArgs holds the input parameters for the hash_fragment tool.
 type HashFragmentArgs struct {
-	Path  string `json:"path" jsonschema:"File path relative to project root."`
+	// Path is the file path relative to the project root.
+	Path string `json:"path" jsonschema:"File path relative to project root."`
+
+	// Lines is the line range in "start-end" format (1-indexed, inclusive).
+	// Example: "150-210"
 	Lines string `json:"lines" jsonschema:"Line range (e.g., 150-210)."`
 }
 
-// HandleHashFragment validates the file path, reads the specified line range,
-// and returns a SHA-1 hash (base64url encoded, 27 chars) of the extracted content.
+// HandleHashFragment is the MCP tool handler for hash_fragment.
+//
+// It validates the path, parses the line range, reads the specified lines
+// from the file, and returns a SHA-1/base64url hash of the joined content.
+//
+// All expected error conditions return an MCP tool error (IsError: true).
+// The Go error return is reserved for catastrophic server failures and is
+// always nil here.
 func HandleHashFragment(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
 	args HashFragmentArgs,
 ) (*mcp.CallToolResult, any, error) {
-	// Step 1: Validate path against working directory.
-	if err := pathvalidation.ValidatePath(args.Path, "."); err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
-			IsError: true,
-		}, nil, nil
-	}
 
-	// Step 2: Parse the line range.
-	start, end, err := parseLineRange(args.Lines)
+	// Step 1: Validate the path against the working directory (project root).
+	// This guards against directory traversal, absolute paths, etc.
+	wd, err := os.Getwd()
 	if err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("invalid line range: %s", args.Lines)}},
-			IsError: true,
-		}, nil, nil
+		// If we cannot determine the working directory the server is misconfigured;
+		// treat as a tool error so the server keeps running.
+		return toolError("could not determine working directory: " + err.Error()), nil, nil
 	}
 
-	// Step 3: Read the file using filereader.
-	fr, err := filereader.OpenFileReader(args.Path)
+	if err := pathvalidation.ValidatePath(args.Path, wd); err != nil {
+		return toolError(err.Error()), nil, nil
+	}
+
+	// Step 2: Parse the line range "start-end".
+	// Both start and end are 1-indexed and inclusive.
+	// Conditions that make the range invalid:
+	//   - Not exactly two integers separated by a hyphen
+	//   - start < 1
+	//   - start > end
+	start, end, ok := parseLineRange(args.Lines)
+	if !ok {
+		return toolError(fmt.Sprintf("invalid line range: %s", args.Lines)), nil, nil
+	}
+
+	// Step 3: Open the file for sequential reading using filereader.
+	// filereader normalises CRLF line endings, so we do not need to handle
+	// them here.
+	r, err := filereader.OpenFileReader(args.Path)
 	if err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("file not found: %s", args.Path)}},
-			IsError: true,
-		}, nil, nil
+		if errors.Is(err, filereader.ErrOpen) {
+			return toolError(fmt.Sprintf("file not found: %s", args.Path)), nil, nil
+		}
+		return toolError(fmt.Sprintf("could not open file %s: %v", args.Path, err)), nil, nil
 	}
 
-	// Step 4: Read all lines.
-	var allLines []string
+	// Step 4: Collect lines start..end (1-indexed, inclusive).
+	// We read through the file line by line, keeping only the lines we need,
+	// and track the total line count to produce a useful error if end exceeds it.
+	var extracted []string
+	lineNum := 0 // current 1-indexed line number (incremented before use)
+
 	for {
-		line, err := fr.ReadLine()
-		if errors.Is(err, filereader.ErrEndOfFile) {
-			break
-		}
+		line, err := r.ReadLine()
 		if err != nil {
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("error reading file: %s", args.Path)}},
-				IsError: true,
-			}, nil, nil
+			if errors.Is(err, filereader.ErrEndOfFile) {
+				break
+			}
+			// Unexpected read error.
+			return toolError(fmt.Sprintf("error reading file %s: %v", args.Path, err)), nil, nil
 		}
-		allLines = append(allLines, line)
+		lineNum++
+
+		if lineNum >= start && lineNum <= end {
+			extracted = append(extracted, line)
+		}
+
+		// Once we have read past the end of the requested range we can stop
+		// reading — unless we still need to count total lines for a potential
+		// bounds error. We must continue to know the total line count only if
+		// end is beyond the file; but we do not know that yet.  Keep reading
+		// until EOF so we always have the accurate total.
 	}
 
-	// Step 5: Validate line range against file length.
-	if end > len(allLines) {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("invalid line range: %s (file has %d lines)", args.Lines, len(allLines))}},
-			IsError: true,
-		}, nil, nil
+	// Check whether end exceeds the file's total line count.
+	if end > lineNum {
+		return toolError(fmt.Sprintf(
+			"invalid line range: %s (file has %d lines)", args.Lines, lineNum,
+		)), nil, nil
 	}
 
-	// Step 6: Extract lines (1-indexed, inclusive).
-	extracted := allLines[start-1 : end]
+	// Step 5: Join the extracted lines with LF.
+	joined := strings.Join(extracted, "\n")
 
-	// Step 7: Join with LF.
-	content := strings.Join(extracted, "\n")
+	// Step 6: Compute SHA-1 of the joined content.
+	h := sha1.New()
+	h.Write([]byte(joined))
+	digest := h.Sum(nil)
 
-	// Step 8: Compute SHA-1 and encode as base64url (no padding, 27 chars).
-	hash := sha1.Sum([]byte(content))
-	encoded := base64.RawURLEncoding.EncodeToString(hash[:])
-	// Truncate to 27 characters.
-	if len(encoded) > 27 {
-		encoded = encoded[:27]
-	}
+	// Step 7: Encode the hash as base64url without padding (RFC 4648 §5).
+	// This produces a 27-character string for a 20-byte SHA-1 digest.
+	encoded := base64.RawURLEncoding.EncodeToString(digest)
 
+	// Step 8: Return the hash as a success result.
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: encoded}},
 	}, nil, nil
 }
 
 // parseLineRange parses a "start-end" string into two 1-indexed integers.
-func parseLineRange(lines string) (int, int, error) {
-	parts := strings.SplitN(lines, "-", 2)
+// Returns (start, end, true) on success.
+// Returns (0, 0, false) if:
+//   - the string does not contain exactly one hyphen separating two integers
+//   - either part is not a valid positive integer
+//   - start < 1
+//   - start > end
+func parseLineRange(s string) (start, end int, ok bool) {
+	// Split on the first hyphen only; this means a range like "10-20" splits
+	// cleanly, while "10-20-30" is deliberately rejected (more than one part
+	// after the first hyphen).
+	parts := strings.SplitN(s, "-", 2)
 	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("invalid format")
+		return 0, 0, false
 	}
 
-	start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	startStr := strings.TrimSpace(parts[0])
+	endStr := strings.TrimSpace(parts[1])
+
+	// Reject empty halves or values containing additional hyphens (e.g. "10-20-30").
+	if startStr == "" || endStr == "" || strings.Contains(endStr, "-") {
+		return 0, 0, false
+	}
+
+	s64, err := strconv.ParseInt(startStr, 10, 64)
 	if err != nil {
-		return 0, 0, fmt.Errorf("invalid start: %w", err)
+		return 0, 0, false
 	}
-
-	end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	e64, err := strconv.ParseInt(endStr, 10, 64)
 	if err != nil {
-		return 0, 0, fmt.Errorf("invalid end: %w", err)
+		return 0, 0, false
 	}
 
-	if start < 1 {
-		return 0, 0, fmt.Errorf("start must be >= 1")
+	start = int(s64)
+	end = int(e64)
+
+	if start < 1 || start > end {
+		return 0, 0, false
 	}
 
-	if start > end {
-		return 0, 0, fmt.Errorf("start must be <= end")
-	}
+	return start, end, true
+}
 
-	return start, end, nil
+// toolError is a convenience function that builds an MCP tool error result.
+func toolError(message string) *mcp.CallToolResult {
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: message}},
+		IsError: true,
+	}
 }

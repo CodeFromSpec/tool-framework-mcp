@@ -27,11 +27,13 @@ function ReadLine(reader) -> line
     - end of file: no more lines to read.
 
 function SkipLines(reader, count)
+
+function Close(reader)
 ```
 
 `OpenFileReader` opens a file and prepares it for
 sequential line-by-line reading. The file remains open
-until all lines are consumed or the reader is discarded.
+until `Close` is called.
 
 `ReadLine` reads the next line from the file, normalizes
 CRLF to LF, and returns the line without the terminator.
@@ -39,6 +41,9 @@ Raises "end of file" when there are no more lines.
 
 `SkipLines` reads and discards `count` lines without
 returning their content.
+
+`Close` releases the file resource. After `Close`, any
+call to `ReadLine` or `SkipLines` raises "end of file".
 
 # Agent
 

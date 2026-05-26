@@ -1,4 +1,10 @@
 ---
+depends_on:
+  - ROOT/golang/internal/tools/write_file
+  - ROOT/golang/internal/frontmatter
+  - ROOT/golang/internal/logical_names
+  - ROOT/golang/internal/pathvalidation
+input: ARTIFACT/golang/internal/tools/write_file/code(write_file)
 outputs:
   - id: write_file_test
     path: internal/write_file/write_file_test.go

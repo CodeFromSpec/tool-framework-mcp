@@ -1,4 +1,8 @@
 ---
+depends_on:
+  - ROOT/golang/internal/format_validation
+  - ROOT/golang/internal/node_discovery
+input: ARTIFACT/golang/internal/format_validation/code(formatvalidation)
 outputs:
   - id: formatvalidation_test
     path: internal/formatvalidation/formatvalidation_test.go

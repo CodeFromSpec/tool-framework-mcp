@@ -1,4 +1,7 @@
 ---
+depends_on:
+  - ROOT/golang/internal/logical_names
+input: ARTIFACT/golang/internal/logical_names/code(logicalnames)
 outputs:
   - id: logicalnames_test
     path: internal/logicalnames/logicalnames_test.go

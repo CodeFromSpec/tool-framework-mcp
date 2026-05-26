@@ -1,4 +1,9 @@
 ---
+depends_on:
+  - ROOT/golang/internal/chain_resolver
+  - ROOT/golang/internal/frontmatter
+  - ROOT/golang/internal/logical_names
+input: ARTIFACT/golang/internal/chain_resolver/code(chainresolver)
 outputs:
   - id: chainresolver_test
     path: internal/chainresolver/chainresolver_test.go

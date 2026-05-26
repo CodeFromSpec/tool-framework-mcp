@@ -24,6 +24,7 @@ var (
 func OpenFileReader(filePath string) (*FileReader, error)
 func (r *FileReader) ReadLine() (string, error)
 func (r *FileReader) SkipLines(count int)
+func (r *FileReader) Close()
 ```
 
 `OpenFileReader` opens a file and prepares it for sequential
@@ -37,6 +38,10 @@ CRLF is normalized to LF before splitting. Returns
 `SkipLines` advances the reader by `count` lines without
 returning their content. Skipping past end-of-file is not
 an error.
+
+`Close` releases the underlying file handle. Callers must
+call `Close` when done reading. After `Close`, `ReadLine`
+returns `ErrEndOfFile`.
 
 ### Error handling
 

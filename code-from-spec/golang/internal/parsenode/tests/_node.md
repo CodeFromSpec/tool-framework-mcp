@@ -1,4 +1,8 @@
 ---
+depends_on:
+  - ROOT/golang/internal/parsenode
+  - ROOT/golang/internal/logical_names
+input: ARTIFACT/golang/internal/parsenode/code(parsenode)
 outputs:
   - id: parsenode_test
     path: internal/parsenode/parsenode_test.go

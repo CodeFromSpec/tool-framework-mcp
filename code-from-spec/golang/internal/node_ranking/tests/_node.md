@@ -1,4 +1,9 @@
 ---
+depends_on:
+  - ROOT/golang/internal/node_ranking
+  - ROOT/golang/internal/node_discovery
+  - ROOT/golang/internal/frontmatter
+input: ARTIFACT/golang/internal/node_ranking/code(noderanking)
 outputs:
   - id: noderanking_test
     path: internal/noderanking/noderanking_test.go

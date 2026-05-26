@@ -1,4 +1,9 @@
-// code-from-spec: ROOT/golang/internal/chain_resolver/code@PENDING
+// code-from-spec: ROOT/golang/internal/chain_resolver/code@2JlJSfB8ovKs5RLPE5GbJ9b5CIg
+
+// Package chainresolver assembles the spec chain for a target logical name.
+// The chain contains all context a generation subagent needs: ancestor nodes
+// (from ROOT down to the target's parent), cross-tree dependencies, external
+// file references, and the target node itself, plus an optional input artifact.
 package chainresolver
 
 import (
@@ -11,126 +16,108 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
 )
 
-// ChainItem represents a single node in the chain with its file path
-// and an optional qualifier indicating a specific subsection.
+// ChainItem represents one node in the chain that contributes spec content.
+// When Qualifier is nil, the caller uses the node's entire "# Public" section.
+// When Qualifier is non-nil, the caller uses only the "## <qualifier>"
+// subsection within "# Public".
 type ChainItem struct {
 	LogicalName string
 	FilePath    string
 	Qualifier   *string
 }
 
-// ExternalItem represents an external file referenced by the target node.
+// ExternalItem represents a file referenced via the "external" frontmatter
+// field. The caller is responsible for reading and including its content.
 type ExternalItem struct {
 	Path string
 }
 
-// Chain holds the fully resolved chain for a target node.
+// Chain is the complete assembled context for a generation subagent targeting
+// a specific node.
 type Chain struct {
-	Ancestors    []ChainItem
-	Target       ChainItem
+	// Ancestors holds nodes from ROOT down to (but not including) the target.
+	// Each contributes its "# Public" section.
+	Ancestors []ChainItem
+
+	// Target is the node being generated.
+	// It contributes both its "# Public" and "# Agent" sections.
+	Target ChainItem
+
+	// Dependencies holds nodes declared in the target's "depends_on" field,
+	// in alphabetical order by FilePath (then Qualifier).
 	Dependencies []ChainItem
-	External     []ExternalItem
-	Input        string
+
+	// External holds file paths from the target's "external" frontmatter field.
+	External []ExternalItem
+
+	// Input is the logical name of the artifact declared in the target's
+	// "input" frontmatter field, or empty if none.
+	Input string
 }
 
-// ResolveChain builds the chain for the given target logical name by
-// collecting ancestors, dependencies, external references, and input.
+// ResolveChain builds and returns the complete chain for the given target
+// logical name. Returns an error if any part of the chain cannot be resolved.
 func ResolveChain(targetLogicalName string) (*Chain, error) {
-	// Step 1: Walk up parents to collect ancestors and target.
-	var allItems []ChainItem
+	// -------------------------------------------------------------------------
+	// Step 1 — Collect ancestors and target
+	// -------------------------------------------------------------------------
+	// Walk upward from the target, collecting every logical name in the
+	// ancestry chain (including the target itself).
+	allNames, err := collectAncestry(targetLogicalName)
+	if err != nil {
+		return nil, err
+	}
 
-	current := targetLogicalName
-	for {
-		filePath, ok := logicalnames.PathFromLogicalName(current)
+	// Sort alphabetically. Because logical names use path-like segments
+	// (ROOT < ROOT/a < ROOT/a/b), lexicographic order gives us ancestor order.
+	sort.Strings(allNames)
+
+	// Convert each logical name to a ChainItem (Qualifier = nil for ancestors
+	// and the target — they contribute their full "# Public" section).
+	var allItems []ChainItem
+	for _, name := range allNames {
+		path, ok := logicalnames.PathFromLogicalName(name)
 		if !ok {
-			return nil, fmt.Errorf("cannot resolve logical name: %s", current)
+			return nil, fmt.Errorf("cannot resolve logical name: %s", name)
 		}
 		allItems = append(allItems, ChainItem{
-			LogicalName: current,
-			FilePath:    filePath,
+			LogicalName: name,
+			FilePath:    filepath.ToSlash(path),
 			Qualifier:   nil,
 		})
-
-		hasParent, ok := logicalnames.HasParent(current)
-		if !ok || !hasParent {
-			break
-		}
-		parent, ok := logicalnames.ParentLogicalName(current)
-		if !ok {
-			break
-		}
-		current = parent
 	}
 
-	// Sort all items alphabetically by logical name.
-	sort.Slice(allItems, func(i, j int) bool {
-		return allItems[i].LogicalName < allItems[j].LogicalName
-	})
+	// The last item (deepest path alphabetically) is the target; the rest are
+	// ancestors.
+	target := allItems[len(allItems)-1]
+	ancestors := allItems[:len(allItems)-1]
 
-	// The last item (alphabetically) is the target; the rest are ancestors.
-	var ancestors []ChainItem
-	var target ChainItem
-	if len(allItems) > 0 {
-		target = allItems[len(allItems)-1]
-		ancestors = allItems[:len(allItems)-1]
-	}
-
-	// Step 2: Read target frontmatter and process dependencies.
+	// -------------------------------------------------------------------------
+	// Step 2 — Dependencies
+	// -------------------------------------------------------------------------
+	// Parse the target node's frontmatter to read depends_on, external, and
+	// input fields.
 	fm, err := frontmatter.ParseFrontmatter(target.FilePath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading frontmatter for %s: %w", targetLogicalName, err)
+		return nil, fmt.Errorf("parsing frontmatter for %s: %w", targetLogicalName, err)
 	}
 
 	var dependencies []ChainItem
 	for _, dep := range fm.DependsOn {
-		// Handle ARTIFACT/ references.
-		if logicalnames.IsArtifactRef(dep) {
-			nodePath, _, ok := logicalnames.ArtifactRefParts(dep)
-			if !ok {
-				return nil, fmt.Errorf("cannot resolve logical name: %s", dep)
-			}
-			// For artifact refs, the file path is the node path.
-			dependencies = append(dependencies, ChainItem{
-				LogicalName: dep,
-				FilePath:    nodePath,
-				Qualifier:   nil,
-			})
-			continue
+		depItem, err := resolveDependency(dep)
+		if err != nil {
+			return nil, err
 		}
-
-		depPath, ok := logicalnames.PathFromLogicalName(dep)
-		if !ok {
-			return nil, fmt.Errorf("cannot resolve logical name: %s", dep)
-		}
-
-		// Determine qualifier.
-		var qualifier *string
-		hasQual, ok := logicalnames.HasQualifier(dep)
-		if ok && hasQual {
-			q, ok := logicalnames.QualifierName(dep)
-			if ok {
-				qualifier = &q
-			}
-		}
-
-		// Verify file exists on disk.
-		if _, err := os.Stat(depPath); err != nil {
-			return nil, fmt.Errorf("cannot resolve logical name: %s", dep)
-		}
-
-		dependencies = append(dependencies, ChainItem{
-			LogicalName: dep,
-			FilePath:    depPath,
-			Qualifier:   qualifier,
-		})
+		dependencies = append(dependencies, depItem)
 	}
 
-	// Sort dependencies by FilePath, then by Qualifier (nil before non-nil).
+	// Sort dependencies alphabetically by FilePath, then by Qualifier.
+	// nil Qualifier sorts before any non-nil Qualifier.
 	sort.Slice(dependencies, func(i, j int) bool {
 		if dependencies[i].FilePath != dependencies[j].FilePath {
 			return dependencies[i].FilePath < dependencies[j].FilePath
 		}
-		// nil sorts before non-nil.
+		// Same file path: nil qualifier sorts first.
 		if dependencies[i].Qualifier == nil && dependencies[j].Qualifier != nil {
 			return true
 		}
@@ -143,48 +130,28 @@ func ResolveChain(targetLogicalName string) (*Chain, error) {
 		return false
 	})
 
-	// Step 3: Process external entries.
+	// -------------------------------------------------------------------------
+	// Step 3 — External files
+	// -------------------------------------------------------------------------
+	// Collect the file paths from the "external" frontmatter field.
+	// The spec says to include the path; fragment details are handled by the
+	// caller (load_chain), not here.
 	var external []ExternalItem
 	for _, ext := range fm.External {
-		external = append(external, ExternalItem{
-			Path: ext.Path,
-		})
+		external = append(external, ExternalItem{Path: filepath.ToSlash(ext.Path)})
 	}
 
-	// Step 4: Normalize all file paths with filepath.ToSlash.
-	for i := range ancestors {
-		ancestors[i].FilePath = filepath.ToSlash(ancestors[i].FilePath)
-	}
-	target.FilePath = filepath.ToSlash(target.FilePath)
-	for i := range dependencies {
-		dependencies[i].FilePath = filepath.ToSlash(dependencies[i].FilePath)
-	}
+	// -------------------------------------------------------------------------
+	// Step 4 — Normalize file paths (already done via filepath.ToSlash above)
+	// -------------------------------------------------------------------------
+	// All ChainItem.FilePath values were passed through filepath.ToSlash when
+	// created. Nothing additional to do here.
 
-	// Step 5: Deduplicate dependencies.
-	// A nil qualifier subsumes specific qualifiers for the same FilePath.
-	dependencies = deduplicateItems(dependencies)
-
-	// Also deduplicate across ancestors and dependencies.
-	allChain := append(ancestors, dependencies...)
-	allChain = deduplicateItems(allChain)
-	// Split back: ancestors come first (same count unless deduplicated).
-	if len(ancestors) > 0 {
-		// Re-split based on whether items were originally ancestors.
-		ancestorSet := make(map[string]bool)
-		for _, a := range ancestors {
-			ancestorSet[a.LogicalName] = true
-		}
-		var newAncestors, newDeps []ChainItem
-		for _, item := range allChain {
-			if ancestorSet[item.LogicalName] {
-				newAncestors = append(newAncestors, item)
-			} else {
-				newDeps = append(newDeps, item)
-			}
-		}
-		ancestors = newAncestors
-		dependencies = newDeps
-	}
+	// -------------------------------------------------------------------------
+	// Step 5 — Deduplicate
+	// -------------------------------------------------------------------------
+	ancestors = deduplicateChainItems(ancestors)
+	dependencies = deduplicateChainItems(dependencies)
 
 	return &Chain{
 		Ancestors:    ancestors,
@@ -195,42 +162,119 @@ func ResolveChain(targetLogicalName string) (*Chain, error) {
 	}, nil
 }
 
-// deduplicateItems removes duplicate ChainItems. Two items are duplicates
-// when they share the same FilePath and Qualifier. A nil qualifier subsumes
-// any specific qualifier for the same FilePath.
-func deduplicateItems(items []ChainItem) []ChainItem {
-	// First pass: identify FilePaths that have a nil-qualifier entry.
-	nilQualPaths := make(map[string]bool)
-	for _, item := range items {
-		if item.Qualifier == nil {
-			nilQualPaths[item.FilePath] = true
+// collectAncestry walks upward from targetLogicalName to ROOT and returns a
+// slice containing the target and all its ancestors (logical names only).
+func collectAncestry(targetLogicalName string) ([]string, error) {
+	names := []string{targetLogicalName}
+
+	current := targetLogicalName
+	for {
+		parent, ok := logicalnames.ParentLogicalName(current)
+		if !ok {
+			// No parent — we have reached ROOT or the name is invalid.
+			break
 		}
+		names = append(names, parent)
+		current = parent
 	}
 
+	return names, nil
+}
+
+// resolveDependency converts a single depends_on entry (a logical name that
+// may be ROOT/ or ARTIFACT/) into a ChainItem.
+func resolveDependency(depLogicalName string) (ChainItem, error) {
+	// ARTIFACT/ references are resolved differently: we look up the node path
+	// and artifact ID via ArtifactRefParts.
+	if logicalnames.IsArtifactRef(depLogicalName) {
+		nodePath, artifactID, ok := logicalnames.ArtifactRefParts(depLogicalName)
+		if !ok {
+			return ChainItem{}, fmt.Errorf("cannot resolve logical name: %s", depLogicalName)
+		}
+		// Verify the node file exists on disk.
+		if _, err := os.Stat(nodePath); err != nil {
+			return ChainItem{}, fmt.Errorf("cannot resolve logical name: %s", depLogicalName)
+		}
+		q := artifactID
+		return ChainItem{
+			LogicalName: depLogicalName,
+			FilePath:    filepath.ToSlash(nodePath),
+			Qualifier:   &q,
+		}, nil
+	}
+
+	// ROOT/ reference: resolve to a file path.
+	filePath, ok := logicalnames.PathFromLogicalName(depLogicalName)
+	if !ok {
+		return ChainItem{}, fmt.Errorf("cannot resolve logical name: %s", depLogicalName)
+	}
+
+	// Verify the file exists on disk.
+	if _, err := os.Stat(filePath); err != nil {
+		return ChainItem{}, fmt.Errorf("cannot resolve logical name: %s", depLogicalName)
+	}
+
+	// Determine whether the logical name carries a qualifier (e.g. ROOT/x(y)).
+	var qualifier *string
+	if hasQ, qok := logicalnames.HasQualifier(depLogicalName); qok && hasQ {
+		q, _ := logicalnames.QualifierName(depLogicalName)
+		qualifier = &q
+	}
+
+	return ChainItem{
+		LogicalName: depLogicalName,
+		FilePath:    filepath.ToSlash(filePath),
+		Qualifier:   qualifier,
+	}, nil
+}
+
+// deduplicateChainItems removes duplicate entries from a ChainItem slice.
+// Two entries are duplicates when they share the same FilePath and Qualifier.
+//
+// Additionally, if an entry with Qualifier == nil already exists for a given
+// FilePath, any entry with the same FilePath and a non-nil Qualifier is
+// removed — the full "# Public" section already covers every subsection.
+//
+// The first occurrence of each entry is kept.
+func deduplicateChainItems(items []ChainItem) []ChainItem {
+	// Track which (FilePath, Qualifier) pairs we have already emitted,
+	// and which FilePaths have been emitted with a nil Qualifier.
 	type key struct {
-		filePath  string
-		qualifier string
-		hasQual   bool
+		FilePath  string
+		Qualifier string // empty string stands for nil
+		HasQual   bool   // distinguishes nil from ""
 	}
 
-	seen := make(map[key]bool)
+	seen := make(map[key]struct{})
+	// nilQualSeen tracks file paths for which we have already emitted an entry
+	// with Qualifier == nil (entire # Public section).
+	nilQualSeen := make(map[string]struct{})
+
 	var result []ChainItem
-
 	for _, item := range items {
-		// If a nil-qualifier entry exists for this path, skip non-nil qualifiers.
-		if item.Qualifier != nil && nilQualPaths[item.FilePath] {
-			continue
-		}
-
-		k := key{filePath: item.FilePath, hasQual: item.Qualifier != nil}
+		// If the full "# Public" for this file is already in the result, any
+		// qualified reference to the same file is redundant.
 		if item.Qualifier != nil {
-			k.qualifier = *item.Qualifier
+			if _, ok := nilQualSeen[item.FilePath]; ok {
+				continue
+			}
 		}
 
-		if seen[k] {
+		// Build the deduplication key.
+		k := key{FilePath: item.FilePath}
+		if item.Qualifier != nil {
+			k.Qualifier = *item.Qualifier
+			k.HasQual = true
+		}
+
+		if _, exists := seen[k]; exists {
 			continue
 		}
-		seen[k] = true
+
+		seen[k] = struct{}{}
+		if item.Qualifier == nil {
+			nilQualSeen[item.FilePath] = struct{}{}
+		}
 		result = append(result, item)
 	}
 

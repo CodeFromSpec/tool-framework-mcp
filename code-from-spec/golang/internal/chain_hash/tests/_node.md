@@ -1,4 +1,9 @@
 ---
+depends_on:
+  - ROOT/golang/internal/chain_hash
+  - ROOT/golang/internal/frontmatter
+  - ROOT/golang/internal/logical_names
+input: ARTIFACT/golang/internal/chain_hash/code(chainhash)
 outputs:
   - id: chainhash_test
     path: internal/chainhash/chainhash_test.go

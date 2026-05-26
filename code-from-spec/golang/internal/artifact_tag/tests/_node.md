@@ -1,4 +1,8 @@
 ---
+depends_on:
+  - ROOT/golang/internal/artifact_tag
+  - ROOT/golang/internal/file_reader
+input: ARTIFACT/golang/internal/artifact_tag/code(artifacttag)
 outputs:
   - id: artifacttag_test
     path: internal/artifacttag/artifacttag_test.go

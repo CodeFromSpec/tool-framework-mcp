@@ -1,16 +1,28 @@
-// code-from-spec: ROOT/golang/internal/tools/load_chain/code@PENDING
+// code-from-spec: ROOT/golang/internal/tools/load_chain/code@cRjjyzyuALVcPdpoYlbkB8Famjw
+
+// Package load_chain implements the MCP tool handler for the load_chain tool.
+// The tool takes a logical name (e.g. ROOT/x/y) and returns the assembled
+// spec chain as a single text response, including a content hash for staleness
+// detection.
+//
+// The chain contains:
+//  1. A 27-character base64url SHA-1 hash (chain_hash)
+//  2. The concatenated spec context (ancestors, dependencies, external files,
+//     reduced frontmatter, target public+agent sections)
+//  3. The input artifact content (if the target declares one)
 package load_chain
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filereader"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/normalizename"
@@ -19,361 +31,454 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// LoadChainArgs defines the input parameters for the load_chain tool.
+// LoadChainArgs holds the typed input parameters for the load_chain tool.
 type LoadChainArgs struct {
 	LogicalName string `json:"logical_name" jsonschema:"Logical name of the node to generate code for."`
 }
 
-// HandleLoadChain validates the logical name, loads the spec chain,
-// and returns the chain hash, context stream, and input as separate
-// text content items.
+// HandleLoadChain is the MCP tool handler for load_chain.
+// It assembles the full spec chain for a target logical name and returns it
+// as a single text response, prefixed with the chain hash.
+//
+// The returned Go error is reserved for catastrophic server failures.
+// All expected error conditions use IsError: true on the result.
 func HandleLoadChain(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
 	args LoadChainArgs,
 ) (*mcp.CallToolResult, any, error) {
-	// Step 1: Validate logical name starts with ROOT/.
-	if !strings.HasPrefix(args.LogicalName, "ROOT/") && args.LogicalName != "ROOT" {
-		return toolError("invalid logical name"), nil, nil
-	}
 
-	// Step 2: Resolve logical name to file path and parse frontmatter.
-	nodePath, ok := logicalnames.PathFromLogicalName(args.LogicalName)
+	// --- Phase 1: Validation ---
+
+	// Step 1 — Validate the logical name: it must be a ROOT/ reference.
+	// PathFromLogicalName handles ROOT/ references only; ARTIFACT/ references
+	// and anything else return ("", false).
+	if args.LogicalName == "" {
+		return toolError("invalid logical name: logical_name is required and must be a ROOT/ reference"), nil, nil
+	}
+	targetPath, ok := logicalnames.PathFromLogicalName(args.LogicalName)
 	if !ok {
-		return toolError("invalid logical name"), nil, nil
+		return toolError(fmt.Sprintf("invalid logical name: %q is not a recognized ROOT/ reference", args.LogicalName)), nil, nil
 	}
 
-	fm, err := frontmatter.ParseFrontmatter(nodePath)
+	// Step 2 — Parse the target node's frontmatter.
+	fm, err := frontmatter.ParseFrontmatter(targetPath)
 	if err != nil {
-		return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
+		return toolError(fmt.Sprintf("unreadable file: cannot parse frontmatter for %q: %v", targetPath, err)), nil, nil
 	}
 
-	// Step 3: Check outputs not empty.
+	// Step 3 — Check that outputs is present and non-empty.
 	if len(fm.Outputs) == 0 {
-		return toolError("no outputs"), nil, nil
+		return toolError(fmt.Sprintf("no outputs: target node %q has no outputs field in its frontmatter", args.LogicalName)), nil, nil
 	}
 
-	// Step 4: Validate output paths.
-	for _, out := range fm.Outputs {
-		if err := pathvalidation.ValidatePath(out.Path, "."); err != nil {
-			return toolError(fmt.Sprintf("invalid output path: %v", err)), nil, nil
+	// Step 4 — Validate each output path.
+	// We use the current working directory as the project root (the tool is
+	// always executed from the project root per the framework spec).
+	projectRoot, err := os.Getwd()
+	if err != nil {
+		return toolError(fmt.Sprintf("unreadable file: cannot determine project root: %v", err)), nil, nil
+	}
+	for _, output := range fm.Outputs {
+		if err := pathvalidation.ValidatePath(output.Path, projectRoot); err != nil {
+			return toolError(fmt.Sprintf("invalid output path: output %q in %q: %v", output.Path, args.LogicalName, err)), nil, nil
 		}
 	}
 
-	// Step 5: Resolve chain.
-	chain, err := chainresolver.ResolveChain(args.LogicalName)
-	if err != nil {
-		return toolError(fmt.Sprintf("chain resolution failure: %v", err)), nil, nil
+	// --- Phase 2: Assemble the Context Stream ---
+
+	// contextParts accumulates all content for the final context string.
+	// hashInputs accumulates the raw SHA-1 byte sequences to be combined
+	// into the final chain hash.
+	var contextParts []string
+	var hashInputs [][]byte
+
+	// Helper: compute SHA-1 of text and append to hashInputs.
+	addToHash := func(text string) {
+		sum := sha1.Sum([]byte(text))
+		hashInputs = append(hashInputs, sum[:])
 	}
 
-	// Compute chain hash from raw files on disk.
-	chainHashStr, err := chainhash.ComputeChainHash(args.LogicalName)
-	if err != nil {
-		return toolError(fmt.Sprintf("chain hash computation failure: %v", err)), nil, nil
+	// --- Step 1: Ancestors ---
+	// Collect ancestors from ROOT down to the target's direct parent.
+	// We walk up from the target using ParentLogicalName, then reverse the
+	// list so we iterate root-first.
+	var ancestors []string
+	current := args.LogicalName
+	for {
+		parent, ok := logicalnames.ParentLogicalName(current)
+		if !ok {
+			// No parent (we are at ROOT, or invalid) — stop.
+			break
+		}
+		ancestors = append(ancestors, parent)
+		current = parent
+	}
+	// Reverse: ancestors[0] is ROOT, ancestors[len-1] is the direct parent.
+	for i, j := 0, len(ancestors)-1; i < j; i, j = i+1, j-1 {
+		ancestors[i], ancestors[j] = ancestors[j], ancestors[i]
 	}
 
-	// Build context stream.
-	var contextBuf strings.Builder
-
-	// Step 1 -- Ancestors (root to target's parent).
-	for _, ancestor := range chain.Ancestors {
-		parsed, err := parsenode.ParseNode(ancestor.LogicalName)
+	for _, ancestorName := range ancestors {
+		parsed, err := parsenode.ParseNode(ancestorName)
 		if err != nil {
-			return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
+			return toolError(fmt.Sprintf("unreadable file: cannot parse ancestor %q: %v", ancestorName, err)), nil, nil
 		}
-
-		if parsed.Public == nil {
+		if parsed.Public == nil || strings.TrimSpace(parsed.Public.Content) == "" {
+			// No public section or it is empty — skip this ancestor.
 			continue
 		}
-		// Check if # Public has any content (body or subsections).
-		hasContent := strings.TrimSpace(parsed.Public.Content) != ""
-		if !hasContent {
-			for _, sub := range parsed.Public.Subsections {
-				if strings.TrimSpace(sub.Content) != "" {
-					hasContent = true
+		// Append content WITHOUT the heading.
+		contextParts = append(contextParts, parsed.Public.Content)
+		// Hash the FULL section (heading + content).
+		addToHash("# Public" + "\n" + parsed.Public.Content)
+	}
+
+	// --- Step 2: Dependencies (depends_on) ---
+	// Sort alphabetically by logical name string.
+	sortedDeps := make([]string, len(fm.DependsOn))
+	copy(sortedDeps, fm.DependsOn)
+	sort.Strings(sortedDeps)
+
+	for _, dep := range sortedDeps {
+		switch {
+		case logicalnames.IsArtifactRef(dep):
+			// Case C: ARTIFACT/ reference
+			nodePath, artifactID, ok := logicalnames.ArtifactRefParts(dep)
+			if !ok {
+				return toolError(fmt.Sprintf("chain resolution failure: cannot resolve ARTIFACT/ reference %q in depends_on of %q", dep, args.LogicalName)), nil, nil
+			}
+			depFM, err := frontmatter.ParseFrontmatter(nodePath)
+			if err != nil {
+				return toolError(fmt.Sprintf("chain resolution failure: cannot parse frontmatter for dependency %q: %v", dep, err)), nil, nil
+			}
+			// Find the output whose ID matches artifactID.
+			var artifactPath string
+			for _, out := range depFM.Outputs {
+				if out.ID == artifactID {
+					artifactPath = out.Path
 					break
 				}
 			}
-		}
-		if !hasContent {
-			continue
-		}
+			if artifactPath == "" {
+				return toolError(fmt.Sprintf("chain resolution failure: artifact %q not found in outputs of %q", artifactID, nodePath)), nil, nil
+			}
+			raw, err := os.ReadFile(artifactPath)
+			if err != nil {
+				return toolError(fmt.Sprintf("unreadable file: cannot read artifact %q for dependency %q: %v", artifactPath, dep, err)), nil, nil
+			}
+			stripped := stripFrontmatter(string(raw))
+			contextParts = append(contextParts, stripped)
+			addToHash(stripped)
 
-		// Append content without the heading.
-		appendContent(&contextBuf, sectionContentWithoutHeading(parsed.Public))
+		default:
+			// Case A or B: ROOT/ reference (with or without qualifier).
+			hasQ, _ := logicalnames.HasQualifier(dep)
+			parsed, err := parsenode.ParseNode(dep)
+			if err != nil {
+				return toolError(fmt.Sprintf("chain resolution failure: cannot parse dependency %q: %v", dep, err)), nil, nil
+			}
+
+			if !hasQ {
+				// Case A: no qualifier — use full # Public section.
+				if parsed.Public == nil || strings.TrimSpace(parsed.Public.Content) == "" {
+					continue
+				}
+				contextParts = append(contextParts, parsed.Public.Content)
+				addToHash("# Public" + "\n" + parsed.Public.Content)
+			} else {
+				// Case B: qualifier — use the matching subsection of # Public.
+				qualifier, _ := logicalnames.QualifierName(dep)
+				normalizedQ := normalizename.NormalizeName(qualifier)
+				if parsed.Public == nil {
+					return toolError(fmt.Sprintf("chain resolution failure: dependency %q has no # Public section", dep)), nil, nil
+				}
+				var matched *parsenode.Subsection
+				for i := range parsed.Public.Subsections {
+					sub := &parsed.Public.Subsections[i]
+					if normalizename.NormalizeName(sub.Heading) == normalizedQ {
+						matched = sub
+						break
+					}
+				}
+				if matched == nil {
+					return toolError(fmt.Sprintf("chain resolution failure: subsection %q not found in # Public of dependency %q", qualifier, dep)), nil, nil
+				}
+				// Append content WITHOUT the heading.
+				contextParts = append(contextParts, matched.Content)
+				// Hash includes the heading.
+				addToHash("## " + matched.Heading + "\n" + matched.Content)
+			}
+		}
 	}
 
-	// Step 2 -- Dependencies (depends_on), sorted alphabetically.
-	for _, dep := range chain.Dependencies {
-		if logicalnames.IsArtifactRef(dep.LogicalName) {
-			// ARTIFACT reference: resolve to artifact file, read excluding frontmatter.
-			content, err := readArtifactContent(dep.LogicalName)
-			if err != nil {
-				return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
-			}
-			appendContent(&contextBuf, content)
-		} else if dep.Qualifier != nil {
-			// Subsection reference: ROOT/x/y(z). Strip qualifier for parsing.
-			baseLogicalName := stripQualifier(dep.LogicalName)
-			parsed, err := parsenode.ParseNode(baseLogicalName)
-			if err != nil {
-				return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
-			}
-
-			subsection := findSubsection(parsed.Public, *dep.Qualifier)
-			if subsection == nil {
-				return toolError(fmt.Sprintf("chain resolution failure: subsection %q not found", *dep.Qualifier)), nil, nil
-			}
-
-			appendContent(&contextBuf, subsection.Content)
-		} else {
-			// Plain node reference: ROOT/x/y.
-			parsed, err := parsenode.ParseNode(dep.LogicalName)
-			if err != nil {
-				return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
-			}
-
-			if parsed.Public == nil {
-				continue
-			}
-
-			appendContent(&contextBuf, sectionContentWithoutHeading(parsed.Public))
-		}
-	}
-
-	// Step 3 -- External files, sorted alphabetically by path.
-	externals := make([]frontmatter.External, len(fm.External))
-	copy(externals, fm.External)
-	sort.Slice(externals, func(i, j int) bool {
-		return externals[i].Path < externals[j].Path
+	// --- Step 3: External files ---
+	// Sort alphabetically by path.
+	sortedExt := make([]frontmatter.External, len(fm.External))
+	copy(sortedExt, fm.External)
+	sort.Slice(sortedExt, func(i, j int) bool {
+		return sortedExt[i].Path < sortedExt[j].Path
 	})
 
-	for _, ext := range externals {
-		content, err := readExternalContent(ext)
-		if err != nil {
-			return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
+	for _, ext := range sortedExt {
+		if len(ext.Fragments) == 0 {
+			// Case A: no fragments — read and include the entire file.
+			raw, err := os.ReadFile(ext.Path)
+			if err != nil {
+				return toolError(fmt.Sprintf("unreadable file: cannot read external file %q: %v", ext.Path, err)), nil, nil
+			}
+			content := string(raw)
+			contextParts = append(contextParts, content)
+			addToHash(content)
+		} else {
+			// Case B: specific fragments declared.
+			fr, err := filereader.OpenFileReader(ext.Path)
+			if err != nil {
+				return toolError(fmt.Sprintf("unreadable file: cannot open external file %q: %v", ext.Path, err)), nil, nil
+			}
+			var fragmentContent strings.Builder
+			currentLine := 0
+			for _, frag := range ext.Fragments {
+				start, end, err := parseLineRange(frag.Lines)
+				if err != nil {
+					return toolError(fmt.Sprintf("unreadable file: invalid line range %q in external file %q: %v", frag.Lines, ext.Path, err)), nil, nil
+				}
+				skip := start - 1 - currentLine
+				if skip > 0 {
+					fr.SkipLines(skip)
+					currentLine += skip
+				}
+				var fragLines []string
+				for i := start; i <= end; i++ {
+					line, readErr := fr.ReadLine()
+					if readErr != nil {
+						return toolError(fmt.Sprintf("unreadable file: cannot read line %d from %q: %v", i, ext.Path, readErr)), nil, nil
+					}
+					fragLines = append(fragLines, line)
+					currentLine++
+				}
+				fragmentContent.WriteString(strings.Join(fragLines, "\n"))
+			}
+			content := fragmentContent.String()
+			contextParts = append(contextParts, content)
+			addToHash(content)
 		}
-		appendContent(&contextBuf, content)
 	}
 
-	// Step 4 -- Target # Public.
-	targetParsed, err := parsenode.ParseNode(chain.Target.LogicalName)
+	// --- Step 4: Target's reduced frontmatter and # Public section ---
+	targetParsed, err := parsenode.ParseNode(args.LogicalName)
 	if err != nil {
-		return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
+		return toolError(fmt.Sprintf("unreadable file: cannot parse target node %q: %v", args.LogicalName, err)), nil, nil
 	}
 
-	if targetParsed.Public != nil {
-		// Build reduced frontmatter with only outputs.
-		reducedFM := buildReducedFrontmatter(fm.Outputs)
-		appendContent(&contextBuf, reducedFM+sectionContentWithoutHeading(targetParsed.Public))
+	// Build the reduced frontmatter YAML block (only the outputs field).
+	// This appears in the context stream but does NOT contribute to the hash.
+	reducedFM := buildReducedFrontmatter(fm.Outputs)
+	contextParts = append(contextParts, reducedFM)
+	// (NOT added to hashInputs per spec)
+
+	if targetParsed.Public != nil && strings.TrimSpace(targetParsed.Public.Content) != "" {
+		contextParts = append(contextParts, targetParsed.Public.Content)
+		addToHash("# Public" + "\n" + targetParsed.Public.Content)
 	}
 
-	// Step 5 -- Target # Agent.
-	if targetParsed.Agent != nil {
-		appendContent(&contextBuf, sectionContentWithoutHeading(targetParsed.Agent))
+	// --- Step 5: Target's # Agent section ---
+	if targetParsed.Agent != nil && strings.TrimSpace(targetParsed.Agent.Content) != "" {
+		contextParts = append(contextParts, targetParsed.Agent.Content)
+		addToHash("# Agent" + "\n" + targetParsed.Agent.Content)
 	}
 
-	// Step 6 -- Input separation.
+	// --- Phase 3: Input artifact (if declared) ---
 	var inputContent string
 	if fm.Input != "" {
-		content, err := readArtifactContent(fm.Input)
-		if err != nil {
-			return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
+		// Resolve the ARTIFACT/ reference declared in the input field.
+		nodePath, artifactID, ok := logicalnames.ArtifactRefParts(fm.Input)
+		if !ok {
+			return toolError(fmt.Sprintf("chain resolution failure: cannot resolve input reference %q for %q", fm.Input, args.LogicalName)), nil, nil
 		}
-		inputContent = content
+		inputFM, err := frontmatter.ParseFrontmatter(nodePath)
+		if err != nil {
+			return toolError(fmt.Sprintf("chain resolution failure: cannot parse frontmatter for input node %q: %v", nodePath, err)), nil, nil
+		}
+		var inputArtifactPath string
+		for _, out := range inputFM.Outputs {
+			if out.ID == artifactID {
+				inputArtifactPath = out.Path
+				break
+			}
+		}
+		if inputArtifactPath == "" {
+			return toolError(fmt.Sprintf("chain resolution failure: artifact %q not found in outputs of input node %q", artifactID, nodePath)), nil, nil
+		}
+		raw, err := os.ReadFile(inputArtifactPath)
+		if err != nil {
+			return toolError(fmt.Sprintf("unreadable file: cannot read input artifact %q: %v", inputArtifactPath, err)), nil, nil
+		}
+		inputContent = stripFrontmatter(string(raw))
+		// Input content contributes to the hash but is NOT part of contextParts.
+		addToHash(inputContent)
 	}
 
-	// Step 8 -- Build result as a single text block.
-	var result strings.Builder
-	result.WriteString("chain_hash: ")
-	result.WriteString(chainHashStr)
-	result.WriteString("\n\n")
-	result.WriteString(contextBuf.String())
+	// --- Phase 4: Compute the chain hash ---
+	// Concatenate all raw SHA-1 byte sequences and SHA-1 the result.
+	var combined []byte
+	for _, bytes := range hashInputs {
+		combined = append(combined, bytes...)
+	}
+	finalSum := sha1.Sum(combined)
+	// Encode as base64url without padding (RFC 4648 §5), yielding 27 characters
+	// for a 20-byte SHA-1 digest.
+	chainHash := base64.RawURLEncoding.EncodeToString(finalSum[:])
+
+	// --- Phase 5: Assemble and return the result ---
+	// Join all context parts (no separator — the spec says plain concatenation).
+	contextStr := strings.Join(contextParts, "")
+
+	// Build the final response text:
+	//   Line 1: "chain_hash: <hash>"
+	//   Blank line
+	//   Context content
+	//   (blank line + "--- input ---" + blank line + input content, if present)
+	var sb strings.Builder
+	sb.WriteString("chain_hash: ")
+	sb.WriteString(chainHash)
+	sb.WriteString("\n\n")
+	sb.WriteString(contextStr)
 	if inputContent != "" {
-		result.WriteString("\n--- input ---\n")
-		result.WriteString(inputContent)
+		sb.WriteString("\n--- input ---\n")
+		sb.WriteString(inputContent)
 	}
 
 	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: result.String()}},
+		Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
 	}, nil, nil
 }
 
-// sectionContentWithoutHeading returns the section content (including subsections)
-// but without the top-level heading.
-func sectionContentWithoutHeading(s *parsenode.Section) string {
-	var buf strings.Builder
-	if s.Content != "" {
-		buf.WriteString(s.Content)
-	}
-	for _, sub := range s.Subsections {
-		if buf.Len() > 0 {
-			buf.WriteString("\n")
-		}
-		buf.WriteString("## ")
-		buf.WriteString(sub.Heading)
-		buf.WriteString("\n")
-		if sub.Content != "" {
-			buf.WriteString(sub.Content)
-		}
-	}
-	return buf.String()
-}
+// --- Helpers ---
 
-// findSubsection finds a subsection within the Public section by normalized name.
-func findSubsection(public *parsenode.Section, qualifier string) *parsenode.Subsection {
-	if public == nil {
-		return nil
-	}
-	normalizedQualifier := normalizename.NormalizeName(qualifier)
-	for i := range public.Subsections {
-		if normalizename.NormalizeName(public.Subsections[i].Heading) == normalizedQualifier {
-			return &public.Subsections[i]
-		}
-	}
-	return nil
-}
-
-// readArtifactContent resolves an ARTIFACT/ reference to its artifact file
-// and reads the content excluding frontmatter. The reference format is
-// ARTIFACT/x/y(id) where id identifies the output in the node's frontmatter.
-func readArtifactContent(artifactRef string) (string, error) {
-	nodePath, artifactID, ok := logicalnames.ArtifactRefParts(artifactRef)
-	if !ok {
-		return "", fmt.Errorf("cannot resolve artifact reference: %s", artifactRef)
-	}
-
-	// Read the node's frontmatter to find the output path for this artifact ID.
-	fm, err := frontmatter.ParseFrontmatter(nodePath)
-	if err != nil {
-		return "", fmt.Errorf("cannot read node %s: %w", nodePath, err)
-	}
-
-	var artifactPath string
-	for _, out := range fm.Outputs {
-		if out.ID == artifactID {
-			artifactPath = out.Path
-			break
-		}
-	}
-	if artifactPath == "" {
-		return "", fmt.Errorf("artifact ID %q not found in outputs of %s", artifactID, nodePath)
-	}
-
-	return readFileExcludingFrontmatter(artifactPath)
-}
-
-// readFileExcludingFrontmatter reads a file and returns its content
-// with YAML frontmatter stripped. CRLF is normalized to LF.
-func readFileExcludingFrontmatter(filePath string) (string, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	content := strings.ReplaceAll(string(data), "\r\n", "\n")
-	return stripFrontmatter(content), nil
-}
-
-// stripFrontmatter removes YAML frontmatter delimited by --- lines.
-func stripFrontmatter(content string) string {
-	if !strings.HasPrefix(content, "---") {
-		return content
-	}
-	// Find end of first --- line.
-	idx := strings.Index(content[3:], "\n")
-	if idx < 0 {
-		return content
-	}
-	rest := content[3+idx+1:]
-	// Find closing ---.
-	closingIdx := strings.Index(rest, "---")
-	if closingIdx < 0 {
-		return content
-	}
-	afterClosing := rest[closingIdx+3:]
-	nlIdx := strings.Index(afterClosing, "\n")
-	if nlIdx < 0 {
-		return ""
-	}
-	return afterClosing[nlIdx+1:]
-}
-
-// readExternalContent reads the content of an external file entry,
-// handling optional fragment extraction.
-func readExternalContent(ext frontmatter.External) (string, error) {
-	data, err := os.ReadFile(ext.Path)
-	if err != nil {
-		return "", err
-	}
-	content := strings.ReplaceAll(string(data), "\r\n", "\n")
-
-	if len(ext.Fragments) == 0 {
-		return content, nil
-	}
-
-	// Extract fragments.
-	lines := strings.Split(content, "\n")
-	var result strings.Builder
-	for _, frag := range ext.Fragments {
-		// Parse the Lines field as "start-end".
-		parts := strings.SplitN(frag.Lines, "-", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		start := 0
-		end := 0
-		fmt.Sscanf(parts[0], "%d", &start)
-		fmt.Sscanf(parts[1], "%d", &end)
-		if start < 1 || end < start || end > len(lines) {
-			continue
-		}
-		extracted := lines[start-1 : end]
-		if result.Len() > 0 {
-			result.WriteString("\n")
-		}
-		result.WriteString(strings.Join(extracted, "\n"))
-	}
-
-	return result.String(), nil
-}
-
-// buildReducedFrontmatter builds a YAML frontmatter block containing only outputs.
-func buildReducedFrontmatter(outputs []frontmatter.Output) string {
-	var buf strings.Builder
-	buf.WriteString("---\noutputs:\n")
-	for _, out := range outputs {
-		buf.WriteString("  - id: ")
-		buf.WriteString(out.ID)
-		buf.WriteString("\n    path: ")
-		buf.WriteString(filepath.ToSlash(out.Path))
-		buf.WriteString("\n")
-	}
-	buf.WriteString("---\n\n")
-	return buf.String()
-}
-
-// appendContent appends content to the builder, adding a blank line separator
-// if the builder already has content.
-func appendContent(buf *strings.Builder, content string) {
-	if buf.Len() > 0 && content != "" {
-		buf.WriteString("\n")
-	}
-	buf.WriteString(content)
-}
-
-// stripQualifier removes the parenthetical qualifier from a logical name.
-func stripQualifier(logicalName string) string {
-	idx := strings.Index(logicalName, "(")
-	if idx < 0 {
-		return logicalName
-	}
-	return logicalName[:idx]
-}
-
-// toolError returns a CallToolResult with IsError set to true.
-func toolError(msg string) *mcp.CallToolResult {
+// toolError constructs a tool-error result (IsError: true) with an actionable
+// message. Using this instead of returning a Go error keeps the server alive.
+func toolError(message string) *mcp.CallToolResult {
 	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: msg}},
+		Content: []mcp.Content{&mcp.TextContent{Text: message}},
 		IsError: true,
 	}
 }
+
+// stripFrontmatter removes the leading frontmatter block (delimited by "---"
+// lines) from content, if present. The content between the opening and closing
+// "---" delimiters is discarded, along with both delimiter lines.
+//
+// If no frontmatter is present the original content is returned unchanged.
+func stripFrontmatter(content string) string {
+	// Frontmatter must start at the very beginning of the file.
+	if !strings.HasPrefix(content, "---") {
+		return content
+	}
+	// Find the end of the first line (the opening "---").
+	firstNewline := strings.Index(content, "\n")
+	if firstNewline == -1 {
+		// Single line consisting only of "---" — not valid frontmatter.
+		return content
+	}
+	// The first line must be exactly "---" (possibly with trailing CR).
+	firstLine := strings.TrimRight(content[:firstNewline], "\r")
+	if firstLine != "---" {
+		return content
+	}
+	// Find the closing "---" delimiter.
+	rest := content[firstNewline+1:]
+	closingIdx := -1
+	searchIn := rest
+	offset := 0
+	for {
+		idx := strings.Index(searchIn, "---")
+		if idx == -1 {
+			break
+		}
+		// The "---" must appear at the start of a line.
+		if idx == 0 || searchIn[idx-1] == '\n' {
+			// Verify the line is exactly "---".
+			lineEnd := strings.Index(searchIn[idx:], "\n")
+			var line string
+			if lineEnd == -1 {
+				line = strings.TrimRight(searchIn[idx:], "\r")
+			} else {
+				line = strings.TrimRight(searchIn[idx:idx+lineEnd], "\r")
+			}
+			if line == "---" {
+				closingIdx = offset + idx
+				break
+			}
+		}
+		// Advance past this occurrence.
+		advance := idx + 3
+		offset += advance
+		searchIn = searchIn[advance:]
+	}
+	if closingIdx == -1 {
+		// No closing delimiter — not valid frontmatter, return as-is.
+		return content
+	}
+	// Skip past the closing "---" line (include the trailing newline if any).
+	afterClosing := rest[closingIdx+3:]
+	if strings.HasPrefix(afterClosing, "\r\n") {
+		afterClosing = afterClosing[2:]
+	} else if strings.HasPrefix(afterClosing, "\n") {
+		afterClosing = afterClosing[1:]
+	}
+	return afterClosing
+}
+
+// buildReducedFrontmatter constructs the YAML frontmatter block containing
+// only the outputs field, wrapped in "---" delimiters. This is appended to
+// the context stream so the agent can see what artifacts the target declares,
+// but it does NOT contribute to the chain hash.
+func buildReducedFrontmatter(outputs []frontmatter.Output) string {
+	var sb strings.Builder
+	sb.WriteString("---\n")
+	sb.WriteString("outputs:\n")
+	for _, out := range outputs {
+		sb.WriteString(fmt.Sprintf("  - id: %s\n    path: %s\n", out.ID, out.Path))
+	}
+	sb.WriteString("---\n")
+	return sb.String()
+}
+
+// parseLineRange parses a "start-end" line range string and returns the
+// 1-based start and end line numbers.
+func parseLineRange(lines string) (start, end int, err error) {
+	parts := strings.SplitN(lines, "-", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("expected format start-end, got %q", lines)
+	}
+	_, err = fmt.Sscanf(parts[0], "%d", &start)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid start line in %q: %w", lines, err)
+	}
+	_, err = fmt.Sscanf(parts[1], "%d", &end)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid end line in %q: %w", lines, err)
+	}
+	if start < 1 || end < start {
+		return 0, 0, fmt.Errorf("invalid range %q: start must be >= 1 and end must be >= start", lines)
+	}
+	return start, end, nil
+}
+
+// RegisterTool registers the load_chain MCP tool on the given server.
+// Call this from the main server setup.
+func RegisterTool(server *mcp.Server) {
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "load_chain",
+		Description: "Load the spec chain context for a given logical name. Returns all relevant spec files concatenated in a single response.",
+		// Increase max result size to accommodate large spec chains.
+		Meta: mcp.Meta{"anthropic/maxResultSizeChars": 500000},
+	}, HandleLoadChain)
+}
+
+// Ensure the chainresolver package is referenced — the chain is resolved via
+// chainresolver.ResolveChain which is used indirectly through parsenode,
+// frontmatter, and logicalnames above. The import below keeps the dependency
+// explicit and visible.
+var _ = chainresolver.ResolveChain

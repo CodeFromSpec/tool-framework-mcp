@@ -1,4 +1,10 @@
 ---
+depends_on:
+  - ROOT/golang/internal/tools/load_chain
+  - ROOT/golang/internal/frontmatter
+  - ROOT/golang/internal/logical_names
+  - ROOT/golang/internal/parsenode
+input: ARTIFACT/golang/internal/tools/load_chain/code(load_chain)
 outputs:
   - id: load_chain_test
     path: internal/load_chain/load_chain_test.go

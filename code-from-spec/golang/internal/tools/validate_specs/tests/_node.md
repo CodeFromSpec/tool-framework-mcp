@@ -1,4 +1,9 @@
 ---
+depends_on:
+  - ROOT/golang/internal/tools/validate_specs
+  - ROOT/golang/internal/frontmatter
+  - ROOT/golang/internal/node_discovery
+input: ARTIFACT/golang/internal/tools/validate_specs/code(validate_specs)
 outputs:
   - id: validate_specs_test
     path: internal/validate_specs/validate_specs_test.go

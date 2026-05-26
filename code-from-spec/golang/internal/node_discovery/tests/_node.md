@@ -1,4 +1,8 @@
 ---
+depends_on:
+  - ROOT/golang/internal/node_discovery
+  - ROOT/golang/internal/logical_names
+input: ARTIFACT/golang/internal/node_discovery/code(nodediscovery)
 outputs:
   - id: nodediscovery_test
     path: internal/nodediscovery/nodediscovery_test.go

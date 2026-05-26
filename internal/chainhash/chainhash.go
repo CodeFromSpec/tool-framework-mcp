@@ -1,4 +1,14 @@
-// code-from-spec: ROOT/golang/internal/chain_hash/code@PENDING
+// code-from-spec: ROOT/golang/internal/chain_hash/code@G430QSA1p0LEiqhMaLJsEL_aNSc
+
+// Package chainhash computes the chain hash for a given spec node.
+//
+// The chain hash is a 27-character base64url-encoded SHA-1 digest used for
+// artifact staleness detection. It is built by collecting SHA-1 digests from
+// each position in the chain (ancestors, depends_on, external files, the
+// target itself, and its input), then hashing the concatenation of those raw
+// digests.
+//
+// See the chain-hash spec document for the full algorithm description.
 package chainhash
 
 import (
@@ -7,342 +17,465 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/normalizename"
 )
 
-// ComputeChainHash computes the chain hash for a spec node by reading raw
-// files from disk. The only normalization applied is CRLF to LF conversion.
+// ComputeChainHash returns the 27-character base64url chain hash for the
+// spec node identified by logicalName (must start with "ROOT/").
+//
+// Errors:
+//   - "invalid logical name: <detail>" — cannot resolve the logical name
+//   - "unreadable file: <path>"        — a required file cannot be read
 func ComputeChainHash(logicalName string) (string, error) {
-	var hashParts [][]byte
+	// ----------------------------------------------------------------
+	// Preparation
+	// ----------------------------------------------------------------
 
-	// Step 1: Ancestors (root first, then down to target's parent).
-	var ancestors []string
-	current := logicalName
-	for {
-		parent, ok := logicalnames.ParentLogicalName(current)
-		if !ok {
-			break
-		}
-		ancestors = append([]string{parent}, ancestors...)
-		current = parent
+	// Step 1 — only ROOT/ names are supported.
+	if !strings.HasPrefix(logicalName, "ROOT/") && logicalName != "ROOT" {
+		return "", fmt.Errorf("invalid logical name: only ROOT/ names are supported")
+	}
+
+	// Step 2 — read and normalize the target node file.
+	targetPath, ok := logicalnames.PathFromLogicalName(logicalName)
+	if !ok {
+		return "", fmt.Errorf("invalid logical name: cannot resolve path for %s", logicalName)
+	}
+
+	targetRaw, err := os.ReadFile(targetPath)
+	if err != nil {
+		return "", fmt.Errorf("unreadable file: %s", targetPath)
+	}
+	targetContent := normalizeCRLF(string(targetRaw))
+
+	// Step 3 — parse the target node's frontmatter.
+	targetFM, err := frontmatter.ParseFrontmatter(targetPath)
+	if err != nil {
+		return "", fmt.Errorf("unreadable file: %s", targetPath)
+	}
+
+	// ----------------------------------------------------------------
+	// Accumulator — a list of raw 20-byte SHA-1 digests.
+	// ----------------------------------------------------------------
+	var digestList [][]byte // each entry is exactly 20 bytes
+
+	// ----------------------------------------------------------------
+	// Step 1 — Ancestor # Public hashes (root-first, not including target)
+	// ----------------------------------------------------------------
+
+	// Build the ancestor chain by walking up from the target's parent to ROOT.
+	ancestors, err := buildAncestorChain(logicalName)
+	if err != nil {
+		return "", err
 	}
 
 	for _, ancestor := range ancestors {
 		ancestorPath, ok := logicalnames.PathFromLogicalName(ancestor)
 		if !ok {
-			continue
+			return "", fmt.Errorf("invalid logical name: cannot resolve path for %s", ancestor)
 		}
-		raw, err := readRawFile(ancestorPath)
+		content, err := readAndNormalize(ancestorPath)
 		if err != nil {
+			return "", err
+		}
+		section := extractSection(content, "# Public")
+		if section == "" {
+			// No # Public section — skip this ancestor.
 			continue
 		}
-		publicSection := extractSection(raw, "Public")
-		if strings.TrimSpace(publicSection) == "" {
-			continue
-		}
-		hash := sha1.Sum([]byte(publicSection))
-		hashParts = append(hashParts, hash[:])
+		digestList = append(digestList, sha1Digest(section))
 	}
 
-	// Step 2: Dependencies (depends_on), sorted alphabetically.
-	targetPath, ok := logicalnames.PathFromLogicalName(logicalName)
-	if !ok {
-		return "", fmt.Errorf("cannot resolve logical name: %s", logicalName)
-	}
-	fm, err := frontmatter.ParseFrontmatter(targetPath)
-	if err != nil {
-		return "", fmt.Errorf("cannot read frontmatter: %w", err)
-	}
+	// ----------------------------------------------------------------
+	// Step 2 — depends_on hashes
+	// ----------------------------------------------------------------
 
-	if len(fm.DependsOn) > 0 {
-		deps := make([]string, len(fm.DependsOn))
-		copy(deps, fm.DependsOn)
-		sort.Strings(deps)
+	// Sort depends_on entries alphabetically by their logical name string.
+	dependsOn := make([]string, len(targetFM.DependsOn))
+	copy(dependsOn, targetFM.DependsOn)
+	sort.Strings(dependsOn)
 
-		for _, dep := range deps {
-			if logicalnames.IsArtifactRef(dep) {
-				// ARTIFACT/x/y(id): resolve artifact path, read file, strip frontmatter, SHA-1.
-				content, err := readArtifactContent(dep)
-				if err != nil {
-					return "", fmt.Errorf("cannot read artifact %s: %w", dep, err)
-				}
-				hash := sha1.Sum([]byte(content))
-				hashParts = append(hashParts, hash[:])
-			} else {
-				hasQual, _ := logicalnames.HasQualifier(dep)
-				if hasQual {
-					// ROOT/x/y(z): extract ## z subsection within # Public.
-					qualName, _ := logicalnames.QualifierName(dep)
-					baseName := dep[:strings.Index(dep, "(")]
-					basePath, ok := logicalnames.PathFromLogicalName(baseName)
-					if !ok {
-						return "", fmt.Errorf("cannot resolve dependency: %s", dep)
-					}
-					raw, err := readRawFile(basePath)
-					if err != nil {
-						return "", fmt.Errorf("cannot read dependency %s: %w", dep, err)
-					}
-					publicSection := extractSection(raw, "Public")
-					subSection := extractSubsection(publicSection, qualName)
-					hash := sha1.Sum([]byte(subSection))
-					hashParts = append(hashParts, hash[:])
-				} else {
-					// ROOT/x/y: read raw file, extract # Public, SHA-1.
-					depPath, ok := logicalnames.PathFromLogicalName(dep)
-					if !ok {
-						return "", fmt.Errorf("cannot resolve dependency: %s", dep)
-					}
-					raw, err := readRawFile(depPath)
-					if err != nil {
-						return "", fmt.Errorf("cannot read dependency %s: %w", dep, err)
-					}
-					publicSection := extractSection(raw, "Public")
-					hash := sha1.Sum([]byte(publicSection))
-					hashParts = append(hashParts, hash[:])
-				}
-			}
-		}
-	}
-
-	// Step 3: External files, sorted alphabetically by path.
-	if len(fm.External) > 0 {
-		externals := make([]frontmatter.External, len(fm.External))
-		copy(externals, fm.External)
-		sort.Slice(externals, func(i, j int) bool {
-			return externals[i].Path < externals[j].Path
-		})
-
-		for _, ext := range externals {
-			content, err := readExternalContent(ext)
-			if err != nil {
-				return "", fmt.Errorf("cannot read external %s: %w", ext.Path, err)
-			}
-			hash := sha1.Sum([]byte(content))
-			hashParts = append(hashParts, hash[:])
-		}
-	}
-
-	// Step 4: Target # Public.
-	targetRaw, err := readRawFile(targetPath)
-	if err != nil {
-		return "", fmt.Errorf("cannot read target: %w", err)
-	}
-
-	publicSection := extractSection(targetRaw, "Public")
-	if publicSection != "" {
-		hash := sha1.Sum([]byte(publicSection))
-		hashParts = append(hashParts, hash[:])
-	}
-
-	// Step 5: Target # Agent.
-	agentSection := extractSection(targetRaw, "Agent")
-	if agentSection != "" {
-		hash := sha1.Sum([]byte(agentSection))
-		hashParts = append(hashParts, hash[:])
-	}
-
-	// Step 6: Input artifact.
-	if fm.Input != "" {
-		content, err := readArtifactContent(fm.Input)
+	for _, dep := range dependsOn {
+		digests, err := dependsOnDigests(dep)
 		if err != nil {
-			return "", fmt.Errorf("cannot read input artifact %s: %w", fm.Input, err)
+			return "", err
 		}
-		hash := sha1.Sum([]byte(content))
-		hashParts = append(hashParts, hash[:])
+		digestList = append(digestList, digests...)
 	}
 
-	// Step 7: Final hash.
-	if len(hashParts) == 0 {
-		return "", nil
+	// ----------------------------------------------------------------
+	// Step 3 — external file hashes
+	// ----------------------------------------------------------------
+
+	// Sort external entries alphabetically by path.
+	externals := make([]frontmatter.External, len(targetFM.External))
+	copy(externals, targetFM.External)
+	sort.Slice(externals, func(i, j int) bool {
+		return externals[i].Path < externals[j].Path
+	})
+
+	for _, ext := range externals {
+		digest, err := externalDigest(ext)
+		if err != nil {
+			return "", err
+		}
+		digestList = append(digestList, digest)
 	}
 
-	var concatenated []byte
-	for _, h := range hashParts {
-		concatenated = append(concatenated, h...)
+	// ----------------------------------------------------------------
+	// Step 4 — Target # Public hash
+	// ----------------------------------------------------------------
+
+	if section := extractSection(targetContent, "# Public"); section != "" {
+		digestList = append(digestList, sha1Digest(section))
 	}
-	finalHash := sha1.Sum(concatenated)
-	encoded := base64.RawURLEncoding.EncodeToString(finalHash[:])
-	if len(encoded) > 27 {
-		encoded = encoded[:27]
+
+	// ----------------------------------------------------------------
+	// Step 5 — Target # Agent hash
+	// ----------------------------------------------------------------
+
+	if section := extractSection(targetContent, "# Agent"); section != "" {
+		digestList = append(digestList, sha1Digest(section))
 	}
+
+	// ----------------------------------------------------------------
+	// Step 6 — Input hash
+	// ----------------------------------------------------------------
+
+	if targetFM.Input != "" {
+		filePath, err := resolveArtifactFilePath(targetFM.Input)
+		if err != nil {
+			return "", err
+		}
+		content, err := readAndNormalize(filePath)
+		if err != nil {
+			return "", err
+		}
+		stripped := stripFrontmatter(content)
+		digestList = append(digestList, sha1Digest(stripped))
+	}
+
+	// ----------------------------------------------------------------
+	// Step 7 — Final hash
+	// ----------------------------------------------------------------
+
+	// Concatenate all raw 20-byte digests.
+	var combined []byte
+	for _, d := range digestList {
+		combined = append(combined, d...)
+	}
+
+	// Hash the concatenation to produce the final digest.
+	final := sha1Digest(string(combined))
+
+	// Encode as base64url without padding (RFC 4648 §5, no padding).
+	// The result is always exactly 27 characters for a 20-byte input.
+	encoded := base64.RawURLEncoding.EncodeToString(final)
 	return encoded, nil
 }
 
-// readRawFile reads a file from disk and normalizes CRLF to LF.
-func readRawFile(filePath string) (string, error) {
-	data, err := os.ReadFile(filePath)
+// ----------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------
+
+// normalizeCRLF replaces all CRLF sequences with LF.
+func normalizeCRLF(s string) string {
+	return strings.ReplaceAll(s, "\r\n", "\n")
+}
+
+// sha1Digest returns the raw 20-byte SHA-1 digest of the given string.
+func sha1Digest(content string) []byte {
+	h := sha1.New()
+	// sha1.Write never returns an error.
+	h.Write([]byte(content)) //nolint:errcheck
+	return h.Sum(nil)
+}
+
+// readAndNormalize reads a file from disk and normalizes CRLF → LF.
+// Returns "unreadable file: <path>" on error.
+func readAndNormalize(path string) (string, error) {
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("unreadable file: %s", path)
 	}
-	return strings.ReplaceAll(string(data), "\r\n", "\n"), nil
+	return normalizeCRLF(string(raw)), nil
 }
 
-// extractSection extracts a top-level section (# <heading>) from raw content.
-// The match is case-insensitive using normalizename. Returns the full section
-// from its heading line to the next # heading line or EOF.
-// Returns empty string if the section is not found.
-func extractSection(rawContent, sectionHeading string) string {
-	normalizedTarget := normalizename.NormalizeName(sectionHeading)
-	lines := strings.Split(rawContent, "\n")
-	startIdx := -1
+// extractSection returns the text of the section that starts with heading
+// (inclusive) up to the next heading at the same or higher level (exclusive),
+// or end of file. Returns empty string if heading is not found.
+//
+// The heading level is determined by counting leading '#' characters.
+// A terminating line is one that starts with 1..level '#' characters
+// followed by a space.
+func extractSection(fileContent, heading string) string {
+	lines := strings.Split(fileContent, "\n")
 
+	// Find the heading line.
+	startIdx := -1
 	for i, line := range lines {
-		if strings.HasPrefix(line, "# ") {
-			heading := line[2:]
-			if normalizename.NormalizeName(heading) == normalizedTarget {
-				startIdx = i
-				break
-			}
+		if line == heading {
+			startIdx = i
+			break
 		}
 	}
-
-	if startIdx < 0 {
+	if startIdx == -1 {
 		return ""
 	}
 
-	// Find the end: next # heading or EOF.
-	endIdx := len(lines)
-	for i := startIdx + 1; i < len(lines); i++ {
-		if strings.HasPrefix(lines[i], "# ") {
-			endIdx = i
+	// Determine the heading level.
+	level := 0
+	for _, ch := range heading {
+		if ch == '#' {
+			level++
+		} else {
 			break
 		}
 	}
 
-	return strings.Join(lines[startIdx:endIdx], "\n")
-}
-
-// extractSubsection extracts a ## subsection within a # Public section.
-// The match is case-insensitive using normalizename. Returns from the
-// ## heading line to the next ## line, next # line, or EOF.
-// Returns empty string if not found.
-func extractSubsection(publicSection, subsectionHeading string) string {
-	normalizedTarget := normalizename.NormalizeName(subsectionHeading)
-	lines := strings.Split(publicSection, "\n")
-	startIdx := -1
-
-	for i, line := range lines {
-		if strings.HasPrefix(line, "## ") {
-			heading := line[3:]
-			if normalizename.NormalizeName(heading) == normalizedTarget {
-				startIdx = i
+	// Collect lines from the heading until a heading at the same or higher
+	// level is encountered.
+	var collected []string
+	for i := startIdx; i < len(lines); i++ {
+		if i > startIdx {
+			// Check if this line is a heading at level 1..level.
+			if isHeadingAtOrAboveLevel(lines[i], level) {
 				break
 			}
 		}
+		collected = append(collected, lines[i])
 	}
 
-	if startIdx < 0 {
-		return ""
-	}
+	return strings.Join(collected, "\n")
+}
 
-	// Find the end: next ## heading, next # heading, or EOF.
-	endIdx := len(lines)
-	for i := startIdx + 1; i < len(lines); i++ {
-		if strings.HasPrefix(lines[i], "## ") || strings.HasPrefix(lines[i], "# ") {
-			endIdx = i
+// isHeadingAtOrAboveLevel returns true if line is a Markdown heading of
+// level 1 through maxLevel (i.e., it starts with 1..maxLevel '#' characters
+// followed by a space).
+func isHeadingAtOrAboveLevel(line string, maxLevel int) bool {
+	if len(line) == 0 || line[0] != '#' {
+		return false
+	}
+	count := 0
+	for _, ch := range line {
+		if ch == '#' {
+			count++
+		} else {
 			break
 		}
 	}
-
-	return strings.Join(lines[startIdx:endIdx], "\n")
+	if count > maxLevel {
+		return false
+	}
+	// Must be followed by a space.
+	if len(line) <= count || line[count] != ' ' {
+		return false
+	}
+	return true
 }
 
-// readArtifactContent resolves an ARTIFACT/ reference to its artifact file
-// and reads the content excluding frontmatter.
-func readArtifactContent(artifactRef string) (string, error) {
-	nodePath, artifactID, ok := logicalnames.ArtifactRefParts(artifactRef)
+// extractSubsection returns the text of subsectionHeading within the parent
+// section identified by parentHeading. Returns empty string if either heading
+// is not found.
+func extractSubsection(fileContent, parentHeading, subsectionHeading string) string {
+	parentSection := extractSection(fileContent, parentHeading)
+	if parentSection == "" {
+		return ""
+	}
+	return extractSection(parentSection, subsectionHeading)
+}
+
+// stripFrontmatter removes the leading YAML frontmatter block (delimited by
+// "---" lines) from fileContent. Returns content unchanged if no frontmatter
+// is detected.
+func stripFrontmatter(fileContent string) string {
+	lines := strings.Split(fileContent, "\n")
+	if len(lines) == 0 || lines[0] != "---" {
+		return fileContent
+	}
+	// Find the closing "---".
+	closingIdx := -1
+	for i := 1; i < len(lines); i++ {
+		if lines[i] == "---" {
+			closingIdx = i
+			break
+		}
+	}
+	if closingIdx == -1 {
+		// No closing delimiter found — treat as no frontmatter.
+		return fileContent
+	}
+	// Return everything after the closing "---".
+	rest := lines[closingIdx+1:]
+	return strings.Join(rest, "\n")
+}
+
+// buildAncestorChain returns the list of ancestor logical names for
+// logicalName, ordered from ROOT down to the immediate parent (not including
+// the target itself).
+func buildAncestorChain(logicalName string) ([]string, error) {
+	var ancestors []string
+	current := logicalName
+	for {
+		hasParent, ok := logicalnames.HasParent(current)
+		if !ok {
+			return nil, fmt.Errorf("invalid logical name: cannot determine parent of %s", current)
+		}
+		if !hasParent {
+			break
+		}
+		parent, ok := logicalnames.ParentLogicalName(current)
+		if !ok {
+			return nil, fmt.Errorf("invalid logical name: cannot derive parent of %s", current)
+		}
+		// Prepend so the final slice is root-first.
+		ancestors = append([]string{parent}, ancestors...)
+		current = parent
+	}
+	return ancestors, nil
+}
+
+// dependsOnDigests returns the SHA-1 digest(s) for a single depends_on entry.
+// Returns a slice because each entry contributes exactly one digest (or zero
+// if the relevant section is empty).
+func dependsOnDigests(dep string) ([][]byte, error) {
+	switch {
+	case logicalnames.IsArtifactRef(dep):
+		// ARTIFACT/ reference — hash full artifact content (minus frontmatter).
+		filePath, err := resolveArtifactFilePath(dep)
+		if err != nil {
+			return nil, err
+		}
+		content, err := readAndNormalize(filePath)
+		if err != nil {
+			return nil, err
+		}
+		stripped := stripFrontmatter(content)
+		return [][]byte{sha1Digest(stripped)}, nil
+
+	default:
+		// ROOT/ reference — may have a qualifier.
+		hasQualifier, ok := logicalnames.HasQualifier(dep)
+		if !ok {
+			return nil, fmt.Errorf("invalid logical name: %s", dep)
+		}
+
+		depPath, ok := logicalnames.PathFromLogicalName(dep)
+		if !ok {
+			return nil, fmt.Errorf("invalid logical name: cannot resolve path for %s", dep)
+		}
+		content, err := readAndNormalize(depPath)
+		if err != nil {
+			return nil, err
+		}
+
+		if hasQualifier {
+			// ROOT/x/y(z) — hash the ## z subsection within # Public.
+			qualifier, ok := logicalnames.QualifierName(dep)
+			if !ok {
+				return nil, fmt.Errorf("invalid logical name: cannot extract qualifier from %s", dep)
+			}
+			subsection := extractSubsection(content, "# Public", "## "+qualifier)
+			if subsection == "" {
+				return nil, nil // skip
+			}
+			return [][]byte{sha1Digest(subsection)}, nil
+		}
+
+		// ROOT/x/y — hash the entire # Public section.
+		section := extractSection(content, "# Public")
+		if section == "" {
+			return nil, nil // skip
+		}
+		return [][]byte{sha1Digest(section)}, nil
+	}
+}
+
+// externalDigest returns the SHA-1 digest for a single external entry.
+// If the entry has no fragments, the full file content is hashed.
+// If it has fragments, the concatenation of the specified line ranges is hashed.
+func externalDigest(ext frontmatter.External) ([]byte, error) {
+	content, err := readAndNormalize(ext.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ext.Fragments) == 0 {
+		// No fragments — hash the full file content.
+		return sha1Digest(content), nil
+	}
+
+	// Hash the concatenation of each fragment's line range.
+	lines := strings.Split(content, "\n")
+	var buf strings.Builder
+
+	for _, frag := range ext.Fragments {
+		// Parse the line range "<start>-<end>" (1-based, inclusive).
+		start, end, err := parseLineRange(frag.Lines)
+		if err != nil {
+			return nil, fmt.Errorf("invalid fragment line range %q in %s: %w", frag.Lines, ext.Path, err)
+		}
+		// Clamp to valid indices (lines slice is 0-based).
+		if start < 1 {
+			start = 1
+		}
+		if end > len(lines) {
+			end = len(lines)
+		}
+		// Extract lines[start-1 .. end] (inclusive both ends).
+		extracted := lines[start-1 : end]
+		// Join with LF and append a trailing LF.
+		buf.WriteString(strings.Join(extracted, "\n"))
+		buf.WriteByte('\n')
+	}
+
+	return sha1Digest(buf.String()), nil
+}
+
+// parseLineRange parses a "<start>-<end>" string (1-based, inclusive).
+func parseLineRange(s string) (int, int, error) {
+	parts := strings.SplitN(s, "-", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("expected format <start>-<end>, got %q", s)
+	}
+	start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid start line %q: %w", parts[0], err)
+	}
+	end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid end line %q: %w", parts[1], err)
+	}
+	return start, end, nil
+}
+
+// resolveArtifactFilePath resolves an "ARTIFACT/x/y(id)" logical name to the
+// file path of the referenced artifact on disk.
+//
+// Steps:
+//  1. Parse the ARTIFACT/ reference to get node path and artifact ID.
+//  2. Parse the node's frontmatter to find the output with that ID.
+//  3. Return the output's path.
+func resolveArtifactFilePath(artifactLogicalName string) (string, error) {
+	nodePath, artifactID, ok := logicalnames.ArtifactRefParts(artifactLogicalName)
 	if !ok {
-		return "", fmt.Errorf("cannot resolve artifact reference: %s", artifactRef)
+		return "", fmt.Errorf("invalid logical name: %s", artifactLogicalName)
 	}
 
 	fm, err := frontmatter.ParseFrontmatter(nodePath)
 	if err != nil {
-		return "", fmt.Errorf("cannot read node %s: %w", nodePath, err)
+		return "", fmt.Errorf("unreadable file: %s", nodePath)
 	}
 
-	var artifactPath string
 	for _, out := range fm.Outputs {
 		if out.ID == artifactID {
-			artifactPath = out.Path
-			break
+			return out.Path, nil
 		}
 	}
-	if artifactPath == "" {
-		return "", fmt.Errorf("artifact ID %q not found in outputs of %s", artifactID, nodePath)
-	}
 
-	return readFileExcludingFrontmatter(artifactPath)
-}
-
-// readFileExcludingFrontmatter reads a file and returns its content
-// with YAML frontmatter stripped. CRLF is normalized to LF.
-func readFileExcludingFrontmatter(filePath string) (string, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	content := strings.ReplaceAll(string(data), "\r\n", "\n")
-	return stripFrontmatter(content), nil
-}
-
-// stripFrontmatter removes YAML frontmatter delimited by --- lines.
-func stripFrontmatter(content string) string {
-	if !strings.HasPrefix(content, "---") {
-		return content
-	}
-	idx := strings.Index(content[3:], "\n")
-	if idx < 0 {
-		return content
-	}
-	rest := content[3+idx+1:]
-	closingIdx := strings.Index(rest, "---")
-	if closingIdx < 0 {
-		return content
-	}
-	afterClosing := rest[closingIdx+3:]
-	nlIdx := strings.Index(afterClosing, "\n")
-	if nlIdx < 0 {
-		return ""
-	}
-	return afterClosing[nlIdx+1:]
-}
-
-// readExternalContent reads external file content with optional fragment extraction.
-func readExternalContent(ext frontmatter.External) (string, error) {
-	data, err := os.ReadFile(ext.Path)
-	if err != nil {
-		return "", err
-	}
-	content := strings.ReplaceAll(string(data), "\r\n", "\n")
-
-	if len(ext.Fragments) == 0 {
-		return content, nil
-	}
-
-	lines := strings.Split(content, "\n")
-	var result strings.Builder
-	for _, frag := range ext.Fragments {
-		parts := strings.SplitN(frag.Lines, "-", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		start := 0
-		end := 0
-		fmt.Sscanf(parts[0], "%d", &start)
-		fmt.Sscanf(parts[1], "%d", &end)
-		if start < 1 || end < start || end > len(lines) {
-			continue
-		}
-		extracted := lines[start-1 : end]
-		if result.Len() > 0 {
-			result.WriteString("\n")
-		}
-		result.WriteString(strings.Join(extracted, "\n"))
-	}
-
-	return result.String(), nil
+	return "", fmt.Errorf("invalid logical name: artifact id %s not found in %s", artifactID, nodePath)
 }
