@@ -3,18 +3,15 @@ package validate_specs
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/artifacttag"
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/formatvalidation"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/nodediscovery"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/noderanking"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/parsenode"
@@ -158,7 +155,11 @@ func HandleValidateSpecs(
 
 	var staleness []StalenessEntry
 	for _, on := range outputNodes {
-		chainHash := computeChainHash(on.logicalName, on.fm, fmCache, parsedCache)
+		chainHash, err := chainhash.ComputeChainHash(on.logicalName)
+		if err != nil {
+			// treat as stale — cannot compute hash
+			chainHash = ""
+		}
 
 		for _, out := range on.fm.Outputs {
 			if _, err := os.Stat(out.Path); os.IsNotExist(err) {
@@ -195,272 +196,6 @@ func HandleValidateSpecs(
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: string(yamlBytes)}},
 	}, nil, nil
-}
-
-// computeChainHash computes the chain hash for a node using the same algorithm
-// as load_chain. This is a simplified version that handles common cases.
-func computeChainHash(
-	logicalName string,
-	fm *frontmatter.Frontmatter,
-	fmCache map[string]*frontmatter.Frontmatter,
-	parsedCache map[string]*parsenode.ParsedNode,
-) string {
-	var hashParts [][]byte
-
-	// Ancestors: walk up from target to root.
-	var ancestors []string
-	current := logicalName
-	for {
-		parent, ok := logicalnames.ParentLogicalName(current)
-		if !ok {
-			break
-		}
-		ancestors = append([]string{parent}, ancestors...)
-		current = parent
-	}
-
-	for _, ancestor := range ancestors {
-		parsed, ok := parsedCache[ancestor]
-		if !ok || parsed.Public == nil {
-			continue
-		}
-		publicContent := sectionWithHeading(parsed.Public)
-		if strings.TrimSpace(publicContent) == "" {
-			continue
-		}
-		hash := sha1.Sum([]byte(publicContent))
-		hashParts = append(hashParts, hash[:])
-	}
-
-	// Dependencies: sorted alphabetically.
-	if len(fm.DependsOn) > 0 {
-		deps := make([]string, len(fm.DependsOn))
-		copy(deps, fm.DependsOn)
-		sort.Strings(deps)
-
-		for _, dep := range deps {
-			if logicalnames.IsArtifactRef(dep) {
-				content, err := readArtifactContent(dep)
-				if err != nil {
-					continue
-				}
-				hash := sha1.Sum([]byte(content))
-				hashParts = append(hashParts, hash[:])
-			} else {
-				hasQual, _ := logicalnames.HasQualifier(dep)
-				if hasQual {
-					qualName, _ := logicalnames.QualifierName(dep)
-					// Strip qualifier to get the base logical name for lookup.
-					baseName := dep[:strings.Index(dep, "(")]
-					parsed, ok := parsedCache[baseName]
-					if !ok || parsed.Public == nil {
-						continue
-					}
-					sub := findSubsection(parsed.Public, qualName)
-					if sub == nil {
-						continue
-					}
-					subContent := "## " + sub.Heading + "\n" + sub.Content
-					hash := sha1.Sum([]byte(subContent))
-					hashParts = append(hashParts, hash[:])
-				} else {
-					parsed, ok := parsedCache[dep]
-					if !ok || parsed.Public == nil {
-						continue
-					}
-					publicContent := sectionWithHeading(parsed.Public)
-					hash := sha1.Sum([]byte(publicContent))
-					hashParts = append(hashParts, hash[:])
-				}
-			}
-		}
-	}
-
-	// External files: sorted alphabetically by path.
-	if len(fm.External) > 0 {
-		externals := make([]frontmatter.External, len(fm.External))
-		copy(externals, fm.External)
-		sort.Slice(externals, func(i, j int) bool {
-			return externals[i].Path < externals[j].Path
-		})
-
-		for _, ext := range externals {
-			content, err := readExternalContent(ext)
-			if err != nil {
-				continue
-			}
-			hash := sha1.Sum([]byte(content))
-			hashParts = append(hashParts, hash[:])
-		}
-	}
-
-	// Target # Public.
-	parsed, ok := parsedCache[logicalName]
-	if ok && parsed.Public != nil {
-		publicContent := sectionWithHeading(parsed.Public)
-		hash := sha1.Sum([]byte(publicContent))
-		hashParts = append(hashParts, hash[:])
-	}
-
-	// Target # Agent.
-	if ok && parsed.Agent != nil {
-		agentContent := sectionWithHeading(parsed.Agent)
-		hash := sha1.Sum([]byte(agentContent))
-		hashParts = append(hashParts, hash[:])
-	}
-
-	// Input.
-	if fm.Input != "" {
-		content, err := readArtifactContent(fm.Input)
-		if err == nil {
-			hash := sha1.Sum([]byte(content))
-			hashParts = append(hashParts, hash[:])
-		}
-	}
-
-	// Final hash.
-	if len(hashParts) == 0 {
-		return ""
-	}
-
-	var concatenated []byte
-	for _, h := range hashParts {
-		concatenated = append(concatenated, h...)
-	}
-	finalHash := sha1.Sum(concatenated)
-	encoded := base64.RawURLEncoding.EncodeToString(finalHash[:])
-	if len(encoded) > 27 {
-		encoded = encoded[:27]
-	}
-	return encoded
-}
-
-// sectionWithHeading returns the full section content including its heading.
-func sectionWithHeading(s *parsenode.Section) string {
-	var buf strings.Builder
-	buf.WriteString("# ")
-	buf.WriteString(s.Heading)
-	buf.WriteString("\n")
-	if s.Content != "" {
-		buf.WriteString(s.Content)
-	}
-	for _, sub := range s.Subsections {
-		buf.WriteString("\n## ")
-		buf.WriteString(sub.Heading)
-		buf.WriteString("\n")
-		if sub.Content != "" {
-			buf.WriteString(sub.Content)
-		}
-	}
-	return buf.String()
-}
-
-// findSubsection finds a subsection within a section by name comparison.
-func findSubsection(public *parsenode.Section, qualifier string) *parsenode.Subsection {
-	if public == nil {
-		return nil
-	}
-	for i := range public.Subsections {
-		if strings.EqualFold(public.Subsections[i].Heading, qualifier) {
-			return &public.Subsections[i]
-		}
-	}
-	return nil
-}
-
-// readArtifactContent resolves an ARTIFACT/ reference to its artifact file
-// and reads the content excluding frontmatter.
-func readArtifactContent(artifactRef string) (string, error) {
-	nodePath, artifactID, ok := logicalnames.ArtifactRefParts(artifactRef)
-	if !ok {
-		return "", fmt.Errorf("cannot resolve artifact reference: %s", artifactRef)
-	}
-
-	fm, err := frontmatter.ParseFrontmatter(nodePath)
-	if err != nil {
-		return "", fmt.Errorf("cannot read node %s: %w", nodePath, err)
-	}
-
-	var artifactPath string
-	for _, out := range fm.Outputs {
-		if out.ID == artifactID {
-			artifactPath = out.Path
-			break
-		}
-	}
-	if artifactPath == "" {
-		return "", fmt.Errorf("artifact ID %q not found in outputs of %s", artifactID, nodePath)
-	}
-
-	return readFileExcludingFrontmatter(artifactPath)
-}
-
-// readFileExcludingFrontmatter reads a file and strips YAML frontmatter.
-func readFileExcludingFrontmatter(filePath string) (string, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	content := strings.ReplaceAll(string(data), "\r\n", "\n")
-	return stripFrontmatter(content), nil
-}
-
-// stripFrontmatter removes YAML frontmatter delimited by --- lines.
-func stripFrontmatter(content string) string {
-	if !strings.HasPrefix(content, "---") {
-		return content
-	}
-	idx := strings.Index(content[3:], "\n")
-	if idx < 0 {
-		return content
-	}
-	rest := content[3+idx+1:]
-	closingIdx := strings.Index(rest, "---")
-	if closingIdx < 0 {
-		return content
-	}
-	afterClosing := rest[closingIdx+3:]
-	nlIdx := strings.Index(afterClosing, "\n")
-	if nlIdx < 0 {
-		return ""
-	}
-	return afterClosing[nlIdx+1:]
-}
-
-// readExternalContent reads external file content with optional fragment extraction.
-func readExternalContent(ext frontmatter.External) (string, error) {
-	data, err := os.ReadFile(ext.Path)
-	if err != nil {
-		return "", err
-	}
-	content := strings.ReplaceAll(string(data), "\r\n", "\n")
-
-	if len(ext.Fragments) == 0 {
-		return content, nil
-	}
-
-	lines := strings.Split(content, "\n")
-	var result strings.Builder
-	for _, frag := range ext.Fragments {
-		parts := strings.SplitN(frag.Lines, "-", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		start := 0
-		end := 0
-		fmt.Sscanf(parts[0], "%d", &start)
-		fmt.Sscanf(parts[1], "%d", &end)
-		if start < 1 || end < start || end > len(lines) {
-			continue
-		}
-		extracted := lines[start-1 : end]
-		if result.Len() > 0 {
-			result.WriteString("\n")
-		}
-		result.WriteString(strings.Join(extracted, "\n"))
-	}
-
-	return result.String(), nil
 }
 
 // toolError returns a CallToolResult with IsError set to true.

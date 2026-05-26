@@ -2,160 +2,194 @@
 
 # node_parsing
 
-## Data Structures
+## Records
 
 ```
 record Subsection
-  heading: string          -- raw heading text (after stripping the leading "##" and whitespace)
-  content: string          -- trimmed body text belonging to this subsection
+  heading: string        -- original heading text (not normalized)
+  content: string        -- trimmed content lines between this ## and the next heading
 
 record Section
-  heading: string          -- raw heading text (after stripping the leading "#" and whitespace)
-  content: string          -- trimmed body text that belongs directly to this section
-                           -- (before any level-2 sub-heading)
+  heading: string        -- original heading text (not normalized)
+  content: string        -- trimmed content lines between this # and the first ## (or next # / EOF)
   subsections: list of Subsection
 
 record ParsedNode
-  name_section: Section    -- the mandatory first "# <name>" section
-  public:   optional Section  -- the "# Public" section, if present
-  agent:    optional Section  -- the "# Agent" section, if present
-  private:  list of Section   -- any remaining top-level sections
+  name_section: Section          -- the first # heading (the node name)
+  public:       optional Section -- the # Public section, if present
+  agent:        optional Section -- the # Agent section, if present
+  private:      list of Section  -- all other # sections (order preserved)
 ```
 
-## Functions
+---
+
+## function ParseNode(logical_name) -> ParsedNode
+
+Parameters:
+- `logical_name` — string, a ROOT/ logical name identifying the spec node
+
+Returns:
+- `ParsedNode` record
+
+Errors:
+- `"unexpected content before first heading"` — file body has non-blank lines before the first level-1 heading
+- `"node name does not match"` — the first `#` heading, after normalization, does not match the normalized logical name
+- `"duplicate public section"` — more than one `# Public` section is found
+- `"duplicate subsection"` — two `##` headings within `# Public` normalize to the same text
+
+### Steps
+
+1. Resolve the file path.
+   Call `ResolvePath(logical_name)` from `logical_names`.
+   This yields an absolute file path to the `_node.md` file.
+
+2. Open the file for reading.
+   Call `OpenFileReader(file_path)`.
+   If the file cannot be opened, raise error "file unreadable".
+
+3. Skip the frontmatter block.
+   Read lines one by one.
+   - If the very first line is exactly `"---"`, enter frontmatter mode:
+     continue reading and discarding lines until a second line containing
+     exactly `"---"` is found (this closes the frontmatter block).
+   - If the first line is not `"---"`, no frontmatter is present;
+     do not consume any lines (treat the file body as starting immediately).
+
+4. Read remaining lines into a body list.
+   Continue calling `ReadLine` until "end of file" is raised.
+   Normalize CRLF to LF as provided by `file_reader` (already done by ReadLine).
+   Store the original lines; do not strip them yet.
+
+5. Track fenced code block state.
+   Maintain a boolean `inside_fence`, initially false.
+   A line that begins with exactly three or more backtick characters (`` ` ``)
+   or three or more tilde characters (`~`) toggles `inside_fence`.
+   - When `inside_fence` is true, any line that looks like a heading is treated
+     as plain content, not a structural heading.
+
+6. Collect raw sections from the body.
+   Iterate over body lines, maintaining:
+   - `current_level` — 1 or 2 (the depth of the most recently seen structural heading)
+   - `current_heading` — string (the heading text, original, without the `#` prefix or surrounding whitespace)
+   - `current_lines` — list of strings accumulating content
+
+   For each line:
+
+   a. Update `inside_fence` if the line starts a or closes a fence (step 5 rule).
+
+   b. If `inside_fence` is false and the line matches a level-1 heading
+      (starts with exactly `"# "` or is exactly `"#"`):
+      - Flush the current accumulator (see step 7).
+      - Set `current_level` = 1, `current_heading` = text after the leading `# `,
+        `current_lines` = empty list.
+
+   c. Else if `inside_fence` is false and the line matches a level-2 heading
+      (starts with exactly `"## "` or is exactly `"##"`):
+      - Flush the current accumulator (see step 7).
+      - Set `current_level` = 2, `current_heading` = text after the leading `## `,
+        `current_lines` = empty list.
+
+   d. Else (plain content, or heading inside fence):
+      - Append the line to `current_lines`.
+
+   After all lines are processed, flush the final accumulator (step 7).
+
+7. Flush accumulator sub-procedure.
+   When flushing, if `current_heading` is set (i.e., a heading was seen):
+   - Join `current_lines` with newline characters into a single string.
+   - Trim leading and trailing blank lines from the joined string.
+   - Produce a raw segment record: `{level, heading: current_heading, content: trimmed string}`.
+   - Append to a raw segment list.
+   If no heading has been set yet (content before first heading), and
+   `current_lines` contains any non-blank line, this is a pre-heading content
+   error — raise error "unexpected content before first heading".
+
+8. Validate the node name.
+   The first raw segment must have `level` = 1.
+   Normalize its `heading` using `NormalizeName`.
+   Also normalize the `logical_name` for comparison:
+   - Strip any qualifier (parenthetical suffix) using `ExtractQualifier` logic:
+     if a qualifier exists, remove it.
+   - Take only the last path component (the part after the final `/`).
+   - Apply `NormalizeName` to that component.
+   If the two normalized strings do not match, raise error "node name does not match".
+
+9. Build Section and Subsection records from raw segments.
+   Group raw segments into sections:
+
+   Iterate through all raw segments in order.
+   Maintain `current_section` (a Section being assembled) and a result list of Sections.
+
+   For each raw segment:
+   - If `level` = 1:
+     - If `current_section` exists, append it to result list.
+     - Start a new Section:
+       `heading` = segment heading
+       `content` = segment content
+       `subsections` = empty list
+   - If `level` = 2:
+     - If no `current_section` exists, this is unexpected; treat as orphaned
+       (implementation may create a synthetic unnamed section or raise an error —
+       the spec does not define this case; treat the subsection as belonging to
+       the nearest preceding section; if none exists, skip).
+     - Append a new Subsection to `current_section.subsections`:
+       `heading` = segment heading
+       `content` = segment content
+
+   After iteration, if `current_section` exists, append it to result list.
+
+10. Classify sections into ParsedNode fields.
+    Iterate over result list of Sections.
+    For each Section, normalize its `heading` with `NormalizeName`:
+
+    - If normalized heading = `"public"`:
+      - If `ParsedNode.public` is already set, raise error "duplicate public section".
+      - Set `ParsedNode.public` = this Section.
+      - Validate subsections for duplicates (step 11).
+
+    - Else if normalized heading = `"agent"`:
+      - Set `ParsedNode.agent` = this Section
+        (spec does not define a "duplicate agent" error; treat as last-wins or
+        first-wins; prefer first-wins for safety).
+
+    - Else if this is the first section (it is the name section):
+      - Set `ParsedNode.name_section` = this Section.
+
+    - Else:
+      - Append to `ParsedNode.private`.
+
+    Note: the name section is always the first Section in the result list
+    (validated in step 8). Process it separately before classifying the rest.
+
+11. Validate subsection uniqueness within `# Public`.
+    For each pair of Subsections in `public.subsections`:
+    - Normalize both headings with `NormalizeName`.
+    - If any two normalized headings are equal, raise error "duplicate subsection".
+
+12. Return the completed `ParsedNode` record.
 
 ---
 
-### ParseNode(logical_name) -> ParsedNode
+## Heading detection rules (detail for step 6)
 
-**Purpose:** Resolve the node file, skip its frontmatter, and parse the
-remaining Markdown body into a structured `ParsedNode`.
+A line is a level-1 heading if:
+- It starts with the characters `#` followed by a space, then the heading text; OR
+- It is exactly the single character `#` (empty heading).
 
-**Errors:**
-- `"unexpected content before first heading"` — the body (after the frontmatter)
-  contains non-blank text before the first `#` heading.
-- `"node name does not match"` — the first heading, when normalized, does not
-  match `logical_name` after normalization.
-- `"duplicate public section"` — more than one `# Public` section is found.
-- `"duplicate subsection"` — two `##` headings inside `# Public` normalize to
-  the same string.
+A line is a level-2 heading if:
+- It starts with exactly `##` followed by a space, then the heading text; OR
+- It is exactly `##`.
 
-**Steps:**
-
-1. Call `ResolvePath(logical_name)` from `logical_names` to obtain `file_path`.
-
-2. Call `OpenFileReader(file_path)`.
-   If the file cannot be opened, raise the error from `OpenFileReader`.
-
-3. **Skip frontmatter.**
-   Read lines one at a time until the first line that is exactly `"---"`.
-   That line is the opening delimiter. Continue reading lines until the next
-   line that is exactly `"---"`. That second `"---"` is the closing delimiter.
-   Discard all lines read so far (frontmatter).
-   If the file has no opening `"---"`, treat the entire file as body
-   (no frontmatter to skip).
-
-4. **Read the body.**
-   Read all remaining lines from the reader into a list called `body_lines`.
-
-5. **Check for content before the first heading.**
-   Iterate over `body_lines`. For each line, before encountering any line that
-   starts with `"#"` (outside a fenced code block — see step 7 for the
-   fenced-block rule):
-     - If the line is non-blank, raise error `"unexpected content before first heading"`.
-
-6. **Partition the body into raw sections.**
-   Walk `body_lines` maintaining a `fence_open` flag (initially false) and
-   building a list of raw sections.
-
-   A **raw section** is a record:
-   ```
-   record RawSection
-     level:   integer   -- 1 or 2
-     heading: string    -- text after the leading "#" or "##" stripped of whitespace
-     lines:   list of string
-   ```
-
-   For each line in `body_lines`:
-
-   a. If the line starts with ` ``` ` (three or more backticks), toggle `fence_open`.
-      Append the line to the current raw section's `lines` and continue.
-
-   b. If `fence_open` is true, append the line to the current raw section's
-      `lines` and continue (do not treat it as a structural heading).
-
-   c. If the line matches `"## <text>"` (starts with `"## "` or is exactly `"##"`):
-      Close the current raw section (if any). Start a new raw section with
-      `level = 2` and `heading = <text>` (trimmed). Its `lines` list is empty.
-
-   d. If the line matches `"# <text>"` (starts with `"# "` or is exactly `"#"`),
-      AND does NOT match `"## "` (i.e., it is a true level-1 heading):
-      Close the current raw section (if any). Start a new raw section with
-      `level = 1` and `heading = <text>` (trimmed). Its `lines` list is empty.
-
-   e. Otherwise, if a current raw section is open, append the line to its `lines`.
-      If no section is open yet, skip (these are blank lines before the first heading,
-      already validated in step 5).
-
-   After processing all lines, close the last open raw section.
-
-7. **Validate the first heading.**
-   The first raw section must have `level = 1`.
-   Apply `NormalizeName` to its `heading`.
-   Apply `NormalizeName` to `logical_name` (strip any qualifier first using
-   `ExtractQualifier`; use only the final path segment — the part after the
-   last `"/"` in the unqualified name).
-   If the two normalized strings are not equal, raise error `"node name does not match"`.
-
-8. **Build Section records from raw sections.**
-   Convert each raw section into either a `Section` or a `Subsection`:
-
-   For a raw section, compute `content`:
-     - Join its `lines` with newline characters.
-     - Trim leading and trailing blank lines (lines that are empty or contain
-       only whitespace).
-
-9. **Assemble ParsedNode.**
-   Group the raw sections hierarchically:
-
-   a. The first raw section (level 1) becomes `name_section`. It can have no
-      level-2 children because a `##` before any other `#` would be orphaned
-      — treat such orphaned `##` sections as belonging to the immediately
-      preceding `#` section (which in this case is `name_section`).
-
-   b. Walk the remaining raw sections in order. For each:
-      - If `level = 1`: finalize the previous top-level section (if any) and
-        start a new one.
-      - If `level = 2`: the current heading belongs as a `Subsection` of the
-        most recently opened level-1 section. If no level-1 section is open
-        yet (orphaned `##`), attach it to `name_section`.
-
-   c. For each level-1 section, collect its level-2 children as `subsections`.
-      The level-1 section's own `content` is built from the lines that appear
-      after the `#` heading and before the first `##` child.
-
-   d. Classify each completed top-level section:
-      - Normalize the heading with `NormalizeName`.
-      - If it equals `"public"`:
-        - If `public` is already set, raise error `"duplicate public section"`.
-        - Before assigning, validate that no two subsections within it have the
-          same normalized heading; if they do, raise error `"duplicate subsection"`.
-        - Set `parsed_node.public` to this section.
-      - If it equals `"agent"`:
-        - Set `parsed_node.agent` to this section.
-      - Otherwise: append to `parsed_node.private`.
-
-10. Return `parsed_node`.
+A line starting with `###` or deeper is NOT structural — it is treated as content.
 
 ---
 
-## Invariants and Contracts
+## Fenced code block detection (detail for step 5)
 
-- Only `#` (level-1) and `##` (level-2) headings are structural. Level-3 and
-  deeper headings (`###`, `####`, …) are treated as ordinary content lines.
-- Headings inside fenced code blocks (delimited by lines starting with three or
-  more backticks) are not structural; they are content lines of the enclosing section.
-- Leading and trailing blank lines in a section's or subsection's `content` are
-  trimmed before returning.
-- Heading comparison (for matching `"public"`, `"agent"`, and for the node-name
-  check) always uses `NormalizeName` from `ROOT/functional/utils/name_normalization`.
+A fence-start or fence-end line is any line where the first non-whitespace
+characters are three or more consecutive backticks (`` ``` ``) or three or
+more consecutive tildes (`~~~`).
+
+`inside_fence` starts as false. Each time such a line is encountered,
+toggle `inside_fence`. When `inside_fence` is true, heading detection
+is suppressed for all lines until the fence closes.

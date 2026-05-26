@@ -3,14 +3,13 @@ package load_chain
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
@@ -67,8 +66,13 @@ func HandleLoadChain(
 		return toolError(fmt.Sprintf("chain resolution failure: %v", err)), nil, nil
 	}
 
-	// Build context stream and hash parts.
-	var hashParts [][]byte
+	// Compute chain hash from raw files on disk.
+	chainHashStr, err := chainhash.ComputeChainHash(args.LogicalName)
+	if err != nil {
+		return toolError(fmt.Sprintf("chain hash computation failure: %v", err)), nil, nil
+	}
+
+	// Build context stream.
 	var contextBuf strings.Builder
 
 	// Step 1 -- Ancestors (root to target's parent).
@@ -95,11 +99,6 @@ func HandleLoadChain(
 			continue
 		}
 
-		// Compute SHA-1 of the # Public section including the heading.
-		publicWithHeading := sectionWithHeading(parsed.Public)
-		hash := sha1.Sum([]byte(publicWithHeading))
-		hashParts = append(hashParts, hash[:])
-
 		// Append content without the heading.
 		appendContent(&contextBuf, sectionContentWithoutHeading(parsed.Public))
 	}
@@ -112,8 +111,6 @@ func HandleLoadChain(
 			if err != nil {
 				return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
 			}
-			hash := sha1.Sum([]byte(content))
-			hashParts = append(hashParts, hash[:])
 			appendContent(&contextBuf, content)
 		} else if dep.Qualifier != nil {
 			// Subsection reference: ROOT/x/y(z). Strip qualifier for parsing.
@@ -128,9 +125,6 @@ func HandleLoadChain(
 				return toolError(fmt.Sprintf("chain resolution failure: subsection %q not found", *dep.Qualifier)), nil, nil
 			}
 
-			subWithHeading := "## " + subsection.Heading + "\n" + subsection.Content
-			hash := sha1.Sum([]byte(subWithHeading))
-			hashParts = append(hashParts, hash[:])
 			appendContent(&contextBuf, subsection.Content)
 		} else {
 			// Plain node reference: ROOT/x/y.
@@ -143,9 +137,6 @@ func HandleLoadChain(
 				continue
 			}
 
-			publicWithHeading := sectionWithHeading(parsed.Public)
-			hash := sha1.Sum([]byte(publicWithHeading))
-			hashParts = append(hashParts, hash[:])
 			appendContent(&contextBuf, sectionContentWithoutHeading(parsed.Public))
 		}
 	}
@@ -162,8 +153,6 @@ func HandleLoadChain(
 		if err != nil {
 			return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
 		}
-		hash := sha1.Sum([]byte(content))
-		hashParts = append(hashParts, hash[:])
 		appendContent(&contextBuf, content)
 	}
 
@@ -174,10 +163,6 @@ func HandleLoadChain(
 	}
 
 	if targetParsed.Public != nil {
-		publicWithHeading := sectionWithHeading(targetParsed.Public)
-		hash := sha1.Sum([]byte(publicWithHeading))
-		hashParts = append(hashParts, hash[:])
-
 		// Build reduced frontmatter with only outputs.
 		reducedFM := buildReducedFrontmatter(fm.Outputs)
 		appendContent(&contextBuf, reducedFM+sectionContentWithoutHeading(targetParsed.Public))
@@ -185,9 +170,6 @@ func HandleLoadChain(
 
 	// Step 5 -- Target # Agent.
 	if targetParsed.Agent != nil {
-		agentWithHeading := sectionWithHeading(targetParsed.Agent)
-		hash := sha1.Sum([]byte(agentWithHeading))
-		hashParts = append(hashParts, hash[:])
 		appendContent(&contextBuf, sectionContentWithoutHeading(targetParsed.Agent))
 	}
 
@@ -198,26 +180,13 @@ func HandleLoadChain(
 		if err != nil {
 			return toolError(fmt.Sprintf("unreadable file: %v", err)), nil, nil
 		}
-		hash := sha1.Sum([]byte(content))
-		hashParts = append(hashParts, hash[:])
 		inputContent = content
-	}
-
-	// Step 7 -- Chain hash computation.
-	var concatenated []byte
-	for _, h := range hashParts {
-		concatenated = append(concatenated, h...)
-	}
-	finalHash := sha1.Sum(concatenated)
-	chainHash := base64.RawURLEncoding.EncodeToString(finalHash[:])
-	if len(chainHash) > 27 {
-		chainHash = chainHash[:27]
 	}
 
 	// Step 8 -- Build result as a single text block.
 	var result strings.Builder
 	result.WriteString("chain_hash: ")
-	result.WriteString(chainHash)
+	result.WriteString(chainHashStr)
 	result.WriteString("\n\n")
 	result.WriteString(contextBuf.String())
 	if inputContent != "" {
@@ -228,26 +197,6 @@ func HandleLoadChain(
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: result.String()}},
 	}, nil, nil
-}
-
-// sectionWithHeading returns the full section content including its heading.
-func sectionWithHeading(s *parsenode.Section) string {
-	var buf strings.Builder
-	buf.WriteString("# ")
-	buf.WriteString(s.Heading)
-	buf.WriteString("\n")
-	if s.Content != "" {
-		buf.WriteString(s.Content)
-	}
-	for _, sub := range s.Subsections {
-		buf.WriteString("\n## ")
-		buf.WriteString(sub.Heading)
-		buf.WriteString("\n")
-		if sub.Content != "" {
-			buf.WriteString(sub.Content)
-		}
-	}
-	return buf.String()
 }
 
 // sectionContentWithoutHeading returns the section content (including subsections)

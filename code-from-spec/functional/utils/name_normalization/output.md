@@ -1,8 +1,8 @@
-<!-- code-from-spec: ROOT/functional/utils/name_normalization@TZGR4KKTP-5o2xZnTcDQnk07yTs -->
+<!-- code-from-spec: ROOT/functional/utils/name_normalization@pExIebEWgCYHxTq_qT26O6-47V0 -->
 
 # NormalizeName
 
-## Function Signature
+## Function signatures
 
 ```
 function NormalizeName(raw_string) -> string
@@ -10,55 +10,66 @@ function NormalizeName(raw_string) -> string
 
 **Parameters**
 
-- `raw_string` — string — the raw input to normalize
+- `raw_string` — string — the raw input to normalize; may be empty, have leading/trailing
+  whitespace, mixed case, or Unicode characters.
 
 **Returns**
 
-- string — the normalized form of the input
+- `string` — the normalized form of `raw_string`.
 
 **Contracts**
 
-- Pure function: no I/O, no side effects, raises no errors
-- Deterministic: same input always produces same output
+- Pure function — no I/O, no external state, no errors raised under any input.
+- Deterministic — identical inputs always produce identical outputs.
 
 ---
 
-## Step-by-Step Logic
+## Step-by-step logic
 
-1. If `raw_string` is empty, return `""`.
+function NormalizeName(raw_string) -> string
 
-2. Trim leading and trailing whitespace from `raw_string`.
-   Whitespace characters are:
-   - Space (U+0020)
-   - Horizontal tab (U+0009)
+  1. If raw_string is empty, return "".
 
-3. Scan the trimmed string from left to right.
-   For each run of one or more consecutive whitespace characters
-   (U+0020 or U+0009), replace the entire run with a single
-   space (U+0020).
-   Characters that are not whitespace are left in place unchanged.
+  2. Trim leading and trailing whitespace from raw_string.
+     Whitespace for this purpose means only:
+       - space character (U+0020)
+       - horizontal tab character (U+0009)
+     All other characters — including other Unicode whitespace — are not trimmed.
+     Call the result trimmed.
 
-4. Apply Unicode simple case folding to the result of step 3.
-   Simple case folding maps each character to its folded
-   equivalent as defined by the Unicode standard.
-   Example: "Straße" folds to "strasse" because "ß" folds to "ss".
+  3. Collapse internal runs of whitespace in trimmed.
+     A "run" is one or more consecutive whitespace characters
+     (space U+0020 or horizontal tab U+0009).
+     Replace each such run with a single space (U+0020).
+     Call the result collapsed.
 
-5. Return the resulting string.
+  4. Apply Unicode simple case folding to collapsed.
+     Unicode simple case folding maps each code point to its
+     case-folded equivalent using the Unicode Simple_Case_Folding
+     mapping (as defined in CaseFolding.txt, "S" and "C" entries).
+     This mapping is applied code point by code point.
+     Note: simple case folding may change the byte length of the
+     string (e.g., "ß" U+00DF folds to "ss" — two code points).
+     Non-cased characters (digits, punctuation, accented vowels
+     that have no case pair, etc.) are left unchanged.
+     Call the result folded.
+
+  5. Return folded.
 
 ---
 
 ## Examples
 
-| Input                       | Output                  |
-|-----------------------------|-------------------------|
-| `"  Interface  "`           | `"interface"`           |
-| `"PUBLIC"`                  | `"public"`              |
-| `"Straße"`                  | `"strasse"`             |
-| `"Testes   de   aceitação"` | `"testes de aceitação"` |
-| `""`                        | `""`                    |
+| Input                      | Step 2 (trim)          | Step 3 (collapse)    | Step 4 (case fold)   | Output               |
+|----------------------------|------------------------|----------------------|----------------------|----------------------|
+| `"  Interface  "`          | `"Interface"`          | `"Interface"`        | `"interface"`        | `"interface"`        |
+| `"PUBLIC"`                 | `"PUBLIC"`             | `"PUBLIC"`           | `"public"`           | `"public"`           |
+| `"Straße"`                 | `"Straße"`             | `"Straße"`           | `"strasse"`          | `"strasse"`          |
+| `"Testes   de   aceitação"`| `"Testes   de   aceitação"` | `"Testes de aceitação"` | `"testes de aceitação"` | `"testes de aceitação"` |
+| `""`                       | `""`                   | —                    | —                    | `""`                 |
 
 ---
 
-## Error Conditions
+## Error conditions
 
-None. This function is pure and raises no errors under any input.
+None. This is a pure function. It never raises an error for any input.

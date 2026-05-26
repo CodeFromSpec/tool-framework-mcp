@@ -1,111 +1,111 @@
-<!-- code-from-spec: ROOT/functional/utils/frontmatter@HBZRJbd4xmtRNeilrTuahKd46UA -->
+<!-- code-from-spec: ROOT/functional/utils/frontmatter@DuCaQuf5LmW3zCuwC_HVmJAMZWU -->
 
 # ParseFrontmatter
 
-Parses the optional YAML frontmatter block from the top of a spec file.
-The frontmatter block is delimited by `---` lines. If no frontmatter is
-present, an empty record is returned without error. The file body is
-never read — parsing stops after the closing `---`.
+Reads the optional YAML frontmatter block at the top of a file and
+returns a structured record of its contents. The parser stops as soon
+as the closing `---` delimiter is found and never reads the file body.
 
-## Data Structures
+---
+
+## Data structures
 
 ```
 record ExternalFragment
-  description: optional string
-  lines: string
-  hash: string
+  description: optional string   -- human-readable note for this fragment
+  lines: string                  -- line-range selector (e.g. "1-10")
+  hash: string                   -- content hash of the selected lines
 
 record External
-  path: string
+  path: string                           -- path to the external file
   fragments: optional list of ExternalFragment
 
 record Output
-  id: string
-  path: string
+  id: string    -- logical identifier for the output artifact
+  path: string  -- relative file path where the artifact is written
 
 record Frontmatter
-  depends_on: list of strings   (default: empty list)
-  external: list of External    (default: empty list)
-  input: string                 (default: empty string)
-  outputs: list of Output       (default: empty list)
+  depends_on: list of strings   -- logical names this node depends on
+  external: list of External    -- external file references
+  input: string                 -- logical name of the input artifact
+  outputs: list of Output       -- artifacts this node produces
 ```
+
+---
 
 ## Functions
 
----
-
 ### ParseFrontmatter(file_path) -> Frontmatter
 
-**Parameters**
-- `file_path`: string — path to the spec file to parse
+Parses the frontmatter block from the file at `file_path` and returns
+a `Frontmatter` record. All fields default to empty (empty list or
+empty string) when absent from the YAML.
 
-**Returns**
-- `Frontmatter` record with fields populated from YAML, or all-empty defaults
+**Parameters**
+- `file_path` — string: path to the file to parse.
+
+**Return value**
+- A `Frontmatter` record.
 
 **Errors**
-- `"file unreadable"`: the file cannot be opened or read
-- `"malformed YAML"`: the content between `---` delimiters is not valid YAML
+- `"file unreadable"` — the file cannot be opened or read.
+- `"malformed YAML"` — the content between `---` delimiters is not
+  valid YAML.
 
 **Steps**
 
-1. Open the file at `file_path` using `OpenFileReader(file_path)`.
+1. Open the file at `file_path` using `OpenFileReader`.
    If the file cannot be opened, raise error `"file unreadable"`.
 
-2. Read the first line using `ReadLine(reader)`.
-   If reading fails with "end of file", return an empty Frontmatter record.
-   If the first line is not exactly `"---"`, return an empty Frontmatter record.
-   (A missing or non-`---` first line means no frontmatter is present — this is not an error.)
+2. Read the first line using `ReadLine`.
+   If reading raises "end of file", return an empty `Frontmatter`
+   record (all fields empty).
+   If the first line is not exactly `"---"`, return an empty
+   `Frontmatter` record.
+   -- A missing or absent opening delimiter is not an error.
 
-3. Collect lines into a buffer, reading one line at a time using `ReadLine(reader)`,
-   until one of the following:
-   - The line is exactly `"---"` — stop collecting (do not include this line in the buffer).
-   - `ReadLine` raises "end of file" — raise error `"malformed YAML"`,
-     because an opening `---` was found but no closing `---` was encountered.
+3. Collect lines into a buffer until one of the following:
+   a. A line is exactly `"---"` — this is the closing delimiter.
+      Stop collecting. Do NOT include this line in the buffer.
+   b. `ReadLine` raises "end of file" — the file ended without a
+      closing delimiter. Raise error `"malformed YAML"`.
 
-4. Parse the collected buffer as YAML.
-   If YAML parsing fails, raise error `"malformed YAML"`.
+4. Join the collected buffer lines with newline characters to form
+   a single YAML string.
+   If the buffer is empty (i.e., the block was `---\n---`), proceed
+   to step 6 with an empty parsed map.
 
-5. Extract the following known fields from the parsed YAML.
-   If a field is absent, use its default value.
-   Unknown fields are silently ignored.
+5. Parse the YAML string.
+   If parsing fails for any reason, raise error `"malformed YAML"`.
+   The result is a map of field names to values.
+
+6. Extract recognized fields from the parsed map.
+   Ignore any fields not listed below.
 
    - `depends_on`:
-     Expected: list of strings.
-     Default: empty list.
-     Assign to Frontmatter.depends_on.
+     If present, interpret as a list of strings.
+     If absent, use an empty list.
 
    - `external`:
-     Expected: list of External records, each with:
-       - `path`: string
-       - `fragments`: optional list of ExternalFragment records, each with:
-           - `description`: optional string
-           - `lines`: string
-           - `hash`: string
-     Default: empty list.
-     Assign to Frontmatter.external.
+     If present, interpret as a list of `External` records.
+     For each entry:
+       - `path`: string (required field within each entry).
+       - `fragments`: optional list of `ExternalFragment` records.
+         For each fragment entry:
+           - `description`: optional string.
+           - `lines`: string.
+           - `hash`: string.
+     If absent, use an empty list.
 
    - `input`:
-     Expected: string.
-     Default: empty string.
-     Assign to Frontmatter.input.
+     If present, interpret as a string.
+     If absent, use an empty string.
 
    - `outputs`:
-     Expected: list of Output records, each with:
-       - `id`: string
-       - `path`: string
-     Default: empty list.
-     Assign to Frontmatter.outputs.
+     If present, interpret as a list of `Output` records.
+     For each entry:
+       - `id`: string.
+       - `path`: string.
+     If absent, use an empty list.
 
-6. Return the populated Frontmatter record.
-
----
-
-## Contracts and Invariants
-
-- The parser stops reading after the closing `---`. It never reads the file body.
-- An empty frontmatter block (`---` immediately followed by `---`) produces
-  a Frontmatter record with all fields at their defaults (empty lists, empty string).
-- All recognized fields are optional.
-- Unknown YAML keys are silently ignored.
-- CRLF normalization is handled by `ReadLine` — the parser does not need to
-  handle `\r\n` line endings explicitly.
+7. Return the populated `Frontmatter` record.

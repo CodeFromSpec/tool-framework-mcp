@@ -53,7 +53,11 @@ func ExtractArtifactTag(filePath string) (*ArtifactTag, error) {
 		}
 
 		logicalName := tagValue[:atIdx]
-		hash := tagValue[atIdx+1:]
+		rawHash := tagValue[atIdx+1:]
+
+		// The hash is exactly 27 base64url characters. Anything after
+		// (e.g., comment closing syntax like "-->") is ignored.
+		hash := extractBase64URL(rawHash)
 
 		if logicalName == "" {
 			return nil, fmt.Errorf("%w: empty logical name", ErrMalformedTag)
@@ -70,4 +74,17 @@ func ExtractArtifactTag(filePath string) (*ArtifactTag, error) {
 	}
 
 	return nil, fmt.Errorf("%w", ErrNoTagFound)
+}
+
+// extractBase64URL extracts the leading run of base64url characters
+// (A-Z, a-z, 0-9, -, _) from a string, stopping at the first
+// character that is not part of the base64url alphabet.
+func extractBase64URL(s string) string {
+	for i, c := range s {
+		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+			(c >= '0' && c <= '9') || c == '-' || c == '_') {
+			return s[:i]
+		}
+	}
+	return s
 }
