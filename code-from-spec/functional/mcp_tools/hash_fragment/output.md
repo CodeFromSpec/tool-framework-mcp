@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/mcp_tools/hash_fragment@WjzWuEiqvzeDqY2Nd6_I3I__3aQ -->
+<!-- code-from-spec: ROOT/functional/mcp_tools/hash_fragment@II53OP8T987hLaoLUMQf_LI4svA -->
 
 # HashFragment
 

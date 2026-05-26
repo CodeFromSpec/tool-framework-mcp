@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/file_reader/code@D-_iC-rnBl6K4XVw2_WTvrRgyBU
+// code-from-spec: ROOT/golang/internal/file_reader/code@KkSjT0tHgmqMDMaHbTE-GAZJP2U
 
 // Package filereader provides a forward-only, sequential, line-by-line file
 // reader. Memory usage does not scale with file size because the file is read

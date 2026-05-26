@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/frontmatter/code@LABQubMqG5YZvza9cUUS89hjTlI
+// code-from-spec: ROOT/golang/internal/frontmatter/code@5V-WApXyqicZtOc9hb6qPUO5xqA
 
 // Package frontmatter parses the optional YAML frontmatter block at the top
 // of a spec node file (_node.md). The parser stops as soon as the closing

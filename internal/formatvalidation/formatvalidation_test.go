@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/format_validation/tests@sLDxM8A_eulr0TzKNhXE1cEb8Bo
+// code-from-spec: ROOT/golang/internal/format_validation/tests@E7adq-JCyQPoUsu2t2GgCNh0IAM
 
 // Package formatvalidation provides tests for the ValidateFormat function.
 //

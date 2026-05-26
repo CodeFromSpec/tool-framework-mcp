@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/file_reader/tests@jhSCpitxcP62y2BnaBbhjST4_Jc
+// code-from-spec: ROOT/golang/internal/file_reader/tests@PQdDV7QvHNyWm5fFQhgvaWUkLX8
 
 // Package filereader provides tests for the FileReader type.
 // These tests are written as internal tests (same package) so they can verify

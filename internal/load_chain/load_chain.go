@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/tools/load_chain/code@cRjjyzyuALVcPdpoYlbkB8Famjw
+// code-from-spec: ROOT/golang/internal/tools/load_chain/code@yQhE6xcGfD_cOSvPktyyoIBUffI
 
 // Package load_chain implements the MCP tool handler for the load_chain tool.
 // The tool takes a logical name (e.g. ROOT/x/y) and returns the assembled

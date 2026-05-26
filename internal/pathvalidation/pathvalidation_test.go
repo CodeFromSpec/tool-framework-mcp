@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/pathvalidation/tests@Wso8vnatufD1KKPRkuUhr_HORdA
+// code-from-spec: ROOT/golang/internal/pathvalidation/tests@bCQpXvq-2DgFPeQIcx4m3glteUY
 
 // Package pathvalidation contains tests for the ValidatePath function.
 //

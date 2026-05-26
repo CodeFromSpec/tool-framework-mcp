@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/node_ranking/tests@6sQQEQ23Vu31ebNHl_I7s71tPFg
+// code-from-spec: ROOT/golang/internal/node_ranking/tests@KOmg0FZi8kuSlk4rSqodAArsAlI
 
 // Package noderanking contains tests for the DetectCycles ranking algorithm.
 //

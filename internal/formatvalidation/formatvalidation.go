@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/format_validation/code@Rmdxg4i-zcRo8Nr9z5wX7ix6dmY
+// code-from-spec: ROOT/golang/internal/format_validation/code@9ISOvGkZDVKu-4--bDSuJWKrGPA
 
 // Package formatvalidation validates spec nodes against structural rules.
 // It takes a list of discovered nodes and checks each one for conformance

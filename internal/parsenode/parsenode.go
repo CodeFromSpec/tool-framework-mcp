@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/parsenode/code@5Oz0AIxAkUbUQUPEntNOyQHLtMY
+// code-from-spec: ROOT/golang/internal/parsenode/code@0LKLCg0wrlLvzxwruIa6Yjv5zlA
 
 // Package parsenode parses a spec node file (_node.md) into a structured
 // representation of its level-1 sections and level-2 subsections, given a

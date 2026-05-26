@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/chain_hash/code@G430QSA1p0LEiqhMaLJsEL_aNSc
+// code-from-spec: ROOT/golang/internal/chain_hash/code@6x3Y9ghWPeebVe3sV7bUyC3VnNk
 
 // Package chainhash computes the chain hash for a given spec node.
 //

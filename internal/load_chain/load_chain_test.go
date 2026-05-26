@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/tools/load_chain/tests@5YBki-76pyzbSIjhhcMNln6oNEA
+// code-from-spec: ROOT/golang/internal/tools/load_chain/tests@tSe8py_8f0DhQPKhYL_8qW1Gb30
 
 // Package load_chain tests exercise HandleLoadChain end-to-end.
 //

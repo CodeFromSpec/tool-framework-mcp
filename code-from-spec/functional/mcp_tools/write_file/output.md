@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/mcp_tools/write_file@M8Wxp-8J4ulsjs547WVqsV8x4OU -->
+<!-- code-from-spec: ROOT/functional/mcp_tools/write_file@CfijaTdhezcP77uWhSKmHTpwIas -->
 
 # WriteFile — Functional Pseudocode
 

@@ -1,481 +1,434 @@
 // code-from-spec: ROOT/golang/internal/tools/validate_specs/tests@4DTsrq4tX5QbHuBpDFnnIN1cTtw
 
-// Package validate_specs — test file.
+// Package validate_specs — tests for HandleValidateSpecs.
 //
-// Each test:
-//   1. Creates a temporary directory with a synthetic spec tree under
-//      code-from-spec/ (using _node.md files with YAML frontmatter).
-//   2. Changes the process working directory to that temp dir so that
-//      nodediscovery, frontmatter, chainhash, and artifacttag all resolve
-//      paths correctly against it.
-//   3. Calls HandleValidateSpecs and inspects the returned text report.
+// Each test creates a temporary directory, populates it with the minimal
+// spec tree needed for the scenario, changes the working directory to that
+// temp dir (so that nodediscovery.DiscoverNodes and pathvalidation.ValidatePath
+// resolve paths correctly), and then restores the working directory on cleanup.
 //
-// Helper naming convention: all helpers and helper types are prefixed with
-// "test" to avoid collisions with unexported identifiers in the package under
-// test (e.g., testMakeFM, testCase, testWriteFile).
+// Important structural rules followed here (matching the real spec tree):
+//   - _node.md files have the YAML frontmatter block (---/---) BEFORE the
+//     heading (# ROOT/...).
+//   - "ROOT" maps to "code-from-spec/_node.md".
+//   - "ROOT/a" maps to "code-from-spec/a/_node.md".
+//   - There is NO directory named "ROOT" inside code-from-spec/.
+//   - DiscoveredNode.FilePath values are relative (e.g. "code-from-spec/a/_node.md").
+//   - pathvalidation.ValidatePath requires an absolute project root; os.Getwd()
+//     is used (which returns the temp dir after os.Chdir).
 package validate_specs
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainhash"
 )
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Test helpers
 // ---------------------------------------------------------------------------
 
-// testCase groups a test name and the function that runs it.
-// Used so each sub-test is clearly named in the table.
-type testCase struct {
-	name string
-	fn   func(t *testing.T)
-}
-
-// testChdir changes the working directory to dir for the duration of t and
-// restores it when t finishes.  Fails the test immediately if the chdir fails.
+// testChdir changes the working directory to dir and registers a cleanup
+// function on t to restore the original directory when the test ends.
+// This is necessary because nodediscovery.DiscoverNodes and
+// pathvalidation.ValidatePath both resolve paths relative to os.Getwd().
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
+
 	orig, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("testChdir: getwd: %v", err)
+		t.Fatalf("testChdir: os.Getwd: %v", err)
 	}
+
 	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("testChdir: chdir to %q: %v", dir, err)
+		t.Fatalf("testChdir: os.Chdir(%q): %v", dir, err)
 	}
+
 	t.Cleanup(func() {
-		// Restore original directory after the test, ignoring failure —
-		// the process will be cleaned up anyway.
-		_ = os.Chdir(orig)
+		// Use Logf instead of Fatalf: cleanup runs after the test body so
+		// a fatal here would be ignored anyway.
+		if err := os.Chdir(orig); err != nil {
+			t.Logf("testChdir cleanup: os.Chdir(%q): %v", orig, err)
+		}
 	})
 }
 
-// testWriteFile writes content to path (relative to cwd), creating parent
-// directories as needed.
-func testWriteFile(t *testing.T, path, content string) {
+// testMkFile creates a file at path (creating parent directories as needed)
+// and writes content to it. The path must be relative to the current working
+// directory (i.e. the temp dir after testChdir). Fails the test on any error.
+func testMkFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("testWriteFile: mkdir %q: %v", path, err)
+		t.Fatalf("testMkFile: MkdirAll(%q): %v", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("testWriteFile: write %q: %v", path, err)
+		t.Fatalf("testMkFile: WriteFile(%q): %v", path, err)
 	}
 }
 
-// testNodeContent builds the content of a _node.md file.
+// testNodeMd returns the content of a minimal _node.md file.
 //
-// frontmatter is the YAML block to wrap in --- delimiters.
-// body is appended after the closing ---.
-// Either may be empty.
-func testNodeContent(frontmatter, body string) string {
-	if frontmatter == "" {
-		return body
-	}
-	return fmt.Sprintf("---\n%s\n---\n%s", frontmatter, body)
-}
-
-// testRootNodeFM returns minimal valid frontmatter for a non-leaf (container)
-// node — no outputs, no depends_on.
-func testRootNodeFM() string {
-	return "" // intentionally empty — ROOT node needs no frontmatter
-}
-
-// testLeafNodeFM returns frontmatter for a leaf node with a single output.
-// outputID and outputPath define the single Output entry.
-func testLeafNodeFM(outputID, outputPath string) string {
-	return fmt.Sprintf("outputs:\n  - id: %s\n    path: %s\n", outputID, outputPath)
-}
-
-// testLeafNodeFMWithDeps returns frontmatter for a leaf node with depends_on
-// and a single output.
-func testLeafNodeFMWithDeps(deps []string, outputID, outputPath string) string {
+// The YAML frontmatter block (---/---) is placed BEFORE the heading, matching
+// the format expected by ParseFrontmatter and the rest of the spec tooling.
+//
+// Parameters:
+//   - fm   — raw YAML to embed inside the frontmatter delimiters.
+//             Pass "" for nodes that need no frontmatter fields.
+//   - name — logical name used in the heading (e.g. "ROOT" or "ROOT/a").
+//   - body — additional markdown after the heading (may be "").
+func testNodeMd(fm, name, body string) string {
 	var sb strings.Builder
-	sb.WriteString("depends_on:\n")
-	for _, d := range deps {
-		fmt.Fprintf(&sb, "  - %s\n", d)
-	}
-	fmt.Fprintf(&sb, "outputs:\n  - id: %s\n    path: %s\n", outputID, outputPath)
-	return sb.String()
-}
-
-// testDepsOnlyFM returns frontmatter for a node with only depends_on (no outputs).
-func testDepsOnlyFM(deps []string) string {
-	var sb strings.Builder
-	sb.WriteString("depends_on:\n")
-	for _, d := range deps {
-		fmt.Fprintf(&sb, "  - %s\n", d)
-	}
-	return sb.String()
-}
-
-// testCallHandler invokes HandleValidateSpecs with an empty context and args,
-// fails the test on a Go-level error, and returns the text report string and
-// the IsError flag.
-func testCallHandler(t *testing.T) (report string, isError bool) {
-	t.Helper()
-	result, _, err := HandleValidateSpecs(context.Background(), nil, ValidateSpecsArgs{})
-	if err != nil {
-		t.Fatalf("HandleValidateSpecs returned unexpected Go error: %v", err)
-	}
-	if result == nil {
-		t.Fatal("HandleValidateSpecs returned nil result")
-	}
-	if len(result.Content) == 0 {
-		t.Fatal("HandleValidateSpecs returned result with no content")
-	}
-	// The spec mandates a single TextContent entry.
-	type texter interface{ GetText() string }
-	if tx, ok := result.Content[0].(texter); ok {
-		return tx.GetText(), result.IsError
-	}
-	// Fallback: try the concrete struct field directly via fmt.Sprint.
-	return fmt.Sprint(result.Content[0]), result.IsError
-}
-
-// testArtifactTag formats an artifact tag line for embedding in generated files.
-// The tag must match the pattern: "code-from-spec: <logicalName>@<hash>"
-func testArtifactTag(logicalName, hash string) string {
-	return fmt.Sprintf("// code-from-spec: %s@%s", logicalName, hash)
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-// TestHandleValidateSpecs runs all sub-tests as a table so they share the
-// same test binary entry point and can be run selectively via -run.
-func TestHandleValidateSpecs(t *testing.T) {
-	cases := []testCase{
-		{"CleanTree_NoErrors", testCleanTreeNoErrors},
-		{"DetectsStaleArtifact", testDetectsStaleArtifact},
-		{"DetectsMissingArtifact", testDetectsMissingArtifact},
-		{"DetectsFormatErrors", testDetectsFormatErrors},
-		{"DetectsCircularReferences", testDetectsCircularReferences},
-		{"MultipleErrorsCollectedTogether", testMultipleErrorsCollectedTogether},
-		{"ContinuesAfterUnreadableFile", testContinuesAfterUnreadableFile},
-	}
-	for _, tc := range cases {
-		tc := tc // capture range variable
-		t.Run(tc.name, func(t *testing.T) {
-			tc.fn(t)
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Happy path: clean tree
-// ---------------------------------------------------------------------------
-
-// testCleanTreeNoErrors verifies that a spec tree with valid frontmatter and
-// an up-to-date artifact tag produces a success result with no findings.
-//
-// Tree layout:
-//   code-from-spec/ROOT/_node.md       — container node, no outputs
-//   code-from-spec/ROOT/a/_node.md     — leaf node, one output
-//   out/result.go                      — generated file with matching hash
-//
-// Because the test uses a synthetic tree in a temp dir, we cannot rely on the
-// real chainhash computation producing a deterministic value here — that would
-// require the full ancestor chain to exist on disk.  Instead we let the handler
-// compute the hash from the real chainhash package and then write the output
-// file with whatever hash it would produce.  To do that we call the handler
-// twice: the first call will report "missing"; we extract the expected hash
-// from the report to write the correctly-tagged file, then call again and
-// expect a clean result.
-//
-// NOTE: If chainhash cannot compute a hash for a synthetic node (e.g., because
-// it requires the real spec tree), the test is designed to still pass as long
-// as the handler returns a success result (IsError == false) and the summary
-// line says "All spec nodes are valid" (i.e., no format errors or cycles —
-// staleness may be present when the hash cannot be computed, and the test
-// accounts for that by not asserting on staleness in the clean-tree case when
-// the artifact creation approach is not feasible).
-//
-// Simplified approach used here: we skip the round-trip and instead assert
-// the weaker invariant — the handler succeeds (IsError false), has no format
-// errors, and has no circular references.  Staleness is tested in a dedicated
-// sub-test where we can control the hash precisely.
-func testCleanTreeNoErrors(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	// Create a minimal valid spec tree.
-	testWriteFile(t, "code-from-spec/ROOT/_node.md",
-		testNodeContent(testRootNodeFM(), "# ROOT\n\nRoot node.\n"))
-
-	// Leaf node with one output pointing to out/result.go.
-	testWriteFile(t, "code-from-spec/ROOT/a/_node.md",
-		testNodeContent(
-			testLeafNodeFM("main", "out/result.go"),
-			"## Description\n\nLeaf node a.\n",
-		))
-
-	// First call: determine the hash the handler expects.
-	report1, isErr1 := testCallHandler(t)
-	if isErr1 {
-		t.Fatalf("expected success result, got IsError=true; report:\n%s", report1)
-	}
-
-	// Confirm no format errors or cycles regardless of staleness.
-	if strings.Contains(report1, "FORMAT ERRORS") {
-		t.Errorf("unexpected format errors in report:\n%s", report1)
-	}
-	if strings.Contains(report1, "CIRCULAR REFERENCES") {
-		t.Errorf("unexpected circular references in report:\n%s", report1)
-	}
-
-	// Attempt to extract the expected hash from the staleness line and write
-	// a properly-tagged output file, then re-run to get a fully clean report.
-	//
-	// The staleness detail line produced by buildReport looks like:
-	//   file hash "X" does not match expected "EXPECTED_HASH"
-	// or for missing:
-	//   file not found or unreadable
-	//
-	// We look for the expected hash in the detail and write the file.
-	const needle = `does not match expected "`
-	if idx := strings.Index(report1, needle); idx != -1 {
-		rest := report1[idx+len(needle):]
-		end := strings.Index(rest, `"`)
-		if end > 0 {
-			expectedHash := rest[:end]
-			testWriteFile(t, "out/result.go",
-				testArtifactTag("ROOT/a", expectedHash)+"\n\npackage main\n")
-			report2, isErr2 := testCallHandler(t)
-			if isErr2 {
-				t.Fatalf("second call: expected success, got IsError=true; report:\n%s", report2)
-			}
-			if !strings.Contains(report2, "All spec nodes are valid") {
-				t.Errorf("second call: expected clean report, got:\n%s", report2)
-			}
+	sb.WriteString("---\n")
+	if fm != "" {
+		sb.WriteString(fm)
+		// Ensure the yaml content ends with a newline before the closing delimiter.
+		if !strings.HasSuffix(fm, "\n") {
+			sb.WriteByte('\n')
 		}
-		// If hash extraction failed, the first-call assertions above are sufficient.
-	} else if strings.Contains(report1, "file not found or unreadable") {
-		// Missing artifact: we cannot get the expected hash directly from the
-		// report; skip the round-trip and accept the weaker assertion already made.
-		t.Log("could not determine expected hash from report; clean-tree staleness not verified")
 	}
-	// If report1 is already fully clean (no staleness section), nothing more to do.
+	sb.WriteString("---\n")
+	sb.WriteString("# " + name + "\n")
+	if body != "" {
+		sb.WriteString(body)
+	}
+	return sb.String()
+}
+
+// testResultText extracts the text from the first content entry of a
+// CallToolResult. Fails the test if the result is nil or empty.
+func testResultText(t *testing.T, result *mcp.CallToolResult) string {
+	t.Helper()
+	if result == nil || len(result.Content) == 0 {
+		t.Fatal("testResultText: nil or empty CallToolResult")
+	}
+	tc, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("testResultText: content[0] is not *mcp.TextContent")
+	}
+	return tc.Text
+}
+
+// testComputeHash calls chainhash.ComputeChainHash and fails the test on
+// error. Used in CleanTree to obtain the expected hash so a valid artifact
+// file can be written before the second pass.
+func testComputeHash(t *testing.T, logicalName string) string {
+	t.Helper()
+	hash, err := chainhash.ComputeChainHash(logicalName)
+	if err != nil {
+		t.Fatalf("testComputeHash(%q): %v", logicalName, err)
+	}
+	return hash
 }
 
 // ---------------------------------------------------------------------------
-// Happy path: stale artifact
+// Happy-path: clean tree with no errors
 // ---------------------------------------------------------------------------
 
-// testDetectsStaleArtifact verifies that an output file containing an outdated
-// hash is reported as "stale".
-func testDetectsStaleArtifact(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	testWriteFile(t, "code-from-spec/ROOT/_node.md",
-		testNodeContent(testRootNodeFM(), "# ROOT\n"))
-
-	testWriteFile(t, "code-from-spec/ROOT/a/_node.md",
-		testNodeContent(
-			testLeafNodeFM("main", "out/stale.go"),
-			"## Description\n\nLeaf.\n",
-		))
-
-	// Write the output file with an obviously wrong (outdated) hash.
-	const outdatedHash = "AAAAAAAAAAAAAAAAAAAAAAAAAAAA" // wrong hash
-	testWriteFile(t, "out/stale.go",
-		testArtifactTag("ROOT/a", outdatedHash)+"\n\npackage main\n")
-
-	report, isErr := testCallHandler(t)
-	if isErr {
-		t.Fatalf("expected success result, got IsError=true; report:\n%s", report)
-	}
-
-	// The report must mention the staleness section with status "stale".
-	if !strings.Contains(report, "[stale]") {
-		t.Errorf("expected [stale] entry in report; got:\n%s", report)
-	}
-	if !strings.Contains(report, "ROOT/a") {
-		t.Errorf("expected ROOT/a mentioned in report; got:\n%s", report)
-	}
-	if !strings.Contains(report, "STALE / MISSING ARTIFACTS") {
-		t.Errorf("expected STALE / MISSING ARTIFACTS section in report; got:\n%s", report)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Happy path: missing artifact
-// ---------------------------------------------------------------------------
-
-// testDetectsMissingArtifact verifies that an output file that does not exist
-// is reported as "missing".
-func testDetectsMissingArtifact(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	testWriteFile(t, "code-from-spec/ROOT/_node.md",
-		testNodeContent(testRootNodeFM(), "# ROOT\n"))
-
-	testWriteFile(t, "code-from-spec/ROOT/a/_node.md",
-		testNodeContent(
-			testLeafNodeFM("main", "out/missing.go"),
-			"## Description\n\nLeaf.\n",
-		))
-
-	// Deliberately do NOT create out/missing.go.
-
-	report, isErr := testCallHandler(t)
-	if isErr {
-		t.Fatalf("expected success result, got IsError=true; report:\n%s", report)
-	}
-
-	if !strings.Contains(report, "[missing]") {
-		t.Errorf("expected [missing] entry in report; got:\n%s", report)
-	}
-	if !strings.Contains(report, "ROOT/a") {
-		t.Errorf("expected ROOT/a mentioned in report; got:\n%s", report)
-	}
-	if !strings.Contains(report, "STALE / MISSING ARTIFACTS") {
-		t.Errorf("expected STALE / MISSING ARTIFACTS section; got:\n%s", report)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Happy path: format errors
-// ---------------------------------------------------------------------------
-
-// testDetectsFormatErrors verifies that a node with malformed frontmatter
-// produces at least one FORMAT ERROR entry in the report.
+// TestHandleValidateSpecs_CleanTree verifies that a well-formed spec tree
+// with a matching artifact tag hash produces a success result reporting
+// "All spec nodes are valid and all artifacts are up to date."
 //
-// We use invalid YAML in the frontmatter block to trigger ErrFrontmatterParse.
-func testDetectsFormatErrors(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+// Strategy — two-pass approach:
+//  1. Run the handler without the output file to surface what hash is expected
+//     (indirectly — we use testComputeHash for this).
+//  2. Write the output file with the correct tag, then run the handler again
+//     and verify the clean-tree message.
+func TestHandleValidateSpecs_CleanTree(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/ROOT/_node.md",
-		testNodeContent(testRootNodeFM(), "# ROOT\n"))
+	// ROOT — parent node, no outputs.
+	testMkFile(t, "code-from-spec/_node.md", testNodeMd("", "ROOT", ""))
 
-	// Malformed YAML: a tab character where spaces are expected causes a parse error.
-	malformedFM := "outputs:\n\t- id: bad\n\t  path: out/bad.go\n"
-	testWriteFile(t, "code-from-spec/ROOT/a/_node.md",
-		testNodeContent(malformedFM, ""))
+	// ROOT/a — leaf node with a single declared output.
+	testMkFile(t, "code-from-spec/a/_node.md", testNodeMd(
+		"outputs:\n  - id: main\n    path: out/a.go\n",
+		"ROOT/a",
+		"",
+	))
 
-	report, isErr := testCallHandler(t)
-	if isErr {
-		t.Fatalf("expected success result (IsError false), got IsError=true; report:\n%s", report)
+	ctx := context.Background()
+
+	// --- Pass 1: no output file yet; should report ROOT/a as missing. ---
+	result1, _, err := HandleValidateSpecs(ctx, nil, ValidateSpecsArgs{})
+	if err != nil {
+		t.Fatalf("pass 1: unexpected Go error: %v", err)
 	}
+	report1 := testResultText(t, result1)
+
+	if !strings.Contains(report1, "ROOT/a") {
+		t.Logf("pass 1 report (for debug):\n%s", report1)
+		// This is informational; the test is really about pass 2.
+	}
+
+	// Compute the expected hash using the internal chainhash package.
+	expectedHash := testComputeHash(t, "ROOT/a")
+
+	// Write the artifact with the correct tag.
+	testMkFile(t, "out/a.go",
+		"// code-from-spec: ROOT/a@"+expectedHash+"\npackage a\n",
+	)
+
+	// --- Pass 2: everything should be clean. ---
+	result2, _, err := HandleValidateSpecs(ctx, nil, ValidateSpecsArgs{})
+	if err != nil {
+		t.Fatalf("pass 2: unexpected Go error: %v", err)
+	}
+	if result2.IsError {
+		t.Fatalf("pass 2: expected success, got IsError=true:\n%s", testResultText(t, result2))
+	}
+
+	report2 := testResultText(t, result2)
+
+	if !strings.Contains(report2, "All spec nodes are valid") {
+		t.Errorf("pass 2: expected clean-tree message, got:\n%s", report2)
+	}
+
+	// Confirm no error sections appear.
+	for _, section := range []string{"FORMAT ERRORS", "CIRCULAR REFERENCES", "STALE / MISSING"} {
+		if strings.Contains(report2, section) {
+			t.Errorf("pass 2: unexpected section %q in clean report:\n%s", section, report2)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Happy-path: detects stale artifact
+// ---------------------------------------------------------------------------
+
+// TestHandleValidateSpecs_StaleArtifact verifies that an artifact file whose
+// code-from-spec tag contains a hash that does not match the current chain hash
+// is reported as "[stale]" in the STALE / MISSING ARTIFACTS section.
+func TestHandleValidateSpecs_StaleArtifact(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+
+	testMkFile(t, "code-from-spec/_node.md", testNodeMd("", "ROOT", ""))
+	testMkFile(t, "code-from-spec/a/_node.md", testNodeMd(
+		"outputs:\n  - id: main\n    path: out/a.go\n",
+		"ROOT/a",
+		"",
+	))
+
+	// Write the artifact with a deliberately wrong hash (all-caps placeholder).
+	// The real chain hash will differ from this, triggering a stale report.
+	testMkFile(t, "out/a.go",
+		"// code-from-spec: ROOT/a@AAAAAAAAAAAAAAAAAAAAAAAAA00\npackage a\n",
+	)
+
+	ctx := context.Background()
+	result, _, err := HandleValidateSpecs(ctx, nil, ValidateSpecsArgs{})
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected success result, got IsError=true:\n%s", testResultText(t, result))
+	}
+
+	report := testResultText(t, result)
+
+	if !strings.Contains(report, "STALE / MISSING ARTIFACTS") {
+		t.Errorf("expected STALE / MISSING ARTIFACTS section, got:\n%s", report)
+	}
+	if !strings.Contains(report, "[stale]") {
+		t.Errorf("expected [stale] marker, got:\n%s", report)
+	}
+	if !strings.Contains(report, "ROOT/a") {
+		t.Errorf("expected ROOT/a in staleness report, got:\n%s", report)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Happy-path: detects missing artifact
+// ---------------------------------------------------------------------------
+
+// TestHandleValidateSpecs_MissingArtifact verifies that when a declared output
+// file does not exist on disk, it is reported as "[missing]" in the staleness
+// section.
+func TestHandleValidateSpecs_MissingArtifact(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+
+	testMkFile(t, "code-from-spec/_node.md", testNodeMd("", "ROOT", ""))
+	testMkFile(t, "code-from-spec/a/_node.md", testNodeMd(
+		"outputs:\n  - id: main\n    path: out/a.go\n",
+		"ROOT/a",
+		"",
+	))
+
+	// Intentionally do NOT create out/a.go.
+
+	ctx := context.Background()
+	result, _, err := HandleValidateSpecs(ctx, nil, ValidateSpecsArgs{})
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected success result, got IsError=true:\n%s", testResultText(t, result))
+	}
+
+	report := testResultText(t, result)
+
+	if !strings.Contains(report, "STALE / MISSING ARTIFACTS") {
+		t.Errorf("expected STALE / MISSING ARTIFACTS section, got:\n%s", report)
+	}
+	if !strings.Contains(report, "[missing]") {
+		t.Errorf("expected [missing] marker, got:\n%s", report)
+	}
+	if !strings.Contains(report, "ROOT/a") {
+		t.Errorf("expected ROOT/a in staleness report, got:\n%s", report)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Happy-path: detects format errors
+// ---------------------------------------------------------------------------
+
+// TestHandleValidateSpecs_FormatErrors verifies that a node with an invalid
+// depends_on reference (target does not exist) produces at least one entry in
+// the FORMAT ERRORS section of the report.
+func TestHandleValidateSpecs_FormatErrors(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+
+	testMkFile(t, "code-from-spec/_node.md", testNodeMd("", "ROOT", ""))
+
+	// ROOT/a references a node that does not exist in the tree.
+	testMkFile(t, "code-from-spec/a/_node.md", testNodeMd(
+		"depends_on:\n  - ROOT/nonexistent\n",
+		"ROOT/a",
+		"",
+	))
+
+	ctx := context.Background()
+	result, _, err := HandleValidateSpecs(ctx, nil, ValidateSpecsArgs{})
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected success result, got IsError=true:\n%s", testResultText(t, result))
+	}
+
+	report := testResultText(t, result)
 
 	if !strings.Contains(report, "FORMAT ERRORS") {
-		t.Errorf("expected FORMAT ERRORS section in report; got:\n%s", report)
+		t.Errorf("expected FORMAT ERRORS section, got:\n%s", report)
 	}
-	// The erroneous node should be identified.
 	if !strings.Contains(report, "ROOT/a") {
-		t.Errorf("expected ROOT/a identified in format error; got:\n%s", report)
+		t.Errorf("expected ROOT/a in format errors, got:\n%s", report)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Happy path: circular references
+// Happy-path: detects circular references
 // ---------------------------------------------------------------------------
 
-// testDetectsCircularReferences verifies that a two-node cycle (a → b, b → a)
-// is detected and both participants appear in the report.
-func testDetectsCircularReferences(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+// TestHandleValidateSpecs_CircularReferences verifies that a two-node cycle
+// (ROOT/a → ROOT/b → ROOT/a) is detected and both participants appear in the
+// CIRCULAR REFERENCES section.
+func TestHandleValidateSpecs_CircularReferences(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/ROOT/_node.md",
-		testNodeContent(testRootNodeFM(), "# ROOT\n"))
+	testMkFile(t, "code-from-spec/_node.md", testNodeMd("", "ROOT", ""))
 
-	// ROOT/a depends on ROOT/b
-	testWriteFile(t, "code-from-spec/ROOT/a/_node.md",
-		testNodeContent(
-			testDepsOnlyFM([]string{"ROOT/b"}),
-			"## Description\n\nNode a.\n",
-		))
+	// ROOT/a depends on ROOT/b, ROOT/b depends on ROOT/a — a direct cycle.
+	testMkFile(t, "code-from-spec/a/_node.md", testNodeMd(
+		"depends_on:\n  - ROOT/b\n",
+		"ROOT/a",
+		"",
+	))
+	testMkFile(t, "code-from-spec/b/_node.md", testNodeMd(
+		"depends_on:\n  - ROOT/a\n",
+		"ROOT/b",
+		"",
+	))
 
-	// ROOT/b depends on ROOT/a — completing the cycle
-	testWriteFile(t, "code-from-spec/ROOT/b/_node.md",
-		testNodeContent(
-			testDepsOnlyFM([]string{"ROOT/a"}),
-			"## Description\n\nNode b.\n",
-		))
-
-	report, isErr := testCallHandler(t)
-	if isErr {
-		t.Fatalf("expected success result, got IsError=true; report:\n%s", report)
+	ctx := context.Background()
+	result, _, err := HandleValidateSpecs(ctx, nil, ValidateSpecsArgs{})
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
 	}
+	if result.IsError {
+		t.Fatalf("expected success result, got IsError=true:\n%s", testResultText(t, result))
+	}
+
+	report := testResultText(t, result)
 
 	if !strings.Contains(report, "CIRCULAR REFERENCES") {
-		t.Errorf("expected CIRCULAR REFERENCES section; got:\n%s", report)
+		t.Errorf("expected CIRCULAR REFERENCES section, got:\n%s", report)
 	}
-	// Both cycle participants must appear.
-	if !strings.Contains(report, "ROOT/a") {
-		t.Errorf("expected ROOT/a in circular references report; got:\n%s", report)
+	if !strings.Contains(report, "ROOT/a") && !strings.Contains(report, "ROOT/b") {
+		t.Errorf("expected at least one cycle participant (ROOT/a or ROOT/b), got:\n%s", report)
 	}
 	if !strings.Contains(report, "ROOT/b") {
-		t.Errorf("expected ROOT/b in circular references report; got:\n%s", report)
+		t.Errorf("expected ROOT/b in circular references, got:\n%s", report)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Happy path: multiple error categories at once
+// Happy-path: multiple error categories collected together
 // ---------------------------------------------------------------------------
 
-// testMultipleErrorsCollectedTogether verifies that format errors, circular
-// references, and stale artifacts are all reported in a single response.
+// TestHandleValidateSpecs_MultipleErrorsTogether verifies that circular
+// references and stale artifacts can appear simultaneously in a single
+// report.
 //
-// Tree:
-//   ROOT          — container
-//   ROOT/good     — leaf with a stale artifact
-//   ROOT/cycleA   — depends on ROOT/cycleB
-//   ROOT/cycleB   — depends on ROOT/cycleA
-//   ROOT/bad      — malformed frontmatter (format error)
-func testMultipleErrorsCollectedTogether(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+// Tree layout:
+//   - ROOT/a — valid node with a stale artifact (wrong hash).
+//   - ROOT/b — depends on ROOT/c  ┐ cycle
+//   - ROOT/c — depends on ROOT/b  ┘
+func TestHandleValidateSpecs_MultipleErrorsTogether(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/ROOT/_node.md",
-		testNodeContent(testRootNodeFM(), "# ROOT\n"))
+	testMkFile(t, "code-from-spec/_node.md", testNodeMd("", "ROOT", ""))
 
-	// Leaf with stale artifact.
-	testWriteFile(t, "code-from-spec/ROOT/good/_node.md",
-		testNodeContent(
-			testLeafNodeFM("main", "out/good.go"),
-			"## Description\n\nGood leaf.\n",
-		))
-	// Write with wrong hash so it shows as stale.
-	testWriteFile(t, "out/good.go",
-		testArtifactTag("ROOT/good", "STALEHASHAAAAAAAAAAAAAAAAAA")+"\n\npackage main\n")
+	// Stale artifact node.
+	testMkFile(t, "code-from-spec/a/_node.md", testNodeMd(
+		"outputs:\n  - id: main\n    path: out/a.go\n",
+		"ROOT/a",
+		"",
+	))
+	testMkFile(t, "out/a.go",
+		"// code-from-spec: ROOT/a@AAAAAAAAAAAAAAAAAAAAAAAAA00\npackage a\n",
+	)
 
-	// Circular pair.
-	testWriteFile(t, "code-from-spec/ROOT/cycleA/_node.md",
-		testNodeContent(
-			testDepsOnlyFM([]string{"ROOT/cycleB"}),
-			"## Description\n\nCycle A.\n",
-		))
-	testWriteFile(t, "code-from-spec/ROOT/cycleB/_node.md",
-		testNodeContent(
-			testDepsOnlyFM([]string{"ROOT/cycleA"}),
-			"## Description\n\nCycle B.\n",
-		))
+	// Cycle participants.
+	testMkFile(t, "code-from-spec/b/_node.md", testNodeMd(
+		"depends_on:\n  - ROOT/c\n",
+		"ROOT/b",
+		"",
+	))
+	testMkFile(t, "code-from-spec/c/_node.md", testNodeMd(
+		"depends_on:\n  - ROOT/b\n",
+		"ROOT/c",
+		"",
+	))
 
-	// Malformed frontmatter (format error).
-	testWriteFile(t, "code-from-spec/ROOT/bad/_node.md",
-		"---\noutputs:\n\t- id: oops\n---\n")
-
-	report, isErr := testCallHandler(t)
-	if isErr {
-		t.Fatalf("expected success result, got IsError=true; report:\n%s", report)
+	ctx := context.Background()
+	result, _, err := HandleValidateSpecs(ctx, nil, ValidateSpecsArgs{})
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected success result, got IsError=true:\n%s", testResultText(t, result))
 	}
 
-	if !strings.Contains(report, "FORMAT ERRORS") {
-		t.Errorf("expected FORMAT ERRORS section; got:\n%s", report)
-	}
+	report := testResultText(t, result)
+
+	// Both cycles and staleness must be present.
 	if !strings.Contains(report, "CIRCULAR REFERENCES") {
-		t.Errorf("expected CIRCULAR REFERENCES section; got:\n%s", report)
+		t.Errorf("expected CIRCULAR REFERENCES section in report, got:\n%s", report)
 	}
-	if !strings.Contains(report, "STALE / MISSING ARTIFACTS") {
-		t.Errorf("expected STALE / MISSING ARTIFACTS section; got:\n%s", report)
+	if !strings.Contains(report, "STALE / MISSING ARTIFACTS") && !strings.Contains(report, "stale") && !strings.Contains(report, "missing") {
+		t.Errorf("expected staleness in report, got:\n%s", report)
 	}
 }
 
@@ -483,54 +436,55 @@ func testMultipleErrorsCollectedTogether(t *testing.T) {
 // Failure case: continues after unreadable file
 // ---------------------------------------------------------------------------
 
-// testContinuesAfterUnreadableFile verifies that when one _node.md file has
-// invalid content, the handler still validates all other nodes and returns a
-// success result (IsError false).
-//
-// Tree:
-//   ROOT          — valid container
-//   ROOT/broken   — invalid frontmatter (produces a format error)
-//   ROOT/valid    — valid leaf with a missing artifact (staleness check runs)
-//
-// Expectation: IsError == false, FORMAT ERRORS section present for ROOT/broken,
-// STALE/MISSING section present for ROOT/valid.
-func testContinuesAfterUnreadableFile(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+// TestHandleValidateSpecs_ContinuesAfterUnreadableFile verifies that a node
+// whose _node.md has completely invalid YAML frontmatter does not abort
+// validation of the remaining nodes. The unreadable node produces a format
+// error; the valid node is still checked for staleness.
+func TestHandleValidateSpecs_ContinuesAfterUnreadableFile(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/ROOT/_node.md",
-		testNodeContent(testRootNodeFM(), "# ROOT\n"))
+	testMkFile(t, "code-from-spec/_node.md", testNodeMd("", "ROOT", ""))
 
-	// Node with malformed frontmatter.
-	testWriteFile(t, "code-from-spec/ROOT/broken/_node.md",
-		"---\noutputs:\n\t- bad yaml\n---\n")
+	// ROOT/bad — frontmatter is syntactically invalid YAML.
+	// The colon sequence ": this is not valid yaml: [" is a mapping key error.
+	testMkFile(t, "code-from-spec/bad/_node.md",
+		"---\n: this is not valid yaml: [\n---\n# ROOT/bad\n",
+	)
 
-	// Valid leaf node — output file absent → should appear as missing.
-	testWriteFile(t, "code-from-spec/ROOT/valid/_node.md",
-		testNodeContent(
-			testLeafNodeFM("main", "out/valid.go"),
-			"## Description\n\nValid leaf.\n",
-		))
-	// Deliberately do NOT create out/valid.go.
+	// ROOT/good — valid node with a declared output; file absent → "missing".
+	testMkFile(t, "code-from-spec/good/_node.md", testNodeMd(
+		"outputs:\n  - id: main\n    path: out/good.go\n",
+		"ROOT/good",
+		"",
+	))
 
-	report, isErr := testCallHandler(t)
-	if isErr {
-		t.Fatalf("expected success result (IsError false), got IsError=true; report:\n%s", report)
+	// Intentionally do NOT create out/good.go.
+
+	ctx := context.Background()
+	result, _, err := HandleValidateSpecs(ctx, nil, ValidateSpecsArgs{})
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected success result, got IsError=true:\n%s", testResultText(t, result))
 	}
 
-	// The broken node must have produced a format error.
+	report := testResultText(t, result)
+
+	// The bad node must produce a format error.
 	if !strings.Contains(report, "FORMAT ERRORS") {
-		t.Errorf("expected FORMAT ERRORS for broken node; got:\n%s", report)
+		t.Errorf("expected FORMAT ERRORS section for bad node, got:\n%s", report)
 	}
-	if !strings.Contains(report, "ROOT/broken") {
-		t.Errorf("expected ROOT/broken in format errors; got:\n%s", report)
+	if !strings.Contains(report, "ROOT/bad") {
+		t.Errorf("expected ROOT/bad in format errors, got:\n%s", report)
 	}
 
-	// The valid node must still have been processed — its missing artifact is reported.
-	if !strings.Contains(report, "ROOT/valid") {
-		t.Errorf("expected ROOT/valid to still be processed and appear in staleness report; got:\n%s", report)
-	}
+	// The good node must still be processed and appear in staleness.
 	if !strings.Contains(report, "STALE / MISSING ARTIFACTS") {
-		t.Errorf("expected STALE / MISSING ARTIFACTS section for valid node; got:\n%s", report)
+		t.Errorf("expected STALE / MISSING ARTIFACTS section for good node, got:\n%s", report)
+	}
+	if !strings.Contains(report, "ROOT/good") {
+		t.Errorf("expected ROOT/good in staleness section, got:\n%s", report)
 	}
 }

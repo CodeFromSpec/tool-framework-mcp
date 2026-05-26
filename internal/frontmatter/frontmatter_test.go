@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/frontmatter/tests@qwEXPbTpuKQSfvosdQSZ3_ect7E
+// code-from-spec: ROOT/golang/internal/frontmatter/tests@iG06fKHtI3yAGZOokvibUjO_LL0
 
 // Package frontmatter — test file.
 //

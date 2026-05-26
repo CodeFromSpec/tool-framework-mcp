@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/tools/write_file/tests@no4nLtVdbowuN4SpEEtOWB8Btrk
+// code-from-spec: ROOT/golang/internal/tools/write_file/tests@o4uReSy9OwarIVpsbHnYeEuF4G0
 
 // Tests for the write_file MCP tool handler.
 //

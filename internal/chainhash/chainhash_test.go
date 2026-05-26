@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/chain_hash/tests@Fl5aMLYgfb7sqDTevYFkpcrtjqk
+// code-from-spec: ROOT/golang/internal/chain_hash/tests@oH8u-KeJcsWbDgzA38Q1cW1Neaw
 
 // Package chainhash_test verifies ComputeChainHash behaviour.
 //

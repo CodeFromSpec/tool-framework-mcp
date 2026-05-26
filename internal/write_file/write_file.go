@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/tools/write_file/code@1FpDvNpNgMx0YR9HLzxBegrbMIE
+// code-from-spec: ROOT/golang/internal/tools/write_file/code@mI3Fz8UagXT8P6btvmqnlX42Lqo
 
 // Package write_file implements the write_file MCP tool.
 //

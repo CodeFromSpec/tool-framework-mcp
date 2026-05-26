@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/tools/hash_fragment/tests@ZSgxdbMC6Y2mJWtbwLHMqphNkgY
+// code-from-spec: ROOT/golang/internal/tools/hash_fragment/tests@wpSTjLYQX5NS4wZ-350L1pO8xPk
 
 // Package hash_fragment contains tests for the hash_fragment MCP tool handler.
 //

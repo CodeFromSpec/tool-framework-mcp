@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/internal/pathvalidation/code@5bhGiMTuwVfieS1jR4BxGY6XtK0
+// code-from-spec: ROOT/golang/internal/pathvalidation/code@Qwvf4ocJPrEYd047iBhTXhyyb7A
 
 // Package pathvalidation provides a single function, ValidatePath, that
 // verifies a caller-supplied relative file path is safe to use within a
