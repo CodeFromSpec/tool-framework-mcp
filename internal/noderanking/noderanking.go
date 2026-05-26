@@ -190,6 +190,9 @@ func runOnePass(entryMap map[string]*rankEntry) bool {
 		maxDepRank := 0
 		for _, depName := range entry.dependencies {
 			dep := entryMap[depName]
+			if dep == nil {
+				continue
+			}
 			if dep.rank > maxDepRank {
 				maxDepRank = dep.rank
 			}
@@ -221,6 +224,9 @@ func collectCycleParticipants(entryMap map[string]*rankEntry) []string {
 		maxDepRank := 0
 		for _, depName := range entry.dependencies {
 			dep := entryMap[depName]
+			if dep == nil {
+				continue
+			}
 			if dep.rank > maxDepRank {
 				maxDepRank = dep.rank
 			}
@@ -228,7 +234,6 @@ func collectCycleParticipants(entryMap map[string]*rankEntry) []string {
 
 		newRank := maxDepRank + 1
 		if newRank > entry.rank {
-			// This entry's rank is still growing — it is part of a cycle.
 			entry.rank = newRank
 			participants = append(participants, entry.logicalName)
 		}

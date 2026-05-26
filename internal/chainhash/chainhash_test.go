@@ -1,93 +1,122 @@
-// code-from-spec: ROOT/golang/internal/chain_hash/tests@CIVzZwY5fTYcuJhnLGxorT-o8yc
-package chainhash
+// code-from-spec: ROOT/golang/internal/chain_hash/tests@Fl5aMLYgfb7sqDTevYFkpcrtjqk
 
-// Tests for ComputeChainHash. These are internal tests (same package as the
-// implementation) so they share access to unexported identifiers.
+// Package chainhash_test verifies ComputeChainHash behaviour.
 //
-// Spec constraints verified here:
-//   - The returned hash is always exactly 27 characters (base64url, no padding).
-//   - The hash is deterministic: calling ComputeChainHash twice on the same
-//     tree produces the same result.
-//   - The hash changes when any file in the chain changes.
+// Test strategy (from spec):
+//   - The hash must be deterministic across calls.
+//   - The hash must always be exactly 27 characters.
+//   - The hash must change when any file in the chain changes.
 //
-// Each test builds a minimal spec tree inside t.TempDir() so tests are
-// completely isolated from the real repository layout.
+// Every test builds its own isolated spec tree under t.TempDir() so tests
+// are fully independent and do not touch real project files.
+//
+// Helper naming: all helpers are prefixed with "test" to avoid collisions
+// with unexported symbols in the implementation package.
+package chainhash
 
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------
 
-// testWriteFile creates all parent directories and writes content to path.
-// It is a test helper — failures are reported via t.Fatal so the calling test
-// stops immediately.
-func testWriteFile(t *testing.T, path string, content string) {
+// testWriteFile creates the file at path (and any missing parent directories)
+// with the given content. It calls t.Fatal on any error.
+func testWriteFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("testWriteFile: mkdir %s: %v", filepath.Dir(path), err)
+		t.Fatalf("testWriteFile: MkdirAll(%s): %v", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("testWriteFile: write %s: %v", path, err)
+		t.Fatalf("testWriteFile: WriteFile(%s): %v", path, err)
 	}
 }
 
-// testMakeMinimalChain builds the smallest valid spec chain for a given
-// logical name inside root and returns root.
+// testNodePath returns the _node.md path for a logical name under the given
+// root directory. It mirrors the PathFromLogicalName resolution:
 //
-// The chain for "A/B/C" is made up of three files:
-//
-//	<root>/code-from-spec/A/spec.md          (root node)
-//	<root>/code-from-spec/A/B/spec.md        (intermediate node)
-//	<root>/code-from-spec/A/B/C/spec.md      (leaf / target node)
-//
-// Each file contains just enough content to be a real spec entry.
-func testMakeMinimalChain(t *testing.T, root, logicalName string) {
+//	ROOT                → <root>/code-from-spec/_node.md
+//	ROOT/<path>         → <root>/code-from-spec/<path>/_node.md
+func testNodePath(root, logicalName string) string {
+	const prefix = "ROOT"
+	if logicalName == prefix {
+		return filepath.Join(root, "code-from-spec", "_node.md")
+	}
+	rel := strings.TrimPrefix(logicalName, prefix+"/")
+	// Replace forward slashes with the OS path separator.
+	rel = filepath.FromSlash(rel)
+	return filepath.Join(root, "code-from-spec", rel, "_node.md")
+}
+
+// testChdir changes the working directory to dir for the duration of the test.
+// ComputeChainHash uses the working directory as the project root (all paths
+// it constructs are relative to it), so each test must chdir into its temp tree.
+func testChdir(t *testing.T, dir string) {
 	t.Helper()
-	// Build each segment of the path as its own spec.md file.
-	// The content does not need to be valid YAML for hashing purposes;
-	// it just needs to be non-empty so the files exist on disk.
-	base := filepath.Join(root, "code-from-spec")
-	parts := splitLogicalName(logicalName) // uses unexported helper from impl
-	for i := range parts {
-		dir := filepath.Join(append([]string{base}, parts[:i+1]...)...)
-		testWriteFile(t, filepath.Join(dir, "spec.md"), "# spec for "+filepath.Join(parts[:i+1]...)+"\n")
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("testChdir: Getwd: %v", err)
 	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("testChdir: Chdir(%s): %v", dir, err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(orig); err != nil {
+			t.Fatalf("testChdir cleanup: Chdir(%s): %v", orig, err)
+		}
+	})
 }
 
-// testChainPaths returns the list of absolute file paths that form the chain
-// for logicalName rooted at root, in order from root to leaf.
-// This mirrors the same walk that ComputeChainHash performs, letting tests
-// mutate specific positions in the chain.
-func testChainPaths(t *testing.T, root, logicalName string) []string {
+// testMakeMinimalTree creates the minimal spec tree required for the logical
+// name and returns the path to the target node file. The tree contains only
+// the target node and its ancestors, each with an empty frontmatter.
+//
+// "Minimal" means no depends_on, no external, no input. Each node file
+// contains a single # Public section so there is content to hash.
+func testMakeMinimalTree(t *testing.T, root, logicalName string) string {
 	t.Helper()
-	base := filepath.Join(root, "code-from-spec")
-	parts := splitLogicalName(logicalName)
-	paths := make([]string, len(parts))
-	for i := range parts {
-		dir := filepath.Join(append([]string{base}, parts[:i+1]...)...)
-		paths[i] = filepath.Join(dir, "spec.md")
+
+	// Build the ancestor chain manually (root-first, not including target).
+	// e.g. ROOT/a/b → ["ROOT", "ROOT/a"]
+	var ancestors []string
+	parts := strings.Split(logicalName, "/")
+	for i := 1; i < len(parts); i++ {
+		ancestors = append(ancestors, strings.Join(parts[:i], "/"))
 	}
-	return paths
+
+	// Write each ancestor with a simple # Public section.
+	for _, anc := range ancestors {
+		content := "# Public\n\nAncestor: " + anc + "\n"
+		testWriteFile(t, testNodePath(root, anc), content)
+	}
+
+	// Write the target node.
+	targetContent := "# Public\n\nTarget: " + logicalName + "\n"
+	targetPath := testNodePath(root, logicalName)
+	testWriteFile(t, targetPath, targetContent)
+
+	return targetPath
 }
 
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------
 
-// TestComputeChainHash_Length verifies that the returned hash is exactly
-// 27 characters, which is the correct length for a 20-byte SHA-1 value
-// encoded as base64url without padding ( ceil(20*8/6) = 27 ).
+// TestComputeChainHash_Length verifies that the hash is always exactly 27
+// characters long (the spec mandates this for base64url-encoded SHA-1 without
+// padding).
 func TestComputeChainHash_Length(t *testing.T) {
 	root := t.TempDir()
-	logicalName := "FOO/BAR/BAZ"
-	testMakeMinimalChain(t, root, logicalName)
+	testChdir(t, root)
 
-	hash, err := computeChainHashInDir(root, logicalName)
+	testMakeMinimalTree(t, root, "ROOT/a/b")
+
+	hash, err := ComputeChainHash("ROOT/a/b")
 	if err != nil {
 		t.Fatalf("ComputeChainHash returned unexpected error: %v", err)
 	}
@@ -97,201 +126,421 @@ func TestComputeChainHash_Length(t *testing.T) {
 }
 
 // TestComputeChainHash_Deterministic verifies that calling ComputeChainHash
-// twice on exactly the same spec tree returns the same result.
+// twice on the same unchanged tree returns identical hashes.
 func TestComputeChainHash_Deterministic(t *testing.T) {
 	root := t.TempDir()
-	logicalName := "ALPHA/BETA"
-	testMakeMinimalChain(t, root, logicalName)
+	testChdir(t, root)
 
-	first, err := computeChainHashInDir(root, logicalName)
+	testMakeMinimalTree(t, root, "ROOT/x/y")
+
+	hash1, err := ComputeChainHash("ROOT/x/y")
 	if err != nil {
 		t.Fatalf("first call: %v", err)
 	}
-	second, err := computeChainHashInDir(root, logicalName)
+	hash2, err := ComputeChainHash("ROOT/x/y")
 	if err != nil {
 		t.Fatalf("second call: %v", err)
 	}
-	if first != second {
-		t.Errorf("hash is not deterministic: first=%q second=%q", first, second)
+	if hash1 != hash2 {
+		t.Errorf("hash is not deterministic: first=%q, second=%q", hash1, hash2)
 	}
 }
 
-// TestComputeChainHash_ChangesOnLeafEdit verifies that modifying the leaf
-// spec file (the node itself) produces a different hash.
-func TestComputeChainHash_ChangesOnLeafEdit(t *testing.T) {
+// TestComputeChainHash_ChangesWhenTargetChanges verifies that the hash changes
+// when the target node file is modified.
+func TestComputeChainHash_ChangesWhenTargetChanges(t *testing.T) {
 	root := t.TempDir()
-	logicalName := "NS/PARENT/CHILD"
-	testMakeMinimalChain(t, root, logicalName)
+	testChdir(t, root)
 
-	before, err := computeChainHashInDir(root, logicalName)
+	targetPath := testMakeMinimalTree(t, root, "ROOT/mynode")
+
+	before, err := ComputeChainHash("ROOT/mynode")
 	if err != nil {
-		t.Fatalf("before edit: %v", err)
+		t.Fatalf("before modification: %v", err)
 	}
 
-	// Modify the leaf (last path in the chain).
-	paths := testChainPaths(t, root, logicalName)
-	leafPath := paths[len(paths)-1]
-	testWriteFile(t, leafPath, "# modified leaf content\n")
+	// Modify the target file.
+	testWriteFile(t, targetPath, "# Public\n\nTarget: modified content\n")
 
-	after, err := computeChainHashInDir(root, logicalName)
+	after, err := ComputeChainHash("ROOT/mynode")
 	if err != nil {
-		t.Fatalf("after edit: %v", err)
+		t.Fatalf("after modification: %v", err)
 	}
 
 	if before == after {
-		t.Errorf("hash did not change after modifying the leaf file")
+		t.Errorf("hash did not change after target file modification (hash=%q)", before)
 	}
 }
 
-// TestComputeChainHash_ChangesOnRootEdit verifies that modifying the root
-// (first) spec file in the chain also changes the hash, confirming that all
-// chain positions contribute to the hash, not just the leaf.
-func TestComputeChainHash_ChangesOnRootEdit(t *testing.T) {
+// TestComputeChainHash_ChangesWhenAncestorChanges verifies that the hash
+// changes when an ancestor's # Public section is modified.
+func TestComputeChainHash_ChangesWhenAncestorChanges(t *testing.T) {
 	root := t.TempDir()
-	logicalName := "NS/PARENT/CHILD"
-	testMakeMinimalChain(t, root, logicalName)
+	testChdir(t, root)
 
-	before, err := computeChainHashInDir(root, logicalName)
+	testMakeMinimalTree(t, root, "ROOT/parent/child")
+	// The parent is ROOT/parent.
+	parentPath := testNodePath(root, "ROOT/parent")
+
+	before, err := ComputeChainHash("ROOT/parent/child")
 	if err != nil {
-		t.Fatalf("before edit: %v", err)
+		t.Fatalf("before modification: %v", err)
 	}
 
-	// Modify the root (first path in the chain).
-	paths := testChainPaths(t, root, logicalName)
-	testWriteFile(t, paths[0], "# modified root content\n")
+	// Modify the parent's # Public section.
+	testWriteFile(t, parentPath, "# Public\n\nParent: modified ancestor content\n")
 
-	after, err := computeChainHashInDir(root, logicalName)
+	after, err := ComputeChainHash("ROOT/parent/child")
 	if err != nil {
-		t.Fatalf("after edit: %v", err)
+		t.Fatalf("after modification: %v", err)
 	}
 
 	if before == after {
-		t.Errorf("hash did not change after modifying the root file")
+		t.Errorf("hash did not change after ancestor modification (hash=%q)", before)
 	}
 }
 
-// TestComputeChainHash_ChangesOnIntermediateEdit verifies that modifying an
-// intermediate spec file (neither root nor leaf) also changes the hash.
-func TestComputeChainHash_ChangesOnIntermediateEdit(t *testing.T) {
-	// Need at least three segments so there is a true intermediate node.
+// TestComputeChainHash_ROOTNode verifies that ComputeChainHash works for ROOT
+// itself (no ancestors, no parent chain).
+func TestComputeChainHash_ROOTNode(t *testing.T) {
 	root := t.TempDir()
-	logicalName := "X/Y/Z"
-	testMakeMinimalChain(t, root, logicalName)
+	testChdir(t, root)
 
-	before, err := computeChainHashInDir(root, logicalName)
-	if err != nil {
-		t.Fatalf("before edit: %v", err)
-	}
+	// Write ROOT node.
+	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot content\n")
 
-	// Modify the middle path (index 1 out of 0,1,2).
-	paths := testChainPaths(t, root, logicalName)
-	testWriteFile(t, paths[1], "# modified intermediate content\n")
-
-	after, err := computeChainHashInDir(root, logicalName)
-	if err != nil {
-		t.Fatalf("after edit: %v", err)
-	}
-
-	if before == after {
-		t.Errorf("hash did not change after modifying an intermediate file")
-	}
-}
-
-// TestComputeChainHash_CRLFNormalization verifies that a file written with
-// CRLF line endings produces the same hash as the same file written with LF
-// line endings, because the implementation normalises CRLF → LF before hashing.
-func TestComputeChainHash_CRLFNormalization(t *testing.T) {
-	logicalName := "CRLF/TEST"
-
-	// Build one tree with LF content.
-	rootLF := t.TempDir()
-	base := filepath.Join(rootLF, "code-from-spec")
-	parts := splitLogicalName(logicalName)
-	for i := range parts {
-		dir := filepath.Join(append([]string{base}, parts[:i+1]...)...)
-		// Explicit LF content.
-		testWriteFile(t, filepath.Join(dir, "spec.md"), "line one\nline two\n")
-	}
-
-	// Build another tree with CRLF content that should normalise to the same.
-	rootCRLF := t.TempDir()
-	base2 := filepath.Join(rootCRLF, "code-from-spec")
-	for i := range parts {
-		dir := filepath.Join(append([]string{base2}, parts[:i+1]...)...)
-		// Explicit CRLF content.
-		testWriteFile(t, filepath.Join(dir, "spec.md"), "line one\r\nline two\r\n")
-	}
-
-	hashLF, err := computeChainHashInDir(rootLF, logicalName)
-	if err != nil {
-		t.Fatalf("LF tree: %v", err)
-	}
-	hashCRLF, err := computeChainHashInDir(rootCRLF, logicalName)
-	if err != nil {
-		t.Fatalf("CRLF tree: %v", err)
-	}
-
-	if hashLF != hashCRLF {
-		t.Errorf("CRLF normalization failed: LF hash=%q, CRLF hash=%q", hashLF, hashCRLF)
-	}
-}
-
-// TestComputeChainHash_MissingFile verifies that ComputeChainHash returns an
-// error when a required spec file is missing from disk.
-func TestComputeChainHash_MissingFile(t *testing.T) {
-	root := t.TempDir()
-	// Do NOT create any spec files — the chain is entirely absent.
-	logicalName := "MISSING/NODE"
-
-	_, err := computeChainHashInDir(root, logicalName)
-	if err == nil {
-		t.Error("expected an error for a missing spec tree, got nil")
-	}
-}
-
-// TestComputeChainHash_SingleSegment verifies that a single-segment logical
-// name (only a root node, no separators) works correctly and still produces
-// a 27-character hash.
-func TestComputeChainHash_SingleSegment(t *testing.T) {
-	root := t.TempDir()
-	logicalName := "STANDALONE"
-	testMakeMinimalChain(t, root, logicalName)
-
-	hash, err := computeChainHashInDir(root, logicalName)
+	hash, err := ComputeChainHash("ROOT")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(hash) != 27 {
-		t.Errorf("expected 27-character hash, got %d (hash=%q)", len(hash), hash)
+		t.Errorf("expected hash length 27, got %d (hash=%q)", len(hash), hash)
 	}
 }
 
-// TestComputeChainHash_DifferentNamesProduceDifferentHashes verifies that two
-// distinct logical names backed by distinct content do not accidentally
-// collide on the same hash value.
-func TestComputeChainHash_DifferentNamesProduceDifferentHashes(t *testing.T) {
+// TestComputeChainHash_DependsOnROOTRef verifies that a depends_on entry
+// pointing to a ROOT/ node contributes to the hash via its # Public section.
+// Changing the depended-upon node's # Public section must change the hash.
+func TestComputeChainHash_DependsOnROOTRef(t *testing.T) {
 	root := t.TempDir()
-	// Build two separate chains in the same root.
-	testMakeMinimalChain(t, root, "GROUP/NODE_A")
-	testMakeMinimalChain(t, root, "GROUP/NODE_B")
+	testChdir(t, root)
 
-	// Make their leaf content explicitly different so there is no chance of
-	// accidental equality.
-	paths_a := testChainPaths(t, root, "GROUP/NODE_A")
-	paths_b := testChainPaths(t, root, "GROUP/NODE_B")
-	testWriteFile(t, paths_a[len(paths_a)-1], "# content for NODE_A\n")
-	testWriteFile(t, paths_b[len(paths_b)-1], "# content for NODE_B\n")
+	// Write the dependency node.
+	depPath := testNodePath(root, "ROOT/dep")
+	testWriteFile(t, depPath, "# Public\n\nDep content v1\n")
 
-	hashA, err := computeChainHashInDir(root, "GROUP/NODE_A")
+	// Write the target with a depends_on frontmatter block.
+	targetPath := testNodePath(root, "ROOT/target")
+	targetContent := "---\ndepends_on:\n  - ROOT/dep\n---\n# Public\n\nTarget content\n"
+	testWriteFile(t, targetPath, targetContent)
+
+	// Write ROOT ancestor.
+	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
+
+	before, err := ComputeChainHash("ROOT/target")
 	if err != nil {
-		t.Fatalf("NODE_A: %v", err)
-	}
-	hashB, err := computeChainHashInDir(root, "GROUP/NODE_B")
-	if err != nil {
-		t.Fatalf("NODE_B: %v", err)
+		t.Fatalf("before: %v", err)
 	}
 
-	if hashA == hashB {
-		t.Errorf("expected different hashes for different nodes, both returned %q", hashA)
+	// Change the dependency.
+	testWriteFile(t, depPath, "# Public\n\nDep content v2 (changed)\n")
+
+	after, err := ComputeChainHash("ROOT/target")
+	if err != nil {
+		t.Fatalf("after: %v", err)
+	}
+
+	if before == after {
+		t.Errorf("hash did not change after depends_on node modification")
+	}
+}
+
+// TestComputeChainHash_DependsOnQualifier verifies that a ROOT/x(qualifier)
+// depends_on entry hashes only the ## qualifier subsection within # Public.
+// Changing only the subsection must change the hash; changing other content
+// outside that subsection must also not affect it (the subsection drives it).
+func TestComputeChainHash_DependsOnQualifier(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	// Write ROOT ancestor.
+	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
+
+	// Write the dependency node with a named subsection.
+	depPath := testNodePath(root, "ROOT/dep")
+	depContent := "# Public\n\n## mysection\n\nSection content v1\n\n## other\n\nOther content\n"
+	testWriteFile(t, depPath, depContent)
+
+	// Target depends on only the "mysection" subsection.
+	targetPath := testNodePath(root, "ROOT/target")
+	testWriteFile(t, targetPath, "---\ndepends_on:\n  - ROOT/dep(mysection)\n---\n# Public\n\nTarget\n")
+
+	hash1, err := ComputeChainHash("ROOT/target")
+	if err != nil {
+		t.Fatalf("hash1: %v", err)
+	}
+
+	// Change only the "other" subsection — hash must NOT change.
+	depContent2 := "# Public\n\n## mysection\n\nSection content v1\n\n## other\n\nOther content CHANGED\n"
+	testWriteFile(t, depPath, depContent2)
+
+	hash2, err := ComputeChainHash("ROOT/target")
+	if err != nil {
+		t.Fatalf("hash2: %v", err)
+	}
+	if hash1 != hash2 {
+		t.Errorf("hash changed when only unrelated subsection changed (expected stable)")
+	}
+
+	// Change the "mysection" subsection — hash must change.
+	depContent3 := "# Public\n\n## mysection\n\nSection content v2 CHANGED\n\n## other\n\nOther content CHANGED\n"
+	testWriteFile(t, depPath, depContent3)
+
+	hash3, err := ComputeChainHash("ROOT/target")
+	if err != nil {
+		t.Fatalf("hash3: %v", err)
+	}
+	if hash1 == hash3 {
+		t.Errorf("hash did not change when depends_on qualified subsection changed")
+	}
+}
+
+// TestComputeChainHash_ExternalFile verifies that a node with an external
+// file dependency has a hash that changes when the external file changes.
+func TestComputeChainHash_ExternalFile(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	// Write ROOT.
+	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
+
+	// Write an external file at a known path (relative to project root).
+	extPath := filepath.Join(root, "somefile.txt")
+	testWriteFile(t, extPath, "external content v1\n")
+
+	// Write the target with an external frontmatter entry.
+	// The path in the frontmatter must be relative to the project root (which
+	// is root after testChdir).
+	targetPath := testNodePath(root, "ROOT/target")
+	targetContent := "---\nexternal:\n  - path: somefile.txt\n---\n# Public\n\nTarget\n"
+	testWriteFile(t, targetPath, targetContent)
+
+	before, err := ComputeChainHash("ROOT/target")
+	if err != nil {
+		t.Fatalf("before: %v", err)
+	}
+
+	// Change the external file.
+	testWriteFile(t, extPath, "external content v2 (changed)\n")
+
+	after, err := ComputeChainHash("ROOT/target")
+	if err != nil {
+		t.Fatalf("after: %v", err)
+	}
+
+	if before == after {
+		t.Errorf("hash did not change after external file modification")
+	}
+}
+
+// TestComputeChainHash_InputArtifact verifies that a node with an input
+// artifact has a hash that changes when the artifact content changes.
+//
+// The input frontmatter field points to an ARTIFACT/ reference. The artifact
+// is resolved via the node's outputs list, then hashed (with frontmatter stripped).
+func TestComputeChainHash_InputArtifact(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	// Write ROOT.
+	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
+
+	// Write the producer node — declares an output artifact.
+	producerPath := testNodePath(root, "ROOT/producer")
+	producerContent := "---\noutputs:\n  - id: code\n    path: some/output.go\n---\n# Public\n\nProducer\n"
+	testWriteFile(t, producerPath, producerContent)
+
+	// Write the artifact file itself.
+	artifactPath := filepath.Join(root, "some", "output.go")
+	testWriteFile(t, artifactPath, "// artifact content v1\npackage foo\n")
+
+	// Write the consumer node — has input pointing to the artifact.
+	targetPath := testNodePath(root, "ROOT/consumer")
+	targetContent := "---\ninput: ARTIFACT/producer(code)\n---\n# Public\n\nConsumer\n"
+	testWriteFile(t, targetPath, targetContent)
+
+	before, err := ComputeChainHash("ROOT/consumer")
+	if err != nil {
+		t.Fatalf("before: %v", err)
+	}
+
+	// Modify the artifact (no frontmatter in this file, so stripped == original).
+	testWriteFile(t, artifactPath, "// artifact content v2 (changed)\npackage foo\n")
+
+	after, err := ComputeChainHash("ROOT/consumer")
+	if err != nil {
+		t.Fatalf("after: %v", err)
+	}
+
+	if before == after {
+		t.Errorf("hash did not change after input artifact modification")
+	}
+}
+
+// TestComputeChainHash_CRLFNormalization verifies that CRLF and LF line endings
+// produce the same hash (normalization happens before hashing).
+func TestComputeChainHash_CRLFNormalization(t *testing.T) {
+	root1 := t.TempDir()
+	root2 := t.TempDir()
+
+	// LF version.
+	testChdir(t, root1)
+	testWriteFile(t, testNodePath(root1, "ROOT"), "# Public\n\nRoot\n")
+	testWriteFile(t, testNodePath(root1, "ROOT/node"), "# Public\n\nContent\n")
+	hashLF, err := ComputeChainHash("ROOT/node")
+	if err != nil {
+		t.Fatalf("LF version: %v", err)
+	}
+
+	// CRLF version — same logical content, different line endings.
+	testChdir(t, root2)
+	testWriteFile(t, testNodePath(root2, "ROOT"), "# Public\r\n\r\nRoot\r\n")
+	testWriteFile(t, testNodePath(root2, "ROOT/node"), "# Public\r\n\r\nContent\r\n")
+	hashCRLF, err := ComputeChainHash("ROOT/node")
+	if err != nil {
+		t.Fatalf("CRLF version: %v", err)
+	}
+
+	if hashLF != hashCRLF {
+		t.Errorf("CRLF and LF produced different hashes: LF=%q, CRLF=%q", hashLF, hashCRLF)
+	}
+}
+
+// TestComputeChainHash_NoPublicSection verifies that an ancestor with no
+// # Public section is silently skipped (contributes nothing to the hash).
+// The hash should still be 27 characters and not an error.
+func TestComputeChainHash_NoPublicSection(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	// Write ROOT with no # Public section.
+	testWriteFile(t, testNodePath(root, "ROOT"), "No public section here\n")
+
+	// Write target with a # Public section.
+	testWriteFile(t, testNodePath(root, "ROOT/child"), "# Public\n\nChild content\n")
+
+	hash, err := ComputeChainHash("ROOT/child")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(hash) != 27 {
+		t.Errorf("expected hash length 27, got %d", len(hash))
+	}
+}
+
+// TestComputeChainHash_AgentSection verifies that the # Agent section of the
+// target also contributes to the hash. Changing it must change the hash.
+func TestComputeChainHash_AgentSection(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
+
+	targetPath := testNodePath(root, "ROOT/node")
+	testWriteFile(t, targetPath, "# Public\n\nPublic content\n\n# Agent\n\nAgent content v1\n")
+
+	before, err := ComputeChainHash("ROOT/node")
+	if err != nil {
+		t.Fatalf("before: %v", err)
+	}
+
+	// Modify only the # Agent section.
+	testWriteFile(t, targetPath, "# Public\n\nPublic content\n\n# Agent\n\nAgent content v2 (changed)\n")
+
+	after, err := ComputeChainHash("ROOT/node")
+	if err != nil {
+		t.Fatalf("after: %v", err)
+	}
+
+	if before == after {
+		t.Errorf("hash did not change after # Agent section modification")
+	}
+}
+
+// TestComputeChainHash_InvalidLogicalName verifies that an error is returned
+// for unsupported logical name formats.
+func TestComputeChainHash_InvalidLogicalName(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	invalidNames := []string{
+		"",
+		"ARTIFACT/something(id)",
+		"notROOT/foo",
+		"random string",
+	}
+
+	for _, name := range invalidNames {
+		_, err := ComputeChainHash(name)
+		if err == nil {
+			t.Errorf("expected error for logical name %q, got nil", name)
+		}
+	}
+}
+
+// TestComputeChainHash_MissingNodeFile verifies that an error is returned when
+// the target node file does not exist on disk.
+func TestComputeChainHash_MissingNodeFile(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	// Do NOT write the node file — just chdir.
+	_, err := ComputeChainHash("ROOT/missing")
+	if err == nil {
+		t.Fatal("expected error for missing node file, got nil")
+	}
+	// The error message should mention the file or "unreadable".
+	if !strings.Contains(err.Error(), "unreadable") {
+		t.Errorf("expected error to contain %q, got: %v", "unreadable", err)
+	}
+}
+
+// TestComputeChainHash_DependsOnSortOrder verifies that the order of
+// depends_on entries in the frontmatter does not affect the hash (they are
+// sorted alphabetically before hashing).
+func TestComputeChainHash_DependsOnSortOrder(t *testing.T) {
+	// Build two trees that are identical except the depends_on list order.
+
+	buildTree := func(t *testing.T, root, order1, order2 string) {
+		t.Helper()
+		testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
+		testWriteFile(t, testNodePath(root, "ROOT/aaaa"), "# Public\n\nDep aaaa\n")
+		testWriteFile(t, testNodePath(root, "ROOT/zzzz"), "# Public\n\nDep zzzz\n")
+
+		targetContent := "---\ndepends_on:\n  - " + order1 + "\n  - " + order2 + "\n---\n# Public\n\nTarget\n"
+		testWriteFile(t, testNodePath(root, "ROOT/target"), targetContent)
+	}
+
+	root1 := t.TempDir()
+	root2 := t.TempDir()
+
+	// Tree 1: aaaa first.
+	testChdir(t, root1)
+	buildTree(t, root1, "ROOT/aaaa", "ROOT/zzzz")
+	hash1, err := ComputeChainHash("ROOT/target")
+	if err != nil {
+		t.Fatalf("tree1: %v", err)
+	}
+
+	// Tree 2: zzzz first.
+	testChdir(t, root2)
+	buildTree(t, root2, "ROOT/zzzz", "ROOT/aaaa")
+	hash2, err := ComputeChainHash("ROOT/target")
+	if err != nil {
+		t.Fatalf("tree2: %v", err)
+	}
+
+	if hash1 != hash2 {
+		t.Errorf("hash differs based on depends_on list order: %q vs %q", hash1, hash2)
 	}
 }

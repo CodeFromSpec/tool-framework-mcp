@@ -1,8 +1,17 @@
-// code-from-spec: ROOT/golang/internal/tools/hash_fragment/tests@lQhJmtalB760DTWzZVwmeMSbjmg
+// code-from-spec: ROOT/golang/internal/tools/hash_fragment/tests@ZSgxdbMC6Y2mJWtbwLHMqphNkgY
 
-// Package hash_fragment contains tests for the hash_fragment tool handler.
-// Each test uses t.TempDir() as the working directory so the handler's
-// path validation logic resolves paths against a controlled root.
+// Package hash_fragment contains tests for the hash_fragment MCP tool handler.
+//
+// These are internal tests (same package as the implementation) so they share
+// the package namespace and can exercise the handler without any export gap.
+//
+// Each test uses t.TempDir() as an isolated project root and changes the
+// working directory to it so that pathvalidation.ValidatePath(".", ...) anchors
+// to the temp directory. The previous working directory is restored after each
+// test.
+//
+// Test helper functions and types are prefixed with "test" to avoid collisions
+// with unexported identifiers in the package under test.
 package hash_fragment
 
 import (
@@ -22,98 +31,133 @@ import (
 // Test helpers
 // ---------------------------------------------------------------------------
 
-// testMakeFile writes content to a file inside dir and returns the relative
-// path suitable for passing to the handler (just the filename).
-func testMakeFile(t *testing.T, dir, name, content string) string {
-	t.Helper()
-	p := filepath.Join(dir, name)
-	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
-		t.Fatalf("testMakeFile: %v", err)
-	}
-	return name
+// testLines is the canonical five-line content used across most tests.
+// Index 0 = line 1, index 1 = line 2, …
+var testLines = []string{
+	"alpha",   // line 1
+	"bravo",   // line 2
+	"charlie", // line 3
+	"delta",   // line 4
+	"echo",    // line 5
 }
 
-// testExpectedHash computes the expected 27-character base64url-encoded SHA-1
-// of lines joined with LF, mirroring what the implementation should produce.
-// lines is a slice where index 0 = line 1 of the file.
-func testExpectedHash(lines []string) string {
+// testWriteFile creates a file at relPath inside projectRoot, writing the
+// provided lines joined with LF. It returns the relative path that was written
+// (same as relPath) so callers can pass it straight to the handler.
+//
+// Cleanup is automatic because projectRoot should be a t.TempDir().
+func testWriteFile(t *testing.T, projectRoot, relPath string, lines []string) string {
+	t.Helper()
+	abs := filepath.Join(projectRoot, relPath)
+	// Create any intermediate directories.
+	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+		t.Fatalf("testWriteFile MkdirAll: %v", err)
+	}
+	content := strings.Join(lines, "\n")
+	if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+		t.Fatalf("testWriteFile WriteFile: %v", err)
+	}
+	return relPath
+}
+
+// testHashLines computes the expected SHA-1 hash for the provided lines joined
+// with LF, encoded as a 27-character base64url string without padding.
+//
+// This mirrors exactly what HandleHashFragment does internally so tests can
+// produce expected values without duplicating the algorithm manually.
+func testHashLines(lines []string) string {
 	joined := strings.Join(lines, "\n")
 	sum := sha1.Sum([]byte(joined))
-	// base64url, no padding — trim trailing '=' to reach exactly 27 chars.
-	encoded := base64.URLEncoding.EncodeToString(sum[:])
-	return strings.TrimRight(encoded, "=")
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-// testCallHandler is a convenience wrapper that sets the working directory to
-// dir, calls HandleHashFragment, then restores the original working directory.
-func testCallHandler(t *testing.T, dir string, args HashFragmentArgs) (*mcp.CallToolResult, error) {
+// testChdir changes the working directory to dir and registers a cleanup
+// function that restores the original working directory after the test.
+//
+// The handler uses "." as the project root, which resolves against the process
+// working directory — so tests must chdir into their temp project root.
+func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("testCallHandler: getwd: %v", err)
+		t.Fatalf("testChdir Getwd: %v", err)
 	}
 	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("testCallHandler: chdir: %v", err)
+		t.Fatalf("testChdir Chdir(%q): %v", dir, err)
 	}
 	t.Cleanup(func() {
-		// Restore working directory after the test regardless of outcome.
-		if err := os.Chdir(orig); err != nil {
-			t.Logf("testCallHandler cleanup: chdir back: %v", err)
-		}
+		// Restore the original directory; ignore errors because the test has
+		// already finished by the time cleanup runs.
+		_ = os.Chdir(orig)
 	})
-
-	result, _, handlerErr := HandleHashFragment(context.Background(), &mcp.CallToolRequest{}, args)
-	return result, handlerErr
 }
 
-// testText extracts the text from the first TextContent entry of a result.
-func testText(t *testing.T, result *mcp.CallToolResult) string {
+// testCall invokes HandleHashFragment and returns the result plus the Go-level
+// error. The returned Go error is expected to be nil for all normal cases; a
+// non-nil Go error indicates a catastrophic handler failure.
+func testCall(t *testing.T, path, lines string) (*mcp.CallToolResult, error) {
+	t.Helper()
+	args := HashFragmentArgs{Path: path, Lines: lines}
+	result, _, goErr := HandleHashFragment(context.Background(), nil, args)
+	return result, goErr
+}
+
+// testAssertSuccess asserts that the result is a non-error tool response and
+// returns the text content.
+func testAssertSuccess(t *testing.T, result *mcp.CallToolResult) string {
 	t.Helper()
 	if result == nil {
-		t.Fatal("testText: result is nil")
+		t.Fatal("testAssertSuccess: result is nil")
 	}
-	if len(result.Content) == 0 {
-		t.Fatal("testText: result.Content is empty")
+	if result.IsError {
+		t.Fatalf("testAssertSuccess: expected success but got tool error: %s",
+			testResultText(result))
+	}
+	return testResultText(result)
+}
+
+// testAssertToolError asserts that the result has IsError: true and that its
+// text content contains wantSubstr.
+func testAssertToolError(t *testing.T, result *mcp.CallToolResult, wantSubstr string) {
+	t.Helper()
+	if result == nil {
+		t.Fatal("testAssertToolError: result is nil")
+	}
+	if !result.IsError {
+		t.Fatalf("testAssertToolError: expected tool error but got success: %s",
+			testResultText(result))
+	}
+	text := testResultText(result)
+	if !strings.Contains(text, wantSubstr) {
+		t.Errorf("testAssertToolError: error message %q does not contain %q",
+			text, wantSubstr)
+	}
+}
+
+// testResultText extracts the text from the first TextContent entry in a
+// CallToolResult.
+func testResultText(result *mcp.CallToolResult) string {
+	if result == nil || len(result.Content) == 0 {
+		return ""
 	}
 	tc, ok := result.Content[0].(*mcp.TextContent)
 	if !ok {
-		t.Fatalf("testText: first content is %T, want *mcp.TextContent", result.Content[0])
+		return ""
 	}
 	return tc.Text
 }
 
-// testAssertSuccess checks that the result is a success (IsError is false) and
-// returns the text so the caller can inspect it.
-func testAssertSuccess(t *testing.T, result *mcp.CallToolResult, handlerErr error) string {
+// testAssertHash asserts that text is a 27-character string and that it equals
+// the expected hash produced by testHashLines for the given lines.
+func testAssertHash(t *testing.T, text string, expectedLines []string) {
 	t.Helper()
-	if handlerErr != nil {
-		t.Fatalf("handler returned unexpected Go error: %v", handlerErr)
+	// The encoding always produces 27 characters for a 20-byte SHA-1 digest.
+	if len(text) != 27 {
+		t.Errorf("hash length = %d, want 27; text = %q", len(text), text)
 	}
-	if result == nil {
-		t.Fatal("result is nil")
-	}
-	if result.IsError {
-		t.Fatalf("expected success result but got IsError=true, text: %s", testText(t, result))
-	}
-	return testText(t, result)
-}
-
-// testAssertToolError checks that the result is an MCP tool error and that its
-// text contains the expected substring.
-func testAssertToolError(t *testing.T, result *mcp.CallToolResult, handlerErr error, wantSubstr string) {
-	t.Helper()
-	if handlerErr != nil {
-		t.Fatalf("handler returned unexpected Go error: %v", handlerErr)
-	}
-	if result == nil {
-		t.Fatal("result is nil")
-	}
-	if !result.IsError {
-		t.Fatalf("expected tool error but got success, text: %s", testText(t, result))
-	}
-	got := testText(t, result)
-	if !strings.Contains(got, wantSubstr) {
-		t.Fatalf("error text %q does not contain expected substring %q", got, wantSubstr)
+	want := testHashLines(expectedLines)
+	if text != want {
+		t.Errorf("hash = %q, want %q", text, want)
 	}
 }
 
@@ -121,257 +165,217 @@ func testAssertToolError(t *testing.T, result *mcp.CallToolResult, handlerErr er
 // Happy-path tests
 // ---------------------------------------------------------------------------
 
-// TestHandleHashFragment_ValidRange verifies that the handler returns a
-// 27-character base64url SHA-1 hash for a normal multi-line range.
-func TestHandleHashFragment_ValidRange(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_HappyPath_MultipleLines verifies that the handler correctly
+// hashes lines 2 through 4 (inclusive) of a multi-line file.
+func TestHashFragment_HappyPath_MultipleLines(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	// Known file content — lines are numbered 1-5 for easy reference.
-	fileLines := []string{
-		"line one",   // line 1
-		"line two",   // line 2
-		"line three", // line 3
-		"line four",  // line 4
-		"line five",  // line 5
-	}
-	relPath := testMakeFile(t, dir, "sample.txt", strings.Join(fileLines, "\n"))
+	testWriteFile(t, root, "sample.txt", testLines)
 
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  relPath,
-		Lines: "2-4",
-	})
-
-	text := testAssertSuccess(t, result, handlerErr)
-
-	// The hash must be exactly 27 characters long.
-	if len(text) != 27 {
-		t.Fatalf("expected 27-char hash, got %d chars: %q", len(text), text)
+	result, goErr := testCall(t, "sample.txt", "2-4")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
 	}
 
-	// Verify the hash matches the SHA-1 of lines 2–4 joined with LF.
-	// fileLines is 0-indexed; lines 2-4 map to indices 1-3.
-	want := testExpectedHash(fileLines[1:4])
-	if text != want {
-		t.Fatalf("hash mismatch: got %q, want %q", text, want)
-	}
+	text := testAssertSuccess(t, result)
+
+	// Lines 2-4 are indices 1-3: bravo, charlie, delta.
+	testAssertHash(t, text, testLines[1:4])
 }
 
-// TestHandleHashFragment_SingleLine verifies that "3-3" returns the SHA-1 of
-// exactly line 3 (no extra LF from joining a single element).
-func TestHandleHashFragment_SingleLine(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_HappyPath_SingleLine verifies the handler hashes exactly
+// one line when start == end (line 3).
+func TestHashFragment_HappyPath_SingleLine(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	fileLines := []string{
-		"alpha",   // line 1
-		"beta",    // line 2
-		"gamma",   // line 3
-		"delta",   // line 4
-	}
-	relPath := testMakeFile(t, dir, "single.txt", strings.Join(fileLines, "\n"))
+	testWriteFile(t, root, "sample.txt", testLines)
 
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  relPath,
-		Lines: "3-3",
-	})
-
-	text := testAssertSuccess(t, result, handlerErr)
-
-	if len(text) != 27 {
-		t.Fatalf("expected 27-char hash, got %d chars: %q", len(text), text)
+	result, goErr := testCall(t, "sample.txt", "3-3")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
 	}
 
-	// Single element join produces no separator.
-	want := testExpectedHash([]string{fileLines[2]})
-	if text != want {
-		t.Fatalf("hash mismatch: got %q, want %q", text, want)
-	}
+	text := testAssertSuccess(t, result)
+
+	// Line 3 only = "charlie" (index 2).
+	testAssertHash(t, text, testLines[2:3])
 }
 
-// TestHandleHashFragment_FirstLine verifies that "1-1" hashes only line 1.
-func TestHandleHashFragment_FirstLine(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_HappyPath_FirstLine verifies that the handler handles the
+// first line of the file (Lines: "1-1").
+func TestHashFragment_HappyPath_FirstLine(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	fileLines := []string{
-		"first line",
-		"second line",
-		"third line",
-	}
-	relPath := testMakeFile(t, dir, "first.txt", strings.Join(fileLines, "\n"))
+	testWriteFile(t, root, "sample.txt", testLines)
 
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  relPath,
-		Lines: "1-1",
-	})
-
-	text := testAssertSuccess(t, result, handlerErr)
-
-	if len(text) != 27 {
-		t.Fatalf("expected 27-char hash, got %d chars: %q", len(text), text)
+	result, goErr := testCall(t, "sample.txt", "1-1")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
 	}
 
-	want := testExpectedHash([]string{fileLines[0]})
-	if text != want {
-		t.Fatalf("hash mismatch: got %q, want %q", text, want)
-	}
+	text := testAssertSuccess(t, result)
+
+	// Line 1 only = "alpha" (index 0).
+	testAssertHash(t, text, testLines[0:1])
 }
 
-// TestHandleHashFragment_LastLine verifies that "5-5" on a 5-line file hashes
-// only the last line.
-func TestHandleHashFragment_LastLine(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_HappyPath_LastLine verifies that the handler handles the
+// last line of a 5-line file (Lines: "5-5").
+func TestHashFragment_HappyPath_LastLine(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	fileLines := []string{
-		"line 1",
-		"line 2",
-		"line 3",
-		"line 4",
-		"line 5",
-	}
-	relPath := testMakeFile(t, dir, "last.txt", strings.Join(fileLines, "\n"))
+	// Exactly 5 lines as specified.
+	testWriteFile(t, root, "sample.txt", testLines)
 
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  relPath,
-		Lines: "5-5",
-	})
-
-	text := testAssertSuccess(t, result, handlerErr)
-
-	if len(text) != 27 {
-		t.Fatalf("expected 27-char hash, got %d chars: %q", len(text), text)
+	result, goErr := testCall(t, "sample.txt", "5-5")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
 	}
 
-	want := testExpectedHash([]string{fileLines[4]})
-	if text != want {
-		t.Fatalf("hash mismatch: got %q, want %q", text, want)
-	}
+	text := testAssertSuccess(t, result)
+
+	// Line 5 only = "echo" (index 4).
+	testAssertHash(t, text, testLines[4:5])
 }
 
 // ---------------------------------------------------------------------------
 // Failure-case tests
 // ---------------------------------------------------------------------------
 
-// TestHandleHashFragment_FileNotFound verifies the "file not found" error path.
-func TestHandleHashFragment_FileNotFound(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_Failure_FileNotFound verifies that requesting a file that
+// does not exist returns a tool error containing "file not found".
+func TestHashFragment_Failure_FileNotFound(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  "nonexistent.go",
-		Lines: "1-5",
-	})
+	// Do NOT create the file — it must be absent.
+	result, goErr := testCall(t, "nonexistent.go", "1-5")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
+	}
 
-	testAssertToolError(t, result, handlerErr, "file not found")
+	testAssertToolError(t, result, "file not found")
 }
 
-// TestHandleHashFragment_InvalidRangeNotARange verifies that a non-range string
-// like "abc" produces an "invalid line range" error.
-func TestHandleHashFragment_InvalidRangeNotARange(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_Failure_InvalidLineRangeFormat_NotARange verifies that a
+// non-numeric, non-range string returns a tool error containing "invalid line
+// range".
+func TestHashFragment_Failure_InvalidLineRangeFormat_NotARange(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	// The file does not need to exist; parsing should fail first.
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  "any.txt",
-		Lines: "abc",
-	})
+	// Path doesn't matter; the range is parsed before the file is opened.
+	// However, we provide a valid file to ensure the error originates from
+	// range parsing, not file access.
+	testWriteFile(t, root, "sample.txt", testLines)
 
-	testAssertToolError(t, result, handlerErr, "invalid line range")
+	result, goErr := testCall(t, "sample.txt", "abc")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
+	}
+
+	testAssertToolError(t, result, "invalid line range")
 }
 
-// TestHandleHashFragment_InvalidRangeStartGreaterThanEnd verifies that "5-2"
-// is rejected as an invalid line range.
-func TestHandleHashFragment_InvalidRangeStartGreaterThanEnd(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_Failure_InvalidLineRangeFormat_StartGreaterThanEnd verifies
+// that a range where start > end returns "invalid line range".
+func TestHashFragment_Failure_InvalidLineRangeFormat_StartGreaterThanEnd(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  "any.txt",
-		Lines: "5-2",
-	})
+	testWriteFile(t, root, "sample.txt", testLines)
 
-	testAssertToolError(t, result, handlerErr, "invalid line range")
+	result, goErr := testCall(t, "sample.txt", "5-2")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
+	}
+
+	testAssertToolError(t, result, "invalid line range")
 }
 
-// TestHandleHashFragment_RangeOutOfBounds verifies that requesting lines
-// beyond the file's actual line count produces an error that includes both
-// "invalid line range" and the actual line count.
-func TestHandleHashFragment_RangeOutOfBounds(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_Failure_LineRangeOutOfBounds verifies that requesting lines
+// beyond the file's actual line count returns a tool error that contains both
+// "invalid line range" and the file's actual line count.
+func TestHashFragment_Failure_LineRangeOutOfBounds(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	fileLines := []string{"a", "b", "c"} // exactly 3 lines
-	relPath := testMakeFile(t, dir, "short.txt", strings.Join(fileLines, "\n"))
+	// Create a file with only 3 lines.
+	threeLines := []string{"one", "two", "three"}
+	testWriteFile(t, root, "small.txt", threeLines)
 
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  relPath,
-		Lines: "1-10",
-	})
+	// Request lines 1-10, which exceeds the 3-line file.
+	result, goErr := testCall(t, "small.txt", "1-10")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
+	}
 
-	text := testText(t, result)
+	text := testResultText(result)
 
-	// Must be a tool error.
+	testAssertToolError(t, result, "invalid line range")
+
+	// The error message must also contain the actual line count (3).
+	wantCount := fmt.Sprintf("%d", len(threeLines))
+	if !strings.Contains(text, wantCount) {
+		t.Errorf("error message %q does not contain actual line count %q",
+			text, wantCount)
+	}
+}
+
+// TestHashFragment_Failure_EmptyPath verifies that an empty path triggers a
+// path-validation tool error.
+func TestHashFragment_Failure_EmptyPath(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	result, goErr := testCall(t, "", "1-5")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
+	}
+
+	// The path validation error message for empty path is "path is empty".
+	testAssertToolError(t, result, "path is empty")
+}
+
+// TestHashFragment_Failure_PathTraversal verifies that a directory traversal
+// attempt is rejected by path validation before any file access occurs.
+func TestHashFragment_Failure_PathTraversal(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
+
+	result, goErr := testCall(t, "../../etc/passwd", "1-5")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
+	}
+
+	// Path validation must reject this; the exact message comes from
+	// pathvalidation.ValidatePath — it contains "traversal" or "outside".
+	// We check for a broad term that covers both possible messages.
+	text := testResultText(result)
 	if !result.IsError {
-		t.Fatalf("expected tool error but got success, text: %s", text)
+		t.Fatalf("expected tool error but got success: %s", text)
 	}
-	if handlerErr != nil {
-		t.Fatalf("handler returned unexpected Go error: %v", handlerErr)
-	}
-
-	// Must mention "invalid line range".
-	if !strings.Contains(text, "invalid line range") {
-		t.Fatalf("error text %q does not contain %q", text, "invalid line range")
-	}
-
-	// Must include the actual line count (3) so the agent knows what the file has.
-	lineCountStr := fmt.Sprintf("%d", len(fileLines))
-	if !strings.Contains(text, lineCountStr) {
-		t.Fatalf("error text %q does not contain actual line count %q", text, lineCountStr)
+	if !strings.Contains(text, "traversal") && !strings.Contains(text, "outside") {
+		t.Errorf("path traversal error %q does not mention traversal or outside", text)
 	}
 }
 
-// TestHandleHashFragment_EmptyPath verifies that an empty path triggers path
-// validation and returns a tool error.
-func TestHandleHashFragment_EmptyPath(t *testing.T) {
-	dir := t.TempDir()
+// TestHashFragment_Failure_StartLineZero verifies that a range starting at
+// line 0 is rejected as "invalid line range" (lines are 1-indexed).
+func TestHashFragment_Failure_StartLineZero(t *testing.T) {
+	root := t.TempDir()
+	testChdir(t, root)
 
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  "",
-		Lines: "1-5",
-	})
+	testWriteFile(t, root, "sample.txt", testLines)
 
-	// The exact message wording is determined by ValidatePath, but it must be
-	// a tool error (IsError=true).
-	if handlerErr != nil {
-		t.Fatalf("handler returned unexpected Go error: %v", handlerErr)
+	result, goErr := testCall(t, "sample.txt", "0-5")
+	if goErr != nil {
+		t.Fatalf("unexpected Go error: %v", goErr)
 	}
-	if result == nil || !result.IsError {
-		t.Fatalf("expected tool error for empty path, got success or nil result")
-	}
-}
 
-// TestHandleHashFragment_PathTraversal verifies that "../../etc/passwd" is
-// rejected by path validation.
-func TestHandleHashFragment_PathTraversal(t *testing.T) {
-	dir := t.TempDir()
-
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  "../../etc/passwd",
-		Lines: "1-5",
-	})
-
-	if handlerErr != nil {
-		t.Fatalf("handler returned unexpected Go error: %v", handlerErr)
-	}
-	if result == nil || !result.IsError {
-		t.Fatalf("expected tool error for path traversal, got success or nil result")
-	}
-}
-
-// TestHandleHashFragment_StartLineZero verifies that "0-5" is treated as an
-// invalid line range (lines are 1-indexed).
-func TestHandleHashFragment_StartLineZero(t *testing.T) {
-	dir := t.TempDir()
-
-	result, handlerErr := testCallHandler(t, dir, HashFragmentArgs{
-		Path:  "any.txt",
-		Lines: "0-5",
-	})
-
-	testAssertToolError(t, result, handlerErr, "invalid line range")
+	testAssertToolError(t, result, "invalid line range")
 }
