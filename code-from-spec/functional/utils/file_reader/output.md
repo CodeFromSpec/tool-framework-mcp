@@ -1,13 +1,19 @@
-<!-- code-from-spec: ROOT/functional/utils/file_reader@G6f-O2lsvyS72vgeLxuFq8_1-fE -->
+<!-- code-from-spec: ROOT/functional/utils/file_reader@ktDtBxYIuDy9X7w6dvy9zbfpFRg -->
 
-# file_reader — Pseudocode
+# FileReader
 
-## Records
+A utility for forward-only, sequential, line-by-line reading of a file.
+Memory usage does not depend on file size — lines are read from the file
+stream one at a time, never loaded entirely into memory.
+
+---
+
+## Data Structures
 
 ```
 record FileReader
-  file_path: string
-  stream:    open file stream positioned at the first byte
+  file_path: string       -- path to the file being read
+  stream:    file stream  -- open file stream positioned at the current read offset
 ```
 
 ---
@@ -16,28 +22,17 @@ record FileReader
 
 ### OpenFileReader(file_path) -> FileReader
 
-Opens a file for sequential, line-by-line reading. The file
-stream remains open until all lines are consumed or the reader
-is discarded. The file is NOT loaded into memory in full.
+Opens the file at `file_path` and returns a FileReader ready for
+sequential reading from the beginning of the file.
 
-Parameters:
-  file_path  string  — path to the file to open
+  1. Attempt to open the file at `file_path` for reading.
+     If the file cannot be opened (does not exist, permission denied,
+     or any other I/O error), raise error "file unreadable".
 
-Returns:
-  FileReader record with the stream positioned at the first byte
-
-Errors:
-  "file unreadable" — the file cannot be opened (missing,
-                      permission denied, or any other I/O error)
-
-Steps:
-
-  1. Attempt to open the file at file_path for reading.
-     If the file cannot be opened, raise error "file unreadable".
-
-  2. Create a FileReader record:
-       file_path = file_path
-       stream    = the open file stream
+  2. Create a FileReader record with:
+     - file_path set to `file_path`
+     - stream set to the newly opened file stream, positioned at the
+       start of the file
 
   3. Return the FileReader record.
 
@@ -45,63 +40,60 @@ Steps:
 
 ### ReadLine(reader) -> line
 
-Reads the next line from the file stream, normalizes CRLF to LF,
-and returns the line without its terminator.
+Reads the next line from the reader's file stream, normalizes line
+endings, and returns the line text without the terminator.
 
-Parameters:
-  reader  FileReader  — an open reader returned by OpenFileReader
+  1. Attempt to read the next line from `reader.stream`.
+     - A line ends at the next LF (`\n`), CRLF (`\r\n`), or end of file.
+     - If the stream is already at end of file (no bytes remain),
+       raise error "end of file".
 
-Returns:
-  string — the next line, with no trailing newline character
+  2. Strip the trailing line terminator from the raw line:
+     - If the line ends with CRLF (`\r\n`), remove both characters.
+     - If the line ends with LF (`\n`) only, remove that character.
+     - If the line has no trailing terminator (final line of file without
+       a newline), leave the content as-is. This is still a valid line.
 
-Errors:
-  "end of file" — there are no more lines to read
+  3. Return the resulting string (the line content without terminator).
 
-Steps:
-
-  1. Read bytes from reader.stream up to and including the next
-     LF character, or until the stream is exhausted.
-
-     If no bytes were read and the stream is exhausted,
-     raise error "end of file".
-
-  2. Collect the bytes read as a raw line string (which may end
-     with LF, CRLF, or nothing if it is the final line without
-     a trailing newline).
-
-  3. If the raw line ends with CRLF, remove the trailing CR and LF.
-     Else if the raw line ends with LF, remove the trailing LF.
-     Otherwise (final line without newline), keep the line as-is.
-
-  4. Return the resulting string.
+Error conditions:
+  - "end of file": raised when there are no more lines to read. This is
+    raised on the call *after* the last line has been returned, not during
+    the call that returns the last line.
 
 ---
 
 ### SkipLines(reader, count)
 
-Reads and discards `count` lines from the reader without returning
-their content. Reaching the end of file during skipping is not an
-error — subsequent calls to ReadLine will raise "end of file".
+Reads and discards `count` lines from the reader's file stream without
+returning their content. Skipping past the end of the file is not an error.
 
-Parameters:
-  reader  FileReader  — an open reader returned by OpenFileReader
-  count   integer     — number of lines to skip (must be >= 0)
+  1. If `count` is less than or equal to 0, do nothing and return.
 
-Returns:
-  nothing
+  2. Repeat `count` times:
+     a. Attempt to read the next line from `reader.stream` (same
+        mechanics as ReadLine, including CRLF normalization — though
+        the content is discarded).
+     b. If "end of file" is reached before all `count` lines are consumed,
+        stop immediately without raising an error. The reader is now
+        positioned at end of file.
 
-Errors:
-  (none — exhausting the file is silently ignored)
+  3. Return. (No value is returned.)
 
-Steps:
+---
 
-  1. Set remaining = count.
+## Contracts and Invariants
 
-  2. While remaining > 0:
-       Attempt to call ReadLine(reader).
-       If ReadLine raises "end of file", stop immediately.
-       Otherwise, discard the returned line.
-       Decrement remaining by 1.
-
-  3. Return (no value).
-```
+- **Forward-only**: the reader does not support seeking or rewinding.
+  Lines may only be read in the order they appear in the file.
+- **Sequential streaming**: the underlying file is read incrementally.
+  The entire file is never loaded into memory at once.
+- **CRLF normalization**: every line returned by `ReadLine` uses LF
+  line endings internally. Callers never observe `\r` at end of a line.
+- **End-of-file boundary**: the "end of file" error is raised on the
+  first `ReadLine` call after the last line has been successfully returned.
+  A file with N lines yields exactly N successful `ReadLine` results before
+  the error is raised.
+- **SkipLines past EOF**: calling `SkipLines` when fewer than `count`
+  lines remain is safe. The reader silently reaches end of file, and
+  a subsequent `ReadLine` raises "end of file" as normal.

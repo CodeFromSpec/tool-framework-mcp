@@ -83,6 +83,14 @@ The ranking determines processing order for staleness
 resolution: lower rank first. If cycles are detected,
 report the cycle participants.
 
+If `node_ranking` returns an unresolvable reference
+error, report it as a format error (node = the node
+that contains the bad reference, detail = the error
+message). Ranking and cycle detection are incomplete
+in this case, but validation continues — staleness
+entries fall back to alphabetical order by node logical
+name.
+
 ### Step 5 — Staleness detection
 
 For each node with `outputs`, in rank order (lowest

@@ -1,12 +1,25 @@
-// code-from-spec: ROOT/golang/internal/tools/validate_specs/code@PENDING
+// code-from-spec: ROOT/golang/internal/tools/validate_specs/code@DEr0GnERqEHco4xjSDibyK3GR1U
+
+// Package validate_specs implements the validate_specs MCP tool.
+//
+// The tool scans the entire spec tree and produces a validation report
+// covering three categories:
+//   1. Format errors   — structural rule violations in individual node files.
+//   2. Cycles          — nodes that form circular dependency chains.
+//   3. Staleness       — generated output files whose artifact-tag hash does
+//                        not match the current chain hash.
+//
+// All errors are collected; the handler never stops at the first problem.
 package validate_specs
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	goyaml "github.com/goccy/go-yaml"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/artifacttag"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainhash"
@@ -14,21 +27,16 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/nodediscovery"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/noderanking"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/parsenode"
-	"github.com/goccy/go-yaml"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ValidateSpecsArgs defines the input parameters for the validate_specs tool.
-// No input parameters; scans the entire spec tree.
+// ValidateSpecsArgs holds the (empty) input parameters for the validate_specs tool.
 type ValidateSpecsArgs struct{}
 
 // FormatErrorEntry represents a single format error in the report.
 type FormatErrorEntry struct {
-	Node    string `yaml:"node"`
-	Rule    string `yaml:"rule,omitempty"`
-	Message string `yaml:"message,omitempty"`
-	Detail  string `yaml:"detail,omitempty"`
+	Node   string `yaml:"node"`
+	Rule   string `yaml:"rule,omitempty"`
+	Detail string `yaml:"detail,omitempty"`
 }
 
 // StalenessEntry represents a staleness finding for an artifact.
@@ -45,6 +53,10 @@ type ValidationReport struct {
 	Staleness          []StalenessEntry   `yaml:"staleness"`
 }
 
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
+
 // HandleValidateSpecs discovers all spec nodes, validates format,
 // detects circular references, and checks artifact staleness.
 func HandleValidateSpecs(
@@ -58,43 +70,14 @@ func HandleValidateSpecs(
 		return toolError(fmt.Sprintf("node discovery failure: %v", err)), nil, nil
 	}
 
-	// Step 2: Parse all nodes (cache frontmatter and parsed bodies).
-	fmCache := make(map[string]*frontmatter.Frontmatter)
-	parsedCache := make(map[string]*parsenode.ParsedNode)
-	var parseErrors []FormatErrorEntry
-
-	for _, node := range nodes {
-		fm, err := frontmatter.ParseFrontmatter(node.FilePath)
-		if err != nil {
-			parseErrors = append(parseErrors, FormatErrorEntry{
-				Node:    node.LogicalName,
-				Message: fmt.Sprintf("unreadable file: %v", err),
-			})
-			continue
-		}
-		fmCache[node.LogicalName] = fm
-
-		parsed, err := parsenode.ParseNode(node.LogicalName)
-		if err != nil {
-			parseErrors = append(parseErrors, FormatErrorEntry{
-				Node:    node.LogicalName,
-				Message: fmt.Sprintf("parse failure: %v", err),
-			})
-			continue
-		}
-		parsedCache[node.LogicalName] = parsed
-	}
-
-	// Step 3: Format validation.
+	// Step 2: Format validation.
 	var formatErrors []FormatErrorEntry
-	formatErrors = append(formatErrors, parseErrors...)
 
 	fmtErrors, err := formatvalidation.ValidateFormat(nodes)
 	if err != nil {
-		// Non-fatal: include as a format error.
 		formatErrors = append(formatErrors, FormatErrorEntry{
-			Node:    "",
-			Message: fmt.Sprintf("format validation error: %v", err),
+			Node:   "",
+			Detail: fmt.Sprintf("format validation error: %v", err),
 		})
 	}
 	for _, fe := range fmtErrors {
@@ -105,14 +88,23 @@ func HandleValidateSpecs(
 		})
 	}
 
-	// Step 4: Ranking and cycle detection.
-	ranked, cycles, err := noderanking.DetectCycles(nodes)
-	if err != nil && !errors.Is(err, noderanking.ErrUnresolvableRef) {
-		// Non-fatal for unresolvable refs.
-		formatErrors = append(formatErrors, FormatErrorEntry{
-			Node:    "",
-			Message: fmt.Sprintf("ranking error: %v", err),
-		})
+	// Step 3: Ranking and cycle detection.
+	ranked, cycles, rankErr := noderanking.DetectCycles(nodes)
+
+	if rankErr != nil {
+		if errors.Is(rankErr, noderanking.ErrUnresolvableRef) {
+			formatErrors = append(formatErrors, FormatErrorEntry{
+				Node:   "",
+				Rule:   "unresolvable_ref",
+				Detail: rankErr.Error(),
+			})
+		} else {
+			formatErrors = append(formatErrors, FormatErrorEntry{
+				Node:   "",
+				Rule:   "ranking_error",
+				Detail: fmt.Sprintf("node ranking failed: %v", rankErr),
+			})
+		}
 	}
 
 	var circularRefs [][]string
@@ -126,8 +118,7 @@ func HandleValidateSpecs(
 		rankMap[r.LogicalName] = r.Rank
 	}
 
-	// Step 5: Staleness detection.
-	// Collect nodes with outputs, sorted by rank.
+	// Step 4: Staleness detection.
 	type nodeWithRank struct {
 		logicalName string
 		fm          *frontmatter.Frontmatter
@@ -135,14 +126,11 @@ func HandleValidateSpecs(
 	}
 	var outputNodes []nodeWithRank
 	for _, node := range nodes {
-		fm, ok := fmCache[node.LogicalName]
-		if !ok || len(fm.Outputs) == 0 {
+		fm, fmErr := frontmatter.ParseFrontmatter(node.FilePath)
+		if fmErr != nil || len(fm.Outputs) == 0 {
 			continue
 		}
-		rank, ok := rankMap[node.LogicalName]
-		if !ok {
-			rank = 999999 // Unranked nodes go last.
-		}
+		rank := rankMap[node.LogicalName]
 		outputNodes = append(outputNodes, nodeWithRank{
 			logicalName: node.LogicalName,
 			fm:          fm,
@@ -150,28 +138,34 @@ func HandleValidateSpecs(
 		})
 	}
 	sort.Slice(outputNodes, func(i, j int) bool {
-		return outputNodes[i].rank < outputNodes[j].rank
+		if outputNodes[i].rank != outputNodes[j].rank {
+			return outputNodes[i].rank < outputNodes[j].rank
+		}
+		return outputNodes[i].logicalName < outputNodes[j].logicalName
 	})
 
 	var staleness []StalenessEntry
 	for _, on := range outputNodes {
-		chainHash, err := chainhash.ComputeChainHash(on.logicalName)
-		if err != nil {
-			// treat as stale — cannot compute hash
+		chainHash, hashErr := chainhash.ComputeChainHash(on.logicalName)
+		if hashErr != nil {
 			chainHash = ""
 		}
 
 		for _, out := range on.fm.Outputs {
-			if _, err := os.Stat(out.Path); os.IsNotExist(err) {
+			tag, tagErr := artifacttag.ExtractArtifactTag(out.Path)
+			if tagErr != nil {
+				status := "missing"
+				if !errors.Is(tagErr, artifacttag.ErrFileUnreadable) {
+					status = "stale"
+				}
 				staleness = append(staleness, StalenessEntry{
 					Node:         on.logicalName,
 					ArtifactPath: out.Path,
-					Status:       "missing",
+					Status:       status,
 				})
 				continue
 			}
-			tag, err := artifacttag.ExtractArtifactTag(out.Path)
-			if err != nil || tag.Hash != chainHash {
+			if tag.Hash != chainHash {
 				staleness = append(staleness, StalenessEntry{
 					Node:         on.logicalName,
 					ArtifactPath: out.Path,
@@ -181,14 +175,14 @@ func HandleValidateSpecs(
 		}
 	}
 
-	// Step 6: Build report.
+	// Step 5: Build report.
 	report := ValidationReport{
 		FormatErrors:       formatErrors,
 		CircularReferences: circularRefs,
 		Staleness:          staleness,
 	}
 
-	yamlBytes, err := yaml.Marshal(report)
+	yamlBytes, err := goyaml.Marshal(report)
 	if err != nil {
 		return toolError(fmt.Sprintf("report serialization failure: %v", err)), nil, nil
 	}
@@ -198,7 +192,6 @@ func HandleValidateSpecs(
 	}, nil, nil
 }
 
-// toolError returns a CallToolResult with IsError set to true.
 func toolError(msg string) *mcp.CallToolResult {
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: msg}},

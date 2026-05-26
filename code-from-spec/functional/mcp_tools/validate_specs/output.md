@@ -1,16 +1,19 @@
-<!-- code-from-spec: ROOT/functional/mcp_tools/validate_specs@PENDING -->
+<!-- code-from-spec: ROOT/functional/mcp_tools/validate_specs@_lIvF2Zlb2WSR6X9q8q0h1IS6K8 -->
+
+# validate_specs
 
 ## Data structures
 
 ```
 record FormatError
   node: string
-  message: string
+  rule: string
+  detail: string
 
 record StalenessEntry
   node: string
   artifact_path: string
-  status: string ("missing" or "stale")
+  status: string        -- "missing" or "stale"
 
 record ValidationReport
   format_errors: list of FormatError
@@ -20,81 +23,155 @@ record ValidationReport
 
 ## Functions
 
-### function ValidateSpecs() -> ValidationReport
+---
 
-Validates the entire spec tree for format errors, circular
-references, and artifact staleness. Takes no parameters.
+### ValidateSpecs() -> ValidationReport
 
-**Step 1 -- Discover nodes**
+No parameters. Scans the entire spec tree starting from `code-from-spec/`.
 
-1. Use node_discovery to find all _node.md files under the
-   "code-from-spec/" directory.
+Errors:
+- `"unreadable file"`: a spec node file cannot be read.
+- `"parse failure"`: a spec node file has invalid structure.
 
-2. For each discovered file, derive the node's logical name
-   using logical_names reverse resolution.
+---
 
-**Step 2 -- Parse all nodes**
+**Step 1 — Discover nodes**
 
-3. For each discovered node:
-   a. Use frontmatter to parse the YAML frontmatter.
-   b. Use node_parsing to parse the body into sections.
-   c. Cache the parsed result (frontmatter and sections) so
-      each node is parsed only once and reused by later steps.
-   d. If a file cannot be read, raise error "unreadable file".
-   e. If a file has invalid structure, raise error "parse failure".
+1. Call `DiscoverNodes()`.
+   If `DiscoverNodes` returns a "directory not found" error,
+     raise error `"unreadable file: code-from-spec/ does not exist"`.
+   If `DiscoverNodes` returns a "walk error",
+     raise error `"unreadable file: <error detail>"`.
+   If `DiscoverNodes` returns "no nodes found",
+     raise error `"unreadable file: no _node.md files found in code-from-spec/"`.
 
-**Step 3 -- Format validation**
+2. The result is a list of DiscoveredNode records, each with:
+   - `logical_name`: derived via `ReverseResolve(file_path)`
+   - `file_path`: absolute or project-relative path to the `_node.md` file
 
-4. For each discovered node, use format_validation to check it
-   against the structural rules. Format validation uses:
-   - logical_names to verify that depends_on targets resolve.
-   - name_normalization to compare headings with logical names
-     derived from filesystem paths.
-   - path_validation to verify that outputs paths are safe.
+---
 
-5. Collect all FormatError entries into a list.
+**Step 2 — Parse all nodes**
 
-**Step 4 -- Ranking and cycle detection**
+3. Initialize an empty cache: a map from logical_name -> parsed node record.
+   Each parsed node record holds:
+   - `frontmatter`: the Frontmatter from `ParseFrontmatter`
+   - `parsed_body`: the ParsedNode from `ParseNode`
 
-6. Use node_ranking to rank all nodes and artifacts and detect
-   circular references. Pass the full set of discovered nodes
-   with their parsed frontmatter.
+4. For each discovered node:
+   a. Call `ParseFrontmatter(file_path)`.
+      If it returns "file unreadable", raise error `"unreadable file: <file_path>"`.
+      If it returns "malformed YAML", raise error `"parse failure: <file_path>: malformed YAML"`.
+   b. Call `ParseNode(logical_name)`.
+      If it returns any error, raise error `"parse failure: <logical_name>: <error detail>"`.
+   c. Store the results in the cache under `logical_name`.
 
-7. The ranking assigns each node and artifact a numeric rank
-   that determines processing order for staleness resolution
-   (lower rank first).
+---
 
-8. If circular references are detected, record the cycle
-   participants as a list of lists of logical name strings.
+**Step 3 — Format validation**
 
-**Step 5 -- Staleness detection**
+5. Call `ValidateFormat(discovered_nodes)`, passing the full list from Step 1.
+   If `ValidateFormat` returns "unreadable node" for any node,
+     raise error `"unreadable file: <node path>"`.
 
-9. Collect all nodes that have an outputs field. Sort them by
-   rank (lowest rank first).
+6. Collect all returned FormatError records into `collected_format_errors`.
 
-10. For each such node, in rank order:
-    a. Compute the chain hash using the same algorithm as
-       load_chain: SHA-1 of concatenated per-position raw
-       hashes, then base64url encoded (no padding), producing
-       a 27-character string.
-    b. For each output declared in the node's outputs:
-       - Use artifact_tag to extract the hash from the generated
-         file at the output path.
-       - If the file does not exist, add a StalenessEntry with
-         status "missing".
-       - If the file exists but has no artifact tag, add a
-         StalenessEntry with status "missing".
-       - If the file exists and has an artifact tag but the hash
-         does not match the computed chain hash, add a
-         StalenessEntry with status "stale".
-       - If the hash matches, do not add an entry (skip).
+---
 
-**Output assembly**
+**Step 4 — Ranking and cycle detection**
 
-11. Build the ValidationReport:
-    - format_errors: all FormatError entries from step 5.
-    - circular_references: all cycles from step 8.
-    - staleness: all StalenessEntry entries from step 10,
-      ordered by rank (lowest first).
+7. Call `DetectCycles(nodes_with_frontmatter)`, where
+   `nodes_with_frontmatter` is the full set of discovered nodes
+   paired with their parsed frontmatter from the cache.
 
-12. Return the ValidationReport.
+8. If `DetectCycles` returns an "unresolvable reference" error:
+   a. Append a FormatError to `collected_format_errors`:
+      - node = the node that contains the bad reference
+      - rule = `"depends_on"`
+      - detail = the error message from `DetectCycles`
+   b. Set `ranked_entries` to an empty list.
+      (Staleness entries will fall back to alphabetical order.)
+   c. Set `cycle_participants` to an empty list.
+   Else:
+   a. Use the returned `ranked_entries` (list of RankedEntry: logical_name + rank).
+   b. Use the returned `cycle_participants` (list of logical names in cycles).
+      If non-empty, convert into groups of cycle participants for the report.
+      Each group is a list of strings (logical names forming a cycle).
+
+---
+
+**Step 5 — Staleness detection**
+
+9. Determine the ordered list of nodes to check for staleness:
+   - If `ranked_entries` is non-empty:
+       Sort nodes that have `outputs` by their rank (ascending, lowest first).
+   - Else (ranking failed):
+       Sort nodes that have `outputs` alphabetically by logical_name.
+
+10. Initialize `staleness_entries` as an empty list.
+
+11. For each node in the staleness order:
+    a. Retrieve the node's `frontmatter` from the cache.
+       If `frontmatter.outputs` is empty, skip this node.
+    b. Compute the chain hash for this node:
+       - Use the same algorithm as `load_chain`:
+         SHA-1 of the concatenated position hashes of all nodes in the chain,
+         then base64url-encode the result.
+    c. For each output in `frontmatter.outputs`:
+       i.  Let `artifact_path` = `output.path`.
+       ii. Validate `artifact_path` using `ValidatePath(artifact_path, project_root)`.
+           If validation fails, skip this output (path is unsafe to read).
+       iii. Call `ExtractArtifactTag(artifact_path)`.
+            If `ExtractArtifactTag` returns "file unreadable":
+              Append StalenessEntry:
+                node = logical_name
+                artifact_path = artifact_path
+                status = `"missing"`
+              Continue to next output.
+            If `ExtractArtifactTag` returns "no tag found":
+              Append StalenessEntry:
+                node = logical_name
+                artifact_path = artifact_path
+                status = `"missing"`
+              Continue to next output.
+            If `ExtractArtifactTag` returns "malformed tag":
+              Append StalenessEntry:
+                node = logical_name
+                artifact_path = artifact_path
+                status = `"missing"`
+              Continue to next output.
+       iv. Compare `extracted_tag.hash` with the computed chain hash.
+           If they differ:
+             Append StalenessEntry:
+               node = logical_name
+               artifact_path = artifact_path
+               status = `"stale"`
+           If they match:
+             Do not add an entry for this output.
+
+---
+
+**Step 6 — Assemble and return the report**
+
+12. Assemble the ValidationReport:
+    - `format_errors` = `collected_format_errors` (all FormatError records from Step 3 and Step 4)
+    - `circular_references` = groups of cycle participant logical names (from Step 4),
+      or empty list if no cycles
+    - `staleness` = `staleness_entries` ordered by rank (lowest first),
+      or alphabetically if ranking was unavailable
+
+13. Return the ValidationReport.
+
+---
+
+## Contracts
+
+- All errors are collected before returning — validation does not stop at the first error.
+- Staleness check only runs for nodes whose frontmatter has a non-empty `outputs` field.
+- Nodes that fail format validation in Step 3 are still included in staleness checking
+  in Step 5 where their outputs can be safely read.
+- Each node is parsed exactly once (Step 2 cache), and results are reused in all
+  subsequent steps.
+- The staleness entries in the report are ordered by dependency rank (lowest first)
+  so that the caller can resolve them in the correct order.
+```

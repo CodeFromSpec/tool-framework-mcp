@@ -52,8 +52,20 @@ higher rank.
 **Step 1 — Discovery**
 
 Collect all entries: spec nodes and artifacts (from each
-node's `outputs` field). For each entry, build a
-dependency list:
+node's `outputs` field).
+
+Each artifact is indexed by its `ARTIFACT/` logical name,
+constructed from the generating node's logical name and
+the output's `id`. For example, node `ROOT/functional/utils/frontmatter`
+with output `id: frontmatter` produces an artifact entry
+keyed as `ARTIFACT/functional/utils/frontmatter(frontmatter)`.
+
+When a `depends_on` or `input` field contains an
+`ARTIFACT/` reference, resolve it to the corresponding
+artifact entry using the `ARTIFACT/` logical name as the
+lookup key.
+
+For each entry, build a dependency list:
 - Spec nodes depend on: parent, `depends_on` entries,
   `input` artifact (if present).
 - Artifacts depend on: the node that generates them.
