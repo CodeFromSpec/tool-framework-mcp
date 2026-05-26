@@ -16,6 +16,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -55,10 +56,13 @@ func HandleHashFragment(
 	args HashFragmentArgs,
 ) (*mcp.CallToolResult, any, error) {
 	// -------------------------------------------------------------------------
-	// Step 1 — Validate the path against the working directory (project root).
-	// The process is always started from the project root, so "." is the root.
+	// Step 1 — Validate the path against the project root (working directory).
 	// -------------------------------------------------------------------------
-	if err := pathvalidation.ValidatePath(args.Path, "."); err != nil {
+	projectRoot, err := os.Getwd()
+	if err != nil {
+		return toolError(fmt.Sprintf("cannot determine project root: %v", err)), nil, nil
+	}
+	if err := pathvalidation.ValidatePath(args.Path, projectRoot); err != nil {
 		return toolError(err.Error()), nil, nil
 	}
 

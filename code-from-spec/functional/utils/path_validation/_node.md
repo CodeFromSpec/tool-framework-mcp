@@ -22,6 +22,11 @@ function ValidatePath(relative_path, project_root) -> void
     - resolves outside root: after resolving symlinks, the path is outside the project root.
 ```
 
+`project_root` must be an absolute path. Passing a relative
+path (e.g. `"."`) produces undefined behavior — the
+containment check in step 7 requires both the candidate and
+the root to be in absolute form for a reliable comparison.
+
 # Agent
 
 ## Behavior

@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -79,10 +80,21 @@ func ValidateFormat(discoveredNodes []nodediscovery.DiscoveredNode) ([]FormatErr
 		// Step 2c: Parse the body.
 		parsed, parseErr := parsenode.ParseNode(node.LogicalName)
 		if parseErr != nil {
+			rule := "unreadable node"
+			switch {
+			case errors.Is(parseErr, parsenode.ErrInvalidNodeName):
+				rule = "name_verification"
+			case errors.Is(parseErr, parsenode.ErrDuplicatePublic):
+				rule = "duplicate_public_section"
+			case errors.Is(parseErr, parsenode.ErrDuplicateSubsection):
+				rule = "duplicate_public_subsections"
+			case errors.Is(parseErr, parsenode.ErrUnexpectedContent):
+				rule = "unexpected_content"
+			}
 			errs = append(errs, FormatError{
 				Node:   node.LogicalName,
-				Rule:   "unreadable node",
-				Detail: fmt.Sprintf("body parse error: %s", parseErr.Error()),
+				Rule:   rule,
+				Detail: parseErr.Error(),
 			})
 			reader.Close()
 			continue
@@ -326,11 +338,12 @@ func ruleDependencyTargets(node nodediscovery.DiscoveredNode, fm *frontmatter.Fr
 func ruleExternalFileExistence(node nodediscovery.DiscoveredNode, fm *frontmatter.Frontmatter) []FormatError {
 	var errs []FormatError
 
-	// projectRoot is always the working directory per the framework spec.
-	const projectRoot = "."
+	projectRoot, wdErr := os.Getwd()
+	if wdErr != nil {
+		return errs
+	}
 
 	for _, ext := range fm.External {
-		// Step 1: Validate path.
 		if err := pathvalidation.ValidatePath(ext.Path, projectRoot); err != nil {
 			errs = append(errs, FormatError{
 				Node:   node.LogicalName,
@@ -473,7 +486,10 @@ func parseLineRange(s string) (start, end int, err error) {
 func ruleOutputPathValidation(node nodediscovery.DiscoveredNode, fm *frontmatter.Frontmatter) []FormatError {
 	var errs []FormatError
 
-	const projectRoot = "."
+	projectRoot, wdErr := os.Getwd()
+	if wdErr != nil {
+		return errs
+	}
 
 	for _, out := range fm.Outputs {
 		if err := pathvalidation.ValidatePath(out.Path, projectRoot); err != nil {
