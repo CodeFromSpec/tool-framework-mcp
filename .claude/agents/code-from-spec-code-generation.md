@@ -35,17 +35,18 @@ giving you a name (e.g., `ROOT/golang/server`).
    available. Cannot generate artifacts." Do NOT attempt to
    generate artifacts from a truncated chain.**
 
-2. The result contains multiple text items:
+2. Parse the result:
 
-   - **First item**: the chain hash — a 27-character string
-     (base64url encoded). Save this for the artifact tag.
-   - **Second item**: the chain context — a continuous stream of
-     spec content. Your target is identified by its reduced
-     frontmatter (a YAML block with only `outputs`). Everything
-     before it is supporting context.
-   - **Third item** (if present): the input artifact — content
-     to be transformed. This is the material you transform into
-     the output, informed by the context.
+   - **First line**: `chain_hash: <hash>` — extract the
+     27-character hash after the prefix. This is the hash you
+     must embed in the artifact tag.
+   - **After the first line**: the chain context — a continuous
+     stream of spec content. Your target is identified by its
+     reduced frontmatter (a YAML block with only `outputs`).
+     Everything before it is supporting context.
+   - **After `--- input ---`** (if present): the input artifact
+     — content to be transformed. This is the material you
+     transform into the output, informed by the context.
 
 3. In the target's frontmatter, the `outputs` field lists the
    artifacts you must generate (each with `id` and `path`).
@@ -86,7 +87,7 @@ Every generated file must contain the string:
 code-from-spec: <name>@<hash>
 ```
 where `<name>` is the name the orchestrator gave you and
-`<hash>` is the chain hash (the first text item from `load_chain`).
+`<hash>` is the chain hash from the first line of `load_chain`.
 
 Place it as early in the file as the language or format allows.
 The syntax does not matter — `//`, `#`, `/* */`, `--`, or any

@@ -214,17 +214,19 @@ func HandleLoadChain(
 		chainHash = chainHash[:27]
 	}
 
-	// Step 8 -- Build result.
-	content := []mcp.Content{
-		&mcp.TextContent{Text: chainHash},
-		&mcp.TextContent{Text: contextBuf.String()},
-	}
+	// Step 8 -- Build result as a single text block.
+	var result strings.Builder
+	result.WriteString("chain_hash: ")
+	result.WriteString(chainHash)
+	result.WriteString("\n\n")
+	result.WriteString(contextBuf.String())
 	if inputContent != "" {
-		content = append(content, &mcp.TextContent{Text: inputContent})
+		result.WriteString("\n--- input ---\n")
+		result.WriteString(inputContent)
 	}
 
 	return &mcp.CallToolResult{
-		Content: content,
+		Content: []mcp.Content{&mcp.TextContent{Text: result.String()}},
 	}, nil, nil
 }
 
