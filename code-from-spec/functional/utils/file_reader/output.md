@@ -1,104 +1,105 @@
-<!-- code-from-spec: ROOT/functional/utils/file_reader@Wx-26RPkivGtDg3vtpykGnkT3a8 -->
+<!-- code-from-spec: ROOT/functional/utils/file_reader@G6f-O2lsvyS72vgeLxuFq8_1-fE -->
 
-# FileReader
+# FileReader — Pseudocode
 
-A forward-only, sequential line reader. CRLF is normalized to LF once at
-open time. Callers always receive LF-only content regardless of the
-original line endings in the file.
-
----
-
-## Data structures
+## Data Structures
 
 ```
 record FileReader
-  file_path : string          -- path of the opened file
-  lines     : list of strings -- all lines after normalization and splitting
-  position  : integer         -- index of the next line to return (0-based)
+  file_path: string        -- path of the file being read
+  stream:    file stream   -- open sequential stream positioned at the next unread byte
+  exhausted: boolean       -- true once the underlying stream has no more data
 ```
 
 ---
 
-## Functions
+## function OpenFileReader(file_path) -> FileReader
 
-### OpenFileReader(file_path) -> FileReader
+Opens a file and returns a FileReader positioned before the first line.
 
-Opens the file at `file_path` and prepares it for sequential reading.
+1. Attempt to open the file at `file_path` for sequential reading.
+   If the file cannot be opened for any reason, raise error "file unreadable".
 
-1. Attempt to read the entire contents of the file at `file_path`.
-   If the file cannot be opened or read, raise error "file unreadable".
+2. Create a new FileReader record:
+   - file_path ← file_path
+   - stream    ← the open file stream
+   - exhausted ← false
 
-2. Replace every CRLF sequence (`\r\n`) in the contents with LF (`\n`).
-   This normalization happens exactly once, here, so all downstream
-   operations work only with LF.
-
-3. Split the normalized contents on LF (`\n`) to produce a list of lines.
-   Do NOT include the LF character in any line.
-
-   Special case — trailing newline:
-   If the last character of the normalized content is LF, the split
-   produces an empty string as the final element. Remove that trailing
-   empty element so that a file ending with a newline does not yield a
-   phantom empty line.
-   A file whose last line has NO trailing newline is left as-is; that
-   final non-empty line is a valid line and must be returned.
-
-4. Create a FileReader record:
-   - file_path = <file_path>
-   - lines     = <the list produced in step 3>
-   - position  = 0
-
-5. Return the FileReader record.
+3. Return the FileReader record.
 
 ---
 
-### ReadLine(reader) -> line
+## function ReadLine(reader) -> line
 
-Returns the next line and advances the reader by one position.
+Reads the next line from `reader`, normalizes CRLF to LF, and returns
+the line text without the line terminator.
 
-1. If `reader.position` is greater than or equal to the length of
-   `reader.lines`, raise error "end of file".
+1. If reader.exhausted is true, raise error "end of file".
 
-2. Let `line` = `reader.lines[reader.position]`.
+2. Attempt to read bytes from reader.stream up to and including the
+   next LF character (U+000A), or until the stream is depleted,
+   whichever comes first.
 
-3. Increment `reader.position` by 1.
+   If no bytes are available at all (stream was already at end):
+     Set reader.exhausted ← true.
+     Raise error "end of file".
 
-4. Return `line`.
-   The returned string never contains a line terminator.
+3. Let `raw_line` be the bytes collected in step 2, decoded as text.
 
----
+4. Normalize CRLF:
+   If `raw_line` ends with CR LF (i.e., "\r\n"), remove both characters.
+   Else if `raw_line` ends with LF ("\n"), remove that character.
+   Else if `raw_line` ends with CR ("\r"), remove that character.
+   -- A final line with no terminator is left as-is (no characters removed).
 
-### SkipLines(reader, count)
+5. If the stream reached its end during step 2 (no further bytes remain):
+   Set reader.exhausted ← true.
+   -- Do NOT raise "end of file" now; the final partial line is valid.
+   -- "end of file" will be raised on the NEXT call to ReadLine.
 
-Advances the reader forward by `count` lines without returning their
-content. Skipping past the end of the file is not an error.
-
-1. Add `count` to `reader.position`.
-
-2. If `reader.position` now exceeds the length of `reader.lines`,
-   clamp `reader.position` to the length of `reader.lines`.
-   This ensures subsequent calls to `ReadLine` raise "end of file"
-   immediately rather than going out of bounds.
-
-3. Return nothing.
-
----
-
-## Error conditions
-
-| Error          | Raised by      | Condition                                              |
-|----------------|----------------|--------------------------------------------------------|
-| "file unreadable" | OpenFileReader | The file at `file_path` cannot be opened or read.  |
-| "end of file"     | ReadLine       | `position` >= length of `lines` (no more lines).   |
+6. Return the normalized line text (without any terminator).
 
 ---
 
-## Invariants
+## function SkipLines(reader, count)
 
-- CRLF normalization happens once in `OpenFileReader`. No other function
-  performs normalization.
-- The reader is strictly forward-only. Neither `ReadLine` nor `SkipLines`
-  ever decrements `position`.
-- `SkipLines` with `count = 0` is a no-op.
-- `SkipLines` past the end of the file leaves `position` equal to the
-  length of `lines`, so the next `ReadLine` raises "end of file".
+Reads and discards `count` lines from `reader`. Silently stops if
+the end of file is reached before `count` lines are consumed.
+
+1. Let `remaining` ← count.
+
+2. While remaining > 0:
+   a. If reader.exhausted is true, stop (return without error).
+   b. Call ReadLine(reader).
+      If it raises "end of file", stop (return without error).
+      Otherwise, discard the returned line.
+   c. Decrement remaining by 1.
+
+3. Return. (No return value; no error on hitting end of file.)
+
+---
+
+## Error Conditions
+
+| Error          | Raised by                         | Meaning                                         |
+|----------------|-----------------------------------|-------------------------------------------------|
+| "file unreadable" | OpenFileReader                 | The file at `file_path` could not be opened.   |
+| "end of file"  | ReadLine                          | No more lines remain in the file stream.        |
+
+`SkipLines` never raises an error — reading past the end of the file
+is silently absorbed, and subsequent calls to `ReadLine` will raise
+"end of file" as normal.
+
+---
+
+## Contracts and Invariants
+
+- The reader is forward-only. No seeking or rewinding is supported.
+- The file stream is opened once in `OpenFileReader` and read
+  incrementally; the entire file is never loaded into memory.
+- Memory usage is bounded by the length of a single line, not
+  the total file size.
+- CRLF normalization happens per line as it is read, not in bulk.
+- A file whose last line has no trailing newline is fully supported;
+  that line is returned normally, and the "end of file" error is
+  deferred to the call after it.
