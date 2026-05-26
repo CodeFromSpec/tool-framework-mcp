@@ -161,9 +161,7 @@ func HandleValidateSpecs(
 		chainHash := computeChainHash(on.logicalName, on.fm, fmCache, parsedCache)
 
 		for _, out := range on.fm.Outputs {
-			tag, err := artifacttag.ExtractArtifactTag(out.Path)
-			if err != nil {
-				// File missing or no tag.
+			if _, err := os.Stat(out.Path); os.IsNotExist(err) {
 				staleness = append(staleness, StalenessEntry{
 					Node:         on.logicalName,
 					ArtifactPath: out.Path,
@@ -171,7 +169,8 @@ func HandleValidateSpecs(
 				})
 				continue
 			}
-			if tag.Hash != chainHash {
+			tag, err := artifacttag.ExtractArtifactTag(out.Path)
+			if err != nil || tag.Hash != chainHash {
 				staleness = append(staleness, StalenessEntry{
 					Node:         on.logicalName,
 					ArtifactPath: out.Path,

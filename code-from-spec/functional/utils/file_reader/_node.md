@@ -6,8 +6,9 @@ outputs:
 
 # ROOT/functional/utils/file_reader
 
-Sequential line reader for text files. Normalizes line
-endings on read.
+Sequential line reader for text files. Reads line by line
+from the file — does not load the entire file into memory.
+Normalizes line endings on read.
 
 # Public
 
@@ -29,21 +30,25 @@ function SkipLines(reader, count)
 ```
 
 `OpenFileReader` opens a file and prepares it for
-sequential line-by-line reading.
+sequential line-by-line reading. The file remains open
+until all lines are consumed or the reader is discarded.
 
-`ReadLine` returns the next line without the line
-terminator. CRLF is normalized to LF before splitting.
+`ReadLine` reads the next line from the file, normalizes
+CRLF to LF, and returns the line without the terminator.
 Raises "end of file" when there are no more lines.
 
-`SkipLines` advances the reader by `count` lines without
+`SkipLines` reads and discards `count` lines without
 returning their content.
 
 # Agent
 
 ## Behavior
 
-- Lines are split on LF (after CRLF → LF normalization).
-- Line terminators are not included in the returned line.
+- Each `ReadLine` call reads from the file stream — the
+  file is not loaded entirely into memory.
+- CRLF sequences are normalized to LF as each line is
+  read. The line terminator is not included in the
+  returned string.
 - A final line without a trailing newline is still a valid
   line and is returned normally. The "end of file" error
   is raised on the next call after the last line.
@@ -52,6 +57,6 @@ returning their content.
 
 ## Contracts
 
-- Normalization happens once at read time — all consumers
-  receive LF-only content.
 - The reader is forward-only. No seeking or rewinding.
+- The file is read sequentially — memory usage does not
+  depend on file size.
