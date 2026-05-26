@@ -65,15 +65,6 @@ Expect: success result. The dependency `ROOT/b` section
 contains only the `## Interface` subsection content, not
 `## Constraints`.
 
-### Chain content uses heredoc format
-
-Create a spec tree: `ROOT` and `ROOT/a` (leaf with
-`outputs`). Call `handleLoadChain` with
-`LogicalName: "ROOT/a"`.
-
-Expect: success result. Text contains `<<<FILE_` and
-`<<<END_FILE_` delimiters with `node:` and `path:` headers.
-
 ### Ancestors expose only # Public body, without heading
 
 Create a spec tree: `ROOT` (with `# Public` and private

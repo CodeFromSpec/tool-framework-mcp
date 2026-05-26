@@ -132,10 +132,18 @@ func ParseNode(logicalName string) (*ParsedNode, error) {
 	}
 
 	// Step 8 — validate the first section's heading against the logical name.
-	if normalizename.NormalizeName(sections[0].Heading) != normalizename.NormalizeName(logicalName) {
+	// Strip any qualifier before comparison — ROOT/x(y) heading is "ROOT/x".
+	bareLogicalName := logicalName
+	if _, ok := logicalnames.QualifierName(logicalName); ok {
+		idx := strings.LastIndex(bareLogicalName, "(")
+		if idx >= 0 {
+			bareLogicalName = bareLogicalName[:idx]
+		}
+	}
+	if normalizename.NormalizeName(sections[0].Heading) != normalizename.NormalizeName(bareLogicalName) {
 		return nil, fmt.Errorf(
 			"%s: %w: first heading is %q, expected %q",
-			filePath, ErrInvalidNodeName, sections[0].Heading, logicalName,
+			filePath, ErrInvalidNodeName, sections[0].Heading, bareLogicalName,
 		)
 	}
 

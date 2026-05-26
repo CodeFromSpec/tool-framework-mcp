@@ -181,11 +181,25 @@ func HandleLoadChain(
 
 			if !hasQ {
 				// Case A: no qualifier — use full # Public section.
-				if parsed.Public == nil || strings.TrimSpace(parsed.Public.Content) == "" {
+				if parsed.Public == nil {
 					continue
 				}
-				contextParts = append(contextParts, parsed.Public.Content)
-				addToHash("# Public" + "\n" + parsed.Public.Content)
+				var depContent strings.Builder
+				if strings.TrimSpace(parsed.Public.Content) != "" {
+					depContent.WriteString(parsed.Public.Content)
+				}
+				for _, sub := range parsed.Public.Subsections {
+					if depContent.Len() > 0 {
+						depContent.WriteString("\n")
+					}
+					depContent.WriteString("## " + sub.Heading + "\n\n")
+					depContent.WriteString(sub.Content)
+				}
+				if depContent.Len() == 0 {
+					continue
+				}
+				contextParts = append(contextParts, depContent.String())
+				addToHash("# Public" + "\n" + depContent.String())
 			} else {
 				// Case B: qualifier — use the matching subsection of # Public.
 				qualifier, _ := logicalnames.QualifierName(dep)
