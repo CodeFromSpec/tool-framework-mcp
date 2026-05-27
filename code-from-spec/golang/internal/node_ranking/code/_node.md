@@ -18,7 +18,13 @@ Implement the pseudocode from the input as a Go package.
 
 ## Go-specific guidance
 
-- Depends on the `logicalnames` and `frontmatter` packages.
+- Depends on the `logicalnames`, `frontmatter`, and
+  `nodediscovery` packages.
+- `DetectCycles` receives `[]nodediscovery.DiscoveredNode`
+  which has only `LogicalName` and `FilePath` — it does
+  not carry parsed frontmatter. Parse frontmatter
+  internally using `frontmatter.ParseFrontmatter(node.FilePath)`
+  for each node before building the entry map.
 - Use the iterative ranking algorithm described in the
   functional spec: initialize all ranks to 0, iterate
   until convergence, detect cycles by checking for rank

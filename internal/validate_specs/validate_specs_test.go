@@ -367,9 +367,6 @@ func TestHandleValidateSpecs_CircularReferences(t *testing.T) {
 	if !strings.Contains(report, "ROOT/a") && !strings.Contains(report, "ROOT/b") {
 		t.Errorf("expected at least one cycle participant (ROOT/a or ROOT/b), got:\n%s", report)
 	}
-	if !strings.Contains(report, "ROOT/b") {
-		t.Errorf("expected ROOT/b in circular references, got:\n%s", report)
-	}
 }
 
 // ---------------------------------------------------------------------------

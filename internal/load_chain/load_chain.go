@@ -14,13 +14,12 @@ package load_chain
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filereader"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
@@ -88,16 +87,7 @@ func HandleLoadChain(
 	// --- Phase 2: Assemble the Context Stream ---
 
 	// contextParts accumulates all content for the final context string.
-	// hashInputs accumulates the raw SHA-1 byte sequences to be combined
-	// into the final chain hash.
 	var contextParts []string
-	var hashInputs [][]byte
-
-	// Helper: compute SHA-1 of text and append to hashInputs.
-	addToHash := func(text string) {
-		sum := sha1.Sum([]byte(text))
-		hashInputs = append(hashInputs, sum[:])
-	}
 
 	// --- Step 1: Ancestors ---
 	// Collect ancestors from ROOT down to the target's direct parent.
@@ -130,8 +120,6 @@ func HandleLoadChain(
 		}
 		// Append content WITHOUT the heading.
 		contextParts = append(contextParts, parsed.Public.Content)
-		// Hash the FULL section (heading + content).
-		addToHash("# Public" + "\n" + parsed.Public.Content)
 	}
 
 	// --- Step 2: Dependencies (depends_on) ---
@@ -169,7 +157,6 @@ func HandleLoadChain(
 			}
 			stripped := stripFrontmatter(string(raw))
 			contextParts = append(contextParts, stripped)
-			addToHash(stripped)
 
 		default:
 			// Case A or B: ROOT/ reference (with or without qualifier).
@@ -199,7 +186,6 @@ func HandleLoadChain(
 					continue
 				}
 				contextParts = append(contextParts, depContent.String())
-				addToHash("# Public" + "\n" + depContent.String())
 			} else {
 				// Case B: qualifier — use the matching subsection of # Public.
 				qualifier, _ := logicalnames.QualifierName(dep)
@@ -220,8 +206,6 @@ func HandleLoadChain(
 				}
 				// Append content WITHOUT the heading.
 				contextParts = append(contextParts, matched.Content)
-				// Hash includes the heading.
-				addToHash("## " + matched.Heading + "\n" + matched.Content)
 			}
 		}
 	}
@@ -243,7 +227,6 @@ func HandleLoadChain(
 			}
 			content := string(raw)
 			contextParts = append(contextParts, content)
-			addToHash(content)
 		} else {
 			// Case B: specific fragments declared.
 			fr, err := filereader.OpenFileReader(ext.Path)
@@ -275,7 +258,6 @@ func HandleLoadChain(
 			}
 			content := fragmentContent.String()
 			contextParts = append(contextParts, content)
-			addToHash(content)
 		}
 	}
 
@@ -293,13 +275,11 @@ func HandleLoadChain(
 
 	if targetParsed.Public != nil && strings.TrimSpace(targetParsed.Public.Content) != "" {
 		contextParts = append(contextParts, targetParsed.Public.Content)
-		addToHash("# Public" + "\n" + targetParsed.Public.Content)
 	}
 
 	// --- Step 5: Target's # Agent section ---
 	if targetParsed.Agent != nil && strings.TrimSpace(targetParsed.Agent.Content) != "" {
 		contextParts = append(contextParts, targetParsed.Agent.Content)
-		addToHash("# Agent" + "\n" + targetParsed.Agent.Content)
 	}
 
 	// --- Phase 3: Input artifact (if declared) ---
@@ -329,20 +309,13 @@ func HandleLoadChain(
 			return toolError(fmt.Sprintf("unreadable file: cannot read input artifact %q: %v", inputArtifactPath, err)), nil, nil
 		}
 		inputContent = stripFrontmatter(string(raw))
-		// Input content contributes to the hash but is NOT part of contextParts.
-		addToHash(inputContent)
 	}
 
 	// --- Phase 4: Compute the chain hash ---
-	// Concatenate all raw SHA-1 byte sequences and SHA-1 the result.
-	var combined []byte
-	for _, bytes := range hashInputs {
-		combined = append(combined, bytes...)
+	chainHash, err := chainhash.ComputeChainHash(args.LogicalName)
+	if err != nil {
+		return toolError(fmt.Sprintf("chain hash computation failed for %q: %v", args.LogicalName, err)), nil, nil
 	}
-	finalSum := sha1.Sum(combined)
-	// Encode as base64url without padding (RFC 4648 §5), yielding 27 characters
-	// for a 20-byte SHA-1 digest.
-	chainHash := base64.RawURLEncoding.EncodeToString(finalSum[:])
 
 	// --- Phase 5: Assemble and return the result ---
 	// Join all context parts (no separator — the spec says plain concatenation).

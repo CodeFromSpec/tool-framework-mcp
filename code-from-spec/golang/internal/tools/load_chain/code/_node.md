@@ -2,6 +2,7 @@
 depends_on:
   - ROOT/golang/dependencies/google-uuid
   - ROOT/golang/dependencies/mcp-go-sdk
+  - ROOT/golang/internal/chain_hash
   - ROOT/golang/internal/chain_resolver
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/logical_names
@@ -26,9 +27,12 @@ Implement the pseudocode from the input as a Go package.
 
 - Use `github.com/google/uuid` for UUID generation.
 - Use the `mcp-go` SDK types for tool results.
-- Call internal packages (`chainresolver`, `frontmatter`,
-  `logicalnames`, `normalizename`, `parsenode`,
-  `pathvalidation`) for their respective operations.
+- Call internal packages (`chainhash`, `chainresolver`,
+  `frontmatter`, `logicalnames`, `normalizename`,
+  `parsenode`, `pathvalidation`) for their respective
+  operations.
+- Use `chainhash.ComputeChainHash` for the chain hash.
+  Do not reimplement hash computation.
 - Use `os.ReadFile` to read chain files.
 - The package name should be `load_chain`.
 

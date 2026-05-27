@@ -60,13 +60,19 @@ the output's `id`. For example, node `ROOT/functional/utils/frontmatter`
 with output `id: frontmatter` produces an artifact entry
 keyed as `ARTIFACT/functional/utils/frontmatter(frontmatter)`.
 
-When a `depends_on` or `input` field contains an
-`ARTIFACT/` reference, resolve it to the corresponding
-artifact entry using the `ARTIFACT/` logical name as the
-lookup key.
+When resolving `depends_on` and `input` references to
+entries in the entry map:
+- `ARTIFACT/` references are used as-is — the qualifier
+  is part of the key (e.g. `ARTIFACT/x(id)`).
+- `ROOT/` references with a parenthetical qualifier must
+  have the qualifier stripped before lookup, because the
+  entry map is keyed by the bare node name (e.g.
+  `ROOT/x(y)` looks up `ROOT/x`). The dependency edge
+  points to the bare node entry.
 
 For each entry, build a dependency list:
-- Spec nodes depend on: parent, `depends_on` entries,
+- Spec nodes depend on: parent, `depends_on` entries
+  (after qualifier stripping for `ROOT/` refs),
   `input` artifact (if present).
 - Artifacts depend on: the node that generates them.
 

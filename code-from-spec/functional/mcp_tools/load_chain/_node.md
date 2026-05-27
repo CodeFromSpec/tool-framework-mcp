@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - ROOT/functional/utils/chain_hash
   - ROOT/functional/utils/file_reader
   - ROOT/functional/utils/logical_names
   - ROOT/functional/utils/frontmatter
@@ -115,30 +116,11 @@ not concatenated into the context stream. This allows
 the subagent to distinguish context (what informs) from
 input (what to transform).
 
-### Chain hash computation
+### Chain hash
 
-The chain hash is computed incrementally as the context
-stream is assembled — not as a separate pass.
-
-As each step adds content to the stream, compute the
-SHA-1 of that content (raw 20 bytes). After all steps
-(including input if present), concatenate all raw hashes
-in order and compute the final SHA-1. Encode the result
-as base64url (RFC 4648 §5, no padding) — 27 characters.
-
-The positions that contribute to the hash, in order:
-
-1. Each ancestor's `# Public` content (including heading).
-2. Each `depends_on` entry's content.
-3. Each `external` entry's content.
-4. Target's `# Public` content (including heading).
-5. Target's `# Agent` content (including heading).
-6. Input artifact content (if present).
-
-Note: the content hashed includes the section headings
-(`# Public`, `# Agent`), even though the headings are
-stripped from the context stream. See `CHAIN_HASH.md`
-for the full specification.
+Use `chain_hash.ComputeChainHash(logical_name)` to
+compute the chain hash. Do not reimplement the hash
+computation — use the shared utility.
 
 The chain hash is returned as a separate text item so
 the subagent can embed it in the artifact tag.

@@ -1,268 +1,118 @@
-<!-- code-from-spec: ROOT/functional/mcp_tools/load_chain@-oAyRW8J_g-DfPo7hQhrPy1CpYA -->
+[//]: # (code-from-spec: ROOT/functional/mcp_tools/load_chain@O0l5bALQpKtvIfFfFmKd8nFNis8)
 
-# LoadChain
+# load_chain
 
 ## Overview
 
-Assembles all spec context needed to generate an artifact for a
-given target node. Returns a chain hash, a continuous context
-stream, and optionally a separate input artifact.
+`load_chain` is an MCP tool that loads and assembles the full specification chain
+for a given node. It returns the chain hash on the first line, followed by the
+concatenated content of all relevant spec files.
 
-
----
-
-
-## Data structures
+## Interface
 
 ```
-record HashAccumulator
-  raw_hashes: list of byte arrays  -- each entry is 20 raw SHA-1 bytes
-
-record ChainResult
-  chain_hash:  string              -- 27-character base64url SHA-1
-  context:     string              -- full concatenated context stream
-  input:       optional string     -- input artifact content, if present
+tool load_chain
+  input:
+    logical_name: string
+  output:
+    text: string
+  errors:
+    - invalid logical name: cannot resolve the provided logical name.
+    - unreadable file: a file in the chain cannot be read.
 ```
 
+## Output Format
 
----
+The returned text has the following structure:
 
+```
+chain_hash: <27-character base64url SHA-1 hash>
 
-## Functions
+<concatenated spec content>
 
+--- input ---
+<input content, if any>
+```
 
-### function LoadChain(logical_name) -> ChainResult
+The first line is always `chain_hash: ` followed by the 27-character hash
+produced by `ComputeChainHash`. A blank line follows, then the spec content.
 
-  Parameters:
-    logical_name: string  -- the target node, must be a ROOT/ reference
+If the node's frontmatter declares an `input` path, the content of that file
+is appended after a `--- input ---` separator line. If no input is declared,
+the `--- input ---` section is omitted.
 
-  Returns:
-    ChainResult record
+## Behavior
 
-  Errors:
-    - "invalid logical name": logical_name is not a ROOT/ reference.
-    - "no outputs": target node has no outputs field.
-    - "invalid output path": an output path fails path validation.
-    - "chain resolution failure": a dependency cannot be resolved.
-    - "unreadable file": a file in the chain cannot be read or parsed.
+### Chain Assembly
 
-  Steps:
+Given `logical_name`, the tool assembles the chain by walking from the node up
+to the root, collecting spec content at each level, then appending any
+`external` files declared in frontmatter, and finally including the node's own
+content.
 
-  1. Validate the logical name.
-     Call ResolvePath(logical_name).
-     If ResolvePath raises "unsupported reference", raise error
-     "invalid logical name".
+The chain is assembled in this order:
 
-  2. Parse the target node's frontmatter.
-     Call ParseFrontmatter on the file path resolved in step 1.
-     If it fails, raise error "unreadable file".
-     If the parsed frontmatter has no outputs (empty list), raise
-     error "no outputs".
+1. Ancestor nodes from root down to the immediate parent (each contributing
+   their `# Public` section content, or the specific subsection if a qualifier
+   is present in the logical name).
+2. The target node's full `_node.md` content.
+3. Any files declared under `external` in the target node's frontmatter, in
+   declaration order.
 
-  3. Validate all output paths.
-     For each output in frontmatter.outputs:
-       Call ValidatePath(output.path, project_root).
-       If it fails, raise error "invalid output path".
+### Qualifier Handling
 
-  4. Initialize state.
-     Set context_buffer to an empty string.
-     Initialize a HashAccumulator with an empty raw_hashes list.
+When the logical name includes a parenthetical qualifier (e.g.
+`ROOT/x/y(interface)`), the tool extracts only the matching `## interface`
+subsection from `# Public` when collecting ancestor content. Without a
+qualifier, the full `# Public` section is used.
 
-  5. Build the ancestor list.
-     Collect all ancestors of logical_name from root down to the
-     target's direct parent, in tree-depth order.
-     (e.g. for ROOT/a/b/c the order is: ROOT, ROOT/a, ROOT/a/b)
-     If the target is ROOT itself, the ancestor list is empty.
+For the target node itself, the full file content is always included regardless
+of any qualifier.
 
-  6. Step 1 — Ancestors.
-     For each ancestor in the ancestor list (root to direct parent):
-       a. Call ParseNode(ancestor) to get its parsed sections.
-          If ParseNode fails, raise error "unreadable file".
-       b. If the node has no public section, or the public section
-          content is empty, skip this ancestor entirely.
-       c. Otherwise:
-          - Append the public section content (without the "# Public"
-            heading) to context_buffer.
-          - Compute SHA-1 of the public section content INCLUDING the
-            "# Public" heading (raw bytes, UTF-8 encoded).
-          - Append the resulting 20-byte raw hash to
-            accumulator.raw_hashes.
+### Ancestor Content Extraction
 
-  7. Step 2 — Dependencies.
-     Sort target frontmatter.depends_on alphabetically by logical name.
-     For each dependency in sorted order:
+For each ancestor node (from `ROOT` down to the direct parent):
 
-       Case A: Dependency is a ROOT/ reference with no qualifier
-         (e.g. ROOT/x/y):
-           - Call ParseNode(dependency).
-             If it fails, raise error "chain resolution failure".
-           - If the node has no public section or the public section
-             content is empty, skip.
-           - Append the public section content (without heading) to
-             context_buffer.
-           - Compute SHA-1 of the full public section content
-             INCLUDING its "# Public" heading.
-           - Append raw hash to accumulator.raw_hashes.
+1. Parse the node using `ParseNode`.
+2. If the logical name has a qualifier that matches a subsection heading
+   (after normalization via `NormalizeName`), include only that subsection's
+   content.
+3. Otherwise, include the full content of the `# Public` section.
+4. If the node has no `# Public` section, contribute nothing for that ancestor.
 
-       Case B: Dependency is a ROOT/ reference WITH a qualifier
-         (e.g. ROOT/x/y(z)):
-           - Call ExtractQualifier(dependency) to get qualifier z.
-           - Call ParseNode on the base path (logical name stripped
-             of the qualifier).
-             If it fails, raise error "chain resolution failure".
-           - Find the subsection within the public section whose
-             normalized heading matches NormalizeName(z).
-             If not found, raise error "chain resolution failure".
-           - Append the subsection content (without the "## z"
-             heading) to context_buffer.
-           - Compute SHA-1 of the subsection content INCLUDING the
-             "## z" heading.
-           - Append raw hash to accumulator.raw_hashes.
+### External Files
 
-       Case C: Dependency is an ARTIFACT/ reference
-         (e.g. ARTIFACT/x/y(id)):
-           - Call ResolveArtifactReference(dependency) to get
-             ArtifactReference (node_path, artifact_id).
-             If it fails, raise error "chain resolution failure".
-           - Call ParseFrontmatter on node_path to get the node's
-             frontmatter.
-             If it fails, raise error "chain resolution failure".
-           - Find the output in the frontmatter whose id matches
-             artifact_id.
-             If not found, raise error "chain resolution failure".
-           - Open a FileReader for that output's file path.
-             If it fails, raise error "unreadable file".
-           - Read all lines. Skip any frontmatter block at the top
-             (content between the first "---" and the closing "---").
-             Collect the remaining lines as artifact_content.
-           - Close the reader.
-           - Append artifact_content to context_buffer.
-           - Compute SHA-1 of artifact_content.
-           - Append raw hash to accumulator.raw_hashes.
+External files are declared in the target node's frontmatter under `external`.
+Each `External` record has a `path` and an optional list of `fragments`.
 
-  8. Step 3 — External files.
-     Sort target frontmatter.external alphabetically by path.
-     For each external entry in sorted order:
+- If `fragments` is absent or empty, the entire file content is appended.
+- If `fragments` is present, only the lines specified by each fragment are
+  appended, in declaration order. Each `ExternalFragment` has:
+  - `lines`: a line range in the format `"N-M"` (1-based, inclusive).
+  - `description`: an optional label (used as a comment header if present).
+  - `hash`: a hash of the expected fragment content, used for staleness
+    detection (not used during assembly itself).
 
-       If external entry has no fragments declared:
-         - Open a FileReader for external.path.
-           If it fails, raise error "unreadable file".
-         - Read all content into external_content.
-         - Close the reader.
-         - Append external_content to context_buffer.
-         - Compute SHA-1 of external_content.
-         - Append raw hash to accumulator.raw_hashes.
+### Input Material
 
-       If external entry has fragments declared:
-         - Open a FileReader for external.path.
-           If it fails, raise error "unreadable file".
-         - Read all lines into a line array (1-based index).
-         - Close the reader.
-         - Initialize fragment_content as an empty string.
-         - For each fragment in external.fragments (in declaration
-           order):
-             Parse fragment.lines as a line range (e.g. "10-20" or
-             "42").
-             Extract those lines from the line array.
-             If the range is out of bounds, raise error
-             "unreadable file".
-             Append the extracted lines to fragment_content.
-         - Append fragment_content to context_buffer.
-         - Compute SHA-1 of fragment_content.
-         - Append raw hash to accumulator.raw_hashes.
+After all spec content is assembled, if the target node's frontmatter declares
+a non-empty `input` path:
 
-  9. Step 4 — Target's # Public section.
-     Call ParseNode(logical_name).
-     If it fails, raise error "unreadable file".
+1. Validate the path using `ValidatePath`.
+2. Read the file at that path.
+3. Append the literal line `--- input ---` followed by the file's content.
 
-     Build a reduced frontmatter block:
-       Format as YAML fenced with "---" lines containing only the
-       outputs field from the target's frontmatter.
-       Example:
-         ---
-         outputs:
-           - id: <id>
-             path: <path>
-         ---
+### Hash Computation
 
-     Append reduced_frontmatter to context_buffer.
-     (The reduced frontmatter is NOT included in the hash.)
+The chain hash is computed by calling `ComputeChainHash(logical_name)`, which
+returns a 27-character base64url-encoded SHA-1 hash. This hash covers the
+assembled chain content and is placed on the first line of the response.
 
-     If the target has a public section and its content is not empty:
-       - Append the public section content (without the "# Public"
-         heading) to context_buffer.
-       - Compute SHA-1 of the public section content INCLUDING the
-         "# Public" heading.
-       - Append raw hash to accumulator.raw_hashes.
+## Error Handling
 
-  10. Step 5 — Target's # Agent section.
-      If the target node has an agent section and its content is
-      not empty:
-        - Append the agent section content (without the "# Agent"
-          heading) to context_buffer.
-        - Compute SHA-1 of the agent section content INCLUDING the
-          "# Agent" heading.
-        - Append raw hash to accumulator.raw_hashes.
-
-  11. Handle input artifact (if present).
-      If the target frontmatter has a non-empty input field:
-        - Call ResolveArtifactReference(frontmatter.input) to get
-          ArtifactReference.
-          If it fails, raise error "chain resolution failure".
-        - Call ParseFrontmatter on the resolved node_path to find
-          the output matching artifact_id.
-          If not found, raise error "chain resolution failure".
-        - Open a FileReader for that output's file path.
-          If it fails, raise error "unreadable file".
-        - Read all lines. Strip any frontmatter block at the top.
-          Collect remaining lines as input_content.
-        - Close the reader.
-        - Compute SHA-1 of input_content.
-        - Append raw hash to accumulator.raw_hashes.
-        - Store input_content separately (do NOT append to
-          context_buffer).
-
-  12. Compute the final chain hash.
-      Concatenate all entries in accumulator.raw_hashes in order
-      into a single byte array (each entry is 20 bytes).
-      Compute SHA-1 of that concatenated byte array.
-      Encode the result using base64url (RFC 4648 §5, no padding).
-      The result is exactly 27 characters.
-
-  13. Assemble and return ChainResult:
-      - chain_hash:  the 27-character base64url string from step 12.
-      - context:     context_buffer.
-      - input:       input_content from step 11, or absent if no
-                     input field was present.
-
-
----
-
-
-## Error conditions summary
-
-| Error                    | Trigger                                                  |
-|--------------------------|----------------------------------------------------------|
-| "invalid logical name"   | logical_name is not a ROOT/ reference.                   |
-| "no outputs"             | Target node frontmatter has no outputs list.             |
-| "invalid output path"    | An output path fails ValidatePath.                       |
-| "chain resolution failure" | A dependency or input cannot be resolved or found.     |
-| "unreadable file"        | Any file in the chain cannot be opened, read, or parsed. |
-
-
----
-
-
-## Contracts and invariants
-
-- The function is stateless; it resolves all inputs independently
-  on each call.
-- If any file in the chain is unreadable, the function raises an
-  error immediately — no partial results are returned.
-- The context stream contains no metadata, headers, or structural
-  markers — only raw spec content plus the reduced frontmatter block
-  immediately before the target's public section.
-- The chain hash includes section headings even though headings are
-  stripped from the context stream.
-- The input artifact content is returned as a separate item, not
-  included in the context stream.
+- If `logical_name` cannot be resolved (e.g. malformed or unsupported prefix),
+  return error: `invalid logical name`.
+- If any file in the chain (node files, external files, or the input file)
+  cannot be read, return error: `unreadable file`.
+- Path validation errors for external or input paths are surfaced as
+  `unreadable file`.

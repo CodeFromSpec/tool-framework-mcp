@@ -1,166 +1,303 @@
-<!-- code-from-spec: ROOT/functional/utils/node_ranking@3TsXr-vKrqXTDJ1LE42S4Fw1N3M -->
+<!-- code-from-spec: ROOT/functional/utils/node_ranking@cJD8AoL5qmtYHKAbGrMZVFk3oGc -->
 
 # Node Ranking
 
-## Records
+Computes an integer rank for every spec node and artifact in the
+discovered set. Rank determines processing order: lower-ranked
+entries must be processed before higher-ranked ones. Also
+identifies entries that participate in dependency cycles.
+
+---
+
+## Data Structures
 
 ```
+record ExternalFragment
+  description: optional string
+  lines: string
+  hash: string
+
+record External
+  path: string
+  fragments: optional list of ExternalFragment
+
+record Output
+  id: string
+  path: string
+
+record Frontmatter
+  depends_on: list of strings
+  external: list of External
+  input: string
+  outputs: list of Output
+
+record NodeInfo
+  logical_name: string        -- e.g. "ROOT/x/y"
+  frontmatter: Frontmatter
+
+record Entry
+  logical_name: string        -- key in the entry map (bare, no qualifier)
+  kind: "node" or "artifact"
+  generating_node: string     -- only for kind = "artifact": the node logical name
+  dependencies: list of strings  -- logical names this entry directly depends on
+  rank: integer
+
 record RankedEntry
   logical_name: string
   rank: integer
 ```
 
+---
+
 ## Functions
 
----
+### BuildEntryMap
 
-### DetectCycles(nodes) -> (ranked_entries, cycle_participants)
+```
+function BuildEntryMap(node_infos) -> entry_map
+  -- node_infos: list of NodeInfo records (all discovered spec nodes)
+  -- entry_map: map from logical_name (string) -> Entry
 
-**Parameters**
+  1. Initialize entry_map as an empty map.
 
-- `nodes`: list of records, each containing:
-  - `logical_name`: string (a ROOT/ logical name)
-  - `frontmatter`: a Frontmatter record with fields:
-    - `depends_on`: list of strings (logical names)
-    - `input`: string (logical name of an ARTIFACT/ reference, or empty)
-    - `outputs`: list of Output records, each with `id` and `path`
+  2. For each node_info in node_infos:
 
-**Returns**
+     a. Create a node entry:
+          entry.logical_name    = node_info.logical_name
+          entry.kind            = "node"
+          entry.generating_node = ""
+          entry.dependencies    = empty list
+          entry.rank            = 0
+        Insert into entry_map keyed by node_info.logical_name.
 
-- `ranked_entries`: list of RankedEntry records (one per spec node and one per artifact)
-- `cycle_participants`: list of strings (logical names involved in cycles; empty if no cycles)
+     b. For each output in node_info.frontmatter.outputs:
+          -- Construct the ARTIFACT/ logical name for this output.
+          -- The key format is: ARTIFACT/<path-suffix>(<id>)
+          -- where <path-suffix> is the part of node_info.logical_name
+          -- after "ROOT/" (i.e., strip the "ROOT/" prefix).
+          --
+          -- Example:
+          --   node logical_name = "ROOT/functional/utils/frontmatter"
+          --   output id         = "frontmatter"
+          --   artifact key      = "ARTIFACT/functional/utils/frontmatter(frontmatter)"
 
-**Errors**
+          path_suffix   = StripRootPrefix(node_info.logical_name)
+          artifact_key  = "ARTIFACT/" + path_suffix + "(" + output.id + ")"
 
-- `"unresolvable reference"`: a `depends_on` or `input` target cannot be resolved to a known entry.
+          Create an artifact entry:
+            entry.logical_name    = artifact_key
+            entry.kind            = "artifact"
+            entry.generating_node = node_info.logical_name
+            entry.dependencies    = empty list
+            entry.rank            = 0
+          Insert into entry_map keyed by artifact_key.
 
----
-
-#### Step 1 — Discovery: collect all entries and build dependency lists
-
-1. Initialize an empty index called `entry_map`.
-   Each key is a logical name string; each value is a record:
-   - `logical_name`: string
-   - `rank`: integer (starts at 0)
-   - `dependencies`: list of logical name strings
-
-2. For each node in `nodes`:
-   a. Add a spec-node entry to `entry_map` keyed by the node's `logical_name`.
-      Set `rank` to 0. Set `dependencies` to an empty list for now.
-
-   b. For each output in the node's `frontmatter.outputs`:
-      - Construct the artifact logical name as:
-        `"ARTIFACT/" + <node path without ROOT/ prefix> + "(" + output.id + ")"`
-        For example, node `ROOT/functional/utils/frontmatter` with output id
-        `frontmatter` produces key `ARTIFACT/functional/utils/frontmatter(frontmatter)`.
-      - Add an artifact entry to `entry_map` keyed by that artifact logical name.
-        Set `rank` to 0.
-        Set `dependencies` to a list containing only the generating node's logical name.
-
-3. For each node in `nodes`, populate the spec-node entry's dependency list:
-   a. Start with a list containing the node's parent logical name.
-      - If the node's logical name is `ROOT`, it has no parent. Skip this step.
-      - Otherwise, compute the parent by stripping the last path segment from the
-        node's logical name (e.g., parent of `ROOT/x/y` is `ROOT/x`).
-
-   b. For each entry in the node's `frontmatter.depends_on`:
-      - If the entry starts with `ARTIFACT/`, look it up in `entry_map`.
-        If not found, raise error `"unresolvable reference"`.
-        Add the entry's logical name to the dependency list.
-      - If the entry starts with `ROOT/`, verify it exists in `entry_map`.
-        If not found, raise error `"unresolvable reference"`.
-        Add the entry's logical name to the dependency list.
-
-   c. If the node's `frontmatter.input` is not empty:
-      - Look up the input value in `entry_map`.
-        If not found, raise error `"unresolvable reference"`.
-      - Add the input value to the dependency list.
-
-   d. Store the completed dependency list in the spec-node entry in `entry_map`.
+  3. Return entry_map.
+```
 
 ---
 
-#### Step 2 — Initialization
+### BuildDependencies
 
-4. For every entry in `entry_map`, set `rank` to 0.
-   (All entries start at rank 0 regardless of position in the graph.)
+```
+function BuildDependencies(entry_map, node_infos) -> (entry_map, unresolvable_refs)
+  -- Populates the dependencies list for every entry.
+  -- Returns the updated entry_map and a list of unresolvable reference strings.
 
----
+  unresolvable_refs = empty list
 
-#### Step 3 — Iteration (single pass)
+  1. For each node_info in node_infos:
+       node_entry = entry_map[node_info.logical_name]
 
-Define a sub-procedure `RunOnePass(entry_map)` -> `changed` (boolean):
+       a. Add the parent dependency (all nodes except ROOT):
+            parent = GetParent(node_info.logical_name)
+            -- GetParent returns empty string when the node IS ROOT.
+            if parent is not empty:
+              if parent is not in entry_map:
+                append parent to unresolvable_refs
+              else:
+                append parent to node_entry.dependencies
 
-1. Set `changed` to false.
+       b. For each ref in node_info.frontmatter.depends_on:
+            -- Strip qualifier from ROOT/ references before lookup.
+            -- ARTIFACT/ references are used as-is (qualifier is part of the key).
+            lookup_key = NormalizeRef(ref)
+            if lookup_key is not in entry_map:
+              append ref to unresolvable_refs
+            else:
+              append lookup_key to node_entry.dependencies
 
-2. For each entry in `entry_map`:
-   a. If the entry's `dependencies` list is empty, skip it.
-      (ROOT has no dependencies; its rank stays 0.)
+       c. If node_info.frontmatter.input is not empty:
+            input_ref = node_info.frontmatter.input
+            -- input always refers to an artifact; use as-is.
+            if input_ref is not in entry_map:
+              append input_ref to unresolvable_refs
+            else:
+              append input_ref to node_entry.dependencies
 
-   b. For each logical name in the entry's `dependencies`:
-      - Look up that logical name in `entry_map` to get its current `rank`.
+       d. Write node_entry back into entry_map.
 
-   c. Compute `max_dep_rank` as the maximum `rank` among all dependency entries.
+  2. For each entry in entry_map where entry.kind = "artifact":
+       -- Artifact depends only on the node that generates it.
+       artifact_entry = entry
+       gen_node = artifact_entry.generating_node
+       if gen_node is not in entry_map:
+         append gen_node to unresolvable_refs
+       else:
+         append gen_node to artifact_entry.dependencies
+       Write artifact_entry back into entry_map.
 
-   d. Compute `new_rank` = `max_dep_rank` + 1.
-
-   e. If `new_rank` is greater than the entry's current `rank`:
-      - Update the entry's `rank` to `new_rank`.
-      - Set `changed` to true.
-
-3. Return `changed`.
-
----
-
-#### Step 4 — Convergence: repeat until stable
-
-5. Set `N` to the total number of entries in `entry_map`.
-
-6. Set `pass_count` to 0.
-
-7. Repeat:
-   a. Call `RunOnePass(entry_map)`. Store the result as `changed`.
-   b. Increment `pass_count` by 1.
-   c. If `changed` is false, stop repeating. Convergence reached.
-   d. If `pass_count` equals `N`, stop repeating.
-      (N passes have been completed — proceed to cycle detection.)
-
----
-
-#### Step 5 — Cycle detection
-
-8. If `pass_count` is less than `N`, there are no cycles.
-   Set `cycle_participants` to an empty list.
-
-9. Else (`pass_count` equals `N`):
-   a. Run one additional pass by calling `RunOnePass(entry_map)`.
-      Collect the logical names of every entry whose rank changed during this pass.
-   b. Set `cycle_participants` to that collected list of logical names.
+  3. Return (entry_map, unresolvable_refs).
+```
 
 ---
 
-#### Step 6 — Build result
+### NormalizeRef
 
-10. Initialize `ranked_entries` as an empty list.
+```
+function NormalizeRef(ref) -> string
+  -- Strips the parenthetical qualifier from ROOT/ references.
+  -- ARTIFACT/ references are returned unchanged.
 
-11. For each entry in `entry_map`:
-    - Create a RankedEntry record with:
-      - `logical_name`: the entry's logical name
-      - `rank`: the entry's final rank
-    - Append it to `ranked_entries`.
+  1. If ref starts with "ARTIFACT/":
+       return ref
 
-12. Return (`ranked_entries`, `cycle_participants`).
+  2. If ref starts with "ROOT/":
+       stripped = StripQualifier(ref)
+       -- StripQualifier removes "(anything)" from the end.
+       -- e.g. "ROOT/x/y(z)" -> "ROOT/x/y"
+       return stripped
+
+  3. return ref   -- unrecognized prefix; caller will report unresolvable
+```
 
 ---
 
-## Contracts and invariants
+### DetectCycles
 
-- Every entry in `entry_map` appears in `ranked_entries` exactly once.
-- `cycle_participants` contains all entries that participated in a cycle,
-  not merely one representative entry.
-- Cycle detection is a by-product of the ranking iteration; no separate
-  graph traversal is performed.
-- Entries with equal rank have no dependency between them — neither
-  directly nor transitively.
-- The root node `ROOT` always has rank 0 (it has no dependencies).
-- An artifact always has a rank strictly greater than the node that generates it.
+```
+function DetectCycles(nodes) -> (ranked_entries, cycle_participants)
+  -- nodes: list of NodeInfo records for all discovered spec nodes.
+  -- ranked_entries: list of RankedEntry (one per entry, nodes + artifacts).
+  -- cycle_participants: list of logical_name strings involved in cycles
+  --                     (empty list if no cycles detected).
+
+  errors:
+    - "unresolvable reference: <ref>" when a depends_on or input target
+      cannot be found in the entry map.
+
+  -- ── Step 1: Discovery ──────────────────────────────────────────────────
+
+  1. Call BuildEntryMap(nodes) -> entry_map.
+
+  -- ── Step 2: Build dependency edges ─────────────────────────────────────
+
+  2. Call BuildDependencies(entry_map, nodes) -> (entry_map, unresolvable_refs).
+
+     If unresolvable_refs is not empty:
+       raise error "unresolvable reference: " + join(unresolvable_refs, ", ")
+
+  -- ── Step 3: Initialization ──────────────────────────────────────────────
+
+  3. All entries already have rank = 0 (set during BuildEntryMap).
+     No additional initialization needed.
+
+  -- ── Step 4: Iterative rank propagation ─────────────────────────────────
+
+  4. total_entries = count of entries in entry_map.
+     pass_number = 0
+
+     Repeat:
+       changed = false
+       pass_number = pass_number + 1
+
+       For each entry in entry_map:
+         if entry.dependencies is empty:
+           computed_rank = 0
+         else:
+           max_dep_rank = 0
+           for each dep_name in entry.dependencies:
+             dep_entry = entry_map[dep_name]
+             if dep_entry.rank > max_dep_rank:
+               max_dep_rank = dep_entry.rank
+           computed_rank = 1 + max_dep_rank
+
+         if computed_rank > entry.rank:
+           entry.rank = computed_rank
+           changed = true
+           Write entry back into entry_map.
+
+       if changed is false:
+         -- Ranks have converged; no cycles.
+         break out of Repeat loop.
+
+       if pass_number >= total_entries:
+         -- After N passes ranks are still changing; a cycle exists.
+         -- Collect participants: entries whose rank changed in this last pass.
+         cycle_participants = empty list
+         for each entry in entry_map:
+           -- Re-run the rank computation one more time to find still-changing entries.
+           if entry.dependencies is not empty:
+             max_dep_rank = 0
+             for each dep_name in entry.dependencies:
+               dep_entry = entry_map[dep_name]
+               if dep_entry.rank > max_dep_rank:
+                 max_dep_rank = dep_entry.rank
+             computed_rank = 1 + max_dep_rank
+             if computed_rank > entry.rank:
+               append entry.logical_name to cycle_participants
+         break out of Repeat loop.
+
+  -- ── Step 5: Assemble results ────────────────────────────────────────────
+
+  5. ranked_entries = empty list
+     For each entry in entry_map:
+       Create RankedEntry:
+         logical_name = entry.logical_name
+         rank         = entry.rank
+       Append to ranked_entries.
+
+  6. If cycle_participants is not defined (normal convergence path):
+       cycle_participants = empty list
+
+  7. Return (ranked_entries, cycle_participants).
+```
+
+---
+
+## Helper: StripRootPrefix
+
+```
+function StripRootPrefix(logical_name) -> string
+  -- Removes the leading "ROOT/" from a logical name.
+  -- e.g. "ROOT/x/y" -> "x/y"
+  -- e.g. "ROOT"     -> ""  (edge case for the root node itself)
+
+  1. If logical_name equals "ROOT":
+       return ""
+
+  2. If logical_name starts with "ROOT/":
+       return substring of logical_name after the first "ROOT/" prefix.
+
+  3. return logical_name   -- unchanged if not a ROOT/ name
+```
+
+---
+
+## Contracts and Invariants
+
+- Every entry in the returned `ranked_entries` has a non-negative rank.
+- `ROOT` (the root spec node) always receives rank 0 because it has no
+  parent and no `depends_on` or `input` references.
+- A node with rank R can safely be processed after all entries with
+  rank < R have been processed.
+- Entries with the same rank have no dependency relationship with each
+  other and may be processed in any order (including in parallel).
+- `cycle_participants` contains ALL entries that are part of a cycle,
+  not just a representative. This is a consequence of collecting every
+  entry whose rank was still increasing after N passes.
+- Cycle detection requires no separate graph traversal; it is a natural
+  side effect of the iterative rank propagation failing to converge.
+- If `cycle_participants` is non-empty, the ranks of those entries are
+  unreliable and should not be used for ordering decisions.
+```

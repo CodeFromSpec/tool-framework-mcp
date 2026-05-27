@@ -59,6 +59,11 @@ For each discovered node:
 - Use `frontmatter` to parse the YAML frontmatter.
 - Use `node_parsing` to parse the body into sections.
 
+If parsing fails for a node, record the error as a
+format error and continue with the remaining nodes.
+The failed node is excluded from cached results and
+from subsequent steps that depend on parsed data.
+
 Cache the results — each node is parsed once and reused
 by subsequent steps.
 
@@ -74,6 +79,10 @@ structural rules. This uses:
 Collect all `FormatError` entries.
 
 ### Step 4 — Ranking and cycle detection
+
+Skip this step if Step 2 or Step 3 produced any format
+errors — ranking depends on valid frontmatter, so the
+results would be unreliable.
 
 Use `node_ranking` to rank all nodes and artifacts
 and detect circular references. Pass the full set of

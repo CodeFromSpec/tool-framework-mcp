@@ -1,217 +1,260 @@
-// code-from-spec: ROOT/golang/internal/artifact_tag/tests@WwYRrnAlpDp1Z0Jk6M0cr6o2-SA
-
-// Package artifacttag contains tests for ExtractArtifactTag.
-//
-// These tests live in the same package as the implementation (internal test
-// file) so they can reference unexported constants such as hashLength if
-// needed — though all assertions go through the public API.
-//
-// File-handle hygiene note
-// ========================
-// ExtractArtifactTag is responsible for opening AND closing the underlying
-// filereader.FileReader. The tests never open a FileReader directly, so
-// there are no extra file handles to close from the test side. If temp-file
-// cleanup fails on Windows (e.g. "The process cannot access the file because
-// it is being used by another process"), that indicates a handle leak inside
-// ExtractArtifactTag — the implementation must call defer r.Close() after
-// opening the reader.
-package artifacttag
+// code-from-spec: ROOT/golang/internal/artifact_tag/tests@bT-9KA8s65UounzYIy5d380lB6I
+package artifacttag_test
 
 import (
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/artifacttag"
 )
 
-// ---------------------------------------------------------------------------
-// Test helper types and functions
-// ---------------------------------------------------------------------------
-
-// testCase describes a single table-driven test entry.
-type testCase struct {
-	name string
-	// content is written verbatim to the temp file.
-	// If empty and filePath is set, filePath is used directly (non-existent file).
-	content     string
-	useRealFile bool // when false, filePath is a non-existent path
-
-	wantErr         bool
-	wantSentinel    error  // checked with errors.Is when wantErr is true
-	wantLogicalName string // checked when wantErr is false
-	wantHash        string // checked when wantErr is false
-}
-
-// testWriteFile writes content into a new file inside dir and returns its
-// absolute path. It calls t.Fatal on any write failure.
-func testWriteFile(t *testing.T, dir, filename, content string) string {
+// writeTemp creates a temporary file with the given content and returns its path.
+// The file is automatically removed when the test ends.
+func writeTemp(t *testing.T, content string) string {
 	t.Helper()
-	path := filepath.Join(dir, filename)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "testfile.go")
 	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-		t.Fatalf("testWriteFile: could not write %s: %v", path, err)
+		t.Fatalf("writeTemp: %v", err)
 	}
 	return path
 }
 
 // ---------------------------------------------------------------------------
-// Happy-path tests
+// ExtractArtifactTag — happy path
 // ---------------------------------------------------------------------------
 
-// TestExtractArtifactTag_HappyPath covers all successful extraction cases.
-func TestExtractArtifactTag_HappyPath(t *testing.T) {
-	t.Parallel()
+func TestExtractArtifactTag_SimpleTag(t *testing.T) {
+	content := "// code-from-spec: some/logical/name@AAAAAAAAAAAAAAAAAAAAAAAAA00\npackage main\n"
+	path := writeTemp(t, content)
 
-	tests := []struct {
-		name            string
-		content         string
-		wantLogicalName string
-		wantHash        string
-	}{
-		{
-			// Spec: "Extracts tag from Go comment"
-			// The tag appears on the first line in a // comment.
-			name:            "go_line_comment",
-			content:         "// code-from-spec: ROOT/golang/internal/foo/code(bar)@abcdefghijklmnopqrstuvwxyza\n",
-			wantLogicalName: "ROOT/golang/internal/foo/code(bar)",
-			wantHash:        "abcdefghijklmnopqrstuvwxyza",
-		},
-		{
-			// Spec: "Extracts tag from hash comment"
-			// The tag appears in a # comment (shell/YAML style).
-			name:            "hash_comment",
-			content:         "# code-from-spec: ROOT/some/node(id)@123456789012345678901234567\n",
-			wantLogicalName: "ROOT/some/node(id)",
-			wantHash:        "123456789012345678901234567",
-		},
-		{
-			// Spec: "Stops reading at first match"
-			// The file has two valid code-from-spec lines; only the first is returned.
-			name: "first_match_wins",
-			content: "// code-from-spec: ROOT/first/node@aaaaaaaaaaaaaaaaaaaaaaaaaa1\n" +
-				"// code-from-spec: ROOT/second/node@bbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
-			wantLogicalName: "ROOT/first/node",
-			wantHash:        "aaaaaaaaaaaaaaaaaaaaaaaaaa1",
-		},
-		{
-			// Spec: "Tag on non-first line"
-			// Lines 1–2 are plain text; the tag is on line 3.
-			name: "tag_on_third_line",
-			content: "package main\n" +
-				"\n" +
-				"// code-from-spec: ROOT/golang/server@ccccccccccccccccccccccccccc\n",
-			wantLogicalName: "ROOT/golang/server",
-			wantHash:        "ccccccccccccccccccccccccccc",
-		},
+	got, err := artifacttag.ExtractArtifactTag(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
+	if got.LogicalName != "some/logical/name" {
+		t.Errorf("LogicalName = %q, want %q", got.LogicalName, "some/logical/name")
+	}
+	if got.Hash != "AAAAAAAAAAAAAAAAAAAAAAAAA00" {
+		t.Errorf("Hash = %q, want %q", got.Hash, "AAAAAAAAAAAAAAAAAAAAAAAAA00")
+	}
+}
 
-	for _, tc := range tests {
-		tc := tc // capture range variable
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+func TestExtractArtifactTag_TagNotOnFirstLine(t *testing.T) {
+	// Tag appears after several lines of other content.
+	content := "package main\n\nimport \"fmt\"\n\n// code-from-spec: my/node@bT-9KA8s65UounzYIy5d380lB6I\n"
+	path := writeTemp(t, content)
 
-			dir := t.TempDir()
-			path := testWriteFile(t, dir, "input.go", tc.content)
+	got, err := artifacttag.ExtractArtifactTag(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.LogicalName != "my/node" {
+		t.Errorf("LogicalName = %q, want %q", got.LogicalName, "my/node")
+	}
+	if got.Hash != "bT-9KA8s65UounzYIy5d380lB6I" {
+		t.Errorf("Hash = %q, want %q", got.Hash, "bT-9KA8s65UounzYIy5d380lB6I")
+	}
+}
 
-			// ExtractArtifactTag opens and closes the file reader internally.
-			// No extra handle is held here.
-			got, err := ExtractArtifactTag(path)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got.LogicalName != tc.wantLogicalName {
-				t.Errorf("LogicalName: got %q, want %q", got.LogicalName, tc.wantLogicalName)
-			}
-			if got.Hash != tc.wantHash {
-				t.Errorf("Hash: got %q, want %q", got.Hash, tc.wantHash)
-			}
-		})
+func TestExtractArtifactTag_HashExactly27Chars(t *testing.T) {
+	// Hash is exactly 27 characters — the minimum valid length.
+	hash27 := "123456789012345678901234567"
+	if len(hash27) != 27 {
+		t.Fatalf("test setup error: hash27 length is %d, want 27", len(hash27))
+	}
+	content := "// code-from-spec: node@" + hash27 + "\n"
+	path := writeTemp(t, content)
+
+	got, err := artifacttag.ExtractArtifactTag(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Hash != hash27 {
+		t.Errorf("Hash = %q, want %q", got.Hash, hash27)
+	}
+}
+
+func TestExtractArtifactTag_HashLongerThan27CharsIsTruncated(t *testing.T) {
+	// Extra characters after the 27-char hash are ignored.
+	longHash := "ABCDEFGHIJKLMNOPQRSTUVWXYZ1_extra"
+	content := "// code-from-spec: node@" + longHash + "\n"
+	path := writeTemp(t, content)
+
+	got, err := artifacttag.ExtractArtifactTag(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := longHash[:27]
+	if got.Hash != want {
+		t.Errorf("Hash = %q, want %q", got.Hash, want)
+	}
+}
+
+func TestExtractArtifactTag_FirstAtUsedForSplit(t *testing.T) {
+	// LogicalName itself contains '@' — the FIRST '@' must be used as the
+	// split point, so the logical name is the part before it.
+	content := "// code-from-spec: org@scope/node@AAAAAAAAAAAAAAAAAAAAAAAAA00\n"
+	path := writeTemp(t, content)
+
+	got, err := artifacttag.ExtractArtifactTag(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.LogicalName != "org" {
+		t.Errorf("LogicalName = %q, want %q", got.LogicalName, "org")
+	}
+}
+
+func TestExtractArtifactTag_TagEmbeddedInHashComment(t *testing.T) {
+	// The prefix may appear anywhere on the line (e.g. after `#`).
+	content := "# code-from-spec: root/node@bT-9KA8s65UounzYIy5d380lB6I\n"
+	path := writeTemp(t, content)
+
+	got, err := artifacttag.ExtractArtifactTag(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.LogicalName != "root/node" {
+		t.Errorf("LogicalName = %q, want %q", got.LogicalName, "root/node")
+	}
+}
+
+func TestExtractArtifactTag_OnlyFirstTagReturned(t *testing.T) {
+	// Two valid tag lines — only the first must be returned.
+	content := "// code-from-spec: first/node@AAAAAAAAAAAAAAAAAAAAAAAAA00\n" +
+		"// code-from-spec: second/node@BBBBBBBBBBBBBBBBBBBBBBBBBBB\n"
+	path := writeTemp(t, content)
+
+	got, err := artifacttag.ExtractArtifactTag(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.LogicalName != "first/node" {
+		t.Errorf("LogicalName = %q, want %q", got.LogicalName, "first/node")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Failure-case tests
+// ExtractArtifactTag — ErrFileUnreadable
 // ---------------------------------------------------------------------------
 
-// TestExtractArtifactTag_FileDoesNotExist verifies that a missing file
-// causes ErrFileUnreadable to be returned (wrapped).
-func TestExtractArtifactTag_FileDoesNotExist(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	// Deliberately point at a path that was never created.
-	nonExistent := filepath.Join(dir, "does_not_exist.go")
-
-	_, err := ExtractArtifactTag(nonExistent)
-	if err == nil {
-		t.Fatal("expected an error, got nil")
-	}
-	if !errors.Is(err, ErrFileUnreadable) {
-		t.Errorf("errors.Is(err, ErrFileUnreadable) = false; err = %v", err)
+func TestExtractArtifactTag_ErrFileUnreadable_NonExistentFile(t *testing.T) {
+	_, err := artifacttag.ExtractArtifactTag("/nonexistent/path/to/file.go")
+	if !errors.Is(err, artifacttag.ErrFileUnreadable) {
+		t.Errorf("err = %v, want errors.Is(err, ErrFileUnreadable)", err)
 	}
 }
 
-// TestExtractArtifactTag_NoTag verifies that a file without any
-// "code-from-spec:" substring causes ErrNoTagFound to be returned.
-func TestExtractArtifactTag_NoTag(t *testing.T) {
-	t.Parallel()
+// ---------------------------------------------------------------------------
+// ExtractArtifactTag — ErrNoTagFound
+// ---------------------------------------------------------------------------
 
-	dir := t.TempDir()
+func TestExtractArtifactTag_ErrNoTagFound_EmptyFile(t *testing.T) {
+	path := writeTemp(t, "")
+
+	_, err := artifacttag.ExtractArtifactTag(path)
+	if !errors.Is(err, artifacttag.ErrNoTagFound) {
+		t.Errorf("err = %v, want errors.Is(err, ErrNoTagFound)", err)
+	}
+}
+
+func TestExtractArtifactTag_ErrNoTagFound_NoTagInFile(t *testing.T) {
 	content := "package main\n\nfunc main() {}\n"
-	path := testWriteFile(t, dir, "no_tag.go", content)
+	path := writeTemp(t, content)
 
-	_, err := ExtractArtifactTag(path)
-	if err == nil {
-		t.Fatal("expected an error, got nil")
-	}
-	if !errors.Is(err, ErrNoTagFound) {
-		t.Errorf("errors.Is(err, ErrNoTagFound) = false; err = %v", err)
+	_, err := artifacttag.ExtractArtifactTag(path)
+	if !errors.Is(err, artifacttag.ErrNoTagFound) {
+		t.Errorf("err = %v, want errors.Is(err, ErrNoTagFound)", err)
 	}
 }
 
-// TestExtractArtifactTag_MalformedTag covers all malformed-tag variants
-// using a table-driven approach.
-func TestExtractArtifactTag_MalformedTag(t *testing.T) {
-	t.Parallel()
+func TestExtractArtifactTag_ErrNoTagFound_PrefixAbsentButSimilarText(t *testing.T) {
+	// A line with "code-from-spec" but without the trailing ": " must not match.
+	content := "// code-from-spec somenode@AAAAAAAAAAAAAAAAAAAAAAAAA00\n"
+	path := writeTemp(t, content)
 
-	tests := []struct {
-		name    string
-		content string
-	}{
-		{
-			// Spec: "Malformed tag — no @ separator"
-			// The tag is present but has no "@" separating name from hash.
-			name:    "no_at_separator",
-			content: "// code-from-spec: ROOT/foo/bar\n",
-		},
-		{
-			// Spec: "Malformed tag — empty logical name"
-			// The "@" is present but nothing precedes it.
-			name:    "empty_logical_name",
-			content: "// code-from-spec: @abcdefghijklmnopqrstuvwxyza\n",
-		},
-		{
-			// Spec: "Malformed tag — wrong hash length"
-			// The logical name is valid but the hash is too short (5 chars, not 27).
-			name:    "wrong_hash_length",
-			content: "// code-from-spec: ROOT/foo(bar)@short\n",
-		},
+	_, err := artifacttag.ExtractArtifactTag(path)
+	if !errors.Is(err, artifacttag.ErrNoTagFound) {
+		t.Errorf("err = %v, want errors.Is(err, ErrNoTagFound)", err)
 	}
+}
 
-	for _, tc := range tests {
-		tc := tc // capture range variable
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+// ---------------------------------------------------------------------------
+// ExtractArtifactTag — ErrMalformedTag
+// ---------------------------------------------------------------------------
 
-			dir := t.TempDir()
-			path := testWriteFile(t, dir, "malformed.go", tc.content)
+func TestExtractArtifactTag_ErrMalformedTag_MissingAt(t *testing.T) {
+	// Tag prefix is present but no '@' separator.
+	content := "// code-from-spec: nodewithnoathash\n"
+	path := writeTemp(t, content)
 
-			_, err := ExtractArtifactTag(path)
-			if err == nil {
-				t.Fatal("expected an error, got nil")
-			}
-			if !errors.Is(err, ErrMalformedTag) {
-				t.Errorf("errors.Is(err, ErrMalformedTag) = false; err = %v", err)
-			}
-		})
+	_, err := artifacttag.ExtractArtifactTag(path)
+	if !errors.Is(err, artifacttag.ErrMalformedTag) {
+		t.Errorf("err = %v, want errors.Is(err, ErrMalformedTag)", err)
+	}
+}
+
+func TestExtractArtifactTag_ErrMalformedTag_HashTooShort(t *testing.T) {
+	// Hash is only 26 characters — one short of the required 27.
+	hash26 := "AAAAAAAAAAAAAAAAAAAAAAAAAA"
+	if len(hash26) != 26 {
+		t.Fatalf("test setup error: hash26 length is %d, want 26", len(hash26))
+	}
+	content := "// code-from-spec: node@" + hash26 + "\n"
+	path := writeTemp(t, content)
+
+	_, err := artifacttag.ExtractArtifactTag(path)
+	if !errors.Is(err, artifacttag.ErrMalformedTag) {
+		t.Errorf("err = %v, want errors.Is(err, ErrMalformedTag)", err)
+	}
+}
+
+func TestExtractArtifactTag_ErrMalformedTag_EmptyHashAfterAt(t *testing.T) {
+	// '@' is present but nothing follows it.
+	content := "// code-from-spec: node@\n"
+	path := writeTemp(t, content)
+
+	_, err := artifacttag.ExtractArtifactTag(path)
+	if !errors.Is(err, artifacttag.ErrMalformedTag) {
+		t.Errorf("err = %v, want errors.Is(err, ErrMalformedTag)", err)
+	}
+}
+
+func TestExtractArtifactTag_ErrMalformedTag_EmptyLogicalName(t *testing.T) {
+	// '@' is right after the prefix — empty logical name, but hash is valid.
+	// The implementation does not validate that LogicalName is non-empty, so
+	// this should succeed and return an empty LogicalName.
+	hash27 := "AAAAAAAAAAAAAAAAAAAAAAAAA00"
+	content := "// code-from-spec: @" + hash27 + "\n"
+	path := writeTemp(t, content)
+
+	got, err := artifacttag.ExtractArtifactTag(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.LogicalName != "" {
+		t.Errorf("LogicalName = %q, want empty string", got.LogicalName)
+	}
+	if got.Hash != hash27 {
+		t.Errorf("Hash = %q, want %q", got.Hash, hash27)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Sentinel identity — errors.Is must work transitively
+// ---------------------------------------------------------------------------
+
+func TestErrorSentinels_AreDistinct(t *testing.T) {
+	if errors.Is(artifacttag.ErrFileUnreadable, artifacttag.ErrNoTagFound) {
+		t.Error("ErrFileUnreadable should not match ErrNoTagFound")
+	}
+	if errors.Is(artifacttag.ErrFileUnreadable, artifacttag.ErrMalformedTag) {
+		t.Error("ErrFileUnreadable should not match ErrMalformedTag")
+	}
+	if errors.Is(artifacttag.ErrNoTagFound, artifacttag.ErrMalformedTag) {
+		t.Error("ErrNoTagFound should not match ErrMalformedTag")
 	}
 }

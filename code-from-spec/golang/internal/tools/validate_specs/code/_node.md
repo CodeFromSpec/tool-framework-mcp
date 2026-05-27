@@ -30,16 +30,19 @@ Implementation of the validate_specs tool handler.
    `logicalnames` reverse resolution.
 3. For each node, parse the YAML frontmatter using
    `frontmatter` and parse the body into sections using
-   `parsenode`. Cache results so each node is parsed once.
+   `parsenode`. If parsing fails for a node, record the
+   error as a format error and continue with remaining
+   nodes. Cache results so each node is parsed once.
 4. Run `formatvalidation` on each node to check structural
    rules. This uses `logicalnames` to verify `depends_on`
    targets resolve, `normalizename` to compare headings with
    logical names, and `pathvalidation` to verify `outputs`
    paths are safe. Collect all format errors.
-5. Use `noderanking` to rank all nodes and detect circular
-   references. Pass the full set of discovered nodes with
-   their parsed frontmatter. If cycles are detected, record
-   the cycle participants.
+5. Skip this step if step 3 or step 4 produced any format
+   errors. Use `noderanking` to rank all nodes and detect
+   circular references. Pass the full set of discovered
+   nodes with their parsed frontmatter. If cycles are
+   detected, record the cycle participants.
 6. For each node with `outputs`, in rank order (lowest first):
    a. Compute the chain hash using SHA-1 of concatenated
       position hashes, base64url encoded.

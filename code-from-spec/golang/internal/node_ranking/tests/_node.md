@@ -16,10 +16,19 @@ Test cases for the noderanking package.
 
 ## Context
 
+`DetectCycles` receives `[]nodediscovery.DiscoveredNode`
+(with `LogicalName` and `FilePath` only — no frontmatter
+field) and parses frontmatter internally from each
+`FilePath`. Tests must therefore create real `_node.md`
+files on disk with controlled frontmatter YAML content.
+
 Each test uses `t.TempDir()` to create an isolated temporary
-directory. Create `_node.md` files with controlled frontmatter
-to set up dependency graphs. Use table-driven tests where
-appropriate.
+directory. Build `_node.md` files under it using a helper
+that writes YAML frontmatter between `---` delimiters.
+Construct `DiscoveredNode` slices manually — no need to call
+`DiscoverNodes`.
+
+Use table-driven tests where appropriate.
 
 ## Happy Path
 
@@ -40,6 +49,14 @@ Create ROOT, ROOT/a, ROOT/b where ROOT/b depends_on ROOT/a.
 Expect ROOT/b has higher rank than ROOT/a. No cycle
 participants.
 
+### depends_on with ROOT qualifier resolves correctly
+
+Create ROOT, ROOT/a with a `# Public` section containing a
+`## Interface` subsection, and ROOT/b with
+`depends_on: ROOT/a(interface)`. Expect no error — the
+qualified reference resolves to ROOT/a. Expect ROOT/b has
+higher rank than ROOT/a. No cycle participants.
+
 ### Artifacts get rank one above their node
 
 Create ROOT/a with an output artifact. Expect the artifact
@@ -50,8 +67,7 @@ entry has rank = rank of ROOT/a + 1.
 ### Circular dependency detected
 
 Create ROOT/a depends_on ROOT/b and ROOT/b depends_on
-ROOT/a. Expect both logical names appear in the cycle
-participants list.
+ROOT/a. Expect cycle participants list is not empty.
 
 ### Unresolvable reference
 

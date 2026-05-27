@@ -106,16 +106,25 @@ func HandleValidateSpecs(
 
 	// -------------------------------------------------------------------------
 	// Step 3 — Cycle detection and topological ranking
+	//
+	// Skipped entirely when format errors exist — ranking depends on valid
+	// frontmatter, so the results would be unreliable.
 	// -------------------------------------------------------------------------
-	rankedEntries, cycleParticipants, rankErr := noderanking.DetectCycles(nodes)
-	if rankErr != nil && !errors.Is(rankErr, noderanking.ErrUnresolvableRef) {
-		// Unexpected internal error from noderanking.
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{
-				Text: fmt.Sprintf("node ranking encountered an unexpected error: %v", rankErr),
-			}},
-			IsError: true,
-		}, nil, nil
+	var rankedEntries []noderanking.RankedEntry
+	var cycleParticipants []string
+	var rankErr error
+
+	if len(formatErrors) == 0 {
+		rankedEntries, cycleParticipants, rankErr = noderanking.DetectCycles(nodes)
+		if rankErr != nil && !errors.Is(rankErr, noderanking.ErrUnresolvableRef) {
+			// Unexpected internal error from noderanking.
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{
+					Text: fmt.Sprintf("node ranking encountered an unexpected error: %v", rankErr),
+				}},
+				IsError: true,
+			}, nil, nil
+		}
 	}
 
 	// Build a rank map (logicalName → rank) for ordering staleness entries.

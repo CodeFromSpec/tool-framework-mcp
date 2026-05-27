@@ -56,13 +56,15 @@ found or not).
 
 Once a line containing `code-from-spec: ` is found:
 
-1. Take everything after `code-from-spec: ` to the end
-   of the line (trimming trailing whitespace).
-2. Find the last occurrence of `@`.
-3. The logical name is everything before `@`.
-4. The hash is everything after `@`.
-5. Validate: logical name must not be empty, hash must
-   be exactly 27 characters.
+1. Take the substring starting immediately after
+   `code-from-spec: `.
+2. Find the first occurrence of `@`.
+3. The logical name is everything between `code-from-spec: `
+   and `@`.
+4. The hash is the 27 characters immediately after `@`.
+5. Validate: logical name must not be empty, `@` must
+   exist, and there must be at least 27 characters
+   after `@`.
 
 ## Contracts
 
