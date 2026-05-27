@@ -24,6 +24,6 @@ Implement the pseudocode from the input as a Go package.
   `%w` so callers can match with `errors.Is()`.
 - Scan for the `code-from-spec: ` substring in each line.
   Stop reading as soon as a match is found.
-- Parse the tag by finding the last `@` in the value.
-- Validate: logical name must not be empty, hash must be
-  exactly 27 characters.
+- Parse the tag by finding the first `@` after the prefix.
+- The hash is exactly the first 27 characters after `@`.
+  Anything after those 27 characters is ignored.
