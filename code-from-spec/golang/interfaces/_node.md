@@ -19,9 +19,9 @@ usage examples.
 - Return `error` from methods that can fail, even if the
   functional spec uses "raise error" without an explicit
   return.
-- Pass and return non-basic types (structs) by reference
-  (pointer), not by value. This ensures mutations are
-  visible to the caller and avoids unintended copies.
+- With the exception of primitive types, and unless you
+  have a compelling reason not to, pass and return all
+  types by reference, not by value.
 
 ## Output format
 

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_reader@K1YCQUQfCY5n_-uWK2CxR4t501s
+// code-from-spec: ROOT/golang/implementation/os/file_reader@V_qBDMEFXH0wv251I9Vsw4C2W1k
 
 package filereader
 
@@ -13,13 +13,13 @@ import (
 )
 
 // FileReader holds the state for sequential line-by-line reading of a file.
-// It is opened via FileOpen and must be closed with FileClose when no longer
-// needed to avoid leaking the file handle.
+// Obtain a FileReader via FileOpen. The caller must call FileClose when done
+// to release the underlying file handle.
 type FileReader struct {
 	CfsPath *pathutils.PathCfs
 	osPath  *pathutils.PathOs
-	file    *os.File
 	scanner *bufio.Scanner
+	file    *os.File
 	closed  bool
 }
 
@@ -34,13 +34,15 @@ var (
 )
 
 // FileOpen opens the file at cfs_path and prepares it for sequential
-// line-by-line reading from the beginning of the file. The caller must
-// call FileClose when done — failing to do so leaks the file handle.
+// line-by-line reading starting from the beginning of the file.
+// The caller must call FileClose when done — failing to do so leaks
+// the file handle.
 //
-// Possible errors: ErrFileUnreadable, and any path error propagated from
-// pathutils.PathCfsToOs (ErrPathEmpty, ErrPathAbsolute,
-// ErrPathContainsBackslash, ErrDirectoryTraversal, ErrResolvesOutsideRoot,
-// ErrCannotDetermineRoot).
+// Possible errors:
+//   - Path errors propagated from pathutils.PathCfsToOs if the path
+//     is invalid (ErrPathEmpty, ErrPathAbsolute, ErrPathContainsBackslash,
+//     ErrDirectoryTraversal, ErrResolvesOutsideRoot, ErrCannotDetermineRoot).
+//   - ErrFileUnreadable if the path is valid but the file cannot be opened.
 func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error) {
 	osPath, err := pathutils.PathCfsToOs(cfs_path)
 	if err != nil {
@@ -57,17 +59,18 @@ func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error) {
 	return &FileReader{
 		CfsPath: cfs_path,
 		osPath:  osPath,
-		file:    f,
 		scanner: scanner,
+		file:    f,
 		closed:  false,
 	}, nil
 }
 
 // FileReadLine reads the next line from the file, normalizes CRLF to LF,
-// and returns the line content without the line terminator.
+// and returns the line without the line terminator.
 //
-// Returns ErrEndOfFile when there are no more lines to read, or after
-// FileClose has been called.
+// Possible errors:
+//   - ErrEndOfFile when there are no more lines to read, or after
+//     FileClose has been called.
 func FileReadLine(reader *FileReader) (string, error) {
 	if reader.closed {
 		return "", ErrEndOfFile
@@ -84,7 +87,8 @@ func FileReadLine(reader *FileReader) (string, error) {
 }
 
 // FileSkipLines reads and discards count lines from the file without
-// returning their content. Does nothing if the reader has been closed.
+// returning their content. Does nothing if FileClose has already been
+// called.
 func FileSkipLines(reader *FileReader, count int) {
 	if reader.closed {
 		return
@@ -98,8 +102,8 @@ func FileSkipLines(reader *FileReader, count int) {
 }
 
 // FileClose releases the file resource associated with reader. After
-// FileClose is called, FileReadLine returns ErrEndOfFile and FileSkipLines
-// does nothing.
+// FileClose is called, FileReadLine returns ErrEndOfFile and
+// FileSkipLines does nothing.
 func FileClose(reader *FileReader) {
 	if reader.closed {
 		return
