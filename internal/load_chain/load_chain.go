@@ -114,12 +114,11 @@ func HandleLoadChain(
 		if err != nil {
 			return toolError(fmt.Sprintf("unreadable file: cannot parse ancestor %q: %v", ancestorName, err)), nil, nil
 		}
-		if parsed.Public == nil || strings.TrimSpace(parsed.Public.Content) == "" {
-			// No public section or it is empty — skip this ancestor.
+		full := sectionFullContent(parsed.Public)
+		if full == "" {
 			continue
 		}
-		// Append content WITHOUT the heading.
-		contextParts = append(contextParts, parsed.Public.Content)
+		contextParts = append(contextParts, full)
 	}
 
 	// --- Step 2: Dependencies (depends_on) ---
@@ -273,13 +272,13 @@ func HandleLoadChain(
 	contextParts = append(contextParts, reducedFM)
 	// (NOT added to hashInputs per spec)
 
-	if targetParsed.Public != nil && strings.TrimSpace(targetParsed.Public.Content) != "" {
-		contextParts = append(contextParts, targetParsed.Public.Content)
+	if pubFull := sectionFullContent(targetParsed.Public); pubFull != "" {
+		contextParts = append(contextParts, pubFull)
 	}
 
 	// --- Step 5: Target's # Agent section ---
-	if targetParsed.Agent != nil && strings.TrimSpace(targetParsed.Agent.Content) != "" {
-		contextParts = append(contextParts, targetParsed.Agent.Content)
+	if agentFull := sectionFullContent(targetParsed.Agent); agentFull != "" {
+		contextParts = append(contextParts, agentFull)
 	}
 
 	// --- Phase 3: Input artifact (if declared) ---
@@ -415,6 +414,26 @@ func stripFrontmatter(content string) string {
 		afterClosing = afterClosing[1:]
 	}
 	return afterClosing
+}
+
+func sectionFullContent(s *parsenode.Section) string {
+	if s == nil {
+		return ""
+	}
+	var sb strings.Builder
+	if strings.TrimSpace(s.Content) != "" {
+		sb.WriteString(s.Content)
+	}
+	for _, sub := range s.Subsections {
+		if sb.Len() > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString("## ")
+		sb.WriteString(sub.Heading)
+		sb.WriteString("\n\n")
+		sb.WriteString(sub.Content)
+	}
+	return sb.String()
 }
 
 // buildReducedFrontmatter constructs the YAML frontmatter block containing

@@ -70,10 +70,11 @@ reading). Content is concatenated in this exact order:
 
 For each ancestor, from the root node down to the
 target's direct parent, in tree depth order:
-- Include the `# Public` section content (without the
-  `# Public` heading itself).
-- If `# Public` is absent or empty, skip this ancestor
-  entirely — do not emit empty content.
+- Include the `# Public` section — both the direct
+  content and all `##` subsections (with their
+  headings). Omit only the `# Public` heading itself.
+- If `# Public` is absent or has no content and no
+  subsections, skip this ancestor entirely.
 
 **Step 2 — Dependencies** (`depends_on`)
 
@@ -99,14 +100,18 @@ alphabetical order by path:
 
 **Step 4 — Target `# Public`**
 
-Include the target node's `# Public` section content
-(without the heading). Preceded by a reduced frontmatter
-block containing only `outputs`.
+Preceded by a reduced frontmatter block containing only
+`outputs`. Then include the target node's `# Public`
+section — both the direct content and all `##`
+subsections (with their headings). Omit only the
+`# Public` heading itself.
 
 **Step 5 — Target `# Agent`**
 
-Include the target node's `# Agent` section content
-(without the heading). If absent, skip.
+Include the target node's `# Agent` section — both the
+direct content and all `##` subsections (with their
+headings). Omit only the `# Agent` heading itself.
+If the section is absent, skip.
 
 ### Input separation
 

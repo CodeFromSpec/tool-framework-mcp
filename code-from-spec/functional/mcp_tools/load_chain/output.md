@@ -1,118 +1,150 @@
-[//]: # (code-from-spec: ROOT/functional/mcp_tools/load_chain@O0l5bALQpKtvIfFfFmKd8nFNis8)
+<!-- code-from-spec: ROOT/functional/mcp_tools/load_chain@eFK4v0N5MoJKIzShqVG7Jetec3A -->
 
-# load_chain
+# LoadChain
 
-## Overview
-
-`load_chain` is an MCP tool that loads and assembles the full specification chain
-for a given node. It returns the chain hash on the first line, followed by the
-concatenated content of all relevant spec files.
+Loads the complete spec chain for a given node and returns
+the chain hash, context, and input.
 
 ## Interface
 
 ```
-tool load_chain
-  input:
-    logical_name: string
-  output:
-    text: string
+function LoadChain(logical_name) -> list of text items
   errors:
-    - invalid logical name: cannot resolve the provided logical name.
-    - unreadable file: a file in the chain cannot be read.
+    - invalid logical name: not a recognized ROOT/ reference.
+    - no outputs: target node has no outputs field.
+    - invalid output path: an output path fails path validation.
+    - chain resolution failure: a dependency cannot be resolved.
+    - unreadable file: a file in the chain cannot be read or parsed.
 ```
 
-## Output Format
+### Input
 
-The returned text has the following structure:
+| Parameter | Required | Description |
+|---|---|---|
+| `logical_name` | yes | Logical name of the target node. |
 
-```
-chain_hash: <27-character base64url SHA-1 hash>
+### Output
 
-<concatenated spec content>
+The result contains separate text items:
 
---- input ---
-<input content, if any>
-```
+| Item | Always present | Content |
+|---|---|---|
+| Chain hash | yes | The 27-character base64url chain hash. |
+| Context | yes | All chain content concatenated as a single stream. |
+| Input | only if `input` field exists | Content of the input artifact, excluding frontmatter. |
 
-The first line is always `chain_hash: ` followed by the 27-character hash
-produced by `ComputeChainHash`. A blank line follows, then the spec content.
+---
 
-If the node's frontmatter declares an `input` path, the content of that file
-is appended after a `--- input ---` separator line. If no input is declared,
-the `--- input ---` section is omitted.
+## Algorithm
 
-## Behavior
+### Step 1 — Validation
 
-### Chain Assembly
+1. The logical name must be a valid `ROOT/` reference.
+   Use `ResolvePath(logical_name)` — if it fails, raise
+   "invalid logical name".
+2. Read the frontmatter of the target node using
+   `ParseFrontmatter`. It must have `outputs` declared.
+   If `outputs` is empty, raise "no outputs".
+3. For each output, call `ValidatePath` on the output path.
+   If any fails, raise "invalid output path".
 
-Given `logical_name`, the tool assembles the chain by walking from the node up
-to the root, collecting spec content at each level, then appending any
-`external` files declared in frontmatter, and finally including the node's own
-content.
+### Step 2 — Chain hash
 
-The chain is assembled in this order:
+Call `ComputeChainHash(logical_name)` to compute the
+27-character base64url chain hash. This is returned as
+the first text item.
 
-1. Ancestor nodes from root down to the immediate parent (each contributing
-   their `# Public` section content, or the specific subsection if a qualifier
-   is present in the logical name).
-2. The target node's full `_node.md` content.
-3. Any files declared under `external` in the target node's frontmatter, in
-   declaration order.
+### Step 3 — Context stream
 
-### Qualifier Handling
+The context is a single continuous text block — no
+delimiters, no headers, no file boundaries. All files are
+read using `OpenFileReader` (close each reader after
+reading). Content is concatenated in this exact order:
 
-When the logical name includes a parenthetical qualifier (e.g.
-`ROOT/x/y(interface)`), the tool extracts only the matching `## interface`
-subsection from `# Public` when collecting ancestor content. Without a
-qualifier, the full `# Public` section is used.
+**3a — Ancestors** (root to target's parent)
 
-For the target node itself, the full file content is always included regardless
-of any qualifier.
+For each ancestor, from the root node down to the target's
+direct parent, in tree depth order:
+- Use `ParseNode` to parse the ancestor.
+- Include the `# Public` section — both the direct content
+  and all `##` subsections (with their headings). Omit only
+  the `# Public` heading itself.
+- If `# Public` is absent or has no content and no
+  subsections, skip this ancestor entirely.
 
-### Ancestor Content Extraction
+**3b — Dependencies** (`depends_on`)
 
-For each ancestor node (from `ROOT` down to the direct parent):
+For each entry in the target's `depends_on`, in alphabetical
+order by logical name:
+- `ROOT/x/y` — use `ParseNode` to parse the referenced node.
+  Include the full `# Public` section — direct content and
+  all `##` subsections (with their headings). Omit the
+  `# Public` heading.
+- `ROOT/x/y(z)` — use `ParseNode` to parse the referenced
+  node. Find the `## z` subsection within `# Public` by
+  normalizing headings with `NormalizeName`. Include only
+  that subsection's content.
+- `ARTIFACT/x/y(id)` — resolve the artifact path using
+  `ResolveArtifactReference`, then look up the output path
+  in the referenced node's frontmatter. Read the file and
+  exclude any frontmatter.
 
-1. Parse the node using `ParseNode`.
-2. If the logical name has a qualifier that matches a subsection heading
-   (after normalization via `NormalizeName`), include only that subsection's
-   content.
-3. Otherwise, include the full content of the `# Public` section.
-4. If the node has no `# Public` section, contribute nothing for that ancestor.
+**3c — External files** (`external`)
 
-### External Files
+For each entry in the target's `external`, in alphabetical
+order by path:
+- If no `fragments` declared — read and include the full
+  file content.
+- If `fragments` declared — for each fragment, extract the
+  declared line range. Concatenate all fragments in
+  declaration order.
 
-External files are declared in the target node's frontmatter under `external`.
-Each `External` record has a `path` and an optional list of `fragments`.
+**3d — Target `# Public`**
 
-- If `fragments` is absent or empty, the entire file content is appended.
-- If `fragments` is present, only the lines specified by each fragment are
-  appended, in declaration order. Each `ExternalFragment` has:
-  - `lines`: a line range in the format `"N-M"` (1-based, inclusive).
-  - `description`: an optional label (used as a comment header if present).
-  - `hash`: a hash of the expected fragment content, used for staleness
-    detection (not used during assembly itself).
+Use `ParseNode` to parse the target. Emit a reduced
+frontmatter block containing only `outputs`. Then include
+the `# Public` section — both the direct content and all
+`##` subsections (with their headings). Omit only the
+`# Public` heading itself.
 
-### Input Material
+**3e — Target `# Agent`**
 
-After all spec content is assembled, if the target node's frontmatter declares
-a non-empty `input` path:
+Include the target node's `# Agent` section — both the
+direct content and all `##` subsections (with their
+headings). Omit only the `# Agent` heading itself. If the
+section is absent, skip.
 
-1. Validate the path using `ValidatePath`.
-2. Read the file at that path.
-3. Append the literal line `--- input ---` followed by the file's content.
+### Step 4 — Input separation
 
-### Hash Computation
+If the target node has an `input` field, read the referenced
+artifact file, exclude any frontmatter, and return its content
+as a separate text item. This is not concatenated into the
+context stream — it allows the consumer to distinguish context
+(what informs) from input (what to transform).
 
-The chain hash is computed by calling `ComputeChainHash(logical_name)`, which
-returns a 27-character base64url-encoded SHA-1 hash. This hash covers the
-assembled chain content and is placed on the first line of the response.
+---
 
-## Error Handling
+## Contracts
 
-- If `logical_name` cannot be resolved (e.g. malformed or unsupported prefix),
-  return error: `invalid logical name`.
-- If any file in the chain (node files, external files, or the input file)
-  cannot be read, return error: `unreadable file`.
-- Path validation errors for external or input paths are surfaced as
-  `unreadable file`.
+- Returns everything in one call — no pagination.
+- If any file in the chain is unreadable, returns an error
+  (no partial results).
+- The context stream contains no metadata or structural
+  markers — only spec content.
+- The chain hash is computed by `ComputeChainHash`, not
+  reimplemented. This guarantees consistency with other tools
+  that use the same function (e.g. `validate_specs`).
+
+---
+
+## Dependencies
+
+| Function | Package | Used for |
+|---|---|---|
+| `ComputeChainHash` | chain_hash | Compute the 27-char chain hash |
+| `OpenFileReader`, `ReadLine`, `Close` | file_reader | Read chain files |
+| `ParseFrontmatter` | frontmatter | Parse target's frontmatter |
+| `ResolvePath`, `GetParent`, `ResolveArtifactReference`, `ExtractQualifier` | logical_names | Resolve logical names to paths |
+| `NormalizeName` | name_normalization | Normalize headings for matching |
+| `ParseNode` | node_parsing | Parse node body into sections |
+| `ValidatePath` | path_validation | Validate output paths |
