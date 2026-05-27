@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/os/path_utils@eSclI-Oj27FW0NNJD1ieBH8TGg4
+// code-from-spec: ROOT/golang/tests/os/path_utils@eiUAiacgPwJ6oeZ1hPCbLELFQdU
 
 package pathutils
 
@@ -10,7 +10,10 @@ import (
 	"testing"
 )
 
-// TestPathValidateCfs covers all TC-PV-* test cases.
+// ---------------------------------------------------------------------------
+// PathValidateCfs
+// ---------------------------------------------------------------------------
+
 func TestPathValidateCfs(t *testing.T) {
 	type testCase struct {
 		name    string
@@ -19,84 +22,21 @@ func TestPathValidateCfs(t *testing.T) {
 	}
 
 	cases := []testCase{
-		// TC-PV-01
-		{
-			name:    "valid simple relative path",
-			input:   "internal/config/config.go",
-			wantErr: nil,
-		},
-		// TC-PV-02
-		{
-			name:    "valid nested path",
-			input:   "cmd/framework-mcp/main.go",
-			wantErr: nil,
-		},
-		// TC-PV-03
-		{
-			name:    "valid single filename",
-			input:   "main.go",
-			wantErr: nil,
-		},
-		// TC-PV-04
-		{
-			name:    "accepts path with dot segment",
-			input:   "internal/./config/config.go",
-			wantErr: nil,
-		},
-		// TC-PV-05
-		{
-			name:    "accepts traversal that resolves within root",
-			input:   "a/b/../c",
-			wantErr: nil,
-		},
-		// TC-PV-06
-		{
-			name:    "accepts path with trailing slash",
-			input:   "internal/config/",
-			wantErr: nil,
-		},
-		// TC-PV-07
-		{
-			name:    "accepts path with duplicate slashes",
-			input:   "internal//config//file.go",
-			wantErr: nil,
-		},
-		// TC-PV-08
-		{
-			name:    "rejects empty string",
-			input:   "",
-			wantErr: ErrPathEmpty,
-		},
-		// TC-PV-09
-		{
-			name:    "rejects absolute path with leading slash",
-			input:   "/etc/passwd",
-			wantErr: ErrPathAbsolute,
-		},
-		// TC-PV-10
-		{
-			name:    "rejects absolute path with drive letter",
-			input:   "C:/Windows/system32",
-			wantErr: ErrPathAbsolute,
-		},
-		// TC-PV-11
-		{
-			name:    "rejects backslash",
-			input:   `internal\config\config.go`,
-			wantErr: ErrPathContainsBackslash,
-		},
-		// TC-PV-12
-		{
-			name:    "rejects simple traversal",
-			input:   "../../etc/passwd",
-			wantErr: ErrDirectoryTraversal,
-		},
-		// TC-PV-13
-		{
-			name:    "rejects embedded traversal",
-			input:   "internal/../../outside/file.go",
-			wantErr: ErrDirectoryTraversal,
-		},
+		// Valid paths
+		{name: "TC-PV-01 valid simple relative path", input: "internal/config/config.go", wantErr: nil},
+		{name: "TC-PV-02 valid nested path", input: "cmd/framework-mcp/main.go", wantErr: nil},
+		{name: "TC-PV-03 valid single filename", input: "main.go", wantErr: nil},
+		{name: "TC-PV-04 accepts path with dot segment", input: "internal/./config/config.go", wantErr: nil},
+		{name: "TC-PV-05 accepts traversal that resolves within root", input: "a/b/../c", wantErr: nil},
+		{name: "TC-PV-06 accepts path with trailing slash", input: "internal/config/", wantErr: nil},
+		{name: "TC-PV-07 accepts path with duplicate slashes", input: "internal//config//file.go", wantErr: nil},
+		// Invalid paths
+		{name: "TC-PV-08 rejects empty string", input: "", wantErr: ErrPathEmpty},
+		{name: "TC-PV-09 rejects absolute path with leading slash", input: "/etc/passwd", wantErr: ErrPathAbsolute},
+		{name: "TC-PV-10 rejects absolute path with drive letter", input: "C:/Windows/system32", wantErr: ErrPathAbsolute},
+		{name: "TC-PV-11 rejects backslash", input: `internal\config\config.go`, wantErr: ErrPathContainsBackslash},
+		{name: "TC-PV-12 rejects simple traversal", input: "../../etc/passwd", wantErr: ErrDirectoryTraversal},
+		{name: "TC-PV-13 rejects embedded traversal", input: "internal/../../outside/file.go", wantErr: ErrDirectoryTraversal},
 	}
 
 	for _, tc := range cases {
@@ -115,73 +55,57 @@ func TestPathValidateCfs(t *testing.T) {
 	}
 }
 
-// TestPathCfsToOs_ValidExistingPath covers TC-CO-01.
-func TestPathCfsToOs_ValidExistingPath(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+// ---------------------------------------------------------------------------
+// PathCfsToOs
+// ---------------------------------------------------------------------------
 
-	subDir := filepath.Join(dir, "internal", "config")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	filePath := filepath.Join(subDir, "config.go")
-	if err := os.WriteFile(filePath, []byte("package config"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cfs := &PathCfs{Value: "internal/config/config.go"}
+// TC-CO-01: Converts valid path that exists.
+// We use an actual file in the project root (the module file always exists).
+func TestPathCfsToOs_ExistingFile(t *testing.T) {
+	cfs := &PathCfs{Value: "go.mod"}
 	result, err := PathCfsToOs(cfs)
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if !filepath.IsAbs(result.Value) {
 		t.Fatalf("expected absolute path, got: %s", result.Value)
 	}
-	wantSuffix := filepath.Join("internal", "config", "config.go")
-	if !strings.HasSuffix(result.Value, wantSuffix) {
-		t.Fatalf("expected path ending in %s, got: %s", wantSuffix, result.Value)
+	nativeSuffix := filepath.FromSlash("go.mod")
+	if !strings.HasSuffix(result.Value, nativeSuffix) {
+		t.Fatalf("expected path to end with %q, got: %s", nativeSuffix, result.Value)
 	}
 }
 
-// TestPathCfsToOs_ValidNonExistingPath covers TC-CO-02.
-func TestPathCfsToOs_ValidNonExistingPath(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
+// TC-CO-02: Converts valid path that does not exist.
+func TestPathCfsToOs_NonExistingFile(t *testing.T) {
 	cfs := &PathCfs{Value: "internal/newdir/newfile.go"}
 	result, err := PathCfsToOs(cfs)
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if !filepath.IsAbs(result.Value) {
 		t.Fatalf("expected absolute path, got: %s", result.Value)
 	}
-	wantSuffix := filepath.Join("internal", "newdir", "newfile.go")
-	if !strings.HasSuffix(result.Value, wantSuffix) {
-		t.Fatalf("expected path ending in %s, got: %s", wantSuffix, result.Value)
+	nativeSuffix := filepath.FromSlash("internal/newdir/newfile.go")
+	if !strings.HasSuffix(result.Value, nativeSuffix) {
+		t.Fatalf("expected path to end with %q, got: %s", nativeSuffix, result.Value)
 	}
 }
 
-// TestPathCfsToOs_DuplicateSlashes covers TC-CO-03.
+// TC-CO-03: Converts path with duplicate slashes.
 func TestPathCfsToOs_DuplicateSlashes(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
 	cfs := &PathCfs{Value: "internal//config.go"}
 	result, err := PathCfsToOs(cfs)
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if !filepath.IsAbs(result.Value) {
 		t.Fatalf("expected absolute path, got: %s", result.Value)
 	}
 }
 
-// TestPathCfsToOs_RejectsDirectoryTraversal covers TC-CO-04.
-func TestPathCfsToOs_RejectsDirectoryTraversal(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
+// TC-CO-04: Rejects invalid CfsPath — directory traversal.
+func TestPathCfsToOs_DirectoryTraversal(t *testing.T) {
 	cfs := &PathCfs{Value: "../../etc/passwd"}
 	_, err := PathCfsToOs(cfs)
 	if !errors.Is(err, ErrDirectoryTraversal) {
@@ -189,33 +113,67 @@ func TestPathCfsToOs_RejectsDirectoryTraversal(t *testing.T) {
 	}
 }
 
-// TestPathCfsToOs_RejectsSymlinkEscapingRoot covers TC-CO-05.
-func TestPathCfsToOs_RejectsSymlinkEscapingRoot(t *testing.T) {
-	dir := t.TempDir()
-	outside := t.TempDir()
-	testChdir(t, dir)
+// TC-CO-05: Rejects symlink escaping project root.
+func TestPathCfsToOs_SymlinkEscapesRoot(t *testing.T) {
+	// Create an outside directory that the symlink will point to.
+	outsideDir := t.TempDir()
 
-	// Create a symlink inside the project root pointing outside.
-	symlinkName := "escaping-link"
-	symlinkPath := filepath.Join(dir, symlinkName)
-	if err := os.Symlink(outside, symlinkPath); err != nil {
-		t.Skip("cannot create symlink on this platform:", err)
+	// Create a secret file in the outside directory.
+	secretFile := filepath.Join(outsideDir, "secret.txt")
+	if err := os.WriteFile(secretFile, []byte("secret"), 0600); err != nil {
+		t.Fatalf("failed to create secret file: %v", err)
 	}
 
-	cfs := &PathCfs{Value: symlinkName + "/secret.txt"}
-	_, err := PathCfsToOs(cfs)
+	// Create a temp dir to act as a fake project root so we can write a
+	// symlink into it without polluting the real working directory.
+	fakeRoot := t.TempDir()
+
+	// Create the symlink inside fakeRoot pointing outside.
+	linkName := filepath.Join(fakeRoot, "escape_link")
+	if err := os.Symlink(outsideDir, linkName); err != nil {
+		t.Skipf("symlinks not supported on this platform: %v", err)
+	}
+
+	// Build a PathOs that points through the symlink and call PathOsToCfs
+	// to verify the containment check triggers (PathCfsToOs relies on the
+	// working directory for root, so we exercise the check via PathOsToCfs
+	// using the real resolved path which is outside the fakeRoot).
+	targetViaLink := filepath.Join(linkName, "secret.txt")
+	osPath := &PathOs{Value: targetViaLink}
+
+	// Override: We need to test PathCfsToOs containment. Since PathCfsToOs
+	// uses os.Getwd() for the root, we construct the scenario using a real
+	// symlink inside the actual working directory.
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("cannot get working directory: %v", err)
+	}
+
+	// Create the symlink inside the actual working directory.
+	linkInWd := filepath.Join(wd, "test_escape_link_co05")
+	// Clean up before and after.
+	_ = os.Remove(linkInWd)
+	t.Cleanup(func() { _ = os.Remove(linkInWd) })
+
+	if err := os.Symlink(outsideDir, linkInWd); err != nil {
+		t.Skipf("symlinks not supported or insufficient permissions: %v", err)
+	}
+
+	// Now call PathCfsToOs with a path that goes through the symlink.
+	cfs := &PathCfs{Value: "test_escape_link_co05/secret.txt"}
+	_, err = PathCfsToOs(cfs)
 	if !errors.Is(err, ErrResolvesOutsideRoot) {
 		t.Fatalf("expected ErrResolvesOutsideRoot, got: %v", err)
 	}
+
+	// Suppress unused variable warning.
+	_ = osPath
 }
 
-// TestPathCfsToOs_Roundtrip covers TC-CO-06.
+// TC-CO-06: Roundtrip — CfsToOs then OsToCfs.
 func TestPathCfsToOs_Roundtrip(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	const cfsValue = "internal/config/config.go"
-	cfs := &PathCfs{Value: cfsValue}
+	original := "internal/config/config.go"
+	cfs := &PathCfs{Value: original}
 
 	osPath, err := PathCfsToOs(cfs)
 	if err != nil {
@@ -227,164 +185,163 @@ func TestPathCfsToOs_Roundtrip(t *testing.T) {
 		t.Fatalf("PathOsToCfs error: %v", err)
 	}
 
-	if cfsBack.Value != cfsValue {
-		t.Fatalf("roundtrip mismatch: got %q, want %q", cfsBack.Value, cfsValue)
+	if cfsBack.Value != original {
+		t.Fatalf("expected %q, got %q", original, cfsBack.Value)
 	}
 }
 
-// TestPathOsToCfs_ValidExistingPath covers TC-OC-01.
-func TestPathOsToCfs_ValidExistingPath(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+// ---------------------------------------------------------------------------
+// PathOsToCfs
+// ---------------------------------------------------------------------------
 
-	subDir := filepath.Join(dir, "some", "subdir")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	filePath := filepath.Join(subDir, "file.go")
-	if err := os.WriteFile(filePath, []byte("package sub"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	osPath := &PathOs{Value: filePath}
-	result, err := PathOsToCfs(osPath)
+// testMakeFileInRoot creates a temporary file inside the project working
+// directory and returns its absolute OS path. The file is removed when the
+// test ends.
+func testMakeFileInRoot(t *testing.T, relPath string, content []byte) string {
+	t.Helper()
+	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("cannot get working directory: %v", err)
+	}
+	absPath := filepath.Join(wd, relPath)
+	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+		t.Fatalf("failed to create directories: %v", err)
+	}
+	if err := os.WriteFile(absPath, content, 0600); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(absPath) })
+	return absPath
+}
+
+// TC-OC-01: Converts valid OS path that exists.
+func TestPathOsToCfs_ExistingFile(t *testing.T) {
+	absPath := testMakeFileInRoot(t, "test_oc01_file.txt", []byte("hello"))
+
+	result, err := PathOsToCfs(&PathOs{Value: absPath})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Value == "" {
-		t.Fatal("expected non-empty CFS value")
+		t.Fatal("expected non-empty CFS path")
 	}
-	if !strings.HasPrefix(result.Value, "some/subdir") {
-		t.Fatalf("unexpected CFS value: %s", result.Value)
+	if strings.ContainsRune(result.Value, '\\') {
+		t.Fatalf("CFS path contains backslash: %s", result.Value)
+	}
+	if !strings.HasSuffix(result.Value, "test_oc01_file.txt") {
+		t.Fatalf("expected path to end with test_oc01_file.txt, got: %s", result.Value)
 	}
 }
 
-// TestPathOsToCfs_ValidNonExistingPath covers TC-OC-02.
-func TestPathOsToCfs_ValidNonExistingPath(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	absPath := filepath.Join(dir, "nonexistent", "file.go")
-	osPath := &PathOs{Value: absPath}
-	result, err := PathOsToCfs(osPath)
+// TC-OC-02: Converts valid OS path that does not exist.
+func TestPathOsToCfs_NonExistingFile(t *testing.T) {
+	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("cannot get working directory: %v", err)
 	}
-	if result.Value != "nonexistent/file.go" {
-		t.Fatalf("unexpected CFS value: %s", result.Value)
+	absPath := filepath.Join(wd, "nonexistent_dir", "nonexistent_file.go")
+
+	result, err := PathOsToCfs(&PathOs{Value: absPath})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Value == "" {
+		t.Fatal("expected non-empty CFS path")
+	}
+	if strings.ContainsRune(result.Value, '\\') {
+		t.Fatalf("CFS path contains backslash: %s", result.Value)
 	}
 }
 
-// TestPathOsToCfs_ForwardSlashes covers TC-OC-03.
+// TC-OC-03: Result uses forward slashes.
 func TestPathOsToCfs_ForwardSlashes(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	// Build a native OS path inside the root.
-	absPath := filepath.Join(dir, "a", "b", "c.go")
-	osPath := &PathOs{Value: absPath}
-	result, err := PathOsToCfs(osPath)
+	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("cannot get working directory: %v", err)
 	}
-	if strings.Contains(result.Value, `\`) {
-		t.Fatalf("CFS value contains backslash: %s", result.Value)
+	// Build a path using the OS-native separator.
+	absPath := filepath.Join(wd, "some", "nested", "path.go")
+
+	result, err := PathOsToCfs(&PathOs{Value: absPath})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.ContainsRune(result.Value, '\\') {
+		t.Fatalf("CFS path contains backslash: %s", result.Value)
 	}
 }
 
-// TestPathOsToCfs_SymlinkWithinRoot covers TC-OC-04.
+// TC-OC-04: Symlink within root resolving within root.
 func TestPathOsToCfs_SymlinkWithinRoot(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	// Create a real directory and a symlink to it, both inside the root.
-	targetDir := filepath.Join(dir, "real-target")
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	symlinkPath := filepath.Join(dir, "sym-link")
-	if err := os.Symlink(targetDir, symlinkPath); err != nil {
-		t.Skip("cannot create symlink on this platform:", err)
-	}
-
-	osPath := &PathOs{Value: symlinkPath}
-	result, err := PathOsToCfs(osPath)
+	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("cannot get working directory: %v", err)
+	}
+
+	// Create a real file inside the project root.
+	targetName := "test_oc04_target.txt"
+	targetPath := testMakeFileInRoot(t, targetName, []byte("target"))
+
+	// Create a symlink inside the project root pointing to the target.
+	linkName := filepath.Join(wd, "test_oc04_link.txt")
+	_ = os.Remove(linkName)
+	t.Cleanup(func() { _ = os.Remove(linkName) })
+
+	if err := os.Symlink(targetPath, linkName); err != nil {
+		t.Skipf("symlinks not supported or insufficient permissions: %v", err)
+	}
+
+	result, err := PathOsToCfs(&PathOs{Value: linkName})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Value == "" {
-		t.Fatal("expected non-empty CFS value")
+		t.Fatal("expected non-empty CFS path")
 	}
 }
 
-// TestPathOsToCfs_RejectsPathOutsideRoot covers TC-OC-05.
-func TestPathOsToCfs_RejectsPathOutsideRoot(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+// TC-OC-05: Rejects path outside project root.
+func TestPathOsToCfs_OutsideRoot(t *testing.T) {
+	outsideDir := t.TempDir()
+	outsidePath := filepath.Join(outsideDir, "outside.txt")
 
-	outside := t.TempDir()
-	osPath := &PathOs{Value: filepath.Join(outside, "secret.txt")}
-	_, err := PathOsToCfs(osPath)
+	_, err := PathOsToCfs(&PathOs{Value: outsidePath})
 	if !errors.Is(err, ErrResolvesOutsideRoot) {
 		t.Fatalf("expected ErrResolvesOutsideRoot, got: %v", err)
 	}
 }
 
-// TestPathGetProjectRoot_ReturnsAbsolutePath covers TC-GR-01.
+// ---------------------------------------------------------------------------
+// PathGetProjectRoot
+// ---------------------------------------------------------------------------
+
+// TC-GR-01: Returns an absolute path.
 func TestPathGetProjectRoot_ReturnsAbsolutePath(t *testing.T) {
-	result, err := PathGetProjectRoot()
+	root, err := PathGetProjectRoot()
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Value == "" {
-		t.Fatal("expected non-empty path")
+	if root.Value == "" {
+		t.Fatal("expected non-empty root path")
 	}
-	if !filepath.IsAbs(result.Value) {
-		t.Fatalf("expected absolute path, got: %s", result.Value)
+	if !filepath.IsAbs(root.Value) {
+		t.Fatalf("expected absolute path, got: %s", root.Value)
 	}
 }
 
-// TestPathGetProjectRoot_MatchesWorkingDirectory covers TC-GR-02.
+// TC-GR-02: Matches working directory.
 func TestPathGetProjectRoot_MatchesWorkingDirectory(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("cannot get working directory: %v", err)
 	}
 
-	result, err := PathGetProjectRoot()
+	root, err := PathGetProjectRoot()
 	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Resolve both to account for symlinks.
-	resolvedWd, err := filepath.EvalSymlinks(wd)
-	if err != nil {
-		resolvedWd = wd
+	if root.Value != wd {
+		t.Fatalf("expected %q, got %q", wd, root.Value)
 	}
-	resolvedResult, err := filepath.EvalSymlinks(result.Value)
-	if err != nil {
-		resolvedResult = result.Value
-	}
-
-	if resolvedResult != resolvedWd {
-		t.Fatalf("project root %q does not match working directory %q", resolvedResult, resolvedWd)
-	}
-}
-
-// testChdir changes the working directory to dir for the duration of the
-// test and restores it when the test finishes.
-func testChdir(t *testing.T, dir string) {
-	t.Helper()
-	original, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chdir(original); err != nil {
-			t.Errorf("failed to restore working directory: %v", err)
-		}
-	})
 }

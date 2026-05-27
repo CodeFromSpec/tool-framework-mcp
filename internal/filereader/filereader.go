@@ -18,8 +18,8 @@ import (
 type FileReader struct {
 	CfsPath *pathutils.PathCfs
 	osPath  *pathutils.PathOs
-	scanner *bufio.Scanner
 	file    *os.File
+	scanner *bufio.Scanner
 	closed  bool
 }
 
@@ -59,8 +59,8 @@ func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error) {
 	return &FileReader{
 		CfsPath: cfs_path,
 		osPath:  osPath,
-		scanner: scanner,
 		file:    f,
+		scanner: scanner,
 		closed:  false,
 	}, nil
 }
@@ -80,9 +80,10 @@ func FileReadLine(reader *FileReader) (string, error) {
 		return "", ErrEndOfFile
 	}
 
+	// bufio.Scanner already strips the line terminator, but it leaves
+	// the CR in CRLF sequences. Remove any trailing CR to normalize CRLF.
 	line := reader.scanner.Text()
 	line = strings.TrimRight(line, "\r")
-
 	return line, nil
 }
 
@@ -109,6 +110,6 @@ func FileClose(reader *FileReader) {
 		return
 	}
 
-	reader.file.Close()
 	reader.closed = true
+	reader.file.Close()
 }
