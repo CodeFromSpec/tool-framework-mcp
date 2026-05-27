@@ -10,7 +10,9 @@ usage examples.
 ## Translation rules
 
 - Records → Go structs. Use unexported fields unless the
-  functional spec says the field is public.
+  functional spec says the field is public. The struct
+  itself must be exported if it is returned by a function
+  or used as a parameter by callers of the interface.
 - Errors → sentinel variables with `errors.New`.
 - Functions that take a record as first argument → receiver
   methods on the pointer type.
