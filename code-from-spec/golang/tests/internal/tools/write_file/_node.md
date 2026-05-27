@@ -2,7 +2,7 @@
 depends_on:
   - ROOT/golang/implementation/internal/frontmatter
   - ROOT/golang/implementation/internal/logical_names
-  - ROOT/golang/implementation/internal/pathvalidation
+  - ROOT/golang/implementation/os/path_utils
 input: ARTIFACT/golang/implementation/internal/tools/write_file/code(write_file)
 outputs:
   - id: write_file_test

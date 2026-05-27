@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/golang/implementation/internal/pathvalidation
+  - ROOT/golang/implementation/os/path_utils
 input: ARTIFACT/golang/implementation/internal/tools/hash_fragment/code(hash_fragment)
 outputs:
   - id: hash_fragment_test

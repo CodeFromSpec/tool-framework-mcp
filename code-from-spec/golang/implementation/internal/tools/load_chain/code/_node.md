@@ -8,7 +8,7 @@ depends_on:
   - ROOT/golang/implementation/internal/logical_names
   - ROOT/golang/implementation/internal/normalizename
   - ROOT/golang/implementation/internal/parsenode
-  - ROOT/golang/implementation/internal/pathvalidation
+  - ROOT/golang/implementation/os/path_utils
 input: ARTIFACT/functional/logic/mcp_tools/load_chain(load_chain)
 outputs:
   - id: load_chain

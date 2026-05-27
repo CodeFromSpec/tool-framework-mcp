@@ -1,8 +1,8 @@
 ---
 depends_on:
   - ROOT/golang/dependencies/mcp-go-sdk
-  - ARTIFACT/golang/interfaces/internal/file_reader(interface)
-  - ROOT/golang/implementation/internal/pathvalidation
+  - ARTIFACT/golang/interfaces/os/file_reader(interface)
+  - ROOT/golang/implementation/os/path_utils
 outputs:
   - id: hash_fragment
     path: internal/hash_fragment/hash_fragment.go

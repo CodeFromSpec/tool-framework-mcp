@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/internal/file_reader(interface)
+  - ARTIFACT/golang/interfaces/os/file_reader(interface)
 input: ARTIFACT/functional/logic/utils/artifact_tag(artifact_tag)
 outputs:
   - id: artifacttag

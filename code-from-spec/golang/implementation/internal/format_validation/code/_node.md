@@ -3,8 +3,8 @@ depends_on:
   - ROOT/golang/implementation/internal/logical_names
   - ROOT/golang/implementation/internal/frontmatter
   - ROOT/golang/implementation/internal/parsenode
-  - ROOT/golang/implementation/internal/pathvalidation
-  - ARTIFACT/golang/interfaces/internal/file_reader(interface)
+  - ROOT/golang/implementation/os/path_utils
+  - ARTIFACT/golang/interfaces/os/file_reader(interface)
   - ROOT/golang/implementation/internal/normalizename
 input: ARTIFACT/functional/logic/utils/format_validation(format_validation)
 external:

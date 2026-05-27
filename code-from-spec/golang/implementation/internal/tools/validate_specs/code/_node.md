@@ -2,7 +2,7 @@
 depends_on:
   - ROOT/golang/dependencies/mcp-go-sdk
   - ROOT/golang/implementation/internal/artifact_tag
-  - ARTIFACT/golang/interfaces/internal/file_reader(interface)
+  - ARTIFACT/golang/interfaces/os/file_reader(interface)
   - ROOT/golang/implementation/internal/format_validation
   - ROOT/golang/implementation/internal/frontmatter
   - ROOT/golang/implementation/internal/logical_names
@@ -10,7 +10,7 @@ depends_on:
   - ROOT/golang/implementation/internal/node_ranking
   - ROOT/golang/implementation/internal/normalizename
   - ROOT/golang/implementation/internal/parsenode
-  - ROOT/golang/implementation/internal/pathvalidation
+  - ROOT/golang/implementation/os/path_utils
 outputs:
   - id: validate_specs
     path: internal/validate_specs/validate_specs.go

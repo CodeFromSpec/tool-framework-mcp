@@ -123,9 +123,3 @@ case with its setup, actions, and expected outcome.
 
 - Use the function names from the interface: `FileOpen`,
   `FileReadLine`, `FileSkipLines`, `FileClose`.
-- Each test case has: setup (what file to create and with
-  what content), actions (what functions to call), and
-  expected outcome (exact values or errors).
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.

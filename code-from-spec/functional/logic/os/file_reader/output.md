@@ -1,66 +1,69 @@
-<!-- code-from-spec: ROOT/functional/logic/os/file_reader@Sv32IjHNPt2iAnKhYCwdFeUMGRI -->
+<!-- code-from-spec: ROOT/functional/logic/os/file_reader@WSCzbRJHABsyr4ovlmyycOuEIpI -->
 
-## Records
+## FileReader
+
+A record representing an open file positioned for sequential line-by-line reading.
 
 ```
 record FileReader
   cfs_path: CfsPath
-  os_path:  OsPath
-  stream:   file stream handle (optional)
+  os_path:  PathOs
+  stream:   file stream handle (OS-level)
   closed:   boolean
 ```
 
+---
 
-## Functions
+### function FileOpen(cfs_path: CfsPath) -> FileReader
 
+  1. Call PathCfsToOs(cfs_path) to obtain an OS path.
+     If PathCfsToOs raises a path error, propagate it unchanged.
 
-### FileOpen(cfs_path) -> FileReader
-
-  1. Call ResolvePath(cfs_path) to obtain an OsPath.
-     If ResolvePath raises any error, propagate it to the caller unchanged.
-
-  2. Attempt to open the file at the resolved OsPath for sequential reading.
-     If the file cannot be opened (e.g. it does not exist or permissions deny
-     access), raise error "file unreadable".
+  2. Open the file at the resolved OS path for sequential reading
+     from the beginning.
+     If the file cannot be opened, raise error "file unreadable".
 
   3. Return a FileReader record with:
-     - cfs_path set to the given cfs_path
-     - os_path set to the resolved OsPath
-     - stream set to the opened file stream
+     - cfs_path set to the provided cfs_path
+     - os_path set to the resolved OS path
+     - stream set to the opened file stream handle
      - closed set to false
 
+---
 
-### FileReadLine(reader) -> string
+### function FileReadLine(reader: FileReader) -> string
 
   1. If reader.closed is true, raise error "end of file".
 
   2. Attempt to read the next line from reader.stream.
-     If there are no more lines (stream is at end of file), raise error "end of file".
+     If there are no more lines (stream is at end of file),
+     raise error "end of file".
 
-  3. Strip the trailing line terminator from the line.
-     If the terminator is CRLF ("\r\n"), remove both characters.
-     If the terminator is LF ("\n"), remove it.
-     If there is no terminator (final line), leave the content as-is.
+  3. Strip the line terminator from the end of the line:
+     - If the line ends with CRLF ("\r\n"), remove both characters.
+     - If the line ends with LF ("\n"), remove it.
+     - If the line has no terminator (final line of file),
+       use it as-is.
 
   4. Return the resulting string.
 
+---
 
-### FileSkipLines(reader, count)
+### function FileSkipLines(reader: FileReader, count: integer)
 
-  1. If reader.closed is true, return immediately (do nothing).
+  1. If reader.closed is true, return immediately.
 
   2. Repeat count times:
-       Attempt to read the next line from reader.stream.
-       If the stream is at end of file, stop iterating and return.
+     Attempt to read and discard the next line from reader.stream.
+     If the stream reaches end of file before count lines are
+     consumed, stop iterating — do not raise an error.
 
-  3. Return.
+---
 
+### function FileClose(reader: FileReader)
 
-### FileClose(reader)
+  1. If reader.closed is true, return immediately.
 
-  1. If reader.closed is true, return immediately (do nothing).
-
-  2. Release reader.stream (close the file handle).
+  2. Release reader.stream (close the OS file handle).
 
   3. Set reader.closed to true.
-     Set reader.stream to absent/empty.

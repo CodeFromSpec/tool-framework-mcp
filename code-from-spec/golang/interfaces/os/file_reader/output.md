@@ -1,27 +1,26 @@
-// code-from-spec: ROOT/golang/implementation/os/file_reader@fB7thVu-lMfPWEHHn1BULTv6f1A
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_reader@VeJdAr1QhIMFKgaT17LjPlWVbqI)
 
+# Interface: `filereader`
+
+## Package
+
+```go
 package filereader
+```
 
-import (
-	"bufio"
-	"errors"
-	"fmt"
-	"os"
-	"strings"
+## Structs
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
-)
-
+```go
 // FileReader holds the state for sequential line-by-line reading of a file.
 // Open a FileReader with FileOpen and release it with FileClose when done.
 type FileReader struct {
 	CfsPath pathutils.PathCfs
-	osPath  pathutils.PathOs
-	file    *os.File
-	scanner *bufio.Scanner
-	closed  bool
 }
+```
 
+## Error Sentinels
+
+```go
 var (
 	// ErrEndOfFile is returned by FileReadLine when there are no more lines
 	// to read, including after FileClose has been called.
@@ -31,7 +30,11 @@ var (
 	// the file cannot be opened.
 	ErrFileUnreadable = errors.New("file unreadable")
 )
+```
 
+## Functions
+
+```go
 // FileOpen opens the file at cfs_path and prepares it for sequential
 // line-by-line reading, starting from the beginning of the file.
 // The caller must call FileClose when done — failing to do so leaks
@@ -42,70 +45,61 @@ var (
 //     ErrDirectoryTraversal, ErrResolvesOutsideRoot: propagated from
 //     pathutils.PathCfsToOs if the path is invalid.
 //   - ErrFileUnreadable: the path is valid but the file cannot be opened.
-func FileOpen(cfs_path pathutils.PathCfs) (*FileReader, error) {
-	osPath, err := pathutils.PathCfsToOs(cfs_path)
-	if err != nil {
-		return nil, err
-	}
-
-	f, err := os.Open(osPath.Value)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, osPath.Value)
-	}
-
-	scanner := bufio.NewScanner(f)
-
-	return &FileReader{
-		CfsPath: cfs_path,
-		osPath:  osPath,
-		file:    f,
-		scanner: scanner,
-		closed:  false,
-	}, nil
-}
+func FileOpen(cfs_path pathutils.PathCfs) (*FileReader, error)
 
 // FileReadLine reads the next line from the file, normalizes CRLF to LF,
 // and returns the line without the line terminator.
 //
 // Possible errors:
 //   - ErrEndOfFile: no more lines to read, or the reader has been closed.
-func FileReadLine(reader *FileReader) (string, error) {
-	if reader.closed {
-		return "", ErrEndOfFile
-	}
-
-	if !reader.scanner.Scan() {
-		return "", ErrEndOfFile
-	}
-
-	// bufio.Scanner with the default ScanLines split already strips \n and \r\n.
-	// Call TrimRight as a defensive measure to normalize any remaining \r.
-	line := strings.TrimRight(reader.scanner.Text(), "\r")
-	return line, nil
-}
+func FileReadLine(reader *FileReader) (string, error)
 
 // FileSkipLines reads and discards count lines without returning their
 // content. If fewer than count lines remain, it reads until end of file
 // without returning an error.
-func FileSkipLines(reader *FileReader, count int) {
-	if reader.closed {
-		return
-	}
-
-	for i := 0; i < count; i++ {
-		if !reader.scanner.Scan() {
-			return
-		}
-	}
-}
+func FileSkipLines(reader *FileReader, count int)
 
 // FileClose releases the file resource held by reader. After FileClose,
 // FileReadLine returns ErrEndOfFile and FileSkipLines does nothing.
-func FileClose(reader *FileReader) {
-	if reader.closed {
-		return
-	}
+func FileClose(reader *FileReader)
+```
 
-	_ = reader.file.Close()
-	reader.closed = true
+## Usage Example
+
+```go
+package main
+
+import (
+	"errors"
+	"fmt"
+	"log"
+
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/os/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/os/pathutils"
+)
+
+func main() {
+	// Open a file for sequential reading.
+	cfs := pathutils.PathCfs{Value: "code-from-spec/golang/interfaces/os/file_reader/output.md"}
+	r, err := filereader.FileOpen(cfs)
+	if err != nil {
+		log.Fatalf("failed to open file: %v", err)
+	}
+	defer filereader.FileClose(r)
+
+	// Skip the first two lines.
+	filereader.FileSkipLines(r, 2)
+
+	// Read remaining lines one at a time.
+	for {
+		line, err := filereader.FileReadLine(r)
+		if errors.Is(err, filereader.ErrEndOfFile) {
+			break
+		}
+		if err != nil {
+			log.Fatalf("unexpected error: %v", err)
+		}
+		fmt.Println(line)
+	}
 }
+```

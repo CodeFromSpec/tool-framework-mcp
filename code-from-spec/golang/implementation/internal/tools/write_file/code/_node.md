@@ -3,7 +3,7 @@ depends_on:
   - ROOT/golang/dependencies/mcp-go-sdk
   - ROOT/golang/implementation/internal/frontmatter
   - ROOT/golang/implementation/internal/logical_names
-  - ROOT/golang/implementation/internal/pathvalidation
+  - ROOT/golang/implementation/os/path_utils
 input: ARTIFACT/functional/logic/mcp_tools/write_file(write_file)
 outputs:
   - id: write_file
