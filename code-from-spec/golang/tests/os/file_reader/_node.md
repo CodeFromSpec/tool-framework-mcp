@@ -9,21 +9,3 @@ outputs:
 ---
 
 # ROOT/golang/tests/os/file_reader
-
-Go test file for the filereader package, generated from
-the functional test specification.
-
-# Agent
-
-Translate the functional test cases from the input into
-a Go test file for the `filereader` package.
-
-## Go-specific guidance
-
-- Each test uses `t.TempDir()` to create an isolated
-  temporary directory.
-- Create test files with controlled content using
-  `os.WriteFile`.
-- Use `errors.Is` to check error sentinels.
-- Use table-driven tests where appropriate.
-- Prefix test helper functions with `test`.
