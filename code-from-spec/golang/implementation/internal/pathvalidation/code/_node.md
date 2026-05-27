@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/dependencies/owasp-path-traversal
-input: ARTIFACT/functional/logic/utils/path_validation(path_validation)
+input: ARTIFACT/functional/logic/os/path_utils(path_utils)
 outputs:
   - id: pathvalidation
     path: internal/pathvalidation/pathvalidation.go

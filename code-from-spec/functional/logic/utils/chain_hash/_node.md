@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/file_reader
+  - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/utils/frontmatter
   - ROOT/functional/logic/utils/logical_names
 external:
@@ -14,6 +14,8 @@ outputs:
 
 Computes the chain hash for a given target node by reading
 all chain positions from disk.
+
+Review status: pending
 
 # Public
 

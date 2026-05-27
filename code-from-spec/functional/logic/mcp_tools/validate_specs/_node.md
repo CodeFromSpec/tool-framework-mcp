@@ -8,7 +8,7 @@ depends_on:
   - ROOT/functional/logic/utils/frontmatter
   - ROOT/functional/logic/utils/name_normalization
   - ROOT/functional/logic/utils/node_parsing
-  - ROOT/functional/logic/utils/path_validation
+  - ROOT/functional/logic/os/path_utils
 outputs:
   - id: validate_specs
     path: code-from-spec/functional/logic/mcp_tools/validate_specs/output.md
@@ -18,6 +18,8 @@ outputs:
 
 Validates the spec tree for format errors, circular references,
 and artifact staleness.
+
+Review status: pending
 
 # Public
 

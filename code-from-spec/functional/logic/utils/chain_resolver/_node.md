@@ -12,6 +12,8 @@ outputs:
 Resolves the ordered list of files that form the chain
 for a given target logical name.
 
+Review status: pending
+
 # Public
 
 ## Interface

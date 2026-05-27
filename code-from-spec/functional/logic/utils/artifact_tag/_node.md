@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/file_reader
+  - ROOT/functional/logic/os/file_reader
 outputs:
   - id: artifact_tag
     path: code-from-spec/functional/logic/utils/artifact_tag/output.md
@@ -10,6 +10,8 @@ outputs:
 
 Extracts the artifact tag from generated files for
 staleness detection.
+
+Review status: pending
 
 # Public
 

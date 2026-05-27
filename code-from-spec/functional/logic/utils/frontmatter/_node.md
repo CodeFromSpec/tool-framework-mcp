@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/file_reader
+  - ROOT/functional/logic/os/file_reader
 outputs:
   - id: frontmatter
     path: code-from-spec/functional/logic/utils/frontmatter/output.md
@@ -9,6 +9,8 @@ outputs:
 # ROOT/functional/logic/utils/frontmatter
 
 Parses structured metadata from the top of spec node files.
+
+Review status: pending
 
 # Public
 

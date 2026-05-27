@@ -9,6 +9,8 @@ outputs:
 Maps logical names to file paths and provides utilities for
 navigating the spec tree hierarchy.
 
+Review status: pending
+
 # Public
 
 ## Interface

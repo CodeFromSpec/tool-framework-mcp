@@ -8,6 +8,8 @@ outputs:
 
 Normalizes heading text and qualifier text for comparison.
 
+Review status: pending
+
 # Public
 
 ## Interface

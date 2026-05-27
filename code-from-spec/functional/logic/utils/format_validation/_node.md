@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/file_reader
+  - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/utils/frontmatter
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/utils/name_normalization
   - ROOT/functional/logic/utils/node_parsing
-  - ROOT/functional/logic/utils/path_validation
+  - ROOT/functional/logic/os/path_utils
 external:
   - path: CODE_FROM_SPEC.md
 outputs:
@@ -18,6 +18,8 @@ outputs:
 Linter for spec nodes. Reads every node in the spec tree,
 parses its frontmatter and body, and checks structural rules
 defined by the framework. Reports all violations found.
+
+Review status: pending
 
 # Public
 

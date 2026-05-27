@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/file_reader
+  - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/utils/name_normalization
 outputs:
   - id: node_parsing
@@ -12,6 +12,8 @@ outputs:
 
 Parses the body of a spec node file into a structured
 representation of its sections and subsections.
+
+Review status: pending
 
 # Public
 

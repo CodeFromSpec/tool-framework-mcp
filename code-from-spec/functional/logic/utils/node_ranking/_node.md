@@ -12,6 +12,8 @@ outputs:
 Detects circular references in the spec tree using
 iterative ranking.
 
+Review status: pending
+
 # Public
 
 ## Interface

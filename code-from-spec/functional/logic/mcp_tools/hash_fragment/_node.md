@@ -1,7 +1,7 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/file_reader
-  - ROOT/functional/logic/utils/path_validation
+  - ROOT/functional/logic/os/file_reader
+  - ROOT/functional/logic/os/path_utils
 outputs:
   - id: hash_fragment
     path: code-from-spec/functional/logic/mcp_tools/hash_fragment/output.md
@@ -11,6 +11,8 @@ outputs:
 
 Calculates the hash of a line range in a file, for use in
 `external:` fragment declarations.
+
+Review status: pending
 
 # Public
 

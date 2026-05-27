@@ -2,7 +2,7 @@
 depends_on:
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/utils/frontmatter
-  - ROOT/functional/logic/utils/path_validation
+  - ROOT/functional/logic/os/path_utils
 outputs:
   - id: write_file
     path: code-from-spec/functional/logic/mcp_tools/write_file/output.md
@@ -12,6 +12,8 @@ outputs:
 
 Writes a generated source file to disk after validating the
 path against the node's declared outputs.
+
+Review status: pending
 
 # Public
 

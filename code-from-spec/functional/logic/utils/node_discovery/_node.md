@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - ROOT/functional/logic/os/list_files
   - ROOT/functional/logic/utils/logical_names
 outputs:
   - id: node_discovery
@@ -8,8 +9,10 @@ outputs:
 
 # ROOT/functional/logic/utils/node_discovery
 
-Walks the filesystem to discover all spec nodes in the
-spec tree.
+Discovers all spec nodes in the spec tree by listing files
+and filtering for `_node.md`.
+
+Review status: pending
 
 # Public
 
@@ -18,35 +21,32 @@ spec tree.
 ```
 record DiscoveredNode
   logical_name: string
-  file_path: string
+  file_path: CfsPath
 
 function DiscoverNodes() -> list of DiscoveredNode
   errors:
     - directory not found: code-from-spec/ does not exist.
     - walk error: filesystem error while traversing.
-    - no nodes found: code-from-spec/ contains no _node.md files.
+    - no nodes found: no _node.md files found.
 ```
 
 The returned list is sorted alphabetically by logical name.
 
 # Agent
 
-## Behavior
+Generate pseudocode for the DiscoverNodes function.
 
-Starts from `code-from-spec/` relative to the project root
-(working directory). No parameters.
+## Implementation guidance
 
-### Discovery rules
-
-Find every `_node.md` file inside `code-from-spec/` and
-all its subdirectories. Each `_node.md` file produces a
-discovered node. Other files are ignored.
-
-For each `_node.md` found, use reverse resolution (see
-`ROOT/functional/logic/utils/logical_names`) to derive the logical
-name from the file path.
+1. Call `ListFiles` with `code-from-spec/` as the directory.
+2. Filter the results: keep only files whose name ends
+   with `/_node.md`.
+3. For each matching file, use `ReverseResolve` from
+   `logical_names` to derive the logical name.
+4. Sort alphabetically by logical name.
+5. If the result is empty, raise "no nodes found".
 
 ## Contracts
 
-- The returned list is sorted alphabetically by logical name.
 - Only `_node.md` files are considered nodes.
+- The returned list is sorted alphabetically by logical name.
