@@ -2,7 +2,7 @@
 depends_on:
   - ROOT/golang/dependencies/mcp-go-sdk
   - ROOT/golang/internal/artifact_tag
-  - ROOT/golang/internal/file_reader
+  - ARTIFACT/golang/internal/file_reader/interface(interface)
   - ROOT/golang/internal/format_validation
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/logical_names

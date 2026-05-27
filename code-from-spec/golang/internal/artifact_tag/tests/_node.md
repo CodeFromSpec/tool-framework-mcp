@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/golang/internal/file_reader
+  - ARTIFACT/golang/internal/file_reader/interface(interface)
 input: ARTIFACT/golang/internal/artifact_tag/code(artifacttag)
 outputs:
   - id: artifacttag_test

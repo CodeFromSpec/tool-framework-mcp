@@ -1,4 +1,6 @@
 ---
+depends_on:
+  - ARTIFACT/golang/internal/file_reader/interface(interface)
 input: ARTIFACT/functional/utils/file_reader(file_reader)
 outputs:
   - id: filereader

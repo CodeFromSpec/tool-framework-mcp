@@ -4,7 +4,7 @@ depends_on:
   - ROOT/golang/internal/frontmatter
   - ROOT/golang/internal/parsenode
   - ROOT/golang/internal/pathvalidation
-  - ROOT/golang/internal/file_reader
+  - ARTIFACT/golang/internal/file_reader/interface(interface)
   - ROOT/golang/internal/normalizename
 input: ARTIFACT/functional/utils/format_validation(format_validation)
 external:

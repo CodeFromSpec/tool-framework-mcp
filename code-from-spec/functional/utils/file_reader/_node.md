@@ -47,23 +47,18 @@ call to `ReadLine` or `SkipLines` raises "end of file".
 
 # Agent
 
-## Behavior
+Generate pseudocode for each function in the interface.
 
-- Each `ReadLine` call reads from the file stream — the
-  file is not loaded entirely into memory.
-- CRLF sequences are normalized to LF as each line is
-  read. The line terminator is not included in the
-  returned string.
+## Implementation guidance
+
+- Read from the file stream sequentially — do not load
+  the entire file into memory.
+- The reader is forward-only. No seeking or rewinding.
+- Memory usage must not depend on file size.
 - A final line without a trailing newline is still a valid
-  line and is returned normally. The "end of file" error
-  is raised on the next call after the last line.
+  line. The "end of file" error is raised on the next call
+  after the last line.
 - `SkipLines` past the end of the file is not an error —
   subsequent `ReadLine` raises "end of file".
-
-## Contracts
-
-- The reader is forward-only. No seeking or rewinding.
-- The file is read sequentially — memory usage does not
-  depend on file size.
 - The caller must call `Close` when done reading. Failing
   to close leaks the file handle.

@@ -1,58 +1,70 @@
-<!-- code-from-spec: ROOT/functional/utils/file_reader@wQqRliwpgTtOs-7I43gWxY7Qzks -->
+<!-- code-from-spec: ROOT/functional/utils/file_reader@REqX_M4VNvZwSFIKf6wjF_yqvhM -->
 
-## Records
+## FileReader
 
-```
-record FileReader
-  file_path: string
-  stream:    open file stream (internal, not exposed to caller)
-  closed:    boolean
-```
+A record representing an open file and its current read position.
 
----
-
-## Functions
-
-### OpenFileReader(file_path) -> FileReader
-
-1. Attempt to open the file at `file_path` for sequential reading.
-   If the file cannot be opened, raise error "file unreadable".
-
-2. Create a FileReader record with:
-   - file_path set to `file_path`
-   - stream set to the opened file stream
-   - closed set to false
-
-3. Return the FileReader record.
+Fields:
+- file_path: string — the path of the opened file
+- stream: open file stream — the underlying sequential file handle
+- closed: boolean — whether Close has been called
 
 ---
 
-### ReadLine(reader) -> line
+function OpenFileReader(file_path) -> FileReader
 
-1. If `reader.closed` is true, raise error "end of file".
+  1. Attempt to open the file at file_path for sequential reading.
+     If the file cannot be opened, raise error "file unreadable".
 
-2. Attempt to read the next line from `reader.stream`.
-   If no more data is available (stream is exhausted), raise error "end of file".
+  2. Create a FileReader record with:
+     - file_path set to file_path
+     - stream set to the opened file handle
+     - closed set to false
 
-3. Normalize the line:
-   - If the line ends with CRLF (`\r\n`), replace it with LF (`\n`).
-   - Strip the trailing LF terminator from the line.
-
-4. Return the normalized line string (without any line terminator).
-
----
-
-### SkipLines(reader, count)
-
-1. Repeat `count` times:
-   a. Attempt to read and discard the next line from `reader.stream`.
-      If `reader.closed` is true or the stream is exhausted,
-      stop iterating immediately (do not raise an error).
+  3. Return the FileReader record.
 
 ---
 
-### Close(reader)
+function ReadLine(reader) -> line
 
-1. If `reader.closed` is false:
-   a. Release the file stream resource associated with `reader.stream`.
-   b. Set `reader.closed` to true.
+  1. If reader.closed is true, raise error "end of file".
+
+  2. Attempt to read the next line from reader.stream.
+     If there are no more bytes to read, raise error "end of file".
+
+  3. Collect bytes until a LF character ("\n") is encountered,
+     end of file is reached, or the stream is exhausted.
+     Do not load the entire file into memory — read one character
+     at a time or use a fixed-size buffer.
+
+  4. Strip the trailing LF from the collected line, if present.
+
+  5. If the line ends with CR ("\r"), strip that CR as well.
+     This normalizes CRLF line endings to plain text.
+
+  6. Return the resulting line string (without any line terminator).
+
+---
+
+function SkipLines(reader, count)
+
+  1. If reader.closed is true, return immediately without error.
+
+  2. Repeat count times:
+     a. Attempt to read the next line from reader.stream
+        (consuming it and discarding its content).
+        If end of file is reached, stop iterating — this is not an error.
+
+  3. Return. No value is produced.
+
+---
+
+function Close(reader)
+
+  1. If reader.closed is true, return immediately (closing is idempotent).
+
+  2. Release reader.stream, freeing the file handle.
+
+  3. Set reader.closed to true.
+
+  4. Return. No value is produced.
