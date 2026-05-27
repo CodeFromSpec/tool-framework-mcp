@@ -12,6 +12,8 @@ outputs:
 
 # Agent
 
+Implement the `pathutils` package, including its interface.
+
 ## Go-specific guidance
 
 - Use `filepath.Clean`, `filepath.Join`,

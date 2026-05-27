@@ -14,3 +14,7 @@ outputs:
 ## Package
 
 `package filereader`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filereader"`
