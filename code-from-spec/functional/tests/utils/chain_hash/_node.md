@@ -33,6 +33,19 @@ Create a spec tree and compute the hash. Modify the content
 of one file in the chain and recompute. Expect the two
 hashes differ.
 
+### Failure cases
+
+#### Qualified depends_on with different case
+
+Create a spec tree where node A has
+`depends_on: ROOT/b(interface)` and node B has a
+`# Public` section with a `## Interface` subsection
+(capital I). Compute the chain hash for node A. Change
+the content of `## Interface` in node B and recompute.
+Expect the two hashes differ — the subsection must be
+found regardless of case differences between the
+qualifier and the heading.
+
 # Agent
 
 Generate a test specification document listing each test

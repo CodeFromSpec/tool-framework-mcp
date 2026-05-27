@@ -1,74 +1,78 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/file_reader@J6isUPEeJtFpmZnEIjB_qSTCr5U -->
+<!-- code-from-spec: ROOT/functional/tests/os/file_reader@Vcc1xwJt0SwwipCJ5IYJAA1qans -->
 
-## Test Cases: FileReader
-
----
-
-### Happy Path
+# FileReader Test Specification
 
 ---
 
-#### Opens and reads all lines
+## Happy Path
+
+---
+
+### Test: Opens and reads all lines
 
 **Setup**
-Create a file containing multiple lines separated by LF endings, for example:
+Create a file with three lines using LF endings:
 - Line 1: `"alpha"`
 - Line 2: `"beta"`
 - Line 3: `"gamma"`
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `ReadLine` repeatedly until the end.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
+4. Call `FileReadLine(reader)` → result 3
+5. Call `FileReadLine(reader)` → result 4
 
 **Expected outcome**
-- First call returns `"alpha"`.
-- Second call returns `"beta"`.
-- Third call returns `"gamma"`.
-- Fourth call raises `"end of file"`.
+- result 1 = `"alpha"`
+- result 2 = `"beta"`
+- result 3 = `"gamma"`
+- result 4 raises "end of file"
 
 ---
 
-#### Normalizes CRLF to LF
+### Test: Normalizes CRLF to LF
 
 **Setup**
-Create a file containing lines separated by CRLF endings, for example:
-- Line 1: `"alpha"` followed by CRLF
-- Line 2: `"beta"` followed by CRLF
+Create a file with two lines using CRLF endings:
+- Line 1: `"alpha"`
+- Line 2: `"beta"`
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `ReadLine` twice.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
 
 **Expected outcome**
-- First call returns `"alpha"` — no CR or LF characters present.
-- Second call returns `"beta"` — no CR or LF characters present.
+- result 1 = `"alpha"` (no CR or LF characters present)
+- result 2 = `"beta"` (no CR or LF characters present)
 
 ---
 
-#### Reads file with no trailing newline
+### Test: Reads file with no trailing newline
 
 **Setup**
-Create a file where the last line has no trailing newline, for example:
+Create a file where:
 - Line 1: `"alpha"` followed by LF
-- Line 2: `"beta"` with no newline at end
+- Line 2: `"beta"` with no trailing newline
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `ReadLine` once.
-3. Call `ReadLine` again.
-4. Call `ReadLine` a third time.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
+4. Call `FileReadLine(reader)` → result 3
 
 **Expected outcome**
-- First call returns `"alpha"`.
-- Second call returns `"beta"`.
-- Third call raises `"end of file"`.
+- result 1 = `"alpha"`
+- result 2 = `"beta"`
+- result 3 raises "end of file"
 
 ---
 
-#### SkipLines advances the reader
+### Test: FileSkipLines advances the reader
 
 **Setup**
-Create a file containing 5 lines:
+Create a file with five lines using LF endings:
 - Line 1: `"one"`
 - Line 2: `"two"`
 - Line 3: `"three"`
@@ -76,114 +80,209 @@ Create a file containing 5 lines:
 - Line 5: `"five"`
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `SkipLines` with count `2`.
-3. Call `ReadLine`.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileSkipLines(reader, 2)`
+3. Call `FileReadLine(reader)` → result
 
 **Expected outcome**
-- `ReadLine` returns `"three"`.
+- result = `"three"`
 
 ---
 
-#### SkipLines past end of file
+### Test: FileSkipLines past end of file
 
 **Setup**
-Create a file containing 2 lines:
+Create a file with two lines using LF endings:
 - Line 1: `"one"`
 - Line 2: `"two"`
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `SkipLines` with count `10`.
-3. Call `ReadLine`.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileSkipLines(reader, 10)` → skip result
+3. Call `FileReadLine(reader)` → read result
 
 **Expected outcome**
-- `SkipLines` completes without error.
-- `ReadLine` raises `"end of file"`.
+- skip result raises no error
+- read result raises "end of file"
 
 ---
 
-### Edge Cases
-
----
-
-#### Empty file
+### Test: Preserves leading whitespace
 
 **Setup**
-Create a file with no content (zero bytes).
+Create a file with two lines using LF endings:
+- Line 1: `"  alpha"` (two leading spaces)
+- Line 2: `"    beta"` (four leading spaces)
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `ReadLine`.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
 
 **Expected outcome**
-- `ReadLine` raises `"end of file"` immediately.
+- result 1 = `"  alpha"`
+- result 2 = `"    beta"`
 
 ---
 
-#### Single line without newline
+### Test: Preserves trailing whitespace
 
 **Setup**
-Create a file containing exactly `"hello"` with no newline character.
+Create a file with two lines using LF endings:
+- Line 1: `"alpha  "` (two trailing spaces)
+- Line 2: `"beta   "` (three trailing spaces)
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `ReadLine`.
-3. Call `ReadLine` again.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
 
 **Expected outcome**
-- First call returns `"hello"`.
-- Second call raises `"end of file"`.
+- result 1 = `"alpha  "`
+- result 2 = `"beta   "`
 
 ---
 
-### Failure Cases
+### Test: Preserves internal whitespace
+
+**Setup**
+Create a file with two lines using LF endings:
+- Line 1: `"alpha   beta"` (three internal spaces)
+- Line 2: `"one\ttwo"` (internal tab character)
+
+**Actions**
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
+
+**Expected outcome**
+- result 1 = `"alpha   beta"`
+- result 2 = `"one\ttwo"`
 
 ---
 
-#### File does not exist
+### Test: Preserves empty lines
+
+**Setup**
+Create a file with four lines using LF endings:
+- Line 1: `"alpha"`
+- Line 2: `""` (empty)
+- Line 3: `""` (empty)
+- Line 4: `"beta"`
+
+**Actions**
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
+4. Call `FileReadLine(reader)` → result 3
+5. Call `FileReadLine(reader)` → result 4
+
+**Expected outcome**
+- result 1 = `"alpha"`
+- result 2 = `""`
+- result 3 = `""`
+- result 4 = `"beta"`
+
+---
+
+### Test: Preserves non-ASCII characters
+
+**Setup**
+Create a file with three lines using LF endings, encoded as UTF-8:
+- Line 1: `"café"`
+- Line 2: `"日本語"`
+- Line 3: `"🎉🚀"`
+
+**Actions**
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
+4. Call `FileReadLine(reader)` → result 3
+
+**Expected outcome**
+- result 1 = `"café"`
+- result 2 = `"日本語"`
+- result 3 = `"🎉🚀"`
+
+---
+
+## Edge Cases
+
+---
+
+### Test: Empty file
+
+**Setup**
+Create an empty file (zero bytes).
+
+**Actions**
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result
+
+**Expected outcome**
+- result raises "end of file"
+
+---
+
+### Test: Single line without newline
+
+**Setup**
+Create a file containing only `"hello"` with no newline character.
+
+**Actions**
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileReadLine(reader)` → result 1
+3. Call `FileReadLine(reader)` → result 2
+
+**Expected outcome**
+- result 1 = `"hello"`
+- result 2 raises "end of file"
+
+---
+
+## Failure Cases
+
+---
+
+### Test: File does not exist
 
 **Setup**
 No file is created. Use a path that does not exist on the filesystem.
 
 **Actions**
-1. Call `OpenFileReader` with the non-existent path.
+1. Call `FileOpen` with the non-existent path → result
 
 **Expected outcome**
-- `OpenFileReader` raises `"file unreadable"`.
+- result raises "file unreadable"
 
 ---
 
-### Close Behavior
-
----
-
-#### Reading after Close raises end of file
+### Test: Read after close
 
 **Setup**
-Create a file containing at least one line, for example:
+Create a file with one line using LF endings:
 - Line 1: `"alpha"`
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `Close` on the reader.
-3. Call `ReadLine`.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileClose(reader)`
+3. Call `FileReadLine(reader)` → result
 
 **Expected outcome**
-- `ReadLine` raises `"end of file"`.
+- result raises "end of file"
 
 ---
 
-#### SkipLines after Close raises end of file
+### Test: Skip after close
 
 **Setup**
-Create a file containing at least one line, for example:
+Create a file with one line using LF endings:
 - Line 1: `"alpha"`
 
 **Actions**
-1. Call `OpenFileReader` with the file path.
-2. Call `Close` on the reader.
-3. Call `SkipLines` with count `1`.
+1. Call `FileOpen` with the file path → `reader`
+2. Call `FileClose(reader)`
+3. Call `FileSkipLines(reader, 1)` → result
 
 **Expected outcome**
-- `SkipLines` raises `"end of file"`.
+- result raises no error (the call does nothing)

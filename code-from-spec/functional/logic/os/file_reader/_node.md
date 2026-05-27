@@ -20,7 +20,10 @@ record FileReader
 
 function FileOpen(cfs_path: CfsPath) -> FileReader
   errors:
-    - file unreadable: the file cannot be opened.
+    - (path errors): propagated from ResolvePath if the
+      path is invalid.
+    - file unreadable: the path is valid but the file
+      cannot be opened.
 
 function FileReadLine(reader: FileReader) -> string
   errors:
@@ -45,8 +48,8 @@ lines.
 returning their content.
 
 `FileClose` releases the file resource. After `FileClose`,
-any call to `FileReadLine` or `FileSkipLines` raises
-"end of file".
+`FileReadLine` raises "end of file" and `FileSkipLines`
+does nothing.
 
 # Agent
 

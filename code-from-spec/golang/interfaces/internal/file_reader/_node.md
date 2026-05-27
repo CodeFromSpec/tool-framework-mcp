@@ -7,10 +7,3 @@ outputs:
 ---
 
 # ROOT/golang/interfaces/internal/file_reader
-
-Go interface specification for the `filereader` package.
-
-# Agent
-
-Translate the functional interface into a Go interface
-specification for the `filereader` package.

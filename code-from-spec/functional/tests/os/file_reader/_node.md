@@ -111,7 +111,8 @@ Create a file containing `"alpha"`. Call `FileOpen`, then
 #### Skip after close
 
 Create a file containing `"alpha"`. Call `FileOpen`, then
-`FileClose`, then `FileSkipLines(1)`. Expect "end of file".
+`FileClose`, then `FileSkipLines(1)`. Expect no error —
+the call does nothing.
 
 # Agent
 
