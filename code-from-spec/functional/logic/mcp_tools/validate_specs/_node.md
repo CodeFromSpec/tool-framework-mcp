@@ -3,7 +3,7 @@ depends_on:
   - ROOT/functional/logic/utils/node_ranking
   - ROOT/functional/logic/utils/format_validation
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/node_discovery
+  - ROOT/functional/logic/utils/spec_tree
   - ROOT/functional/logic/parsing/artifact_tag
   - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/utils/text_normalization
@@ -51,7 +51,7 @@ No parameters. Scans the entire spec tree starting from
 
 ### Step 1 — Discover nodes
 
-Use `node_discovery` to find all `_node.md` files in the
+Use `spec_tree` to find all `_node.md` files in the
 spec tree. Derive each node's logical name using
 `logical_names` reverse resolution.
 

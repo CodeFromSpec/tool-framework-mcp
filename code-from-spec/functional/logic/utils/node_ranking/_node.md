@@ -23,7 +23,7 @@ record RankedEntry
   logical_name: string
   rank: integer
 
-function DetectCycles(nodes: list of DiscoveredNode) -> (ranked_entries, cycle_participants)
+function DetectCycles(nodes: list of SpecTreeNode) -> (ranked_entries, cycle_participants)
   errors:
     - unresolvable reference: a depends_on or input target cannot be resolved.
 ```

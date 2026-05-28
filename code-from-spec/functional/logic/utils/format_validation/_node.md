@@ -31,13 +31,13 @@ record FormatError
   rule: string
   detail: string
 
-function ValidateFormat(discovered_nodes: list of DiscoveredNode) -> list of FormatError
+function ValidateFormat(discovered_nodes: list of SpecTreeNode) -> list of FormatError
   errors:
     - unreadable node: a node file cannot be read.
 ```
 
 `discovered_nodes` is a list of discovered nodes (logical
-name + file path), as returned by `node_discovery`.
+name + file path), as returned by `spec_tree`.
 
 For each node, the function reads and parses the file using
 `frontmatter` and `node_parsing`, then checks all rules.
