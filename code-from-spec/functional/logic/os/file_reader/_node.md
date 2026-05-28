@@ -16,12 +16,11 @@ Sequential line reader for text files.
 
 ```
 record FileReader
-  cfs_path: CfsPath
+  cfs_path: PathCfs
 
-function FileOpen(cfs_path: CfsPath) -> FileReader
+function FileOpen(cfs_path: PathCfs) -> FileReader
   errors:
-    - (path errors): propagated from ResolvePath if the
-      path is invalid.
+    - (path errors): propagated from PathCfsToOs.
     - file unreadable: the path is valid but the file
       cannot be opened.
 
@@ -73,4 +72,4 @@ Generate pseudocode for each function in the interface.
 
 ## Dependencies
 
-`CfsPath` comes via `depends_on` from `path_utils`.
+`PathCfs` comes via `depends_on` from `path_utils`.

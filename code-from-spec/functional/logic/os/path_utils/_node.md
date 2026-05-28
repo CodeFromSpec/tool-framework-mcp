@@ -38,11 +38,13 @@ function PathValidateCfs(value: string)
 function PathCfsToOs(cfs_path: PathCfs) -> PathOs
   errors:
     - (validation errors): propagated from PathValidateCfs.
+    - (root errors): propagated from PathGetProjectRoot.
     - resolves outside root: after resolving symlinks, the
       path is outside the project root.
 
 function PathOsToCfs(os_path: PathOs) -> PathCfs
   errors:
+    - (root errors): propagated from PathGetProjectRoot.
     - resolves outside root: the path is not within the
       project root.
 ```

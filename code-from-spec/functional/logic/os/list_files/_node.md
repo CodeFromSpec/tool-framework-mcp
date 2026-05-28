@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/path_utils
+  - ROOT/functional/logic/os/path_utils(interface)
 outputs:
   - id: list_files
     path: code-from-spec/functional/logic/os/list_files/output.md
@@ -10,23 +10,24 @@ outputs:
 
 Recursively lists all files under a directory.
 
-Review status: pending
-
 # Public
 
 ## Interface
 
 ```
-function ListFiles(cfs_path) -> list of CfsPath
+function ListFiles(cfs_path: PathCfs) -> list of PathCfs
   errors:
+    - (validation errors): propagated from PathCfsToOs.
+    - (conversion errors): propagated from PathOsToCfs.
     - directory not found: the directory does not exist.
     - walk error: a filesystem error occurred while
       traversing.
 ```
 
 Returns all files (not directories) found recursively
-under the given directory. Results are `CfsPath` values,
-sorted alphabetically.
+under the given directory. Results are `PathCfs` values,
+sorted alphabetically. If the directory exists but
+contains no files, returns an empty list.
 
 # Agent
 
@@ -34,9 +35,10 @@ Generate pseudocode for the ListFiles function.
 
 ## Implementation guidance
 
-- Convert `cfs_path` to an OS path using `path_utils`.
+- Convert `cfs_path` to an OS path using `PathCfsToOs`.
 - Walk the directory recursively.
 - For each file found, convert the OS path back to a
-  `CfsPath` using `ToCfsPath`.
-- Skip directories — only include files.
+  `PathCfs` using `PathOsToCfs`.
+- Only include files in the result — directories are
+  traversed but not themselves included.
 - Sort the result alphabetically by value.
