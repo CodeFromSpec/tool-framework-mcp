@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/frontmatter(interface)
+  - ROOT/functional/logic/parsing/frontmatter(interface)
 outputs:
   - id: frontmatter_tests
-    path: code-from-spec/functional/tests/utils/frontmatter/output.md
+    path: code-from-spec/functional/tests/parsing/frontmatter/output.md
 ---
 
-# ROOT/functional/tests/utils/frontmatter
+# ROOT/functional/tests/parsing/frontmatter
 
 Test cases for the frontmatter component.
 

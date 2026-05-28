@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/node_parsing(interface)
+  - ROOT/functional/logic/parsing/node_parsing(interface)
 outputs:
   - id: node_parsing_tests
-    path: code-from-spec/functional/tests/utils/node_parsing/output.md
+    path: code-from-spec/functional/tests/parsing/node_parsing/output.md
 ---
 
-# ROOT/functional/tests/utils/node_parsing
+# ROOT/functional/tests/parsing/node_parsing
 
 Test cases for the node parsing component.
 

@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/frontmatter
+  - ROOT/functional/logic/parsing/frontmatter
 outputs:
   - id: chain_resolver
     path: code-from-spec/functional/logic/utils/chain_resolver/output.md
@@ -34,7 +34,7 @@ record Chain
   external: list of ExternalItem
   input: string
 
-function ResolveChain(target_logical_name) -> Chain
+function ResolveChain(target_logical_name: string) -> Chain
   errors:
     - cannot resolve logical name: a logical name cannot
       be resolved to a file path.

@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/frontmatter
+  - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/os/path_utils
 outputs:
   - id: write_file
@@ -20,7 +20,7 @@ Review status: pending
 ## Interface
 
 ```
-function WriteFile(logical_name, path, content) -> string
+function WriteFile(logical_name: string, path: PathCfs, content: string) -> string
   errors:
     - invalid logical name: not a recognized ROOT/ reference.
     - no outputs: target node has no outputs field.

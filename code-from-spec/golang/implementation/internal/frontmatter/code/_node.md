@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/golang/dependencies/goccy-go-yaml
-input: ARTIFACT/functional/logic/utils/frontmatter(frontmatter)
+input: ARTIFACT/functional/logic/parsing/frontmatter(frontmatter)
 external:
   - path: CODE_FROM_SPEC.md
 outputs:

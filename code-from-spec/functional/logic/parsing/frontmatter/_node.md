@@ -1,12 +1,13 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/file_reader
+  - ROOT/functional/logic/os/path_utils(interface)
 outputs:
   - id: frontmatter
-    path: code-from-spec/functional/logic/utils/frontmatter/output.md
+    path: code-from-spec/functional/logic/parsing/frontmatter/output.md
 ---
 
-# ROOT/functional/logic/utils/frontmatter
+# ROOT/functional/logic/parsing/frontmatter
 
 Parses structured metadata from the top of spec node files.
 
@@ -36,7 +37,7 @@ record Frontmatter
   input: string
   outputs: list of Output
 
-function ParseFrontmatter(file_path) -> frontmatter
+function ParseFrontmatter(file_path: PathCfs) -> Frontmatter
   errors:
     - file unreadable: the file cannot be opened or read.
     - malformed YAML: the content between --- delimiters is not valid YAML.

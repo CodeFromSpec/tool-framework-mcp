@@ -4,10 +4,10 @@ depends_on:
   - ROOT/functional/logic/utils/format_validation
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/utils/node_discovery
-  - ROOT/functional/logic/utils/artifact_tag
-  - ROOT/functional/logic/utils/frontmatter
+  - ROOT/functional/logic/parsing/artifact_tag
+  - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/utils/text_normalization
-  - ROOT/functional/logic/utils/node_parsing
+  - ROOT/functional/logic/parsing/node_parsing
   - ROOT/functional/logic/os/path_utils
 outputs:
   - id: validate_specs

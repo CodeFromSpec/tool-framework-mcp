@@ -13,7 +13,7 @@ Normalizes text for comparison.
 ## Interface
 
 ```
-function NormalizeText(raw_string) -> string
+function NormalizeText(raw_string: string) -> string
 ```
 
 ### Examples

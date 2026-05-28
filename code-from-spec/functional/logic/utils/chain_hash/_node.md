@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/utils/frontmatter
+  - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/utils/logical_names
 external:
   - path: CHAIN_HASH.md
@@ -22,7 +22,7 @@ Review status: pending
 ## Interface
 
 ```
-function ComputeChainHash(logical_name) -> string
+function ComputeChainHash(logical_name: string) -> string
   errors:
     - invalid logical name: cannot resolve the logical name.
     - unreadable file: a file in the chain cannot be read.

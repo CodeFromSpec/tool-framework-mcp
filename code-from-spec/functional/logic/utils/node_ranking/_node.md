@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/frontmatter
+  - ROOT/functional/logic/parsing/frontmatter
 outputs:
   - id: node_ranking
     path: code-from-spec/functional/logic/utils/node_ranking/output.md
@@ -23,7 +23,7 @@ record RankedEntry
   logical_name: string
   rank: integer
 
-function DetectCycles(nodes) -> (ranked_entries, cycle_participants)
+function DetectCycles(nodes: list of DiscoveredNode) -> (ranked_entries, cycle_participants)
   errors:
     - unresolvable reference: a depends_on or input target cannot be resolved.
 ```
@@ -58,9 +58,9 @@ node's `outputs` field).
 
 Each artifact is indexed by its `ARTIFACT/` logical name,
 constructed from the generating node's logical name and
-the output's `id`. For example, node `ROOT/functional/logic/utils/frontmatter`
+the output's `id`. For example, node `ROOT/functional/logic/parsing/frontmatter`
 with output `id: frontmatter` produces an artifact entry
-keyed as `ARTIFACT/functional/logic/utils/frontmatter(frontmatter)`.
+keyed as `ARTIFACT/functional/logic/parsing/frontmatter(frontmatter)`.
 
 When resolving `depends_on` and `input` references to
 entries in the entry map:

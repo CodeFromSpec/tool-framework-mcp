@@ -3,7 +3,7 @@ depends_on:
   - ROOT/golang/dependencies/yuin-goldmark
   - ROOT/golang/implementation/internal/logical_names
   - ROOT/golang/implementation/internal/textnormalization
-input: ARTIFACT/functional/logic/utils/node_parsing(node_parsing)
+input: ARTIFACT/functional/logic/parsing/node_parsing(node_parsing)
 external:
   - path: CODE_FROM_SPEC.md
 outputs:

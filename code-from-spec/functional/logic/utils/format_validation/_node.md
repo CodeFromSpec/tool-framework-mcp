@@ -1,10 +1,10 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/utils/frontmatter
+  - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/utils/text_normalization
-  - ROOT/functional/logic/utils/node_parsing
+  - ROOT/functional/logic/parsing/node_parsing
   - ROOT/functional/logic/os/path_utils
 external:
   - path: CODE_FROM_SPEC.md
@@ -31,7 +31,7 @@ record FormatError
   rule: string
   detail: string
 
-function ValidateFormat(discovered_nodes) -> list of FormatError
+function ValidateFormat(discovered_nodes: list of DiscoveredNode) -> list of FormatError
   errors:
     - unreadable node: a node file cannot be read.
 ```

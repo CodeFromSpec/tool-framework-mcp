@@ -5,10 +5,10 @@ depends_on:
   - ROOT/functional/logic/utils/text_normalization
 outputs:
   - id: node_parsing
-    path: code-from-spec/functional/logic/utils/node_parsing/output.md
+    path: code-from-spec/functional/logic/parsing/node_parsing/output.md
 ---
 
-# ROOT/functional/logic/utils/node_parsing
+# ROOT/functional/logic/parsing/node_parsing
 
 Parses the body of a spec node file into a structured
 representation of its sections and subsections.
@@ -35,7 +35,7 @@ record ParsedNode
   agent: optional Section
   private: list of Section
 
-function ParseNode(logical_name) -> ParsedNode
+function ParseNode(logical_name: string) -> ParsedNode
   errors:
     - unexpected content before first heading: file body has content before the first level-1 heading.
     - node name does not match: the first heading does not match the logical name after normalization.

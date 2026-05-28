@@ -1,12 +1,13 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/file_reader
+  - ROOT/functional/logic/os/path_utils(interface)
 outputs:
   - id: artifact_tag
-    path: code-from-spec/functional/logic/utils/artifact_tag/output.md
+    path: code-from-spec/functional/logic/parsing/artifact_tag/output.md
 ---
 
-# ROOT/functional/logic/utils/artifact_tag
+# ROOT/functional/logic/parsing/artifact_tag
 
 Extracts the artifact tag from generated files for
 staleness detection.
@@ -22,7 +23,7 @@ record ArtifactTag
   logical_name: string
   hash: string
 
-function ExtractArtifactTag(file_path) -> ArtifactTag
+function ArtifactTagExtract(file_path: PathCfs) -> ArtifactTag
   errors:
     - file unreadable: the file cannot be opened or read.
     - no tag found: the file has no code-from-spec: substring.

@@ -3,9 +3,9 @@ depends_on:
   - ROOT/functional/logic/utils/chain_hash
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/frontmatter
+  - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/utils/text_normalization
-  - ROOT/functional/logic/utils/node_parsing
+  - ROOT/functional/logic/parsing/node_parsing
   - ROOT/functional/logic/os/path_utils
 outputs:
   - id: load_chain
@@ -24,7 +24,7 @@ Review status: pending
 ## Interface
 
 ```
-function LoadChain(logical_name) -> list of text items
+function LoadChain(logical_name: string) -> list of text items
   errors:
     - invalid logical name: not a recognized ROOT/ reference.
     - no outputs: target node has no outputs field.

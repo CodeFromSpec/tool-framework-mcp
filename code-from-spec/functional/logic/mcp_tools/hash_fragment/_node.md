@@ -19,7 +19,7 @@ Review status: pending
 ## Interface
 
 ```
-function HashFragment(path, lines) -> string
+function HashFragment(path: PathCfs, lines: string) -> string
   errors:
     - file not found: the file does not exist.
     - invalid line range: the range format is invalid or out of bounds.
