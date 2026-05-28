@@ -35,10 +35,13 @@ record Node
 
 function NodeParse(logical_name: string) -> Node
   errors:
+    - has qualifier: the logical name contains a
+      parenthetical qualifier.
     - (path errors): propagated from FileOpen.
     - file unreadable: the file cannot be opened or read.
     - unexpected content before first heading: file body
-      has content before the first level-1 heading.
+      has content before the first level-1 heading, or
+      has no level-1 heading at all.
     - node name does not match: the first heading does not
       match the logical name after normalization.
     - duplicate public section: more than one `# Public`
@@ -63,14 +66,17 @@ treated as content.
 
 Given a logical name:
 
-1. Resolve the file path using `LogicalNameToPath`.
-2. Open the file with `FileOpen`.
-3. Skip the frontmatter: if the first line is exactly
+1. If `LogicalNameHasQualifier` returns true, raise
+   "has qualifier" — this function parses the full node,
+   not a subsection.
+2. Resolve the file path using `LogicalNameToPath`.
+3. Open the file with `FileOpen`.
+4. Skip the frontmatter: if the first line is exactly
    `---`, read and discard lines until the next `---`.
    If end of file is reached without finding the closing
    `---`, raise "unexpected content before first heading".
-4. Parse the remaining body into sections.
-5. Close the reader with `FileClose` when done.
+5. Parse the remaining body into sections.
+6. Close the reader with `FileClose` when done.
 
 ### ATX heading recognition
 
@@ -113,26 +119,30 @@ After normalizing a level-1 heading with `NormalizeText`:
 
 ### Section parsing
 
-- Level-1 (`#`) headings start a new section. Content
-  between the `#` heading and the first `##` heading (or
-  the next `#` heading or end of file) is the section's
-  `content` field.
-- Level-2 (`##`) headings within the public section start
-  a new subsection. Content between a `##` heading and the
-  next `##` or `#` heading (or end of file) is the
-  subsection's `content` field. If two `##` headings within the public
-  section normalize to the same text, raise "duplicate
-  subsection". In all other sections, `##` headings are
-  treated as content.
+- Level-1 (`#`) headings start a new section.
+- In the public section: content between the `#` heading
+  and the first `##` heading (or the next `#` heading or
+  end of file) is the section's `content` field.
+  Level-2 (`##`) headings start subsections. Content
+  between a `##` heading and the next `##` or `#` heading
+  (or end of file) is the subsection's `content` field.
+  If two `##` headings normalize to the same text, raise
+  "duplicate subsection". The `subsections` list contains
+  all `##` subsections in order.
+- In all other sections (name, agent, private): the
+  section's `content` field is everything between the
+  `#` heading and the next `#` heading (or end of file).
+  `##` headings are not structural — they are part of the
+  content. The `subsections` list is always empty.
 - Level-3 and deeper headings are always content.
 - Headings inside fenced code blocks are not structural —
-  they are treated as content. A fenced code block starts
-  with a line beginning with three or more backticks
-  (`` ` ``) or tildes (`~`), optionally followed by a
-  language tag (e.g., `` ```yaml ``). It ends with a line
-  beginning with at least as many backticks or tildes as
-  the opening line. All lines between are content,
-  regardless of whether they look like headings.
+  they are treated as content. A fenced code block opens
+  with a line of three or more consecutive backtick
+  characters or three or more consecutive tilde characters,
+  optionally followed by a language tag. It closes with a
+  line of at least as many of the same character as the
+  opening line. All lines between are content, regardless
+  of whether they look like headings.
 - Leading and trailing blank lines in section and
   subsection content are trimmed.
 
