@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/internal/textnormalization@TUxFx11Hpc34wzmg5gmRDq_re2Q
+// code-from-spec: ROOT/golang/tests/utils/text_normalization@zOKpYUbXY2YXD6-OMezM3IjoaDQ
 
 package textnormalization_test
 
@@ -9,126 +9,48 @@ import (
 )
 
 func TestNormalizeText(t *testing.T) {
-	type testCase struct {
+	tests := []struct {
 		name  string
 		input string
 		want  string
-	}
+	}{
+		// Group: Identity
+		{name: "TC-IDENTITY-01 already normalized", input: "public", want: "public"},
+		{name: "TC-IDENTITY-02 single word with initial capital", input: "Interface", want: "interface"},
 
-	tests := []testCase{
-		// identity
-		{
-			name:  "already normalized",
-			input: "public",
-			want:  "public",
-		},
-		{
-			name:  "single word",
-			input: "Interface",
-			want:  "interface",
-		},
+		// Group: Trim
+		{name: "TC-TRIM-01 leading and trailing spaces", input: "  Interface  ", want: "interface"},
+		{name: "TC-TRIM-02 leading and trailing tabs", input: "\tInterface\t", want: "interface"},
+		{name: "TC-TRIM-03 mixed leading and trailing whitespace", input: " \t Interface \t ", want: "interface"},
 
-		// trim
-		{
-			name:  "leading and trailing spaces",
-			input: "  Interface  ",
-			want:  "interface",
-		},
-		{
-			name:  "leading and trailing tabs",
-			input: "\tInterface\t",
-			want:  "interface",
-		},
-		{
-			name:  "mixed leading whitespace",
-			input: " \t Interface \t ",
-			want:  "interface",
-		},
+		// Group: Collapse
+		{name: "TC-COLLAPSE-01 multiple spaces between words", input: "Testes   de   aceitacao", want: "testes de aceitacao"},
+		{name: "TC-COLLAPSE-02 tabs between words", input: "Testes\tde\taceitacao", want: "testes de aceitacao"},
+		{name: "TC-COLLAPSE-03 mixed whitespace between words", input: "Testes \t de \t aceitacao", want: "testes de aceitacao"},
 
-		// collapse
-		{
-			name:  "multiple spaces between words",
-			input: "Testes   de   aceitação",
-			want:  "testes de aceitação",
-		},
-		{
-			name:  "tabs between words",
-			input: "Testes\tde\taceitação",
-			want:  "testes de aceitação",
-		},
-		{
-			name:  "mixed whitespace between words",
-			input: "Testes \t de \t aceitação",
-			want:  "testes de aceitação",
-		},
+		// Group: Case Folding
+		{name: "TC-CASE-01 all uppercase", input: "PUBLIC", want: "public"},
+		{name: "TC-CASE-02 mixed case", input: "PuBLiC", want: "public"},
+		{name: "TC-CASE-03 unicode uppercase", input: "TESTES DE ACEITACAO", want: "testes de aceitacao"},
+		{name: "TC-CASE-04 german sharp-s already decomposed", input: "Strasse", want: "strasse"},
 
-		// case folding
-		{
-			name:  "all uppercase",
-			input: "PUBLIC",
-			want:  "public",
-		},
-		{
-			name:  "mixed case",
-			input: "PuBLiC",
-			want:  "public",
-		},
-		{
-			name:  "unicode case folding",
-			input: "TESTES DE ACEITAÇÃO",
-			want:  "testes de aceitação",
-		},
-		{
-			name:  "german sharp s",
-			input: "Straße",
-			want:  "strasse",
-		},
+		// Group: Combined
+		{name: "TC-COMBINED-01 trim collapse and case fold together", input: "  TESTES   DE   ACEITACAO  ", want: "testes de aceitacao"},
+		{name: "TC-COMBINED-02 logical name qualifier style", input: "testes de ACEITACAO", want: "testes de aceitacao"},
+		{name: "TC-COMBINED-03 tabs and mixed case with path-like content", input: "\tROOT/payments/fees\t", want: "root/payments/fees"},
 
-		// combined
-		{
-			name:  "trim collapse and case fold together",
-			input: "  TESTES   DE   ACEITAÇÃO  ",
-			want:  "testes de aceitação",
-		},
-		{
-			name:  "logical name qualifier style",
-			input: "testes de ACEITAÇÃO",
-			want:  "testes de aceitação",
-		},
-		{
-			name:  "tabs and mixed case",
-			input: "\tROOT/payments/fees\t",
-			want:  "root/payments/fees",
-		},
-
-		// edge cases
-		{
-			name:  "empty string",
-			input: "",
-			want:  "",
-		},
-		{
-			name:  "only whitespace",
-			input: "   \t  ",
-			want:  "",
-		},
-		{
-			name:  "non-breaking space is not whitespace",
-			input: "hello world",
-			want:  "hello world",
-		},
-		{
-			name:  "single character",
-			input: "X",
-			want:  "x",
-		},
+		// Group: Edge Cases
+		{name: "TC-EDGE-01 empty string", input: "", want: ""},
+		{name: "TC-EDGE-02 only whitespace", input: "   \t  ", want: ""},
+		{name: "TC-EDGE-03 non-breaking space is not treated as whitespace", input: "hello world", want: "hello world"},
+		{name: "TC-EDGE-04 single character", input: "X", want: "x"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := textnormalization.NormalizeText(tc.input)
 			if got != tc.want {
-				t.Errorf("NormalizeText(%q) = %q; want %q", tc.input, got, tc.want)
+				t.Errorf("NormalizeText(%q) = %q, want %q", tc.input, got, tc.want)
 			}
 		})
 	}

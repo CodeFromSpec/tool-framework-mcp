@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/internal/frontmatter/code@tZW47GZDHusiIYHZfJZqkD7KCik
+// code-from-spec: ROOT/golang/implementation/parsing/frontmatter@ZmuTyUn3ro-jvpCA5kYOCU-esvA
 
 package frontmatter
 
@@ -12,57 +12,66 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
-// ErrMalformedYAML is returned when the YAML block between --- delimiters
-// is not valid YAML or a required field in a sub-record is missing.
+// ErrFileUnreadable is returned when the file cannot be opened or read.
+var ErrFileUnreadable = errors.New("file unreadable")
+
+// ErrMalformedYAML is returned when the content between --- delimiters
+// is not valid YAML.
 var ErrMalformedYAML = errors.New("malformed YAML")
 
-// FrontmatterExternalFragment represents a single fragment of an external dependency.
+// FrontmatterExternalFragment represents a single fragment of an external
+// dependency, with an optional description, the raw lines content, and a
+// hash identifying the fragment.
 type FrontmatterExternalFragment struct {
-	Description *string
+	Description string
 	Lines       string
 	Hash        string
 }
 
-// FrontmatterExternal represents an external dependency entry.
+// FrontmatterExternal represents an external dependency referenced in a
+// spec file, identified by its path and containing zero or more fragments.
 type FrontmatterExternal struct {
 	Path      string
-	Fragments *[]FrontmatterExternalFragment
+	Fragments []*FrontmatterExternalFragment
 }
 
-// FrontmatterOutput represents a single output entry.
+// FrontmatterOutput represents a single output entry declared in a spec
+// file's frontmatter, with an id and a target path.
 type FrontmatterOutput struct {
 	ID   string
 	Path string
 }
 
-// Frontmatter holds all parsed frontmatter data from a spec file.
+// Frontmatter holds all structured data parsed from the YAML frontmatter
+// block of a spec file. All fields default to their zero value (empty
+// string, empty slice) when absent from the YAML.
 type Frontmatter struct {
-	DependsOn []string
-	External  []FrontmatterExternal
+	DependsOn []*string
+	External  []*FrontmatterExternal
 	Input     string
-	Outputs   []FrontmatterOutput
+	Outputs   []*FrontmatterOutput
 }
 
-// rawFragment is used for YAML unmarshalling of fragment entries.
+// rawFragment is the unexported struct used to unmarshal YAML fragment entries.
 type rawFragment struct {
-	Description *string `yaml:"description"`
-	Lines       *string `yaml:"lines"`
-	Hash        *string `yaml:"hash"`
+	Description string `yaml:"description"`
+	Lines       string `yaml:"lines"`
+	Hash        string `yaml:"hash"`
 }
 
-// rawExternal is used for YAML unmarshalling of external entries.
+// rawExternal is the unexported struct used to unmarshal YAML external entries.
 type rawExternal struct {
 	Path      string        `yaml:"path"`
 	Fragments []rawFragment `yaml:"fragments"`
 }
 
-// rawOutput is used for YAML unmarshalling of output entries.
+// rawOutput is the unexported struct used to unmarshal YAML output entries.
 type rawOutput struct {
-	ID   *string `yaml:"id"`
-	Path *string `yaml:"path"`
+	ID   string `yaml:"id"`
+	Path string `yaml:"path"`
 }
 
-// rawFrontmatter is used for YAML unmarshalling of the full frontmatter block.
+// rawFrontmatter is the unexported struct used to unmarshal the full YAML block.
 type rawFrontmatter struct {
 	DependsOn []string      `yaml:"depends_on"`
 	External  []rawExternal `yaml:"external"`
@@ -70,18 +79,24 @@ type rawFrontmatter struct {
 	Outputs   []rawOutput   `yaml:"outputs"`
 }
 
-// FrontmatterParse opens the file at file_path and parses any YAML frontmatter
-// delimited by --- markers at the top of the file.
+// FrontmatterParse opens and parses the YAML frontmatter of the spec file
+// at the given CFS path, returning a populated Frontmatter. All fields
+// default to empty when absent from the YAML.
 //
 // Possible errors:
-//   - Path errors propagated from FileOpen (ErrPathEmpty, ErrPathAbsolute, etc.)
-//   - filereader.ErrFileUnreadable if the file cannot be opened.
-//   - ErrMalformedYAML if the YAML block is invalid or required fields are missing.
-func FrontmatterParse(file_path *pathutils.PathCfs) (Frontmatter, error) {
+//   - Path errors propagated from FileOpen (ErrPathEmpty, ErrPathAbsolute,
+//     ErrPathContainsBackslash, ErrDirectoryTraversal, ErrResolvesOutsideRoot,
+//     ErrCannotDetermineRoot)
+//   - ErrFileUnreadable
+//   - ErrMalformedYAML
+func FrontmatterParse(file_path *pathutils.PathCfs) (*Frontmatter, error) {
 	// Step 1: Open the file.
 	reader, err := filereader.FileOpen(file_path)
 	if err != nil {
-		return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w", err)
+		if errors.Is(err, filereader.ErrFileUnreadable) {
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+		}
+		return nil, err
 	}
 
 	// Step 2: Read the first line.
@@ -89,29 +104,29 @@ func FrontmatterParse(file_path *pathutils.PathCfs) (Frontmatter, error) {
 	if err != nil {
 		if errors.Is(err, filereader.ErrEndOfFile) {
 			filereader.FileClose(reader)
-			return Frontmatter{}, nil
+			return emptyFrontmatter(), nil
 		}
 		filereader.FileClose(reader)
-		return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	// Step 3: Check that the first line is exactly "---".
 	if firstLine != "---" {
 		filereader.FileClose(reader)
-		return Frontmatter{}, nil
+		return emptyFrontmatter(), nil
 	}
 
-	// Step 4: Collect YAML lines until the closing "---".
+	// Step 4: Collect YAML lines until closing "---" delimiter.
 	var yamlLines []string
 	for {
 		line, err := filereader.FileReadLine(reader)
 		if err != nil {
 			if errors.Is(err, filereader.ErrEndOfFile) {
 				filereader.FileClose(reader)
-				return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w", ErrMalformedYAML)
+				return nil, fmt.Errorf("%w: unterminated frontmatter block", ErrMalformedYAML)
 			}
 			filereader.FileClose(reader)
-			return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w", err)
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
 		if line == "---" {
 			break
@@ -122,78 +137,88 @@ func FrontmatterParse(file_path *pathutils.PathCfs) (Frontmatter, error) {
 	// Step 5: Close the reader.
 	filereader.FileClose(reader)
 
-	// Step 6: If no YAML lines were collected, return an empty Frontmatter.
+	// Step 6: If yaml_lines is empty, return an empty Frontmatter.
 	if len(yamlLines) == 0 {
-		return Frontmatter{}, nil
+		return emptyFrontmatter(), nil
 	}
 
-	// Step 7: Join and parse the YAML.
+	// Step 7: Join and parse YAML.
 	yamlText := strings.Join(yamlLines, "\n")
 	var raw rawFrontmatter
 	if err := yaml.Unmarshal([]byte(yamlText), &raw); err != nil {
-		return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w: %w", ErrMalformedYAML, err)
+		return nil, fmt.Errorf("%w: %w", ErrMalformedYAML, err)
 	}
 
 	// Step 8: Build the Frontmatter record from parsed YAML.
 
 	// depends_on
-	dependsOn := raw.DependsOn
-	if dependsOn == nil {
-		dependsOn = []string{}
+	dependsOn := make([]*string, 0, len(raw.DependsOn))
+	for i := range raw.DependsOn {
+		s := raw.DependsOn[i]
+		dependsOn = append(dependsOn, &s)
 	}
 
 	// external
-	external := []FrontmatterExternal{}
+	external := make([]*FrontmatterExternal, 0, len(raw.External))
 	for _, rawExt := range raw.External {
 		if rawExt.Path == "" {
-			return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w: external entry missing required field \"path\"", ErrMalformedYAML)
+			return nil, fmt.Errorf("%w: external entry missing required field 'path'", ErrMalformedYAML)
 		}
 
-		var fragments *[]FrontmatterExternalFragment
+		var fragments []*FrontmatterExternalFragment
 		if rawExt.Fragments != nil {
-			built := make([]FrontmatterExternalFragment, 0, len(rawExt.Fragments))
+			fragments = make([]*FrontmatterExternalFragment, 0, len(rawExt.Fragments))
 			for _, rawFrag := range rawExt.Fragments {
-				if rawFrag.Lines == nil {
-					return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w: fragment entry missing required field \"lines\"", ErrMalformedYAML)
+				if rawFrag.Lines == "" {
+					return nil, fmt.Errorf("%w: fragment entry missing required field 'lines'", ErrMalformedYAML)
 				}
-				if rawFrag.Hash == nil {
-					return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w: fragment entry missing required field \"hash\"", ErrMalformedYAML)
+				if rawFrag.Hash == "" {
+					return nil, fmt.Errorf("%w: fragment entry missing required field 'hash'", ErrMalformedYAML)
 				}
-				built = append(built, FrontmatterExternalFragment{
+				fragments = append(fragments, &FrontmatterExternalFragment{
 					Description: rawFrag.Description,
-					Lines:       *rawFrag.Lines,
-					Hash:        *rawFrag.Hash,
+					Lines:       rawFrag.Lines,
+					Hash:        rawFrag.Hash,
 				})
 			}
-			fragments = &built
 		}
 
-		external = append(external, FrontmatterExternal{
+		external = append(external, &FrontmatterExternal{
 			Path:      rawExt.Path,
 			Fragments: fragments,
 		})
 	}
 
 	// outputs
-	outputs := []FrontmatterOutput{}
+	outputs := make([]*FrontmatterOutput, 0, len(raw.Outputs))
 	for _, rawOut := range raw.Outputs {
-		if rawOut.ID == nil {
-			return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w: output entry missing required field \"id\"", ErrMalformedYAML)
+		if rawOut.ID == "" {
+			return nil, fmt.Errorf("%w: output entry missing required field 'id'", ErrMalformedYAML)
 		}
-		if rawOut.Path == nil {
-			return Frontmatter{}, fmt.Errorf("FrontmatterParse: %w: output entry missing required field \"path\"", ErrMalformedYAML)
+		if rawOut.Path == "" {
+			return nil, fmt.Errorf("%w: output entry missing required field 'path'", ErrMalformedYAML)
 		}
-		outputs = append(outputs, FrontmatterOutput{
-			ID:   *rawOut.ID,
-			Path: *rawOut.Path,
+		outputs = append(outputs, &FrontmatterOutput{
+			ID:   rawOut.ID,
+			Path: rawOut.Path,
 		})
 	}
 
 	// Step 9: Return the Frontmatter record.
-	return Frontmatter{
+	return &Frontmatter{
 		DependsOn: dependsOn,
 		External:  external,
 		Input:     raw.Input,
 		Outputs:   outputs,
 	}, nil
+}
+
+// emptyFrontmatter returns a Frontmatter with all fields set to their zero values.
+func emptyFrontmatter() *Frontmatter {
+	return &Frontmatter{
+		DependsOn: []*string{},
+		External:  []*FrontmatterExternal{},
+		Input:     "",
+		Outputs:   []*FrontmatterOutput{},
+	}
 }

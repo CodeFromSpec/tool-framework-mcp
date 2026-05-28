@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/internal/textnormalization/code@EJ4-KMjk4QQT-OaJVM-M8mpZL-0
+// code-from-spec: ROOT/golang/implementation/utils/text_normalization@hdOyvGWKkfhzJinWQ7wK1ElVMuE
 
 package textnormalization
 
@@ -8,44 +8,37 @@ import (
 	"golang.org/x/text/cases"
 )
 
-// NormalizeText applies the framework normalization rules to a raw heading
-// or qualifier text:
-//  1. Trim leading and trailing whitespace (space U+0020, tab U+0009).
-//  2. Collapse each sequence of one or more whitespace characters to a single space.
-//  3. Apply Unicode simple case folding.
-func NormalizeText(raw string) string {
-	if raw == "" {
+// NormalizeText normalizes a raw string by trimming leading and trailing
+// whitespace, collapsing internal runs of whitespace to a single space,
+// converting the result to lowercase, and transliterating Unicode characters
+// to their ASCII equivalents where possible (e.g., "ß" → "ss").
+//
+// An empty string input returns an empty string.
+func NormalizeText(rawString string) string {
+	if rawString == "" {
 		return ""
 	}
 
-	// Step 1: Trim leading and trailing whitespace (space and tab).
-	trimmed := strings.TrimFunc(raw, isWhitespace)
+	trimmed := strings.TrimFunc(rawString, func(r rune) bool {
+		return r == ' ' || r == '\t'
+	})
 
-	// Step 2: Collapse runs of whitespace to a single space.
-	var builder strings.Builder
+	var collapsed strings.Builder
 	inWhitespace := false
-	for _, ch := range trimmed {
-		if isWhitespace(ch) {
+	for _, r := range trimmed {
+		if r == ' ' || r == '\t' {
 			if !inWhitespace {
-				builder.WriteRune(' ')
+				collapsed.WriteRune(' ')
 				inWhitespace = true
 			}
 		} else {
-			builder.WriteRune(ch)
+			collapsed.WriteRune(r)
 			inWhitespace = false
 		}
 	}
-	collapsed := builder.String()
 
-	// Step 3: Apply Unicode simple case folding.
 	caser := cases.Fold()
-	folded := caser.String(collapsed)
+	folded := caser.String(collapsed.String())
 
 	return folded
-}
-
-// isWhitespace reports whether r is a whitespace character as defined by
-// the normalization rules: space (U+0020) or horizontal tab (U+0009).
-func isWhitespace(r rune) bool {
-	return r == ' ' || r == '\t'
 }

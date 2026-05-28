@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/path_utils@96y-68Z4YL64ygTJTx-WtOxEtg4
+// code-from-spec: ROOT/golang/implementation/os/path_utils@V4-WCYptZW2vZH4wVS9WN9Dp_y0
 
 package pathutils
 
@@ -91,22 +91,20 @@ func PathValidateCfs(value string) error {
 	}
 
 	// Reject Unix-style absolute paths and Windows drive letters.
-	if strings.HasPrefix(value, "/") || strings.Contains(value, ":") {
+	if strings.HasPrefix(value, "/") || (len(value) >= 2 && value[1] == ':') {
 		return ErrPathAbsolute
 	}
 
-	// Reject backslashes.
-	if strings.Contains(value, `\`) {
+	if strings.Contains(value, "\\") {
 		return ErrPathContainsBackslash
 	}
 
-	// Normalize the path to resolve "." and ".." components.
-	// filepath.Clean works on the native separator, so we use
-	// path.Clean (which always uses "/") to normalize forward-slash paths.
-	normalized := filepath.ToSlash(filepath.Clean(filepath.FromSlash(value)))
+	// Normalize to resolve "." and ".." components.
+	normalized := filepath.ToSlash(filepath.Clean(value))
 
-	// After normalization, check for ".." components.
-	for _, component := range strings.Split(normalized, "/") {
+	// After normalization, check each component for "..".
+	components := strings.Split(normalized, "/")
+	for _, component := range components {
 		if component == ".." {
 			return ErrDirectoryTraversal
 		}
@@ -144,27 +142,20 @@ func PathCfsToOs(cfs_path *PathCfs) (*PathOs, error) {
 		return nil, err
 	}
 
-	absPath := filepath.Join(root.Value, nativePath)
+	joined := filepath.Join(root.Value, nativePath)
 
-	// If the path exists on disk, resolve symlinks and verify containment.
-	if _, statErr := os.Lstat(absPath); statErr == nil {
-		resolvedPath, err := filepath.EvalSymlinks(absPath)
+	// If the joined path exists, resolve symlinks and verify containment.
+	if _, statErr := os.Stat(joined); statErr == nil {
+		resolved, err := filepath.EvalSymlinks(joined)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrResolvesOutsideRoot, err)
 		}
-
-		resolvedRoot, err := filepath.EvalSymlinks(root.Value)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrCannotDetermineRoot, err)
-		}
-
-		// Ensure the resolved path is contained within the resolved root.
-		if !isContained(resolvedPath, resolvedRoot) {
+		if !isContainedIn(resolved, root.Value) {
 			return nil, ErrResolvesOutsideRoot
 		}
 	}
 
-	return &PathOs{Value: absPath}, nil
+	return &PathOs{Value: joined}, nil
 }
 
 // PathOsToCfs converts an absolute PathOs to a PathCfs relative to the
@@ -178,64 +169,42 @@ func PathCfsToOs(cfs_path *PathCfs) (*PathOs, error) {
 //   - ErrResolvesOutsideRoot
 //   - ErrCannotDetermineRoot
 func PathOsToCfs(os_path *PathOs) (*PathCfs, error) {
-	osPathValue := os_path.Value
-
-	// If the path exists on disk, resolve symlinks.
-	if _, statErr := os.Lstat(osPathValue); statErr == nil {
-		resolved, err := filepath.EvalSymlinks(osPathValue)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrResolvesOutsideRoot, err)
-		}
-		osPathValue = resolved
-	}
-
 	root, err := PathGetProjectRoot()
 	if err != nil {
 		return nil, err
 	}
 
-	rootValue := root.Value
+	targetPath := os_path.Value
 
-	// If the project root exists on disk, resolve its symlinks too.
-	if _, statErr := os.Lstat(rootValue); statErr == nil {
-		resolved, err := filepath.EvalSymlinks(rootValue)
+	// If the path exists on disk, resolve symlinks.
+	if _, statErr := os.Stat(targetPath); statErr == nil {
+		resolved, err := filepath.EvalSymlinks(targetPath)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrCannotDetermineRoot, err)
+			return nil, fmt.Errorf("%w: %w", ErrResolvesOutsideRoot, err)
 		}
-		rootValue = resolved
+		targetPath = resolved
 	}
 
-	// Verify containment.
-	if !isContained(osPathValue, rootValue) {
+	if !isContainedIn(targetPath, root.Value) {
 		return nil, ErrResolvesOutsideRoot
 	}
 
-	// Remove the root prefix, including the trailing separator.
-	rel := osPathValue[len(rootValue):]
-	rel = strings.TrimPrefix(rel, string(filepath.Separator))
+	// Remove the root prefix and any trailing separator that follows it.
+	relative := targetPath[len(root.Value):]
+	relative = strings.TrimPrefix(relative, string(filepath.Separator))
 
-	// Convert OS separators to forward slashes.
-	cfsValue := filepath.ToSlash(rel)
+	// Convert OS-native separators to forward slashes.
+	cfsValue := filepath.ToSlash(relative)
 
 	return &PathCfs{Value: cfsValue}, nil
 }
 
-// isContained reports whether path is equal to base or is nested inside
-// base. Both paths must already be cleaned/resolved before calling this.
-func isContained(path, base string) bool {
-	// Normalize separators for comparison.
-	path = filepath.Clean(path)
-	base = filepath.Clean(base)
-
+// isContainedIn reports whether path is contained within base,
+// meaning path equals base or path starts with base followed by
+// the OS path separator.
+func isContainedIn(path, base string) bool {
 	if path == base {
 		return true
 	}
-
-	// Ensure the base ends with a separator so that a directory named
-	// "/foo/bar" does not falsely match "/foo/barbaz".
-	if !strings.HasSuffix(base, string(filepath.Separator)) {
-		base += string(filepath.Separator)
-	}
-
-	return strings.HasPrefix(path, base)
+	return strings.HasPrefix(path, base+string(filepath.Separator))
 }

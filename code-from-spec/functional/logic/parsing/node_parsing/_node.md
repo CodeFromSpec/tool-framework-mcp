@@ -51,8 +51,8 @@ function NodeParse(logical_name: string) -> Node
       section exists.
     - duplicate agent section: more than one `# Agent`
       section exists.
-    - duplicate subsection: two `##` headings within
-      `# Public` normalize to the same text.
+    - duplicate subsection: two `##` headings within the
+      same section normalize to the same text.
 ```
 
 `NodeSubsection` and `NodeSection` headings are stored in
@@ -68,10 +68,12 @@ A section that exists in the file but has no content
 present with an empty `content` and an empty `subsections`
 list — it is not absent.
 
-Subsections (`##`) are only structural within `# Public` —
-they support selective import via `depends_on` qualifiers.
-In `# Agent` and private sections, `##` headings are
-treated as content.
+Subsections (`##`) are structural in all sections. Each
+section can have a `content` field (text before the first
+`##`) and a `subsections` list (one entry per `##`
+heading). Selective import via `depends_on` qualifiers
+only applies to `# Public` subsections, but the parsing
+structure is uniform across all sections.
 
 # Agent
 
@@ -141,20 +143,19 @@ After normalizing a level-1 heading with `NormalizeText`:
 ### Section parsing
 
 - Level-1 (`#`) headings start a new section.
-- In the public section: content between the `#` heading
-  and the first `##` heading (or the next `#` heading or
-  end of file) is the section's `content` field.
-  Level-2 (`##`) headings start subsections. Content
-  between a `##` heading and the next `##` or `#` heading
-  (or end of file) is the subsection's `content` field.
-  If two `##` headings normalize to the same text, raise
-  "duplicate subsection". The `subsections` list contains
-  all `##` subsections in order.
-- In all other sections (name, agent, private): the
-  section's `content` field is everything between the
-  `#` heading and the next `#` heading (or end of file).
-  `##` headings are not structural — they are part of the
-  content. The `subsections` list is always empty.
+- Level-2 (`##`) headings start a new subsection within
+  the current section. This applies uniformly to all
+  sections (name, public, agent, private).
+- Content between the `#` heading and the first `##`
+  heading (or the next `#` heading or end of file) is
+  the section's `content` field.
+- Content between a `##` heading and the next `##` or
+  `#` heading (or end of file) is the subsection's
+  `content` field.
+- If two `##` headings within the same section normalize
+  to the same text, raise "duplicate subsection".
+- The `subsections` list contains all `##` subsections
+  in order of appearance.
 - Level-3 and deeper headings are always content.
 - Headings inside fenced code blocks are not structural —
   they are treated as content. A fenced code block opens
@@ -170,11 +171,10 @@ After normalizing a level-1 heading with `NormalizeText`:
 ## Contracts
 
 - Level-1 (`#`) headings are structural in all sections.
-- Level-2 (`##`) headings are structural only within
-  `# Public`. In all other sections they are content.
+- Level-2 (`##`) headings are structural in all sections.
 - Level-3 and deeper headings are always content.
 - Headings inside fenced code blocks are not structural.
 - Leading and trailing blank lines in content are trimmed.
-- Subsection duplicate detection only applies within
-  `# Public`.
+- Duplicate subsection detection applies within each
+  section independently.
 - `FileClose` is called in all cases — success or error.

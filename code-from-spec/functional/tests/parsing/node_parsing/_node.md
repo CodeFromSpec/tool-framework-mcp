@@ -66,14 +66,16 @@ followed by `# Agent`. Call `NodeParse`.
 Expect `public` present with empty `content` and empty
 `subsections` list.
 
-#### Agent section with ## headings treated as content
+#### Agent section with ## subsections
 
 Create a node file with an agent section containing
-`## Implementation guidance` and `## Contracts`. Call
-`NodeParse`.
+some preamble text, then `## Implementation guidance`
+and `## Contracts` subsections. Call `NodeParse`.
 
-Expect `agent.content` includes the raw `##` headings
-as text. `agent.subsections` is empty.
+Expect `agent.content` = the preamble text,
+`agent.subsections` has two entries with headings
+`"implementation guidance"` and `"contracts"`, each
+with their own content.
 
 #### Private sections preserve file order
 
@@ -272,11 +274,11 @@ Create a node with `## Interface` and `##   Interface`
 under public. Call `NodeParse`. Expect "duplicate
 subsection".
 
-#### Duplicate ## in non-public is not an error
+#### Duplicate subsection in agent
 
 Create a node with two `## Details` headings inside
-`# Agent`. Call `NodeParse`. Expect no error — `##`
-is content in non-public sections.
+`# Agent`. Call `NodeParse`. Expect "duplicate
+subsection".
 
 # Agent
 

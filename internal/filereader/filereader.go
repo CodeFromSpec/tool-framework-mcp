@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_reader@V_qBDMEFXH0wv251I9Vsw4C2W1k
+// code-from-spec: ROOT/golang/implementation/os/file_reader@MEeLfTrvL7FXmn5jy7rgq-xbH9o
 
 package filereader
 
@@ -12,26 +12,24 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
 )
 
+// ErrEndOfFile is returned by FileReadLine when there are no more lines
+// to read, including after FileClose has been called.
+var ErrEndOfFile = errors.New("end of file")
+
+// ErrFileUnreadable is returned by FileOpen when the path is valid but
+// the file cannot be opened.
+var ErrFileUnreadable = errors.New("file unreadable")
+
 // FileReader holds the state for sequential line-by-line reading of a file.
 // Obtain a FileReader via FileOpen. The caller must call FileClose when done
 // to release the underlying file handle.
 type FileReader struct {
 	CfsPath *pathutils.PathCfs
-	osPath  *pathutils.PathOs
+
 	file    *os.File
 	scanner *bufio.Scanner
 	closed  bool
 }
-
-var (
-	// ErrEndOfFile is returned by FileReadLine when there are no more lines
-	// to read, including after FileClose has been called.
-	ErrEndOfFile = errors.New("end of file")
-
-	// ErrFileUnreadable is returned by FileOpen when the path is valid but
-	// the file cannot be opened.
-	ErrFileUnreadable = errors.New("file unreadable")
-)
 
 // FileOpen opens the file at cfs_path and prepares it for sequential
 // line-by-line reading starting from the beginning of the file.
@@ -58,7 +56,6 @@ func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error) {
 
 	return &FileReader{
 		CfsPath: cfs_path,
-		osPath:  osPath,
 		file:    f,
 		scanner: scanner,
 		closed:  false,
@@ -80,10 +77,14 @@ func FileReadLine(reader *FileReader) (string, error) {
 		return "", ErrEndOfFile
 	}
 
-	// bufio.Scanner already strips the line terminator, but it leaves
-	// the CR in CRLF sequences. Remove any trailing CR to normalize CRLF.
 	line := reader.scanner.Text()
+
+	// bufio.Scanner with the default ScanLines already strips line terminators,
+	// but the spec requires explicit CRLF normalization. When using a custom
+	// split function we handle it ourselves. With ScanLines, "\r" may still be
+	// present at the end of lines on files with CRLF endings, so we strip it.
 	line = strings.TrimRight(line, "\r")
+
 	return line, nil
 }
 
@@ -110,6 +111,8 @@ func FileClose(reader *FileReader) {
 		return
 	}
 
-	reader.closed = true
 	reader.file.Close()
+	reader.closed = true
+	reader.file = nil
+	reader.scanner = nil
 }

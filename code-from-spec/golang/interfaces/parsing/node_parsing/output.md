@@ -19,35 +19,43 @@ import "github.com/CodeFromSpec/tool-framework-mcp/v2/internal/parsenode"
 ## Struct Definitions
 
 ```go
-// NodeSubsection represents a level-2 heading and its content within a
-// # Public section. The heading is stored in normalized form (after
-// NormalizeText). The content field contains raw markdown text with
-// leading and trailing blank lines trimmed.
+// NodeSubsection represents a level-2 heading and its content within
+// a section. The heading is stored in normalized form (after NormalizeText).
+// Content contains raw markdown text with only leading/trailing blank lines
+// trimmed.
 type NodeSubsection struct {
 	Heading string
 	Content string
 }
 
-// NodeSection represents a level-1 section of a node spec file. The
-// heading is stored in normalized form (after NormalizeText). The
-// content field contains raw markdown text with leading and trailing
-// blank lines trimmed. Subsections are only populated for the # Public
-// section; in all other sections, ## headings are treated as content.
+// NodeSection represents a level-1 heading section within a node file.
+// The heading is stored in normalized form (after NormalizeText). Content
+// contains raw markdown text between the section heading and the first
+// subsection (or end of section), with only leading/trailing blank lines
+// trimmed. A section that exists in the file but has no content is present
+// with an empty Content and an empty Subsections slice.
 type NodeSection struct {
 	Heading     string
 	Content     string
 	Subsections []*NodeSubsection
 }
 
-// Node represents a fully parsed node spec file. Name_section is always
-// present. Public and Agent are optional and are nil when absent.
-// Private contains all other level-1 sections in the order they appear
-// in the file.
+// Node represents a parsed _node.md file. Each field corresponds to a
+// well-known section of the file, except Private which collects all
+// remaining sections in the order they appear.
 type Node struct {
+	// NameSection is the first level-1 section, whose heading matches
+	// the logical name after normalization.
 	NameSection *NodeSection
-	Public      *NodeSection
-	Agent       *NodeSection
-	Private     []*NodeSection
+
+	// Public is the `# Public` section, if present.
+	Public *NodeSection
+
+	// Agent is the `# Agent` section, if present.
+	Agent *NodeSection
+
+	// Private contains all other level-1 sections, in file order.
+	Private []*NodeSection
 }
 ```
 
@@ -57,15 +65,15 @@ type Node struct {
 
 ```go
 var (
-	// ErrNotARootReference is returned when the logical name does not
+	// ErrNotRootReference is returned when the logical name does not
 	// start with "ROOT/".
-	ErrNotARootReference = errors.New("not a ROOT reference")
+	ErrNotRootReference = errors.New("not a ROOT reference")
 
 	// ErrHasQualifier is returned when the logical name contains a
 	// parenthetical qualifier.
 	ErrHasQualifier = errors.New("has qualifier")
 
-	// ErrFileUnreadable is returned when the spec file cannot be opened
+	// ErrFileUnreadable is returned when the node file cannot be opened
 	// or read.
 	ErrFileUnreadable = errors.New("file unreadable")
 
@@ -74,20 +82,20 @@ var (
 	// has no level-1 heading at all.
 	ErrUnexpectedContentBeforeFirstHeading = errors.New("unexpected content before first heading")
 
-	// ErrNodeNameDoesNotMatch is returned when the first heading does not
-	// match the logical name after normalization.
+	// ErrNodeNameDoesNotMatch is returned when the first heading does
+	// not match the logical name after normalization.
 	ErrNodeNameDoesNotMatch = errors.New("node name does not match")
 
-	// ErrDuplicatePublicSection is returned when more than one # Public
+	// ErrDuplicatePublicSection is returned when more than one `# Public`
 	// section exists in the file.
 	ErrDuplicatePublicSection = errors.New("duplicate public section")
 
-	// ErrDuplicateAgentSection is returned when more than one # Agent
+	// ErrDuplicateAgentSection is returned when more than one `# Agent`
 	// section exists in the file.
 	ErrDuplicateAgentSection = errors.New("duplicate agent section")
 
-	// ErrDuplicateSubsection is returned when two ## headings within
-	// # Public normalize to the same text.
+	// ErrDuplicateSubsection is returned when two `##` headings within
+	// the same section normalize to the same text.
 	ErrDuplicateSubsection = errors.New("duplicate subsection")
 )
 ```
@@ -97,30 +105,26 @@ var (
 ## Functions
 
 ```go
-// NodeParse parses the spec file for the given logical name and returns
-// a structured Node. The logical name must start with "ROOT/" and must
-// not contain a parenthetical qualifier.
+// NodeParse parses the _node.md file associated with the given logical name
+// and returns a Node representation of its contents.
 //
-// The file is located using the logical name via the standard framework
-// path resolution. Path errors from FileOpen are propagated directly.
+// The logical name must start with "ROOT/" and must not contain a
+// parenthetical qualifier. Path errors from FileOpen are propagated.
 //
 // Headings are stored in normalized form (after NormalizeText). Content
-// fields contain raw markdown text with leading and trailing blank lines
-// trimmed.
-//
-// A section that exists in the file but has no content is present with
-// an empty Content and an empty Subsections slice — it is not nil.
+// fields contain raw markdown text with only leading/trailing blank lines
+// trimmed. Private sections preserve their file order.
 //
 // Possible errors:
-//   - ErrNotARootReference
+//   - ErrNotRootReference
 //   - ErrHasQualifier
+//   - (path errors from FileOpen)
 //   - ErrFileUnreadable
 //   - ErrUnexpectedContentBeforeFirstHeading
 //   - ErrNodeNameDoesNotMatch
 //   - ErrDuplicatePublicSection
 //   - ErrDuplicateAgentSection
 //   - ErrDuplicateSubsection
-//   - (path errors propagated from FileOpen)
 func NodeParse(logical_name string) (*Node, error)
 ```
 
@@ -139,33 +143,31 @@ import (
 )
 
 func main() {
-	// Parse a node spec file by its logical name.
+	// Parse a node file by its logical name.
 	node, err := parsenode.NodeParse("ROOT/golang/interfaces/parsing/node_parsing")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Access the name section (always present).
+	// Access the name section heading.
 	fmt.Println("Node name:", node.NameSection.Heading)
 
-	// Check if a Public section exists.
+	// Check if the Public section is present.
 	if node.Public != nil {
 		fmt.Println("Public content:", node.Public.Content)
-
-		// Iterate over subsections within # Public.
 		for _, sub := range node.Public.Subsections {
-			fmt.Printf("  Subsection %q: %s\n", sub.Heading, sub.Content)
+			fmt.Printf("  Subsection: %s\n", sub.Heading)
 		}
 	}
 
-	// Check if an Agent section exists.
+	// Check if the Agent section is present.
 	if node.Agent != nil {
 		fmt.Println("Agent content:", node.Agent.Content)
 	}
 
-	// Iterate over private sections in file order.
-	for _, sec := range node.Private {
-		fmt.Printf("Private section %q\n", sec.Heading)
+	// Iterate over private sections.
+	for _, section := range node.Private {
+		fmt.Println("Private section:", section.Heading)
 	}
 }
 ```
