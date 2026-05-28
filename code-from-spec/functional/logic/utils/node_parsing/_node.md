@@ -2,7 +2,7 @@
 depends_on:
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/utils/name_normalization
+  - ROOT/functional/logic/utils/text_normalization
 outputs:
   - id: node_parsing
     path: code-from-spec/functional/logic/utils/node_parsing/output.md
@@ -56,7 +56,7 @@ Closes the reader when done.
 
 Headings are normalized before comparison: trim whitespace,
 collapse internal whitespace to a single space, apply Unicode
-simple case folding. See `ROOT/functional/logic/utils/name_normalization`.
+simple case folding. See `ROOT/functional/logic/utils/text_normalization`.
 
 ## Contracts
 

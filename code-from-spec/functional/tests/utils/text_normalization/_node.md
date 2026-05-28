@@ -1,14 +1,14 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/name_normalization(interface)
+  - ROOT/functional/logic/utils/text_normalization(interface)
 outputs:
-  - id: name_normalization_tests
-    path: code-from-spec/functional/tests/utils/name_normalization/output.md
+  - id: text_normalization_tests
+    path: code-from-spec/functional/tests/utils/text_normalization/output.md
 ---
 
-# ROOT/functional/tests/utils/name_normalization
+# ROOT/functional/tests/utils/text_normalization
 
-Test cases for the name normalization component.
+Test cases for the text normalization component.
 
 # Public
 
@@ -102,8 +102,8 @@ Input: "   \t  ". Expect: "".
 
 #### Non-breaking space is not whitespace
 
-Input: "hello world" (contains non-breaking space).
-Expect: "hello world" (non-breaking space treated as
+Input: "hello world" (contains non-breaking space).
+Expect: "hello world" (non-breaking space treated as
 text, not collapsed).
 
 #### Single character
@@ -117,12 +117,4 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Describe tests in terms of the functional interface —
-  use function names and error names from the interface,
-  not language-specific constructs.
-- Each test case has: a description, setup (what files to
-  create and with what content), actions (what functions
-  to call), and expected outcome.
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.
+- Use the function name from the interface: `NormalizeText`.

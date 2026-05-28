@@ -6,7 +6,7 @@ depends_on:
   - ROOT/functional/logic/utils/node_discovery
   - ROOT/functional/logic/utils/artifact_tag
   - ROOT/functional/logic/utils/frontmatter
-  - ROOT/functional/logic/utils/name_normalization
+  - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/utils/node_parsing
   - ROOT/functional/logic/os/path_utils
 outputs:
@@ -74,7 +74,7 @@ by subsequent steps.
 Use `format_validation` to check each node against the
 structural rules. This uses:
 - `logical_names` to verify `depends_on` targets resolve.
-- `name_normalization` to compare headings with logical
+- `text_normalization` to compare headings with logical
   names derived from filesystem paths.
 - `path_validation` to verify `outputs` paths are safe.
 

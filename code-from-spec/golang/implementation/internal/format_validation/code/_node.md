@@ -5,7 +5,7 @@ depends_on:
   - ROOT/golang/implementation/internal/parsenode
   - ROOT/golang/implementation/os/path_utils
   - ARTIFACT/golang/interfaces/os/file_reader(interface)
-  - ROOT/golang/implementation/internal/normalizename
+  - ROOT/golang/implementation/internal/textnormalization
 input: ARTIFACT/functional/logic/utils/format_validation(format_validation)
 external:
   - path: CODE_FROM_SPEC.md
@@ -25,7 +25,7 @@ Implement the pseudocode from the input as a Go package.
 ## Go-specific guidance
 
 - Depends on: `logicalnames`, `frontmatter`, `parsenode`,
-  `pathvalidation`, `filereader`, `normalizename` packages.
+  `pathvalidation`, `filereader`, `textnormalization` packages.
 - Returns `[]FormatError` slice collecting all violations.
   Do not stop at the first error.
 - A node has children if any other discovered node's logical

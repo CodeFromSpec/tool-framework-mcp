@@ -4,7 +4,7 @@ depends_on:
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/utils/frontmatter
-  - ROOT/functional/logic/utils/name_normalization
+  - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/utils/node_parsing
   - ROOT/functional/logic/os/path_utils
 outputs:

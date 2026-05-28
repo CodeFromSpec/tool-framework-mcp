@@ -6,7 +6,7 @@ depends_on:
   - ROOT/golang/implementation/internal/chain_resolver
   - ROOT/golang/implementation/internal/frontmatter
   - ROOT/golang/implementation/internal/logical_names
-  - ROOT/golang/implementation/internal/normalizename
+  - ROOT/golang/implementation/internal/textnormalization
   - ROOT/golang/implementation/internal/parsenode
   - ROOT/golang/implementation/os/path_utils
 input: ARTIFACT/functional/logic/mcp_tools/load_chain(load_chain)
@@ -28,7 +28,7 @@ Implement the pseudocode from the input as a Go package.
 - Use `github.com/google/uuid` for UUID generation.
 - Use the `mcp-go` SDK types for tool results.
 - Call internal packages (`chainhash`, `chainresolver`,
-  `frontmatter`, `logicalnames`, `normalizename`,
+  `frontmatter`, `logicalnames`, `textnormalization`,
   `parsenode`, `pathvalidation`) for their respective
   operations.
 - Use `chainhash.ComputeChainHash` for the chain hash.

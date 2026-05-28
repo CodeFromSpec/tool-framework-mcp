@@ -1,12 +1,12 @@
-# ROOT/golang/implementation/internal/normalizename
+# ROOT/golang/implementation/internal/textnormalization
 
-Normalizes heading and logical name text for comparison.
+Normalizes text for comparison.
 
 # Public
 
 ## Package
 
-`package normalizename`
+`package textnormalization`
 
 ## Dependencies
 
@@ -15,11 +15,11 @@ Normalizes heading and logical name text for comparison.
 ## Interface
 
 ```go
-func NormalizeName(raw string) string
+func NormalizeText(raw string) string
 ```
 
 Applies the framework normalization rules to a raw heading
-or logical name qualifier text:
+or qualifier text:
 
 1. Trim leading and trailing whitespace.
 2. Collapse each sequence of one or more whitespace characters

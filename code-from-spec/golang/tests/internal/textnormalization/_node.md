@@ -1,13 +1,13 @@
 ---
-input: ARTIFACT/golang/implementation/internal/normalizename/code(normalizename)
+input: ARTIFACT/golang/implementation/internal/textnormalization/code(textnormalization)
 outputs:
-  - id: normalizename_test
-    path: internal/normalizename/normalizename_test.go
+  - id: textnormalization_test
+    path: internal/textnormalization/textnormalization_test.go
 ---
 
-# ROOT/golang/tests/internal/normalizename
+# ROOT/golang/tests/internal/textnormalization
 
-Unit tests for the normalizename package.
+Unit tests for the textnormalization package.
 
 # Agent
 

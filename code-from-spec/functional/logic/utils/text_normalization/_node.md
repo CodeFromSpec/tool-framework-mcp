@@ -1,21 +1,19 @@
 ---
 outputs:
-  - id: name_normalization
-    path: code-from-spec/functional/logic/utils/name_normalization/output.md
+  - id: text_normalization
+    path: code-from-spec/functional/logic/utils/text_normalization/output.md
 ---
 
-# ROOT/functional/logic/utils/name_normalization
+# ROOT/functional/logic/utils/text_normalization
 
-Normalizes heading text and qualifier text for comparison.
-
-Review status: pending
+Normalizes text for comparison.
 
 # Public
 
 ## Interface
 
 ```
-function NormalizeName(raw_string) -> string
+function NormalizeText(raw_string) -> string
 ```
 
 ### Examples

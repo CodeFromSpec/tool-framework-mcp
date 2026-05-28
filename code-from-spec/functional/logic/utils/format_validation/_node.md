@@ -3,7 +3,7 @@ depends_on:
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/utils/frontmatter
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/name_normalization
+  - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/utils/node_parsing
   - ROOT/functional/logic/os/path_utils
 external:
@@ -70,7 +70,7 @@ name starts with its logical name followed by `/`.
 The first heading in the file (`# <name>`) must match the
 logical name derived from the node's filesystem path using
 `logical_names` reverse resolution. Comparison uses
-`name_normalization`.
+`text_normalization`.
 
 #### Frontmatter field restrictions
 
@@ -112,7 +112,7 @@ Each `outputs` entry's `path` must pass `path_validation`
 #### Duplicate public subsections
 
 Within a `# Public` section, all `##` subsection headings
-must be unique after `name_normalization`.
+must be unique after `text_normalization`.
 
 ## Contracts
 

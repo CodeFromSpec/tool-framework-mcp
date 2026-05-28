@@ -8,7 +8,7 @@ depends_on:
   - ROOT/golang/implementation/internal/logical_names
   - ROOT/golang/implementation/internal/node_discovery
   - ROOT/golang/implementation/internal/node_ranking
-  - ROOT/golang/implementation/internal/normalizename
+  - ROOT/golang/implementation/internal/textnormalization
   - ROOT/golang/implementation/internal/parsenode
   - ROOT/golang/implementation/os/path_utils
 outputs:
@@ -35,7 +35,7 @@ Implementation of the validate_specs tool handler.
    nodes. Cache results so each node is parsed once.
 4. Run `formatvalidation` on each node to check structural
    rules. This uses `logicalnames` to verify `depends_on`
-   targets resolve, `normalizename` to compare headings with
+   targets resolve, `textnormalization` to compare headings with
    logical names, and `pathvalidation` to verify `outputs`
    paths are safe. Collect all format errors.
 5. Skip this step if step 3 or step 4 produced any format

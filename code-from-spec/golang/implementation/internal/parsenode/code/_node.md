@@ -2,7 +2,7 @@
 depends_on:
   - ROOT/golang/dependencies/yuin-goldmark
   - ROOT/golang/implementation/internal/logical_names
-  - ROOT/golang/implementation/internal/normalizename
+  - ROOT/golang/implementation/internal/textnormalization
 input: ARTIFACT/functional/logic/utils/node_parsing(node_parsing)
 external:
   - path: CODE_FROM_SPEC.md
@@ -24,7 +24,7 @@ Implement the pseudocode from the input as a Go package.
 - Use `yuin/goldmark` for CommonMark parsing. See
   `ROOT/golang/dependencies/yuin-goldmark` for heading text
   extraction and raw source extraction helpers.
-- Use `normalizename.NormalizeName` for all heading comparisons.
+- Use `textnormalization.NormalizeText` for all heading comparisons.
 - Use `logicalnames.PathFromLogicalName` to resolve logical
   names to file paths.
 - Use `os.ReadFile` to read the file content.
