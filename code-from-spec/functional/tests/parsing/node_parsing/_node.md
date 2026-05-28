@@ -16,174 +16,267 @@ Test cases for the node parsing component.
 
 ### Happy path
 
-#### Minimal node -- name section only
+#### Minimal node — name section only
 
-Create a node file for logical name ROOT/x with only a
-heading and description. Call ParseNode with "ROOT/x".
+Create a node file for `ROOT/x` with only a name heading
+and a description. Call `NodeParse` with `"ROOT/x"`.
 
-Expect name section heading = "root/x" (normalized),
-name section content = "This node has only a name section.",
-no subsections, public = empty, private = empty.
+Expect `name_section.heading` = `"root/x"`,
+`name_section.content` = `"A simple node."`,
+`name_section.subsections` empty,
+`public` absent, `agent` absent, `private` empty.
 
-#### Full node -- name, public, private sections
+#### Full node — name, public, agent, private
 
-Create a node file for ROOT/payments/fees with frontmatter
-(depends_on, outputs), a name section, a public section
-with Interface and Constraints subsections, and private
-sections (Implementation, Decisions). Call ParseNode.
+Create a node file for `ROOT/payments/fees` with
+frontmatter, a name section, a public section with
+`## Interface` and `## Constraints` subsections, an
+agent section, and two private sections (`# Decisions`,
+`# Rationale`). Call `NodeParse`.
 
-Expect name section heading = "root/payments/fees",
-name section content = "Calculates transaction fees.",
-public section with heading = "public", two subsections
-(interface with content, constraints with content), and
-two private sections (implementation, decisions) each with
-content.
+Expect `name_section.heading` = `"root/payments/fees"`,
+`public` present with two subsections (`"interface"`,
+`"constraints"`), `agent` present with content,
+`private` has two sections in file order.
 
 #### Node with no public section
 
-Create a node file for ROOT/decisions with only a name
-section and a private section (Rationale). Call ParseNode.
+Create a node file for `ROOT/decisions` with a name
+section and a private section `# Rationale`. Call
+`NodeParse`.
 
-Expect public = empty, name section heading =
-"root/decisions", one private section with heading =
-"rationale".
+Expect `public` absent, `agent` absent,
+`private` has one section with heading `"rationale"`.
 
 #### Public section with content before first subsection
 
-Create a node file for ROOT/a with a public section that
-has direct content before any subsection, plus one
-subsection. Call ParseNode.
+Create a node file for `ROOT/a` with a public section
+that has direct content before a `## Interface`
+subsection. Call `NodeParse`.
 
-Expect public content = "This is direct content of the
-public section.", and one subsection with heading =
-"interface".
+Expect `public.content` = the text before the subsection,
+`public.subsections` has one entry with heading
+`"interface"`.
+
+#### Public section with no content or subsections
+
+Create a node file where `# Public` is immediately
+followed by `# Agent`. Call `NodeParse`.
+
+Expect `public` present with empty `content` and empty
+`subsections` list.
+
+#### Agent section with ## headings treated as content
+
+Create a node file with an agent section containing
+`## Implementation guidance` and `## Contracts`. Call
+`NodeParse`.
+
+Expect `agent.content` includes the raw `##` headings
+as text. `agent.subsections` is empty.
+
+#### Private sections preserve file order
+
+Create a node file with three private sections:
+`# TODO`, `# Decisions`, `# Rationale`. Call `NodeParse`.
+
+Expect `private` has three sections in order:
+`"todo"`, `"decisions"`, `"rationale"`.
+
+#### Content is raw markdown
+
+Create a node file with a subsection containing level-3
+headings, bold text, and code blocks. Call `NodeParse`.
+
+Expect the subsection content is the raw markdown text,
+including `###` headings, `**bold**`, and fenced code
+blocks.
 
 ### Heading normalization
 
 #### Case insensitive public detection
 
-Create a node with "# PUBLIC" as the public heading. Call
-ParseNode. Expect public not empty, public heading =
-"public".
+Create a node with `# PUBLIC` as the public heading.
+Call `NodeParse`. Expect `public` present, heading =
+`"public"`.
 
 #### Public with mixed case and extra whitespace
 
-Create a node with "#   PuBLiC" as the public heading. Call
-ParseNode. Expect public not empty, public heading =
-"public".
+Create a node with `#   PuBLiC` as the public heading.
+Call `NodeParse`. Expect `public` present, heading =
+`"public"`.
 
 #### Node name with varied whitespace
 
-Create a node with "#    ROOT/e" as the name heading. Call
-ParseNode. Expect name section heading = "root/e".
+Create a node with `#    ROOT/e` as the name heading.
+Call `NodeParse` with `"ROOT/e"`. Expect
+`name_section.heading` = `"root/e"`.
 
 #### Subsection headings are normalized
 
-Create a node with subsections "##   Interface" and
-"## CONSTRAINTS". Call ParseNode. Expect subsection
-headings = "interface" and "constraints".
+Create a node with subsections `##   Interface` and
+`## CONSTRAINTS`. Call `NodeParse`. Expect subsection
+headings = `"interface"` and `"constraints"`.
 
-#### Tab characters in heading whitespace
+#### Closing hashes are stripped
 
-Create a node with tab characters around the subsection
-name. Call ParseNode. Expect subsection heading =
-"interface".
+Create a node with heading `## Interface ##`. Call
+`NodeParse`. Expect subsection heading = `"interface"`.
 
-### Content extraction
+### Content boundaries
 
 #### Level-3 and deeper headings are content
 
-Create a node with subsections that contain level-3 and
-level-4 headings. Call ParseNode.
+Create a node with a public subsection containing
+`### Details` and `#### Sub-details`. Call `NodeParse`.
 
-Expect the deeper headings and their text are included as
-raw content within the subsection, not treated as
-structural boundaries.
+Expect the `###` and `####` lines and their text are
+included as raw content within the subsection.
 
 #### Fenced code blocks with heading-like content
 
-Create a node with a fenced code block inside a subsection
-that contains lines starting with # and ##. Call ParseNode.
+Create a node with a fenced code block inside a public
+subsection that contains lines starting with `#` and
+`##`. Call `NodeParse`.
 
 Expect the heading-like lines inside the code block are
 treated as content, not as structural headings.
 
-#### Content between sections is trimmed
+#### Fenced code block with tilde fence
 
-Create a node with blank lines surrounding content in the
-public section and subsections. Call ParseNode.
+Create a node with a code block opened by `~~~` inside
+a subsection, containing `# Heading`. Call `NodeParse`.
+
+Expect the `# Heading` inside the tilde fence is content.
+
+#### Fenced code block with language tag
+
+Create a node with a code block opened by ` ```yaml `
+inside a subsection, containing `# Heading`. Call
+`NodeParse`.
+
+Expect the `# Heading` inside the code block is content.
+
+#### Leading and trailing blank lines are trimmed
+
+Create a node with blank lines surrounding content in
+sections and subsections. Call `NodeParse`.
 
 Expect leading and trailing blank lines are trimmed from
-all content strings.
+all `content` fields.
 
-### Failure cases
+### Frontmatter handling
 
-#### File does not exist
+#### Frontmatter is skipped
 
-Call ParseNode with a logical name whose file does not
-exist. Expect "read error".
+Create a node file with frontmatter (between `---`
+delimiters) and a body. Call `NodeParse`.
+
+Expect frontmatter is skipped. Body parsed correctly.
 
 #### No frontmatter delimiters
 
-Create a node file with no frontmatter delimiters. Call
-ParseNode. Expect no error -- frontmatter is optional.
-Name section heading and content parsed correctly.
+Create a node file with no `---` at all — body only.
+Call `NodeParse`. Expect no error. Body parsed correctly.
+
+#### Unclosed frontmatter
+
+Create a node file that starts with `---` but has no
+closing `---`. Call `NodeParse`.
+
+Expect "unexpected content before first heading".
+
+### Failure cases
+
+#### ARTIFACT reference rejected
+
+Call `NodeParse` with `"ARTIFACT/x(y)"`.
+Expect "not a ROOT reference".
+
+#### Qualifier rejected
+
+Call `NodeParse` with `"ROOT/x(interface)"`.
+Expect "has qualifier".
+
+#### File does not exist
+
+Call `NodeParse` with a logical name whose file does
+not exist. Expect "file unreadable".
+
+#### Propagates path errors
+
+Call `NodeParse` with an invalid logical name that
+causes a path error (e.g., after resolving to a path
+with traversal). Expect the path error is propagated.
 
 #### Content before first heading
 
 Create a node file with text before any heading. Call
-ParseNode. Expect "unexpected content".
+`NodeParse`. Expect "unexpected content before first
+heading".
 
 #### Level-2 heading before any level-1 heading
 
-Create a node file with a level-2 heading before the first
-level-1 heading. Call ParseNode. Expect "unexpected
-content".
+Create a node file with a `##` heading before any `#`
+heading. Call `NodeParse`. Expect "unexpected content
+before first heading".
+
+#### Empty body
+
+Create a node file with no content (or only frontmatter,
+no body). Call `NodeParse`. Expect "unexpected content
+before first heading".
 
 #### Node name does not match logical name
 
-Create a node file where the first heading does not match
-the logical name. Call ParseNode. Expect "invalid node
-name".
+Create a node file where the first heading is
+`# ROOT/other` but call `NodeParse` with `"ROOT/x"`.
+Expect "node name does not match".
 
 #### Node name case mismatch is not an error
 
-Create a node file where the heading uses different casing
-than the logical name. Call ParseNode. Expect no error --
+Create a node file with heading `# root/x` and call
+`NodeParse` with `"ROOT/x"`. Expect no error —
 normalization makes them equal.
 
-#### Duplicate public section -- same case
+#### Duplicate public section — same case
 
-Create a node with two "# Public" sections. Call ParseNode.
-Expect "duplicate public section".
+Create a node with two `# Public` sections. Call
+`NodeParse`. Expect "duplicate public section".
 
-#### Duplicate public section -- different case
+#### Duplicate public section — different case
 
-Create a node with "# Public" and "# PUBLIC" sections. Call
-ParseNode. Expect "duplicate public section".
+Create a node with `# Public` and `# PUBLIC`. Call
+`NodeParse`. Expect "duplicate public section".
 
-#### Duplicate subsection in public -- same case
+#### Duplicate agent section
 
-Create a node with two "## Interface" subsections under
-public. Call ParseNode. Expect "duplicate subsection".
+Create a node with two `# Agent` sections. Call
+`NodeParse`. Expect "duplicate agent section".
 
-#### Duplicate subsection in public -- different case
+#### Duplicate subsection in public — same case
 
-Create a node with "## Interface" and "## INTERFACE"
-subsections under public. Call ParseNode. Expect "duplicate
+Create a node with two `## Interface` subsections
+under public. Call `NodeParse`. Expect "duplicate
 subsection".
 
-#### Duplicate subsection in public -- whitespace variation
+#### Duplicate subsection in public — different case
 
-Create a node with "## Interface" and "##   Interface"
-subsections under public. Call ParseNode. Expect "duplicate
+Create a node with `## Interface` and `## INTERFACE`
+under public. Call `NodeParse`. Expect "duplicate
 subsection".
 
-#### First element is a paragraph -- missing node name
+#### Duplicate subsection in public — whitespace variation
 
-Create a node file with a paragraph instead of a heading as
-the first element. Call ParseNode. Expect "unexpected
-content".
+Create a node with `## Interface` and `##   Interface`
+under public. Call `NodeParse`. Expect "duplicate
+subsection".
+
+#### Duplicate ## in non-public is not an error
+
+Create a node with two `## Details` headings inside
+`# Agent`. Call `NodeParse`. Expect no error — `##`
+is content in non-public sections.
 
 # Agent
 
@@ -192,12 +285,4 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Describe tests in terms of the functional interface —
-  use function names and error names from the interface,
-  not language-specific constructs.
-- Each test case has: a description, setup (what files to
-  create and with what content), actions (what functions
-  to call), and expected outcome.
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.
+- Use the function name from the interface: `NodeParse`.

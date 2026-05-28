@@ -35,13 +35,16 @@ record Node
 
 function NodeParse(logical_name: string) -> Node
   errors:
+    - not a ROOT reference: the logical name does not
+      start with ROOT/.
     - has qualifier: the logical name contains a
       parenthetical qualifier.
     - (path errors): propagated from FileOpen.
     - file unreadable: the file cannot be opened or read.
     - unexpected content before first heading: file body
-      has content before the first level-1 heading, or
-      has no level-1 heading at all.
+      has non-blank content before the first level-1
+      heading, or has no level-1 heading at all. Blank
+      lines before the first heading are not an error.
     - node name does not match: the first heading does not
       match the logical name after normalization.
     - duplicate public section: more than one `# Public`
@@ -53,7 +56,17 @@ function NodeParse(logical_name: string) -> Node
 ```
 
 `NodeSubsection` and `NodeSection` headings are stored in
-normalized form (after `NormalizeText`).
+normalized form (after `NormalizeText`). Content fields
+contain raw markdown text — no processing or stripping
+beyond leading/trailing blank line trimming.
+
+Private sections preserve the order they appear in the
+file.
+
+A section that exists in the file but has no content
+(e.g., `# Public` immediately followed by `# Agent`) is
+present with an empty `content` and an empty `subsections`
+list — it is not absent.
 
 Subsections (`##`) are only structural within `# Public` —
 they support selective import via `depends_on` qualifiers.
@@ -66,17 +79,20 @@ treated as content.
 
 Given a logical name:
 
-1. If `LogicalNameHasQualifier` returns true, raise
+1. If `LogicalNameIsArtifact` returns true, raise
+   "not a ROOT reference".
+2. If `LogicalNameHasQualifier` returns true, raise
    "has qualifier" — this function parses the full node,
    not a subsection.
-2. Resolve the file path using `LogicalNameToPath`.
-3. Open the file with `FileOpen`.
-4. Skip the frontmatter: if the first line is exactly
+3. Resolve the file path using `LogicalNameToPath`.
+4. Open the file with `FileOpen`.
+5. Skip the frontmatter: if the first line is exactly
    `---`, read and discard lines until the next `---`.
    If end of file is reached without finding the closing
    `---`, raise "unexpected content before first heading".
-5. Parse the remaining body into sections.
-6. Close the reader with `FileClose` when done.
+6. Parse the remaining body into sections.
+7. Close the reader with `FileClose` when done — in all
+   cases, whether parsing succeeds or fails.
 
 ### ATX heading recognition
 
@@ -88,8 +104,13 @@ trimmed of leading and trailing whitespace. Lines
 like `#Foo` (no space after `#`) are not headings —
 they are content.
 
-The heading level is determined by the number of `#`
-characters: `#` = level 1, `##` = level 2, etc.
+CommonMark allows optional closing `#` sequences:
+`## Foo ##` has heading text `Foo` (the closing hashes
+are stripped). If present, the closing sequence must be
+preceded by at least one space.
+
+The heading level is determined by the number of leading
+`#` characters: `#` = level 1, `##` = level 2, etc.
 
 ### Heading normalization
 
@@ -148,9 +169,12 @@ After normalizing a level-1 heading with `NormalizeText`:
 
 ## Contracts
 
-- Only level-1 (`#`) and level-2 (`##`) headings are
-  structural. Level-3 and deeper are content.
+- Level-1 (`#`) headings are structural in all sections.
+- Level-2 (`##`) headings are structural only within
+  `# Public`. In all other sections they are content.
+- Level-3 and deeper headings are always content.
 - Headings inside fenced code blocks are not structural.
 - Leading and trailing blank lines in content are trimmed.
 - Subsection duplicate detection only applies within
   `# Public`.
+- `FileClose` is called in all cases — success or error.

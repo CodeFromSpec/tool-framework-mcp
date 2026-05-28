@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ARTIFACT/golang/implementation/utils/text_normalization(textnormalization)
+  - ARTIFACT/golang/interfaces/utils/text_normalization(interface)
 input: ARTIFACT/functional/tests/utils/text_normalization(text_normalization_tests)
 outputs:
   - id: textnormalization_test

@@ -1,6 +1,8 @@
-<!-- code-from-spec: ROOT/functional/logic/os/path_utils@JfImHL6sWEjss2CS_jM87D4eQt8 -->
+<!-- code-from-spec: ROOT/functional/logic/os/path_utils@x0wuKabdM2qeVthJmht4JeoD8IE -->
 
-## Records
+# path_utils
+
+## Data Structures
 
 ```
 record PathCfs
@@ -14,87 +16,92 @@ record PathOs
 
 ## function PathGetProjectRoot() -> PathOs
 
-Returns the project root as an absolute OS path, determined
-from the working directory of the running process.
+Returns the current working directory of the process as an absolute PathOs.
 
-1. Read the current working directory of the process.
-   If the working directory cannot be read, raise error
-   "cannot determine root".
+1. Read the working directory of the running process.
+   If the working directory cannot be read, raise error "cannot determine root".
 
-2. Return the working directory as a PathOs.
+2. Return a PathOs with that absolute directory path as its value.
 
 ---
 
 ## function PathValidateCfs(value: string)
 
-Validates that a string conforms to the PathCfs format.
-Raises an error describing the violation if not.
-Does not verify that the file exists or resolve symlinks.
+Validates that a string conforms to the PathCfs format rules.
+Raises a descriptive error on the first violation found.
 
 1. If value is empty, raise error "path is empty".
 
-2. If value starts with "/" or matches a drive-letter pattern
-   (e.g. "C:"), raise error "path is absolute".
+2. If value starts with "/" or starts with a drive letter pattern
+   (one letter followed by ":"), raise error "path is absolute".
 
-3. If value contains "\" (backslash), raise error
-   "path contains backslash".
+3. If value contains any "\" character, raise error "path contains backslash".
 
-4. Normalize the path by resolving "." and ".." components.
+4. Normalize the path by resolving any "." and ".." components
+   using standard path normalization rules (without touching the filesystem).
 
-5. If any component of the normalized path is "..",
-   raise error "directory traversal".
+5. Split the normalized path into its individual components using "/"
+   as the separator.
+   For each component:
+     If the component equals "..", raise error "directory traversal".
 
 ---
 
 ## function PathCfsToOs(cfs_path: PathCfs) -> PathOs
 
 Validates a PathCfs and converts it to an absolute PathOs.
-Never sanitizes — rejects invalid paths by raising an error.
-Never creates or modifies files.
+Does not require the target path to exist on disk.
+Never sanitizes input — rejects any invalid path.
 
 1. Call PathValidateCfs with cfs_path.value.
-   If it raises an error, propagate that error unchanged.
+   If PathValidateCfs raises an error, propagate that error immediately.
 
-2. Replace all forward-slash "/" separators in cfs_path.value
-   with the OS-native path separator.
+2. Replace every "/" character in cfs_path.value with the OS-native
+   path separator.
 
-3. Call PathGetProjectRoot to obtain the project root.
-   If it raises an error, propagate that error.
+3. Call PathGetProjectRoot.
+   If PathGetProjectRoot raises an error, propagate that error.
 
-4. Join the project root with the converted path to form
-   an absolute OS path.
+4. Join the project root path with the converted path from step 2
+   to form a single absolute path.
 
-5. If the resulting path exists on disk:
-   a. Resolve all symlinks in the path.
-   b. Resolve all symlinks in the project root.
-   c. If the resolved path does not start with the
-      resolved project root, raise error "resolves outside root".
+5. If the joined path exists on disk:
+     Resolve all symlinks in the joined path to obtain its real absolute path.
+     If the real absolute path does not start with the project root path
+     (followed by a separator or being exactly the root), raise error
+     "resolves outside root".
 
-6. Return the absolute path as a PathOs.
+6. Return a PathOs with the absolute joined path (pre-symlink-resolution)
+   as its value.
+   Note: if symlinks were resolved in step 5 and containment was confirmed,
+   the returned value is still the joined path from step 4, not the
+   symlink-resolved path — the symlink check is a security gate only.
 
 ---
 
 ## function PathOsToCfs(os_path: PathOs) -> PathCfs
 
-Converts an absolute PathOs to a PathCfs relative to the
-project root.
-Never creates or modifies files.
+Converts an absolute PathOs to a PathCfs relative to the project root.
+Does not require the target path to exist on disk.
+Never sanitizes input — rejects any path outside the project root.
 
-1. If os_path.value exists on disk, resolve all symlinks
-   in os_path.value.
+1. Call PathGetProjectRoot.
+   If PathGetProjectRoot raises an error, propagate that error.
 
-2. Call PathGetProjectRoot to obtain the project root.
-   If it raises an error, propagate that error.
-   If the project root exists on disk, resolve all symlinks
-   in the project root as well.
+2. If os_path.value exists on disk:
+     Resolve all symlinks in os_path.value to obtain its real absolute path.
+     Use the resolved path for all subsequent steps.
+   Else:
+     Use os_path.value as-is for all subsequent steps.
 
-3. If the (resolved) path does not start with the
-   (resolved) project root, raise error "resolves outside root".
+3. Verify that the path from step 2 starts with the project root path
+   (followed by a separator or being exactly the root).
+   If it does not, raise error "resolves outside root".
 
-4. Compute the relative path by removing the project root
-   prefix from the path, including any leading separator.
+4. Compute the relative portion of the path by removing the project root
+   prefix (and any trailing separator that follows it) from the path.
 
-5. Replace all OS-native path separators in the relative path
-   with forward slashes "/".
+5. Replace every OS-native path separator in the relative portion with "/".
 
-6. Return the result as a PathCfs.
+6. Return a PathCfs with the resulting relative string as its value.
+```

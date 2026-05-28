@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ARTIFACT/golang/implementation/parsing/frontmatter(frontmatter)
+  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
   - ARTIFACT/golang/interfaces/os/path_utils(interface)
   - ARTIFACT/golang/interfaces/os/file_reader(interface)
 input: ARTIFACT/functional/tests/parsing/frontmatter(frontmatter_tests)
