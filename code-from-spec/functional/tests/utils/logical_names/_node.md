@@ -14,172 +14,201 @@ Test cases for the logical names component.
 
 ## Test cases
 
-### PathFromLogicalName
+### LogicalNameToPath
 
-#### ROOT
+#### ROOT alone
 
-Input: "ROOT". Expect path = "code-from-spec/_node.md",
-ok = true.
-
-#### ROOT with path
-
-Input: "ROOT/payments/processor". Expect path =
-"code-from-spec/payments/processor/_node.md", ok = true.
-
-#### ROOT with qualifier
-
-Input: "ROOT/payments/processor(interface)". Expect path =
-"code-from-spec/payments/processor/_node.md", ok = true.
-
-#### ROOT with qualifier -- strips qualifier from path
-
-Input: "ROOT/x(y)". Expect path =
-"code-from-spec/x/_node.md", ok = true.
-
-#### ARTIFACT reference returns false
-
-Input: "ARTIFACT/x(y)". Expect path = "", ok = false.
-
-#### Unrecognized prefix
-
-Input: "UNKNOWN/something". Expect path = "", ok = false.
-
-#### Empty string
-
-Input: "". Expect path = "", ok = false.
-
-### HasParent
-
-#### ROOT
-
-Input: "ROOT". Expect has parent = false, ok = true.
+Input: `"ROOT"`.
+Expect: `code-from-spec/_node.md`.
 
 #### ROOT with path
 
-Input: "ROOT/domain/config". Expect has parent = true,
-ok = true.
+Input: `"ROOT/payments/processor"`.
+Expect: `code-from-spec/payments/processor/_node.md`.
 
-#### ROOT with qualifier
+#### Strips qualifier before resolving
 
-Input: "ROOT/domain/config(interface)". Expect has parent =
-true, ok = true.
+Input: `"ROOT/x/y(interface)"`.
+Expect: `code-from-spec/x/y/_node.md`.
 
-#### ARTIFACT returns false false
+#### Rejects ARTIFACT reference
 
-Input: "ARTIFACT/x(y)". Expect has parent = false,
-ok = false.
+Input: `"ARTIFACT/x(y)"`.
+Expect error "unsupported reference".
 
-#### Empty string
+#### Rejects unrecognized prefix
 
-Input: "". Expect has parent = false, ok = false.
+Input: `"UNKNOWN/something"`.
+Expect error "unsupported reference".
 
-### ParentLogicalName
+#### Rejects empty string
 
-#### ROOT/x -- parent is ROOT
+Input: `""`.
+Expect error "unsupported reference".
 
-Input: "ROOT/domain". Expect parent = "ROOT", ok = true.
+### LogicalNameFromPath
 
-#### ROOT/x/y -- parent is ROOT/x
+#### Root node
 
-Input: "ROOT/domain/config". Expect parent = "ROOT/domain",
-ok = true.
+Input: `code-from-spec/_node.md`.
+Expect: `"ROOT"`.
 
-#### ROOT/x/y(z) -- parent is ROOT/x
+#### Nested node
 
-Input: "ROOT/domain/config(interface)". Expect parent =
-"ROOT/domain", ok = true.
+Input: `code-from-spec/x/y/_node.md`.
+Expect: `"ROOT/x/y"`.
+
+#### Rejects non-node path
+
+Input: `internal/config/config.go`.
+Expect error "invalid path".
+
+#### Rejects path without _node.md
+
+Input: `code-from-spec/x/y/output.md`.
+Expect error "invalid path".
+
+### LogicalNameGetParent
+
+#### ROOT/x parent is ROOT
+
+Input: `"ROOT/domain"`.
+Expect: `"ROOT"`.
+
+#### ROOT/x/y parent is ROOT/x
+
+Input: `"ROOT/domain/config"`.
+Expect: `"ROOT/domain"`.
+
+#### Strips qualifier before computing parent
+
+Input: `"ROOT/domain/config(interface)"`.
+Expect: `"ROOT/domain"`.
 
 #### ROOT has no parent
 
-Input: "ROOT". Expect parent = "", ok = false.
+Input: `"ROOT"`.
+Expect error "no parent".
 
-#### Empty string invalid
+#### Rejects ARTIFACT reference
 
-Input: "". Expect parent = "", ok = false.
+Input: `"ARTIFACT/x(y)"`.
+Expect error "not a ROOT reference".
 
-### HasQualifier
+### LogicalNameGetQualifier
 
-#### ROOT without qualifier
+#### Extracts qualifier from ROOT reference
 
-Input: "ROOT/x". Expect has qualifier = false, ok = true.
+Input: `"ROOT/x/y(interface)"`.
+Expect: `"interface"`.
 
-#### ROOT with qualifier
+#### Extracts qualifier from ARTIFACT reference
 
-Input: "ROOT/x(y)". Expect has qualifier = true, ok = true.
+Input: `"ARTIFACT/x/y(id)"`.
+Expect: `"id"`.
 
-#### ARTIFACT with qualifier
+#### Returns absent when no qualifier
 
-Input: "ARTIFACT/x(y)". Expect has qualifier = true,
-ok = true.
+Input: `"ROOT/x/y"`.
+Expect: absent.
 
-#### ROOT alone
+#### Returns absent for ROOT alone
 
-Input: "ROOT". Expect has qualifier = false, ok = true.
+Input: `"ROOT"`.
+Expect: absent.
 
-#### Empty string
-
-Input: "". Expect has qualifier = false, ok = false.
-
-### QualifierName
-
-#### ROOT with qualifier
-
-Input: "ROOT/x(y)". Expect qualifier = "y", ok = true.
-
-#### ROOT with nested path and qualifier
-
-Input: "ROOT/x/y(interface)". Expect qualifier =
-"interface", ok = true.
-
-#### ARTIFACT with qualifier
-
-Input: "ARTIFACT/x(y)". Expect qualifier = "y", ok = true.
-
-#### ROOT without qualifier
-
-Input: "ROOT/x". Expect qualifier = "", ok = false.
+### LogicalNameHasParent
 
 #### ROOT alone
 
-Input: "ROOT". Expect qualifier = "", ok = false.
+Input: `"ROOT"`.
+Expect: false.
 
-#### Empty string
+#### ROOT with path
 
-Input: "". Expect qualifier = "", ok = false.
+Input: `"ROOT/domain/config"`.
+Expect: true.
 
-### IsArtifactRef
+#### ROOT with qualifier
+
+Input: `"ROOT/domain/config(interface)"`.
+Expect: true.
 
 #### ARTIFACT reference
 
-Input: "ARTIFACT/x(y)". Expect true.
-
-#### ROOT reference
-
-Input: "ROOT/x(y)". Expect false.
+Input: `"ARTIFACT/x(y)"`.
+Expect: false.
 
 #### Empty string
 
-Input: "". Expect false.
+Input: `""`.
+Expect: false.
 
-### ArtifactRefParts
+### LogicalNameHasQualifier
 
-#### ARTIFACT/x(y)
+#### Without qualifier
 
-Input: "ARTIFACT/x(y)". Expect path =
-"code-from-spec/x/_node.md", id = "y", ok = true.
+Input: `"ROOT/x"`.
+Expect: false.
 
-#### ARTIFACT/x/y(z)
+#### With qualifier
 
-Input: "ARTIFACT/x/y(z)". Expect path =
-"code-from-spec/x/y/_node.md", id = "z", ok = true.
+Input: `"ROOT/x(y)"`.
+Expect: true.
 
-#### ARTIFACT without qualifier returns false
+#### ARTIFACT with qualifier
 
-Input: "ARTIFACT/x". Expect path = "", id = "", ok = false.
+Input: `"ARTIFACT/x(y)"`.
+Expect: true.
 
-#### ROOT reference returns false
+#### ROOT alone
 
-Input: "ROOT/x(y)". Expect path = "", id = "", ok = false.
+Input: `"ROOT"`.
+Expect: false.
+
+#### Empty string
+
+Input: `""`.
+Expect: false.
+
+### LogicalNameIsArtifact
+
+#### ARTIFACT reference
+
+Input: `"ARTIFACT/x(y)"`.
+Expect: true.
+
+#### ROOT reference
+
+Input: `"ROOT/x(y)"`.
+Expect: false.
+
+#### Empty string
+
+Input: `""`.
+Expect: false.
+
+### LogicalNameGetArtifactGenerator
+
+#### Simple artifact
+
+Input: `"ARTIFACT/x(y)"`.
+Expect: `"ROOT/x"`.
+
+#### Nested artifact
+
+Input: `"ARTIFACT/x/y/z(id)"`.
+Expect: `"ROOT/x/y/z"`.
+
+#### Rejects ROOT reference
+
+Input: `"ROOT/x(y)"`.
+Expect error "not an artifact reference".
+
+#### Rejects reference without qualifier
+
+Input: `"ARTIFACT/x"`.
+Expect: `"ROOT/x"`.
 
 # Agent
 
@@ -188,12 +217,8 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Describe tests in terms of the functional interface —
-  use function names and error names from the interface,
-  not language-specific constructs.
-- Each test case has: a description, setup (what files to
-  create and with what content), actions (what functions
-  to call), and expected outcome.
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.
+- Use the function names from the interface:
+  `LogicalNameToPath`, `LogicalNameFromPath`,
+  `LogicalNameGetParent`, `LogicalNameGetQualifier`,
+  `LogicalNameHasParent`, `LogicalNameHasQualifier`,
+  `LogicalNameIsArtifact`, `LogicalNameGetArtifactGenerator`.

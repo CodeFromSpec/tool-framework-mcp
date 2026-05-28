@@ -20,3 +20,8 @@ Implement the pseudocode from the input as a Go package.
 - Use `filepath` and `path` standard library packages for
   path manipulation.
 - The package name should be `logicalnames`.
+- Functions that declare errors in the functional spec
+  should return `(result, error)` in Go.
+- Functions that return `optional` in the functional spec
+  should return `(result, bool)` in Go.
+- Boolean functions return a single `bool`.

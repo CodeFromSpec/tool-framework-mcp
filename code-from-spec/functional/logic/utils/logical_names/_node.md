@@ -1,4 +1,6 @@
 ---
+depends_on:
+  - ROOT/functional/logic/os/path_utils(interface)
 outputs:
   - id: logical_names
     path: code-from-spec/functional/logic/utils/logical_names/output.md
@@ -9,37 +11,87 @@ outputs:
 Maps logical names to file paths and provides utilities for
 navigating the spec tree hierarchy.
 
-Review status: pending
-
 # Public
 
 ## Interface
 
 ```
-record ArtifactReference
-  node_path: string
-  artifact_id: string
-
-function ResolvePath(logical_name) -> string
+function LogicalNameToPath(logical_name: string) -> PathCfs
   errors:
-    - unsupported reference: only ROOT/ logical names can be resolved to a path. ARTIFACT/ requires frontmatter lookup.
+    - unsupported reference: the logical name does not
+      start with ROOT/.
+```
 
-function ResolveArtifactReference(logical_name) -> ArtifactReference
+Converts a `ROOT/` logical name to the `PathCfs` of the
+corresponding `_node.md` file. Strips any qualifier before
+resolving. Only accepts `ROOT/` references.
+
+```
+function LogicalNameFromPath(cfs_path: PathCfs) -> string
   errors:
-    - unrecognized prefix: the logical name does not start with ARTIFACT/.
-    - missing qualifier: the logical name has no parenthetical qualifier.
+    - invalid path: the path is not a _node.md file
+      under code-from-spec/.
+```
 
-function GetParent(logical_name) -> string
+Derives the `ROOT/` logical name from a `_node.md` file
+path. The inverse of `LogicalNameToPath`. Always returns
+a `ROOT/` reference.
+
+```
+function LogicalNameGetParent(logical_name: string) -> string
   errors:
     - no parent: the logical name is ROOT itself.
-    - not a ROOT reference: the logical name is an ARTIFACT/ reference.
-
-function ReverseResolve(file_path) -> string
-  errors:
-    - invalid path: the path is not a _node.md file under code-from-spec/.
-
-function ExtractQualifier(logical_name) -> optional string
+    - not a ROOT reference: the logical name does not
+      start with ROOT/.
 ```
+
+Returns the logical name of the parent node. Strips any
+qualifier before computing the parent. Only accepts
+`ROOT/` references.
+
+```
+function LogicalNameGetQualifier(logical_name: string) -> optional string
+```
+
+Extracts the parenthetical qualifier from a logical name.
+Returns absent if no qualifier is present. Works with both
+`ROOT/` and `ARTIFACT/` references. For example,
+`ROOT/x/y(z)` → `z`; `ROOT/x/y` → absent.
+
+```
+function LogicalNameHasParent(logical_name: string) -> boolean
+```
+
+Returns true if the logical name is a `ROOT/` reference
+other than `ROOT` itself. Returns false for `ROOT`,
+`ARTIFACT/` references, and unrecognized prefixes.
+
+```
+function LogicalNameHasQualifier(logical_name: string) -> boolean
+```
+
+Returns true if the logical name contains a parenthetical
+qualifier. Works with both `ROOT/` and `ARTIFACT/`
+references.
+
+```
+function LogicalNameIsArtifact(logical_name: string) -> boolean
+```
+
+Returns true if the logical name starts with `ARTIFACT/`.
+
+```
+function LogicalNameGetArtifactGenerator(logical_name: string) -> string
+  errors:
+    - not an artifact reference: the logical name does not
+      start with ARTIFACT/.
+```
+
+Returns the `ROOT/` logical name of the node that generates
+the referenced artifact. Strips the `ARTIFACT/` prefix and
+any qualifier. Works with or without a qualifier. For
+example, `ARTIFACT/x/y(id)` → `ROOT/x/y`;
+`ARTIFACT/x/y` → `ROOT/x/y`.
 
 ### Logical name format
 
@@ -54,9 +106,9 @@ An optional parenthetical qualifier targets a specific part:
 
 ### Path resolution
 
-`ROOT/` names resolve to `_node.md` files:
+`ROOT/` names resolve to `_node.md` files as `PathCfs` values:
 
-| Logical name | File path |
+| Logical name | PathCfs |
 |---|---|
 | `ROOT` | `code-from-spec/_node.md` |
 | `ROOT/x/y` | `code-from-spec/x/y/_node.md` |
@@ -64,10 +116,20 @@ An optional parenthetical qualifier targets a specific part:
 
 Qualifiers are stripped before resolving the path.
 
-`ARTIFACT/` names cannot be resolved to a static path — they
-require reading the target node's frontmatter to find the
-output with the matching id. The resolution function returns
-the node path and artifact id as separate values.
+`ARTIFACT/` names cannot be fully resolved by this module —
+the final artifact path lives in the generating node's
+frontmatter, which requires I/O. To resolve an artifact
+reference, the caller:
+
+1. Calls `LogicalNameGetArtifactGenerator` to get the
+   generating node's logical name
+   (e.g. `ARTIFACT/x/y(id)` → `ROOT/x/y`).
+2. Calls `LogicalNameToPath` to get the generating node's
+   `PathCfs`.
+3. Calls `LogicalNameGetQualifier` to get the artifact id.
+4. Reads the node's frontmatter, finds the output entry
+   whose `id` matches, and uses its `path` to locate the
+   artifact file.
 
 ### Parent navigation
 
@@ -83,16 +145,15 @@ Every `ROOT/` node except `ROOT` itself has a parent:
 
 ### Reverse resolution
 
-Given a file path relative to the project root, derives the
-logical name:
+Given a `PathCfs`, derives the `ROOT/` logical name.
+Only handles `_node.md` files under `code-from-spec/` —
+always returns a `ROOT/` reference:
 
-| File path | Logical name |
+| PathCfs | Logical name |
 |---|---|
 | `code-from-spec/_node.md` | `ROOT` |
 | `code-from-spec/x/_node.md` | `ROOT/x` |
 | `code-from-spec/x/y/_node.md` | `ROOT/x/y` |
-
-Only handles `_node.md` files under `code-from-spec/`.
 
 ### Qualifier extraction
 
@@ -115,4 +176,5 @@ manipulation on logical names and file paths.
   regardless of the operating system.
 - All functions are pure — no I/O, no errors (except where
   noted in the interface).
-- Unrecognized prefixes return failure (false).
+- Unrecognized prefixes raise an error (for functions that
+  declare errors) or return false (for boolean checks).
