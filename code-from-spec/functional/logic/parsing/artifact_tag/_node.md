@@ -12,8 +12,6 @@ outputs:
 Extracts the artifact tag from generated files for
 staleness detection.
 
-Review status: pending
-
 # Public
 
 ## Interface
@@ -25,6 +23,7 @@ record ArtifactTag
 
 function ArtifactTagExtract(file_path: PathCfs) -> ArtifactTag
   errors:
+    - (path errors): propagated from FileOpen.
     - file unreadable: the file cannot be opened or read.
     - no tag found: the file has no code-from-spec: substring.
     - malformed tag: the tag exists but cannot be parsed (no @, empty name, wrong hash length).
@@ -61,11 +60,12 @@ Once a line containing `code-from-spec: ` is found:
 
 1. Take the substring starting immediately after
    `code-from-spec: `.
-2. Find the first occurrence of `@`.
-3. The logical name is everything between `code-from-spec: `
-   and `@`.
-4. The hash is the 27 characters immediately after `@`.
-5. Validate: logical name must not be empty, `@` must
+2. Trim leading whitespace.
+3. Find the first occurrence of `@`.
+4. The logical name is everything between the trimmed
+   start and `@`.
+5. The hash is the 27 characters immediately after `@`.
+6. Validate: logical name must not be empty, `@` must
    exist, and there must be at least 27 characters
    after `@`.
 

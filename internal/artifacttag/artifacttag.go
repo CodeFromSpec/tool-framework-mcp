@@ -1,107 +1,104 @@
-// code-from-spec: ROOT/golang/internal/artifact_tag/code@IOf0-OmoNz5aWow6IBZ9VjS0x_E
+// code-from-spec: ROOT/golang/implementation/internal/artifact_tag/code@s_hBcQQP7MLOcVF_4t1gMU7S7-U
+
 package artifacttag
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
 )
 
-// ErrFileUnreadable is returned when the target file cannot be opened or read.
-var ErrFileUnreadable = errors.New("file unreadable")
-
-// ErrNoTagFound is returned when no artifact tag line is present in the file.
-var ErrNoTagFound = errors.New("no artifact tag found")
-
-// ErrMalformedTag is returned when a tag line is found but its structure is invalid.
-var ErrMalformedTag = errors.New("malformed artifact tag")
-
-const (
-	tagPrefix  = "code-from-spec: "
-	hashLength = 27
-)
-
-// ArtifactTag holds the parsed contents of a code-from-spec tag.
+// ArtifactTag holds the parsed logical name and hash from a code-from-spec tag.
 type ArtifactTag struct {
-	// LogicalName is the part before the first '@' in the tag value.
 	LogicalName string
-	// Hash is the 27-character hash that follows the first '@'.
-	Hash string
+	Hash        string
 }
 
-// ExtractArtifactTag scans filePath line by line and returns the first
-// artifact tag it finds. The tag format is:
+var (
+	// ErrNoTagFound is returned when the file contains no "code-from-spec: " substring.
+	ErrNoTagFound = errors.New("no tag found")
+
+	// ErrMalformedTag is returned when the tag exists but cannot be parsed.
+	ErrMalformedTag = errors.New("malformed tag")
+)
+
+const tagPrefix = "code-from-spec: "
+const hashLength = 27
+
+// ArtifactTagExtract scans file_path line by line and returns the first
+// ArtifactTag found. The tag must be in the form:
 //
-//	code-from-spec: <logical-name>@<27-char-hash>
+//	code-from-spec: <logical_name>@<27-character-hash>
 //
-// The function uses the FIRST '@' after "code-from-spec: " to split the
-// logical name from the hash, and takes exactly the first 27 characters
-// after that '@' as the hash value, ignoring any trailing comment syntax.
-//
-// Errors:
-//   - ErrFileUnreadable  – the file could not be opened or read.
-//   - ErrNoTagFound      – no tag line was found in the file.
-//   - ErrMalformedTag    – a tag line was found but is structurally invalid
-//     (missing '@' separator or hash shorter than 27 characters).
-func ExtractArtifactTag(filePath string) (*ArtifactTag, error) {
-	reader, err := filereader.OpenFileReader(filePath)
+// Possible errors:
+//   - Path errors propagated from FileOpen
+//   - filereader.ErrFileUnreadable if the file cannot be opened
+//   - ErrNoTagFound if no matching line is found
+//   - ErrMalformedTag if the tag line cannot be parsed
+func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
+	// Step 1: open the file.
+	reader, err := filereader.FileOpen(filePath)
 	if err != nil {
-		return nil, ErrFileUnreadable
+		return nil, fmt.Errorf("ArtifactTagExtract: %w", err)
 	}
-	defer reader.Close()
 
+	// Step 2: found_line starts empty.
+	foundLine := ""
+
+	// Step 3: scan lines until a match or EOF.
 	for {
-		line, err := reader.ReadLine()
+		line, err := filereader.FileReadLine(reader)
+		if errors.Is(err, filereader.ErrEndOfFile) {
+			break
+		}
 		if err != nil {
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				return nil, ErrNoTagFound
-			}
-			return nil, ErrFileUnreadable
+			filereader.FileClose(reader)
+			return nil, fmt.Errorf("ArtifactTagExtract: %w", err)
 		}
-
-		tag, parseErr := extractFromLine(line)
-		if parseErr == nil {
-			return tag, nil
+		if strings.Contains(line, tagPrefix) {
+			foundLine = line
+			break
 		}
-		if errors.Is(parseErr, ErrMalformedTag) {
-			return nil, parseErr
-		}
-		// parseErr == errNoTagOnLine — continue scanning
-	}
-}
-
-// errNoTagOnLine is an internal sentinel used only within this package
-// to signal that the current line does not contain a tag prefix.
-var errNoTagOnLine = errors.New("no tag on this line")
-
-// extractFromLine looks for the tag prefix in a single line and parses it.
-// Returns errNoTagOnLine when the prefix is absent, ErrMalformedTag when the
-// prefix is present but the structure is invalid.
-func extractFromLine(line string) (*ArtifactTag, error) {
-	idx := strings.Index(line, tagPrefix)
-	if idx == -1 {
-		return nil, errNoTagOnLine
 	}
 
-	// Everything after the prefix is the tag value.
-	value := line[idx+len(tagPrefix):]
+	// Step 4: close the reader.
+	filereader.FileClose(reader)
 
-	// Find the FIRST '@' in the value to split logical name from hash.
-	atIdx := strings.Index(value, "@")
+	// Step 5: no match found.
+	if foundLine == "" {
+		return nil, fmt.Errorf("ArtifactTagExtract: %w", ErrNoTagFound)
+	}
+
+	// Step 6: extract the portion after "code-from-spec: ".
+	idx := strings.Index(foundLine, tagPrefix)
+	rawTag := foundLine[idx+len(tagPrefix):]
+
+	// Step 7: trim leading whitespace.
+	rawTag = strings.TrimLeft(rawTag, " \t")
+
+	// Step 8: find the first "@".
+	atIdx := strings.Index(rawTag, "@")
 	if atIdx == -1 {
-		return nil, ErrMalformedTag
+		return nil, fmt.Errorf("ArtifactTagExtract: %w", ErrMalformedTag)
 	}
 
-	logicalName := value[:atIdx]
-	remainder := value[atIdx+1:]
-
-	if len(remainder) < hashLength {
-		return nil, ErrMalformedTag
+	// Step 9: extract logical name (before "@").
+	logicalName := rawTag[:atIdx]
+	if logicalName == "" {
+		return nil, fmt.Errorf("ArtifactTagExtract: %w", ErrMalformedTag)
 	}
 
-	hash := remainder[:hashLength]
+	// Step 10: extract the 27-character hash after "@".
+	afterAt := rawTag[atIdx+1:]
+	if len(afterAt) < hashLength {
+		return nil, fmt.Errorf("ArtifactTagExtract: %w", ErrMalformedTag)
+	}
+	hash := afterAt[:hashLength]
 
+	// Step 11: return the parsed tag.
 	return &ArtifactTag{
 		LogicalName: logicalName,
 		Hash:        hash,

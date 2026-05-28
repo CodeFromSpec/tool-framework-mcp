@@ -22,7 +22,7 @@ Create a file containing:
 ```
 // code-from-spec: ROOT/golang/implementation/internal/foo/code(bar)@abcdefghijklmnopqrstuvwxyza
 ```
-Call ExtractArtifactTag. Expect logical name =
+Call `ArtifactTagExtract`. Expect logical name =
 `"ROOT/golang/implementation/internal/foo/code(bar)"`,
 hash = `"abcdefghijklmnopqrstuvwxyza"`.
 
@@ -32,31 +32,65 @@ Create a file containing:
 ```
 # code-from-spec: ROOT/some/node(id)@123456789012345678901234567
 ```
-Call ExtractArtifactTag. Expect correct logical name and
-hash.
+Call `ArtifactTagExtract`. Expect logical name =
+`"ROOT/some/node(id)"`,
+hash = `"123456789012345678901234567"`.
+
+#### Extracts tag from HTML comment
+
+Create a file containing:
+```
+<!-- code-from-spec: ROOT/docs/readme@abcdefghijklmnopqrstuvwxyza -->
+```
+Call `ArtifactTagExtract`. Expect logical name =
+`"ROOT/docs/readme"`,
+hash = `"abcdefghijklmnopqrstuvwxyza"`.
 
 #### Stops reading at first match
 
 Create a file with multiple `code-from-spec:` lines.
-Call ExtractArtifactTag. Expect only the first match is
-returned.
+Call `ArtifactTagExtract`. Expect only the first match
+is returned.
 
 #### Tag on non-first line
 
 Create a file where the tag appears on line 3. Call
-ExtractArtifactTag. Expect the tag is still found.
+`ArtifactTagExtract`. Expect the tag is still found.
+
+#### Extra whitespace before logical name
+
+Create a file containing:
+```
+// code-from-spec:   ROOT/x(y)@abcdefghijklmnopqrstuvwxyza
+```
+Call `ArtifactTagExtract`. Expect logical name =
+`"ROOT/x(y)"` (leading whitespace trimmed),
+hash = `"abcdefghijklmnopqrstuvwxyza"`.
+
+### Edge cases
+
+#### Empty file
+
+Create an empty file. Call `ArtifactTagExtract`.
+Expect "no tag found".
 
 ### Failure cases
 
 #### File does not exist
 
-Call ExtractArtifactTag with a non-existent path. Expect
-"file unreadable".
+Call `ArtifactTagExtract` with a non-existent path.
+Expect "file unreadable".
+
+#### Propagates path errors
+
+Call `ArtifactTagExtract` with an invalid `PathCfs`
+(e.g., `"../../outside"`). Expect error "directory
+traversal" propagated from `FileOpen`.
 
 #### No tag in file
 
-Create a file with no `code-from-spec:` substring. Call
-ExtractArtifactTag. Expect "no tag found".
+Create a file with no `code-from-spec:` substring.
+Call `ArtifactTagExtract`. Expect "no tag found".
 
 #### Malformed tag -- no @ separator
 
@@ -64,7 +98,7 @@ Create a file containing:
 ```
 // code-from-spec: ROOT/foo/bar
 ```
-Call ExtractArtifactTag. Expect "malformed tag".
+Call `ArtifactTagExtract`. Expect "malformed tag".
 
 #### Malformed tag -- empty logical name
 
@@ -72,7 +106,7 @@ Create a file containing:
 ```
 // code-from-spec: @abcdefghijklmnopqrstuvwxyza
 ```
-Call ExtractArtifactTag. Expect "malformed tag".
+Call `ArtifactTagExtract`. Expect "malformed tag".
 
 #### Malformed tag -- wrong hash length
 
@@ -80,7 +114,7 @@ Create a file containing:
 ```
 // code-from-spec: ROOT/foo(bar)@short
 ```
-Call ExtractArtifactTag. Expect "malformed tag".
+Call `ArtifactTagExtract`. Expect "malformed tag".
 
 # Agent
 
@@ -89,12 +123,5 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Describe tests in terms of the functional interface —
-  use function names and error names from the interface,
-  not language-specific constructs.
-- Each test case has: a description, setup (what files to
-  create and with what content), actions (what functions
-  to call), and expected outcome.
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.
+- Use the function name from the interface:
+  `ArtifactTagExtract`.
