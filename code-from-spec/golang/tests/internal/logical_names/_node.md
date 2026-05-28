@@ -1,6 +1,7 @@
 ---
 depends_on:
   - ARTIFACT/golang/implementation/internal/logical_names/code(logicalnames)
+  - ARTIFACT/golang/interfaces/os/path_utils(interface)
 input: ARTIFACT/functional/tests/utils/logical_names(logical_names_tests)
 outputs:
   - id: logicalnames_test

@@ -18,60 +18,73 @@ Test cases for the frontmatter component.
 
 #### Parses complete frontmatter (all fields)
 
-Create a file with all fields: depends_on, external (with
-fragments), input, and outputs. Call ParseFrontmatter.
+Create a file with all fields: `depends_on`, `external`
+(with fragments), `input`, and `outputs`. Call
+`FrontmatterParse`.
 
-Expect depends_on contains the listed dependencies.
-External has one entry with path and one fragment containing
-description, lines, and hash. Input matches the specified
-value. Outputs has two entries each with id and path.
+Expect `depends_on` contains the listed dependencies.
+`external` has one entry with `path` and one fragment
+containing `description`, `lines`, and `hash`. `input`
+matches the specified value. `outputs` has two entries
+each with `id` and `path`. No error.
 
 #### Parses frontmatter with only outputs
 
-Create a file with only outputs in frontmatter. Call
-ParseFrontmatter.
+Create a file with only `outputs` in frontmatter. Call
+`FrontmatterParse`.
 
-Expect depends_on is empty, external is empty, input is
-empty. Outputs has one entry with the correct id and path.
-No error.
+Expect `depends_on` is empty, `external` is empty,
+`input` is empty. `outputs` has one entry with the
+correct `id` and `path`. No error.
 
 #### Parses frontmatter with only depends_on
 
-Create a file with only depends_on in frontmatter. Call
-ParseFrontmatter.
+Create a file with only `depends_on` in frontmatter.
+Call `FrontmatterParse`.
 
-Expect depends_on contains the listed values. External is
-empty, input is empty, outputs is empty. No error.
+Expect `depends_on` contains the listed values. All
+other fields are empty. No error.
 
 #### Parses frontmatter with external and fragments
 
-Create a file with external entries including fragments.
-Call ParseFrontmatter.
+Create a file with `external` entries including
+fragments. Call `FrontmatterParse`.
 
-Expect external has two entries. First entry has path and
-two fragments with correct description, lines, and hash.
-Second entry has path only, no fragments.
+Expect `external` has two entries. First entry has `path`
+and two fragments with correct `description`, `lines`,
+and `hash`. Second entry has `path` only, no fragments.
+No error.
 
 #### Parses frontmatter with input field
 
-Create a file with only the input field. Call
-ParseFrontmatter.
+Create a file with only the `input` field. Call
+`FrontmatterParse`.
 
-Expect input matches the specified value. All other fields
-are empty. No error.
+Expect `input` matches the specified value. All other
+fields are empty. No error.
+
+#### Fragment without description
+
+Create a file with an `external` entry containing a
+fragment with `lines` and `hash` but no `description`.
+Call `FrontmatterParse`.
+
+Expect the fragment is parsed with `description` absent,
+`lines` and `hash` correct. No error.
 
 #### Ignores unknown frontmatter fields
 
-Create a file with known fields plus extra unknown fields.
-Call ParseFrontmatter.
+Create a file with known fields plus extra unknown
+fields (e.g., `custom_field: value`). Call
+`FrontmatterParse`.
 
 Expect no error. Known fields parsed correctly. Unknown
 fields ignored.
 
 #### File with no frontmatter returns empty result
 
-Create a file with no frontmatter delimiters at all. Call
-ParseFrontmatter.
+Create a file with no `---` delimiter at all — body
+content only. Call `FrontmatterParse`.
 
 Expect no error. Result has all fields empty.
 
@@ -79,31 +92,75 @@ Expect no error. Result has all fields empty.
 
 #### Empty frontmatter
 
-Create a file with empty frontmatter (opening and closing
-delimiters with nothing between). Call ParseFrontmatter.
+Create a file with empty frontmatter (opening and
+closing `---` with nothing between). Call
+`FrontmatterParse`.
 
 Expect no error. Result has all fields empty.
 
 #### File with only frontmatter, nothing after
 
-Create a file with frontmatter and no body content after
-the closing delimiter. Call ParseFrontmatter.
+Create a file with frontmatter and no body content
+after the closing `---`. Call `FrontmatterParse`.
 
 Expect no error. Fields parsed correctly.
+
+#### Delimiter with trailing whitespace is not recognized
+
+Create a file where the first line is `---   ` (with
+trailing spaces). Call `FrontmatterParse`.
+
+Expect no error. Result has all fields empty — the
+line is not recognized as a delimiter.
 
 ### Failure cases
 
 #### File does not exist
 
-Call ParseFrontmatter with a non-existent path. Expect
-"read error".
+Call `FrontmatterParse` with a `PathCfs` pointing to a
+non-existent file. Expect "file unreadable".
 
-#### Malformed YAML in frontmatter
+#### Propagates path errors
+
+Call `FrontmatterParse` with an invalid `PathCfs`
+(e.g., `"../../outside"`). Expect error "directory
+traversal" propagated from `FileOpen`.
+
+#### Malformed YAML
 
 Create a file with invalid YAML between frontmatter
-delimiters. Call ParseFrontmatter.
+delimiters. Call `FrontmatterParse`.
 
-Expect "frontmatter parse error".
+Expect "malformed YAML".
+
+#### Unclosed frontmatter block
+
+Create a file that starts with `---` but has no closing
+`---`. Call `FrontmatterParse`.
+
+Expect "malformed YAML".
+
+#### Missing required field in external entry
+
+Create a file with an `external` entry that has no
+`path` field. Call `FrontmatterParse`.
+
+Expect "malformed YAML".
+
+#### Missing required field in fragment
+
+Create a file with an `external` entry containing a
+fragment that has `lines` but no `hash`. Call
+`FrontmatterParse`.
+
+Expect "malformed YAML".
+
+#### Missing required field in output entry
+
+Create a file with an `outputs` entry that has `id`
+but no `path`. Call `FrontmatterParse`.
+
+Expect "malformed YAML".
 
 # Agent
 
@@ -112,12 +169,5 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Describe tests in terms of the functional interface —
-  use function names and error names from the interface,
-  not language-specific constructs.
-- Each test case has: a description, setup (what files to
-  create and with what content), actions (what functions
-  to call), and expected outcome.
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.
+- Use the function name from the interface:
+  `FrontmatterParse`.
