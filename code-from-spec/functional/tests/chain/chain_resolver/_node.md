@@ -1,14 +1,16 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/chain_resolver(interface)
+  - ROOT/functional/logic/chain/chain_resolver(interface)
 outputs:
   - id: chain_resolver_tests
-    path: code-from-spec/functional/tests/utils/chain_resolver/output.md
+    path: code-from-spec/functional/tests/chain/chain_resolver/output.md
 ---
 
-# ROOT/functional/tests/utils/chain_resolver
+# ROOT/functional/tests/chain/chain_resolver
 
 Test cases for the chain resolver component.
+
+Review status: pending
 
 # Public
 
@@ -155,12 +157,4 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Describe tests in terms of the functional interface —
-  use function names and error names from the interface,
-  not language-specific constructs.
-- Each test case has: a description, setup (what files to
-  create and with what content), actions (what functions
-  to call), and expected outcome.
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.
+- Use the function name from the interface: `ResolveChain`.

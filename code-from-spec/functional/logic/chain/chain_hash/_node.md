@@ -7,10 +7,10 @@ external:
   - path: CHAIN_HASH.md
 outputs:
   - id: chain_hash
-    path: code-from-spec/functional/logic/utils/chain_hash/output.md
+    path: code-from-spec/functional/logic/chain/chain_hash/output.md
 ---
 
-# ROOT/functional/logic/utils/chain_hash
+# ROOT/functional/logic/chain/chain_hash
 
 Computes the chain hash for a given target node by reading
 all chain positions from disk.

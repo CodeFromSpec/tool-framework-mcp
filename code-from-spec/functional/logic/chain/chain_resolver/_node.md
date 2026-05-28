@@ -4,10 +4,10 @@ depends_on:
   - ROOT/functional/logic/parsing/frontmatter
 outputs:
   - id: chain_resolver
-    path: code-from-spec/functional/logic/utils/chain_resolver/output.md
+    path: code-from-spec/functional/logic/chain/chain_resolver/output.md
 ---
 
-# ROOT/functional/logic/utils/chain_resolver
+# ROOT/functional/logic/chain/chain_resolver
 
 Resolves the ordered list of files that form the chain
 for a given target logical name.

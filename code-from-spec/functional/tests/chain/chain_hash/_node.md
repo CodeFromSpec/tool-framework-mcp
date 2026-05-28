@@ -1,14 +1,16 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/chain_hash(interface)
+  - ROOT/functional/logic/chain/chain_hash(interface)
 outputs:
   - id: chain_hash_tests
-    path: code-from-spec/functional/tests/utils/chain_hash/output.md
+    path: code-from-spec/functional/tests/chain/chain_hash/output.md
 ---
 
-# ROOT/functional/tests/utils/chain_hash
+# ROOT/functional/tests/chain/chain_hash
 
 Test cases for the chain hash component.
+
+Review status: pending
 
 # Public
 
@@ -53,12 +55,5 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Describe tests in terms of the functional interface —
-  use function names and error names from the interface,
-  not language-specific constructs.
-- Each test case has: a description, setup (what files to
-  create and with what content), actions (what functions
-  to call), and expected outcome.
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.
+- Use the function name from the interface:
+  `ComputeChainHash`.
