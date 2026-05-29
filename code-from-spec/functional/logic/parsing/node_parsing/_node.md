@@ -20,11 +20,13 @@ representation of its sections and subsections.
 ```
 record NodeSubsection
   heading: string
-  content: string
+  raw_heading: string
+  content: list of string
 
 record NodeSection
   heading: string
-  content: string
+  raw_heading: string
+  content: list of string
   subsections: list of NodeSubsection
 
 record Node
@@ -55,10 +57,14 @@ function NodeParse(logical_name: string) -> Node
       same section normalize to the same text.
 ```
 
-`NodeSubsection` and `NodeSection` headings are stored in
-normalized form (after `NormalizeText`). Content fields
-contain raw markdown text — no processing or stripping
-beyond leading/trailing blank line trimming.
+`NodeSubsection` and `NodeSection` have two heading fields:
+`heading` is the normalized form (after `NormalizeText`),
+used for comparisons and lookups. `raw_heading` is the
+original line as read from the file (e.g.
+`# Public`, `## Interface ##`), preserved for hashing.
+Content fields are lists of strings — each element is a
+line as returned by `FileReadLine`, preserving the
+original text exactly as read from the file.
 
 Private sections preserve the order they appear in the
 file.
@@ -114,12 +120,22 @@ preceded by at least one space.
 The heading level is determined by the number of leading
 `#` characters: `#` = level 1, `##` = level 2, etc.
 
+### Heading storage
+
+When a heading line is recognized, store two values:
+- `raw_heading`: the original line as read from the
+  file, unchanged (e.g. `# Public`, `## Interface ##`).
+- `heading`: the extracted heading text, normalized with
+  `NormalizeText` (see below).
+
 ### Heading normalization
 
-After extracting the heading text, normalize it using
-`NormalizeText` before comparison or storage: trim
-whitespace, collapse internal whitespace to a single
-space, apply Unicode simple case folding.
+After extracting the heading text (stripping `#` prefix,
+optional closing `#` sequences, and whitespace), normalize
+it using `NormalizeText` before comparison or storage in
+the `heading` field: trim whitespace, collapse internal
+whitespace to a single space, apply Unicode simple case
+folding.
 
 ### Section classification
 
@@ -165,8 +181,8 @@ After normalizing a level-1 heading with `NormalizeText`:
   line of at least as many of the same character as the
   opening line. All lines between are content, regardless
   of whether they look like headings.
-- Leading and trailing blank lines in section and
-  subsection content are trimmed.
+- Content preserves all lines as read from the file,
+  including leading and trailing blank lines.
 
 ## Contracts
 
@@ -174,7 +190,8 @@ After normalizing a level-1 heading with `NormalizeText`:
 - Level-2 (`##`) headings are structural in all sections.
 - Level-3 and deeper headings are always content.
 - Headings inside fenced code blocks are not structural.
-- Leading and trailing blank lines in content are trimmed.
+- Content preserves all lines including leading and
+  trailing blank lines.
 - Duplicate subsection detection applies within each
   section independently.
 - `FileClose` is called in all cases — success or error.

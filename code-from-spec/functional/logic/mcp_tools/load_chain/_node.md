@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/chain_hash
+  - ROOT/functional/logic/chain/hash
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/parsing/frontmatter

@@ -22,7 +22,8 @@ Create a node file for `ROOT/x` with only a name heading
 and a description. Call `NodeParse` with `"ROOT/x"`.
 
 Expect `name_section.heading` = `"root/x"`,
-`name_section.content` = `"A simple node."`,
+`name_section.raw_heading` = `"# ROOT/x"`,
+`name_section.content` = `["A simple node."]`,
 `name_section.subsections` empty,
 `public` absent, `agent` absent, `private` empty.
 
@@ -54,17 +55,17 @@ Create a node file for `ROOT/a` with a public section
 that has direct content before a `## Interface`
 subsection. Call `NodeParse`.
 
-Expect `public.content` = the text before the subsection,
-`public.subsections` has one entry with heading
-`"interface"`.
+Expect `public.content` = list of lines before the
+subsection, `public.subsections` has one entry with
+heading `"interface"` and raw_heading `"## Interface"`.
 
 #### Public section with no content or subsections
 
 Create a node file where `# Public` is immediately
 followed by `# Agent`. Call `NodeParse`.
 
-Expect `public` present with empty `content` and empty
-`subsections` list.
+Expect `public` present with empty `content` (empty list)
+and empty `subsections` list.
 
 #### Agent section with ## subsections
 
@@ -72,10 +73,11 @@ Create a node file with an agent section containing
 some preamble text, then `## Implementation guidance`
 and `## Contracts` subsections. Call `NodeParse`.
 
-Expect `agent.content` = the preamble text,
+Expect `agent.content` = list of preamble lines,
+`agent.raw_heading` = `"# Agent"`,
 `agent.subsections` has two entries with headings
 `"implementation guidance"` and `"contracts"`, each
-with their own content.
+with their own content as list of lines.
 
 #### Private sections preserve file order
 
@@ -90,9 +92,9 @@ Expect `private` has three sections in order:
 Create a node file with a subsection containing level-3
 headings, bold text, and code blocks. Call `NodeParse`.
 
-Expect the subsection content is the raw markdown text,
-including `###` headings, `**bold**`, and fenced code
-blocks.
+Expect the subsection content is a list of raw markdown
+lines, including `###` headings, `**bold**`, and fenced
+code blocks.
 
 ### Heading normalization
 
@@ -123,7 +125,34 @@ headings = `"interface"` and `"constraints"`.
 #### Closing hashes are stripped
 
 Create a node with heading `## Interface ##`. Call
-`NodeParse`. Expect subsection heading = `"interface"`.
+`NodeParse`. Expect subsection heading = `"interface"`,
+raw_heading = `"## Interface ##"`.
+
+### Raw heading preservation
+
+#### Raw heading preserves original line
+
+Create a node with `# Public` and `## Interface`. Call
+`NodeParse`. Expect `public.raw_heading` = `"# Public"`,
+subsection `raw_heading` = `"## Interface"`.
+
+#### Raw heading preserves case
+
+Create a node with `# PUBLIC` heading. Call `NodeParse`.
+Expect `public.heading` = `"public"` (normalized),
+`public.raw_heading` = `"# PUBLIC"` (original).
+
+#### Raw heading preserves closing hashes
+
+Create a node with `## Foo ##`. Call `NodeParse`.
+Expect subsection `heading` = `"foo"`,
+`raw_heading` = `"## Foo ##"`.
+
+#### Raw heading preserves extra whitespace
+
+Create a node with `#   Public` heading. Call
+`NodeParse`. Expect `public.heading` = `"public"`,
+`public.raw_heading` = `"#   Public"`.
 
 ### Content boundaries
 
@@ -159,13 +188,13 @@ inside a subsection, containing `# Heading`. Call
 
 Expect the `# Heading` inside the code block is content.
 
-#### Leading and trailing blank lines are trimmed
+#### Leading and trailing blank lines are preserved
 
 Create a node with blank lines surrounding content in
 sections and subsections. Call `NodeParse`.
 
-Expect leading and trailing blank lines are trimmed from
-all `content` fields.
+Expect leading and trailing blank lines are preserved
+in all `content` lists.
 
 ### Frontmatter handling
 

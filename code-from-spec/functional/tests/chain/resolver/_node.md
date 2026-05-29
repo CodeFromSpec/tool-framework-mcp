@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/chain_resolver(interface)
+  - ROOT/functional/logic/chain/resolver(interface)
 outputs:
   - id: chain_resolver_tests
-    path: code-from-spec/functional/tests/chain/chain_resolver/output.md
+    path: code-from-spec/functional/tests/chain/resolver/output.md
 ---
 
-# ROOT/functional/tests/chain/chain_resolver
+# ROOT/functional/tests/chain/resolver
 
 Test cases for the chain resolver component.
 
@@ -189,7 +189,6 @@ Create spec tree: ROOT, ROOT/a (leaf, external =
 Call ChainResolve with "ROOT/a".
 
 Expect external list contains both entries, sorted
-by path: proto/v1.proto before docs/api.yaml? No —
 alphabetically: docs/api.yaml before proto/v1.proto.
 
 #### External with fragments preserved

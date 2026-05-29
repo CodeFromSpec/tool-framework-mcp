@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/chain_hash(interface)
+  - ROOT/functional/logic/chain/hash(interface)
 outputs:
   - id: chain_hash_tests
-    path: code-from-spec/functional/tests/chain/chain_hash/output.md
+    path: code-from-spec/functional/tests/chain/hash/output.md
 ---
 
-# ROOT/functional/tests/chain/chain_hash
+# ROOT/functional/tests/chain/hash
 
 Test cases for the chain hash component.
 
@@ -56,4 +56,4 @@ case with its setup, actions, and expected outcome.
 ## Rules
 
 - Use the function name from the interface:
-  `ComputeChainHash`.
+  `ChainHashCompute`.

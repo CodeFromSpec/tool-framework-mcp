@@ -153,9 +153,9 @@ declared, process each fragment independently:
   are read, call `FileClose`, report a format error
   (fragment out of range), and skip this fragment.
 - Call `FileClose`.
-- Join the read lines with `\n` (LF) to form the content.
-  `FileReadLine` already normalizes CRLF, so the result
-  is platform-independent.
+- Append `\n` (LF) after each read line, including the
+  last, to form the content. `FileReadLine` already
+  normalizes CRLF, so the result is platform-independent.
 - Compute SHA-1 of the joined content.
 - Encode the 20-byte SHA-1 digest as base64url (RFC 4648
   §5, no padding) — 27 characters.

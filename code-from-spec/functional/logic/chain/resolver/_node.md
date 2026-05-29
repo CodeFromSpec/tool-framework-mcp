@@ -5,10 +5,10 @@ depends_on:
   - ROOT/functional/logic/os/path_utils(interface)
 outputs:
   - id: chain_resolver
-    path: code-from-spec/functional/logic/chain/chain_resolver/output.md
+    path: code-from-spec/functional/logic/chain/resolver/output.md
 ---
 
-# ROOT/functional/logic/chain/chain_resolver
+# ROOT/functional/logic/chain/resolver
 
 Resolves the ordered list of positions that form the
 chain for a given target logical name.

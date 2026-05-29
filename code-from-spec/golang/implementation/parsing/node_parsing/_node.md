@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - ROOT/golang/dependencies/yuin-goldmark
   - ARTIFACT/golang/interfaces/parsing/node_parsing(interface)
   - ARTIFACT/golang/interfaces/os/file_reader(interface)
   - ARTIFACT/golang/interfaces/os/path_utils(interface)
@@ -20,9 +19,6 @@ Implement the pseudocode from the input as a Go package.
 
 ## Go-specific guidance
 
-- Use `yuin/goldmark` for CommonMark parsing. See
-  `ROOT/golang/dependencies/yuin-goldmark` for heading text
-  extraction and raw source extraction helpers.
 - Use `textnormalization.NormalizeText` for all heading
   comparisons.
 - Use `logicalnames.LogicalNameToPath` to resolve logical

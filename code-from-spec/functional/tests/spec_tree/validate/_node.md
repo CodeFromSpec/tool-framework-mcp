@@ -176,8 +176,9 @@ Fragment hashes use SHA-1 encoded as base64url (RFC 4648
 §5, no padding) — always 27 characters. The input to
 SHA-1 is the lines in the declared range, read with
 `FileReadLine` (which normalizes CRLF to LF and strips
-terminators), joined with `\n` (LF). Tests that need a
-"correct hash" must compute it using this algorithm.
+terminators), each with `\n` (LF) appended — including
+the last line. Tests that need a "correct hash" must
+compute it using this algorithm.
 
 #### External file exists — no fragments
 
