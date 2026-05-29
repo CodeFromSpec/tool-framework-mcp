@@ -22,7 +22,8 @@ function FileOpen(cfs_path: PathCfs) -> FileReader
   errors:
     - (path errors): propagated from PathCfsToOs.
     - file unreadable: the path is valid but the file
-      cannot be opened.
+      cannot be opened (does not exist, permission denied,
+      or other OS error).
 
 function FileReadLine(reader: FileReader) -> string
   errors:
