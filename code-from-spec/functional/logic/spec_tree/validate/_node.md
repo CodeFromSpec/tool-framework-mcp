@@ -118,9 +118,10 @@ Report one error per invalid entry.
 
 Rule name: `input_target`.
 
-If `frontmatter.input` is non-empty, it must be an
-`ARTIFACT/` reference that exists in the known logical
-names set.
+If `frontmatter.input` is non-empty, verify it starts
+with `ARTIFACT/`. If not, report a format error. Then
+verify it exists in the known logical names set. If not,
+report a format error.
 
 #### external_files
 
@@ -143,7 +144,8 @@ declared, process each fragment independently:
   through 210. If the format is invalid, `start < 1`,
   or `start > end`, report a format error and skip this
   fragment.
-- Open the file again with `FileOpen`.
+- Open the file again with `FileOpen`. If it fails,
+  report a format error and skip this fragment.
 - Use `FileSkipLines` to skip `start - 1` lines, then
   read `end - start + 1` lines with `FileReadLine`. If
   `FileReadLine` returns "end of file" before all lines
