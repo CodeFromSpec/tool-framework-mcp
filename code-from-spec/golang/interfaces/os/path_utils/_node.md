@@ -16,4 +16,4 @@ outputs:
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"`

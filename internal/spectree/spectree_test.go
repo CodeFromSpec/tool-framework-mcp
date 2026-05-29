@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/listfiles"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/spectree"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/listfiles"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"
 )
 
 // testChdir changes the working directory to dir for the duration of the test.

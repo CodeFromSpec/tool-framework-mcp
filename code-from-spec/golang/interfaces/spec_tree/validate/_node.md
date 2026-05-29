@@ -18,4 +18,4 @@ outputs:
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v2/internal/spectreevalidate"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"`

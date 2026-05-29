@@ -1,4 +1,4 @@
-module github.com/CodeFromSpec/tool-framework-mcp/v2
+module github.com/CodeFromSpec/tool-framework-mcp/v3
 
 go 1.25.0
 

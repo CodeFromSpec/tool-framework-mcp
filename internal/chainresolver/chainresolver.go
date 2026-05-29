@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
 var (

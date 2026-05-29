@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
 )
 
 // testChdir changes the working directory to dir for the duration of the test,

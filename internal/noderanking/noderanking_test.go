@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/noderanking"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/noderanking"
 )
 
 // testStr returns a pointer to the given string, for convenience when

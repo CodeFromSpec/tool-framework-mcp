@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/artifacttag"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/artifacttag"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
 func testChdir(t *testing.T, dir string) {

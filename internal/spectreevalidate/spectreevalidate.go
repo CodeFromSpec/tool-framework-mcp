@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filereader"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/parsenode"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/textnormalization"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 )
 
 // SpecTreeValidateInput represents a single discovered node with its parsed

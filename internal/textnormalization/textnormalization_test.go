@@ -5,7 +5,7 @@ package textnormalization_test
 import (
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/textnormalization"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 )
 
 func TestNormalizeText(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
 )
 
 // NodeRankInput represents a single discovered node and its parsed

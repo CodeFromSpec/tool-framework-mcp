@@ -17,4 +17,4 @@ outputs:
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filewriter"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filewriter"`

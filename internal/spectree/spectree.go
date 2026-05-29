@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/listfiles"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/listfiles"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
 // SpecTreeNode represents a single node discovered in the spec tree.

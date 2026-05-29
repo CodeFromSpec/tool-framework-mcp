@@ -8,9 +8,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filereader"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/textnormalization"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 )
 
 // NodeSubsection represents a level-2 heading and its content within

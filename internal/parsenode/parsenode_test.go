@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
 )
 
 // testChdir changes the working directory to dir for the duration of the test.

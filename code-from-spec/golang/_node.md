@@ -6,7 +6,7 @@ Technical design decisions for implementing the MCP server in Go.
 
 ## Go module
 
-The module path is `github.com/CodeFromSpec/tool-framework-mcp/v2`.
+The module path is `github.com/CodeFromSpec/tool-framework-mcp/v3`.
 All internal package imports must use this prefix.
 
 ## Language

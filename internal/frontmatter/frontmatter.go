@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/filereader"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 	"github.com/goccy/go-yaml"
 )
 

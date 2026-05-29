@@ -16,4 +16,4 @@ outputs:
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v2/internal/textnormalization"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"`
