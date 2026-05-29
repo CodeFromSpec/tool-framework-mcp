@@ -2,6 +2,7 @@
 depends_on:
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/parsing/frontmatter
+  - ROOT/functional/logic/os/path_utils(interface)
 outputs:
   - id: chain_resolver
     path: code-from-spec/functional/logic/chain/chain_resolver/output.md
@@ -9,10 +10,8 @@ outputs:
 
 # ROOT/functional/logic/chain/chain_resolver
 
-Resolves the ordered list of files that form the chain
-for a given target logical name.
-
-Review status: pending
+Resolves the ordered list of positions that form the
+chain for a given target logical name.
 
 # Public
 
@@ -21,113 +20,179 @@ Review status: pending
 ```
 record ChainItem
   logical_name: string
-  file_path: string
+  file_path: PathCfs
   qualifier: optional string
-
-record ExternalItem
-  path: string
 
 record Chain
   ancestors: list of ChainItem
-  target: ChainItem
   dependencies: list of ChainItem
-  external: list of ExternalItem
-  input: string
+  external: list of FrontmatterExternal
+  target: ChainItem
+  input: optional ChainItem
 
-function ResolveChain(target_logical_name: string) -> Chain
+function ChainResolve(target_logical_name: string) -> Chain
   errors:
-    - cannot resolve logical name: a logical name cannot
-      be resolved to a file path.
-    - unreadable frontmatter: the target's frontmatter
+    - (logical name errors): propagated from
+      LogicalNameToPath, LogicalNameGetParent.
+    - unreadable frontmatter: a node's frontmatter
       cannot be parsed.
+    - unresolvable artifact: an ARTIFACT/ reference's
+      output id does not match any declared output.
 ```
 
-`ResolveChain` returns the chain for a target logical
-name — the ordered list of files that a downstream tool
-needs to assemble context for artifact generation.
+`ChainResolve` returns the chain for a target logical
+name — the ordered list of positions that a downstream
+tool needs to assemble context for artifact generation
+or to compute the chain hash.
 
 ### Chain assembly order
 
 1. **Ancestors** — from root down to (but not including)
    the target node.
-2. **Dependencies** — nodes listed in the target's
-   `depends_on`. Each dependency contributes its file path
-   and an optional qualifier targeting a specific
-   subsection.
-3. **External** — files listed in the target's `external`.
+2. **Dependencies** — entries from the target's
+   `depends_on`, sorted alphabetically by file path
+   then by qualifier, each with its resolved file path
+   and an optional qualifier.
+3. **External** — files from the target's `external`,
+   sorted alphabetically by path, including fragment
+   declarations when present.
 4. **Target** — the target node itself.
-5. **Input** — the target's `input` field, if present.
-
-### Qualifier semantics
-
-When qualifier is absent, the caller uses the full
-`# Public` section. When present, the caller uses only
-the `## <qualifier>` subsection within `# Public`.
+5. **Input** — the target's `input` artifact, if present.
 
 # Agent
 
 ## Behavior
 
-### Step 1 — Ancestors and target
+### Step 1 — Resolve ancestors and target
 
-Starting from the target logical name, walk upward using
-`GetParent` repeatedly, collecting each logical name.
+If the target logical name is `"ROOT"`, create a single
+`ChainItem` for it (resolve file path using
+`LogicalNameToPath`, qualifier absent). Ancestors list
+is empty. Skip to Step 2.
+
+Otherwise, starting from the target logical name, walk
+upward using `LogicalNameGetParent` repeatedly,
+collecting each logical name until reaching `ROOT`
+(inclusive). If `LogicalNameGetParent` fails, propagate
+the error.
+
 Sort the collected list alphabetically by logical name.
+This produces root-first order (e.g. `ROOT`, `ROOT/a`,
+`ROOT/a/b`).
 
-For each name, resolve the file path using `ResolvePath`.
-Create a ChainItem with qualifier absent.
+For each name, resolve the file path using
+`LogicalNameToPath`. If it fails, propagate the error.
+Create a `ChainItem` with qualifier absent.
 
 The last item in the sorted list is the target; the
 remaining items form the ancestors list.
 
-### Step 2 — Dependencies
+### Step 2 — Resolve dependencies
 
 Read the target node's frontmatter using
-`ParseFrontmatter`. For each entry in `depends_on`:
+`FrontmatterParse` (pass the target's file path). If
+parsing fails, raise "unreadable frontmatter".
 
-1. Resolve the file path using `ResolvePath`.
-2. If the logical name has a qualifier (using
-   `ExtractQualifier`), set qualifier to that value.
-   Otherwise, leave qualifier absent.
-3. Verify the file exists. If not, raise error
-   "cannot resolve logical name: <name>".
-4. Add to the dependencies list.
+For each entry in `frontmatter.depends_on`, determine
+whether it starts with `ROOT/` or `ARTIFACT/`:
 
-Sort dependencies alphabetically by file path, then by
-qualifier (absent sorts before present).
+**`ROOT/` references:**
+1. Extract the qualifier using `LogicalNameGetQualifier`
+   (absent if none). Strip the qualifier using
+   `LogicalNameStripQualifier` to get the bare logical
+   name.
+2. Resolve the bare logical name to a file path using
+   `LogicalNameToPath`. If it fails, propagate the error.
+3. Create a `ChainItem` with the bare logical name, the
+   resolved file path, and the qualifier (if any).
 
-### Step 3 — External
+**`ARTIFACT/` references:**
+1. Extract the qualifier (artifact id) using
+   `LogicalNameGetQualifier`. If absent, raise
+   "unresolvable artifact" — `ARTIFACT/` references
+   must include an id.
+2. Derive the generating node's logical name using
+   `LogicalNameGetArtifactGenerator`. If it fails,
+   propagate the error.
+3. Resolve the generating node's logical name to a file
+   path using `LogicalNameToPath`.
+4. Read the generating node's frontmatter using
+   `FrontmatterParse`. If parsing fails, raise
+   "unreadable frontmatter".
+5. Find the output entry whose `id` matches the
+   qualifier. If no match, raise "unresolvable artifact".
+   The output's `path` is the artifact file path. Do not
+   verify existence — the artifact may not have been
+   generated yet.
+6. Create a `ChainItem` with the original `ARTIFACT/`
+   logical name, the artifact file path as `PathCfs`,
+   and the qualifier.
 
-Extract the `external` entries from the target's
-frontmatter. Each entry contributes its path.
+Sort dependencies alphabetically by file path value,
+then by qualifier (absent sorts before present).
 
-### Step 4 — Input
+### Step 3 — Deduplicate dependencies
 
-Extract the `input` field from the target's frontmatter.
-If present, record it in the chain.
+Remove duplicate entries from the dependencies list.
 
-### Step 5 — Normalize file paths
+For `ROOT/` entries:
+- Two entries are duplicates when they have the same
+  file path and the same qualifier.
+- When an entry exists with a given file path and no
+  qualifier (meaning the full `# Public` section), any
+  other entry with the same file path and a qualifier
+  is redundant — the full section already includes
+  every subsection. Remove the redundant entry.
 
-All file paths use forward slashes as separators,
-regardless of the operating system.
-
-### Step 6 — Deduplicate
-
-Remove duplicate entries from ancestors and dependencies.
-Two entries are duplicates when they have the same file
-path and the same qualifier.
-
-When an entry exists with a given file path and no
-qualifier (meaning the full `# Public` section), any
-other entry with the same file path and a qualifier is
-redundant — the full section already includes every
-subsection. Remove the redundant entry.
+For `ARTIFACT/` entries: two entries are duplicates only
+when they have the exact same logical name (including
+qualifier). The qualifier is the artifact id and is
+always present — there is no "without qualifier"
+subsumption for artifacts.
 
 Keep the first occurrence when removing duplicates.
 
+### Step 4 — Collect external
+
+Copy the `external` list from the target's frontmatter
+into the chain. The list preserves the `FrontmatterExternal`
+records as-is, including any `fragments` declarations.
+Sort entries alphabetically by `path`. Fragments within
+each entry retain their declaration order.
+
+### Step 5 — Resolve input
+
+If the target's frontmatter has a non-empty `input`
+field (it is an `ARTIFACT/` reference):
+1. Extract the qualifier (artifact id) using
+   `LogicalNameGetQualifier`. If absent, raise
+   "unresolvable artifact".
+2. Derive the generating node's logical name using
+   `LogicalNameGetArtifactGenerator`. If it fails,
+   propagate the error.
+3. Resolve the generating node's logical name to a file
+   path using `LogicalNameToPath`.
+4. Read the generating node's frontmatter using
+   `FrontmatterParse`. If parsing fails, raise
+   "unreadable frontmatter".
+5. Find the output entry whose `id` matches the
+   qualifier. If no match, raise "unresolvable artifact".
+   The output's `path` is the artifact file path. Do not
+   verify existence.
+6. Create a `ChainItem` with the original `ARTIFACT/`
+   logical name, the artifact file path as `PathCfs`,
+   and the qualifier.
+
+If `input` is empty, the `input` field in the returned
+`Chain` is absent.
+
 ## Contracts
 
-- The chain is fully resolved — all file paths are valid
-  and point to existing files.
-- File paths use forward slashes regardless of OS.
-- No duplicate entries in the result.
+- The chain is fully resolved — all file paths are
+  derived from logical names and frontmatter. Existence
+  is not verified; the caller handles missing files.
+- File paths are `PathCfs` values (forward slashes).
+- No duplicate entries in the dependencies list.
+- Ancestors are in root-first order.
+- Dependencies are sorted by file path then qualifier.
+- External entries are sorted by path.

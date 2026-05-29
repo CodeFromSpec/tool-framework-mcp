@@ -2,6 +2,7 @@
 depends_on:
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/os/path_utils
+  - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/parsing/frontmatter(interface)
   - ROOT/functional/logic/parsing/node_parsing(interface)
@@ -98,11 +99,11 @@ Rule name: `dependency_targets`.
 
 Each `depends_on` entry must be valid:
 
-- **`ROOT/` references**: if the reference contains `(`,
-  truncate at that position to get the bare logical name
-  (e.g. `ROOT/a/b(interface)` → `ROOT/a/b`). Verify the
-  bare logical name exists in the known logical names
-  set. Also verify it does not point to the node itself
+- **`ROOT/` references**: strip the qualifier using
+  `LogicalNameStripQualifier` to get the bare logical
+  name (e.g. `ROOT/a/b(interface)` → `ROOT/a/b`; if no
+  qualifier, returned unchanged). Verify the bare
+  logical name exists in the known logical names set. Also verify it does not point to the node itself
   (bare name equals the current node's logical name),
   an ancestor (the bare name followed by `/` is a prefix
   of the current node's logical name), or a descendant

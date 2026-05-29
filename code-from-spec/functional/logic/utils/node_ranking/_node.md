@@ -89,10 +89,10 @@ For each spec node entry:
 - **depends_on**: for each entry in
   `frontmatter.depends_on`, determine the lookup key.
   For `ARTIFACT/` references, use as-is (the qualifier
-  is part of the key). For `ROOT/` references, strip any
-  parenthetical qualifier before lookup — find the `(`
-  character and truncate. The dependency edge points to
-  the bare node entry.
+  is part of the key). For `ROOT/` references, use
+  `LogicalNameStripQualifier` to get the bare logical
+  name for lookup. The dependency edge points to the
+  bare node entry.
 - **input**: if `frontmatter.input` is non-empty, add it
   as a dependency (it is an `ARTIFACT/` reference, used
   as-is).

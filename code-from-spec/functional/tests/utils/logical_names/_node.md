@@ -117,6 +117,33 @@ Expect: absent.
 Input: `"ROOT"`.
 Expect: absent.
 
+### LogicalNameStripQualifier
+
+#### Strips qualifier from ROOT reference
+
+Input: `"ROOT/x/y(interface)"`.
+Expect: `"ROOT/x/y"`.
+
+#### Strips qualifier from ARTIFACT reference
+
+Input: `"ARTIFACT/x/y(id)"`.
+Expect: `"ARTIFACT/x/y"`.
+
+#### No qualifier — returns unchanged
+
+Input: `"ROOT/x/y"`.
+Expect: `"ROOT/x/y"`.
+
+#### ROOT alone — returns unchanged
+
+Input: `"ROOT"`.
+Expect: `"ROOT"`.
+
+#### Empty string — returns unchanged
+
+Input: `""`.
+Expect: `""`.
+
 ### LogicalNameHasParent
 
 #### ROOT alone
@@ -220,5 +247,6 @@ case with its setup, actions, and expected outcome.
 - Use the function names from the interface:
   `LogicalNameToPath`, `LogicalNameFromPath`,
   `LogicalNameGetParent`, `LogicalNameGetQualifier`,
-  `LogicalNameHasParent`, `LogicalNameHasQualifier`,
-  `LogicalNameIsArtifact`, `LogicalNameGetArtifactGenerator`.
+  `LogicalNameStripQualifier`, `LogicalNameHasParent`,
+  `LogicalNameHasQualifier`, `LogicalNameIsArtifact`,
+  `LogicalNameGetArtifactGenerator`.

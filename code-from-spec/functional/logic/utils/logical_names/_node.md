@@ -59,6 +59,17 @@ Returns absent if no qualifier is present. Works with both
 `ROOT/x/y(z)` → `z`; `ROOT/x/y` → absent.
 
 ```
+function LogicalNameStripQualifier(logical_name: string) -> string
+```
+
+Returns the logical name without the parenthetical
+qualifier. If no qualifier is present, returns the input
+unchanged. Works with both `ROOT/` and `ARTIFACT/`
+references. For example, `ROOT/x/y(z)` → `ROOT/x/y`;
+`ARTIFACT/x/y(id)` → `ARTIFACT/x/y`;
+`ROOT/x/y` → `ROOT/x/y`.
+
+```
 function LogicalNameHasParent(logical_name: string) -> boolean
 ```
 
@@ -155,13 +166,13 @@ always returns a `ROOT/` reference:
 | `code-from-spec/x/_node.md` | `ROOT/x` |
 | `code-from-spec/x/y/_node.md` | `ROOT/x/y` |
 
-### Qualifier extraction
+### Qualifier extraction and stripping
 
-| Logical name | Has qualifier | Qualifier |
-|---|---|---|
-| `ROOT/x(y)` | yes | `y` |
-| `ARTIFACT/x(y)` | yes | `y` |
-| `ROOT/x` | no | — |
+| Logical name | Has qualifier | Qualifier | Stripped |
+|---|---|---|---|
+| `ROOT/x(y)` | yes | `y` | `ROOT/x` |
+| `ARTIFACT/x(y)` | yes | `y` | `ARTIFACT/x` |
+| `ROOT/x` | no | — | `ROOT/x` |
 
 # Agent
 
