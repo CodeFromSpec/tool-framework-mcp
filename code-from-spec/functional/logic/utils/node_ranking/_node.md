@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/parsing/frontmatter
+  - ROOT/functional/logic/parsing/frontmatter(interface)
 outputs:
   - id: node_ranking
     path: code-from-spec/functional/logic/utils/node_ranking/output.md
@@ -9,100 +9,134 @@ outputs:
 
 # ROOT/functional/logic/utils/node_ranking
 
-Detects circular references in the spec tree using
-iterative ranking.
-
-Review status: pending
+Iterative ranking of spec tree nodes and artifacts,
+with cycle detection as a side effect.
 
 # Public
 
 ## Interface
 
 ```
-record RankedEntry
+record NodeRankInput
+  logical_name: string
+  frontmatter: Frontmatter
+
+record NodeRankEntry
   logical_name: string
   rank: integer
 
-function DetectCycles(nodes: list of SpecTreeNode) -> (ranked_entries, cycle_participants)
+function NodeRankCompute(entries: list of NodeRankInput) -> (ranked: list of NodeRankEntry, cycles: list of string)
   errors:
     - unresolvable reference: a depends_on or input target cannot be resolved.
 ```
 
 Takes the full set of discovered nodes with their parsed
-frontmatter. Returns the ranked entries and a list of
-logical names involved in cycles (empty if no cycles).
+frontmatter. Returns ranked entries (nodes and artifacts)
+and a list of logical names involved in cycles (empty if
+no cycles).
 
-# Agent
-
-## Behavior
-
-### Rank definition
+## Description
 
 Every node and artifact receives an integer rank. Nodes
 with lower rank must be processed before nodes with
-higher rank.
+higher rank. Entries with equal rank have no dependency
+between them and can be processed in parallel.
 
-- The root node (`ROOT`) has rank 0.
+- The root node (`ROOT`) has rank 0 (fixed, special case).
 - For any other spec node: rank = 1 + max(rank of parent,
   rank of each `depends_on` entry, rank of the `input`
   artifact if present).
 - For an artifact: rank = 1 + rank of the node that
   generates it.
 
-### Algorithm
+The algorithm is an iterative relaxation (Bellman-Ford
+style): repeat rank updates until convergence or until
+N passes are exhausted. If the loop does not converge
+within N passes, a cycle exists.
 
-**Step 1 — Discovery**
+# Agent
 
-Collect all entries: spec nodes and artifacts (from each
-node's `outputs` field).
+## Behavior
 
-Each artifact is indexed by its `ARTIFACT/` logical name,
-constructed from the generating node's logical name and
-the output's `id`. For example, node `ROOT/functional/logic/parsing/frontmatter`
-with output `id: frontmatter` produces an artifact entry
-keyed as `ARTIFACT/functional/logic/parsing/frontmatter(frontmatter)`.
+### Step 1 — Build entry map
 
-When resolving `depends_on` and `input` references to
-entries in the entry map:
-- `ARTIFACT/` references are used as-is — the qualifier
-  is part of the key (e.g. `ARTIFACT/x(id)`).
-- `ROOT/` references with a parenthetical qualifier must
-  have the qualifier stripped before lookup, because the
-  entry map is keyed by the bare node name (e.g.
-  `ROOT/x(y)` looks up `ROOT/x`). The dependency edge
-  points to the bare node entry.
+From the input list, build an entry map keyed by logical
+name. Each entry tracks its dependency list and current
+rank.
 
-For each entry, build a dependency list:
-- Spec nodes depend on: parent, `depends_on` entries
-  (after qualifier stripping for `ROOT/` refs),
-  `input` artifact (if present).
-- Artifacts depend on: the node that generates them.
+For each `NodeRankInput`:
+- Add a spec node entry keyed by `logical_name`.
+- For each output in `frontmatter.outputs`, add an
+  artifact entry keyed by its `ARTIFACT/` logical name.
+  Construct the artifact logical name by stripping the
+  `ROOT/` prefix from the node's logical name, prepending
+  `ARTIFACT/`, and appending `(id)` where `id` is the
+  output's id field. Example: node `ROOT/a/b` with
+  output id `foo` → `ARTIFACT/a/b(foo)`.
 
-**Step 2 — Initialization**
+### Step 2 — Build dependency edges
 
-Assign rank 0 to every entry.
+For each spec node entry:
+- **Parent**: derive from logical name using
+  `LogicalNameGetParent`. The root node has no parent
+  (it is a special case — see Step 3).
+- **depends_on**: for each entry in
+  `frontmatter.depends_on`, determine the lookup key.
+  For `ARTIFACT/` references, use as-is (the qualifier
+  is part of the key). For `ROOT/` references, strip any
+  parenthetical qualifier before lookup — find the `(`
+  character and truncate. The dependency edge points to
+  the bare node entry.
+- **input**: if `frontmatter.input` is non-empty, add it
+  as a dependency (it is an `ARTIFACT/` reference, used
+  as-is).
 
-**Step 3 — Iteration**
+For each artifact entry:
+- Depends on the node that generates it (the node whose
+  `outputs` produced this artifact).
 
-For each entry, compute its rank as 1 + max rank of its
-dependency list. If the computed rank is higher than the
-current rank, update it.
+If any dependency target is not found in the entry map,
+return the "unresolvable reference" error.
 
-**Step 4 — Convergence**
+### Step 3 — Initialize ranks
 
-Repeat step 3 until no rank changes in a full pass.
+Assign rank 0 to the root node (`ROOT`). The root is a
+special case: its rank is fixed at 0 and it is excluded
+from the iteration loop.
 
-**Step 5 — Cycle detection**
+Assign rank 0 to all other entries as an initial value.
 
-If after N full passes (where N is the total number of
-entries) any rank still changes, a cycle exists. Entries
-whose rank changed in the last pass are reported as
-cycle participants.
+### Step 4 — Iterate and detect cycles
+
+Let N = total number of entries in the map.
+
+Repeat up to N times:
+- For each entry (excluding `ROOT`), compute:
+  rank = 1 + max(rank of its dependencies).
+  If the computed rank exceeds the current rank, update
+  it and mark this pass as "changed".
+- If a full pass produces no changes, stop (converged,
+  no cycles).
+
+In a cycle-free graph, convergence is guaranteed within
+N-1 passes. If after N full passes any rank still
+changes, a cycle exists. Report the entries whose rank changed in the last
+pass — these are not necessarily all cycle participants,
+but they are sufficient to guide diagnosis. The goal is
+to surface the cycle, not to enumerate it completely.
+
+### Step 5 — Output
+
+Return all entries as `NodeRankEntry` (logical_name +
+rank), sorted by rank ascending then logical name
+ascending. Return cycle participants as a list of logical
+names.
 
 ## Contracts
 
-- Returns all cycle participants — not just one.
+- Returns all entries (nodes and artifacts), not just
+  nodes.
+- Reports entries involved in non-convergence — enough
+  to guide diagnosis, not necessarily the full cycle.
 - Cycle detection is a side effect of ranking — no
   separate graph traversal is needed.
-- Entries with equal rank have no dependency between
-  them.
