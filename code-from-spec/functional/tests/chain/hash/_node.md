@@ -1,6 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/chain/hash(interface)
+  - ROOT/functional/logic/chain/resolver(interface)
 outputs:
   - id: chain_hash_tests
     path: code-from-spec/functional/tests/chain/hash/output.md
@@ -10,43 +11,187 @@ outputs:
 
 Test cases for the chain hash component.
 
-Review status: pending
+All tests build a `Chain` record (as returned by
+`ChainResolve`) and create the referenced files on
+disk, then call `ChainHashCompute`.
 
 # Public
 
 ## Test cases
 
-### Happy path
+### Properties
 
 #### Hash is deterministic
 
-Create a spec tree with known content. Compute the chain
-hash twice on the same tree. Expect both results are
-identical.
+Create files on disk. Build a Chain. Call
+ChainHashCompute twice with the same Chain. Expect
+both results are identical.
 
 #### Hash is 27 characters
 
-Compute the chain hash for any valid spec tree. Expect the
+Call ChainHashCompute with any valid Chain. Expect the
 result is exactly 27 characters long.
 
-#### Hash changes when a file in the chain changes
+#### Hash changes when ancestor content changes
 
-Create a spec tree and compute the hash. Modify the content
-of one file in the chain and recompute. Expect the two
+Create a spec tree: ROOT with `# Public` content,
+ROOT/a as target. Build a Chain with ROOT as ancestor.
+Compute hash. Modify ROOT's `# Public` content on
+disk. Recompute. Expect hashes differ.
+
+#### Hash changes when dependency content changes
+
+Create a spec tree: ROOT, ROOT/a, ROOT/b. ROOT/a is
+target with dependency on ROOT/b. Build Chain. Compute
+hash. Modify ROOT/b's `# Public` content. Recompute.
+Expect hashes differ.
+
+#### Hash changes when target Public changes
+
+Create a spec tree: ROOT, ROOT/a as target with
+`# Public` content. Build Chain. Compute hash. Modify
+ROOT/a's `# Public` on disk. Recompute. Expect hashes
+differ.
+
+#### Hash changes when target Agent changes
+
+Create a spec tree: ROOT, ROOT/a as target with
+`# Agent` content. Build Chain. Compute hash. Modify
+ROOT/a's `# Agent` on disk. Recompute. Expect hashes
+differ.
+
+### Ancestors
+
+#### Ancestor with Public section contributes hash
+
+Create ROOT with `# Public` content, ROOT/a as target.
+Build Chain with ancestors = [ROOT]. Compute hash.
+Expect a non-empty result (27 chars).
+
+#### Ancestor without Public section — skipped
+
+Create ROOT with no `# Public` section (only name
+section). Build Chain with ancestors = [ROOT]. Compute
+hash. The result should differ from a chain with an
+ancestor that has `# Public`.
+
+#### Multiple ancestors — order matters
+
+Create ROOT, ROOT/a, ROOT/a/b as target. ROOT and
+ROOT/a both have `# Public`. Build Chain with
+ancestors = [ROOT, ROOT/a] in root-first order.
+Compute hash. Swap ancestor order and recompute.
+Expect hashes differ.
+
+### Dependencies
+
+#### ROOT dependency without qualifier — hashes Public
+
+Create ROOT/b with `# Public` content. Build Chain
+with dependency on ROOT/b (qualifier absent). Compute
+hash. Modify ROOT/b's `# Public`. Recompute. Expect
 hashes differ.
 
-### Failure cases
+#### ROOT dependency with qualifier — hashes subsection
 
-#### Qualified depends_on with different case
+Create ROOT/b with `# Public` containing `## Interface`
+subsection. Build Chain with dependency on ROOT/b,
+qualifier = "interface". Compute hash. Modify the
+`## Interface` content. Recompute. Expect hashes differ.
 
-Create a spec tree where node A has
-`depends_on: ROOT/b(interface)` and node B has a
-`# Public` section with a `## Interface` subsection
-(capital I). Compute the chain hash for node A. Change
-the content of `## Interface` in node B and recompute.
-Expect the two hashes differ — the subsection must be
-found regardless of case differences between the
-qualifier and the heading.
+#### Qualifier case normalization
+
+Create ROOT/b with `## Interface` subsection. Build
+Chain with qualifier = "INTERFACE" (uppercase). Compute
+hash. Expect no error — the qualifier is normalized
+before matching.
+
+#### ARTIFACT dependency — hashes file minus frontmatter
+
+Create an artifact file with frontmatter and body
+content. Build Chain with ARTIFACT dependency pointing
+to that file. Compute hash. Modify the body. Recompute.
+Expect hashes differ.
+
+#### ARTIFACT dependency — frontmatter change ignored
+
+Create an artifact file with frontmatter and body.
+Compute hash. Modify only the frontmatter. Recompute.
+Expect hashes are identical — frontmatter is stripped.
+
+### External files
+
+#### External whole file — hashes all content
+
+Create an external file. Build Chain with external
+entry (no fragments). Compute hash. Modify the file.
+Recompute. Expect hashes differ.
+
+#### External with fragments — hashes declared ranges
+
+Create a file with 10 lines. Build Chain with external
+entry, fragments = [{lines: "3-5"}]. Compute hash.
+Modify line 4. Recompute. Expect hashes differ.
+
+#### External with fragments — change outside range ignored
+
+Create a file with 10 lines. Build Chain with external
+entry, fragments = [{lines: "3-5"}]. Compute hash.
+Modify line 8 (outside range). Recompute. Expect
+hashes are identical.
+
+#### External with multiple fragments — declaration order
+
+Create a file with 10 lines. Build Chain with external
+entry, fragments = [{lines: "6-8"}, {lines: "1-3"}].
+Compute hash. Reverse the fragment order in the Chain
+and recompute. Expect hashes differ — order matters.
+
+### Target
+
+#### Target Public and Agent both contribute
+
+Create ROOT/a as target with `# Public` and `# Agent`.
+Build Chain. Compute hash. Remove `# Agent` from file.
+Recompute. Expect hashes differ.
+
+#### Target without Agent — Agent skipped
+
+Create ROOT/a as target with `# Public` only, no
+`# Agent`. Build Chain. Compute hash. Expect no error.
+
+### Input
+
+#### Input hashes file minus frontmatter
+
+Create an artifact file with frontmatter and body.
+Build Chain with input pointing to that file. Compute
+hash. Modify the body. Recompute. Expect hashes differ.
+
+#### No input — skipped
+
+Build Chain with input absent. Compute hash. Expect
+no error.
+
+### Error cases
+
+#### Unreadable spec node file
+
+Build Chain referencing a spec node whose file does not
+exist on disk. Call ChainHashCompute. Expect "parse
+failure".
+
+#### Unreadable artifact file
+
+Build Chain with ARTIFACT dependency pointing to a
+non-existent file. Call ChainHashCompute. Expect "file
+unreadable".
+
+#### Unreadable external file
+
+Build Chain with external entry pointing to a
+non-existent file. Call ChainHashCompute. Expect "file
+unreadable".
 
 # Agent
 
@@ -57,3 +202,8 @@ case with its setup, actions, and expected outcome.
 
 - Use the function name from the interface:
   `ChainHashCompute`.
+- Use the record names from the interface: `Chain`,
+  `ChainItem`.
+- Tests build `Chain` records directly — they do not
+  call `ChainResolve`.
+- Each test creates files on disk as needed.

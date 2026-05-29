@@ -6,6 +6,7 @@ depends_on:
   - ROOT/functional/logic/parsing/frontmatter(interface)
   - ROOT/functional/logic/parsing/node_parsing
   - ROOT/functional/logic/utils/logical_names(interface)
+  - ROOT/functional/logic/utils/text_normalization(interface)
 external:
   - path: CHAIN_HASH.md
 outputs:
@@ -97,7 +98,9 @@ subsections, skip (no hash contributed).
 **Hashing a subsection** (## qualifier):
 
 Find the subsection within `node.public` whose `heading`
-matches the qualifier (case-insensitive). Collect the
+matches `NormalizeText(dep.qualifier)`. Both are
+normalized, so the comparison is a simple string match.
+Collect the
 subsection's `raw_heading` line, then all lines in its
 `content`. Append `\n` after each line. Compute SHA-1.
 
@@ -106,8 +109,9 @@ If not found, skip.
 ### Hashing artifact files
 
 For `ARTIFACT/` dependencies and `input`: open the file
-at `file_path` with `FileOpen`. Check if the first line
-is exactly `---`. If so, read lines until the next `---`
+at `file_path` with `FileOpen`. If `FileOpen` fails,
+raise "file unreadable". Check if the first line is
+exactly `---`. If so, read lines until the next `---`
 line (closing delimiter), discarding the frontmatter.
 Read the remaining lines. Append `\n` after each line.
 Compute SHA-1. Call `FileClose`.
@@ -115,17 +119,22 @@ Compute SHA-1. Call `FileClose`.
 If the first line is not `---`, read all lines, append
 `\n` after each, compute SHA-1. Call `FileClose`.
 
+Call `FileClose` in all cases — including error paths.
+
 ### Hashing external files
 
-For external entries without fragments: open the file
-with `FileOpen`, read all lines with `FileReadLine`,
-append `\n` after each line. Compute SHA-1. Call
-`FileClose`.
+For external entries without fragments: create a `PathCfs`
+from the entry's `path` string, open with `FileOpen`.
+If `FileOpen` fails, raise "file unreadable". Read all
+lines with `FileReadLine`, append `\n` after each line.
+Compute SHA-1. Call `FileClose`.
 
-For external entries with fragments, for each fragment:
+For external entries with fragments, create a `PathCfs`
+from the entry's `path` string. For each fragment:
 - Parse the `lines` field as `start-end` (1-based,
   inclusive).
-- Open the file with `FileOpen`.
+- Open the file with `FileOpen`. If `FileOpen` fails,
+  raise "file unreadable".
 - Use `FileSkipLines` to skip `start - 1` lines, then
   read `end - start + 1` lines with `FileReadLine`.
 - Call `FileClose`.
@@ -142,26 +151,28 @@ Process positions in chain assembly order, computing
 SHA-1 for each:
 
 1. For each ancestor in `chain.ancestors`: call
-   `NodeParse` with `ancestor.logical_name`. Hash the
-   `# Public` section (full section). If absent or
-   empty, skip.
+   `NodeParse` with `ancestor.logical_name`. If it
+   fails, raise "parse failure". Hash the `# Public`
+   section (full section). If absent or empty, skip.
 
 2. For each dependency in `chain.dependencies`:
    - If `LogicalNameIsArtifact(dep.logical_name)`:
      hash the artifact file (frontmatter stripped).
-   - Else if qualifier is absent: call `NodeParse`
-     with `dep.logical_name`. Hash the `# Public`
-     section (full section).
+   - Else if `dep.qualifier` is absent: call `NodeParse`
+     with `dep.logical_name`. If it fails, raise
+     "parse failure". Hash the `# Public` section
+     (full section).
    - Else: call `NodeParse` with `dep.logical_name`.
-     Hash the `## <qualifier>` subsection within
-     `# Public`.
+     If it fails, raise "parse failure". Hash the
+     `## <dep.qualifier>` subsection within `# Public`.
 
 3. For each external in `chain.external`: hash per
    the external rules above.
 
 4. Target `# Public`: call `NodeParse` with
-   `chain.target.logical_name`. Hash the `# Public`
-   section (full section).
+   `chain.target.logical_name`. If it fails, raise
+   "parse failure". Hash the `# Public` section
+   (full section).
 
 5. Target `# Agent`: from the same `NodeParse` result,
    hash the `# Agent` section. If absent, skip.
