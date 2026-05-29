@@ -25,96 +25,71 @@ record Frontmatter
   outputs: list of FrontmatterOutput
 ```
 
-## Functions
+## function FrontmatterParse(file_path: PathCfs) -> Frontmatter
 
-```
-function FrontmatterParse(file_path: PathCfs) -> Frontmatter
   errors:
-    - (path errors): propagated from FileOpen.
-    - file unreadable: the file cannot be opened or read.
-    - malformed YAML: the content between --- delimiters is not valid YAML,
-      or required fields within sub-records are missing,
-      or an opening "---" is present but no closing "---" is found.
+    - path errors: propagated from FileOpen
+    - "file unreadable": the file cannot be opened or read
+    - "malformed YAML": the content between --- delimiters is not valid YAML,
+      or required sub-record fields are missing
 
-  1. Open the file at file_path using FileOpen.
-     If FileOpen raises an error, propagate it.
+  1. Call FileOpen(file_path) to obtain a FileReader.
+     If FileOpen raises an error, propagate it to the caller.
 
   2. Read the first line using FileReadLine.
-     If FileReadLine raises "end of file", close the reader with FileClose
-     and return an empty Frontmatter record.
+     If reading raises "end of file", call FileClose and return an empty Frontmatter record.
+     If the first line is not exactly "---", call FileClose and return an empty Frontmatter record.
 
-  3. If the first line is not exactly "---", close the reader with FileClose
-     and return an empty Frontmatter record.
-
-  4. Collect YAML lines:
-     Set yaml_lines to an empty list.
+  3. Collect YAML lines:
+     Create an empty list called yaml_lines.
      Loop:
        Read the next line using FileReadLine.
-       If FileReadLine raises "end of file",
-         close the reader with FileClose
-         and raise error "malformed YAML".
-       If the line is exactly "---",
-         stop collecting and proceed to step 5.
-       Otherwise, append the line to yaml_lines.
+       If reading raises "end of file":
+         Call FileClose.
+         Raise error "malformed YAML".
+       If the line is exactly "---":
+         Stop collecting. The closing delimiter has been found.
+       Otherwise:
+         Append the line to yaml_lines.
 
-  5. Close the reader with FileClose.
+  4. Call FileClose to release the file resource.
 
-  6. Join yaml_lines with newline as a single string.
-     Parse the joined string as YAML.
+  5. If yaml_lines is empty, return an empty Frontmatter record.
+
+  6. Join yaml_lines with newline characters to form yaml_text.
+     Parse yaml_text as YAML.
      If parsing fails, raise error "malformed YAML".
 
-  7. If the parsed YAML is empty or not a mapping,
-     return an empty Frontmatter record.
+  7. Extract fields from the parsed YAML into a Frontmatter record.
+     Silently ignore any keys not listed below.
 
-  8. Extract fields from the parsed YAML mapping.
-     Unknown keys are silently ignored.
-
-     Extract "depends_on":
+     depends_on:
        If present, read as a list of strings.
        If absent, use an empty list.
 
-     Extract "external":
+     external:
        If present, read as a list of external entries.
        For each entry:
-         If "path" is missing or empty,
-           raise error "malformed YAML".
-         Set external_path to the value of "path".
-         If "fragments" is present, process each fragment:
-           If "lines" is missing or empty,
-             raise error "malformed YAML".
-           If "hash" is missing or empty,
-             raise error "malformed YAML".
-           Set fragment_description to the value of "description"
-             if present, otherwise absent.
-           Construct a FrontmatterExternalFragment record with
-             description: fragment_description,
-             lines: value of "lines",
-             hash: value of "hash".
-         Construct a FrontmatterExternal record with
-           path: external_path,
-           fragments: the processed fragment list if "fragments" was present,
-             otherwise absent.
+         - "path" is required. If missing, raise error "malformed YAML".
+         - "fragments" is optional. If present, read as a list of fragment entries.
+           For each fragment entry:
+             - "lines" is required. If missing, raise error "malformed YAML".
+             - "hash" is required. If missing, raise error "malformed YAML".
+             - "description" is optional.
+           Build a FrontmatterExternalFragment record from these fields.
+         Build a FrontmatterExternal record from path and fragments.
        If absent, use an empty list.
 
-     Extract "input":
+     input:
        If present, read as a string.
        If absent, use an empty string.
 
-     Extract "outputs":
+     outputs:
        If present, read as a list of output entries.
        For each entry:
-         If "id" is missing or empty,
-           raise error "malformed YAML".
-         If "path" is missing or empty,
-           raise error "malformed YAML".
-         Construct a FrontmatterOutput record with
-           id: value of "id",
-           path: value of "path".
+         - "id" is required. If missing, raise error "malformed YAML".
+         - "path" is required. If missing, raise error "malformed YAML".
+         Build a FrontmatterOutput record from id and path.
        If absent, use an empty list.
 
-  9. Construct and return a Frontmatter record with
-       depends_on: extracted depends_on list,
-       external: extracted external list,
-       input: extracted input string,
-       outputs: extracted outputs list.
-```
+  8. Return the populated Frontmatter record.

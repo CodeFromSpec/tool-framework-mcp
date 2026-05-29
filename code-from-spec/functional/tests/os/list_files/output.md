@@ -2,7 +2,7 @@
 
 # Test Specification: ListFiles
 
-## Interface
+## Function Under Test
 
 ```
 function ListFiles(cfs_path: PathCfs) -> list of PathCfs
@@ -18,59 +18,60 @@ function ListFiles(cfs_path: PathCfs) -> list of PathCfs
 
 #### TC-01: Lists files in a flat directory
 
-**Setup**
-- Create a temporary directory at a valid project-relative path.
-- Inside that directory, create three files: `a.txt`, `b.txt`, `c.txt`.
+Setup:
+  - Create a temporary directory within the project root, referred to as <base>.
+  - Inside <base>, create three files: `a.txt`, `b.txt`, `c.txt`.
 
-**Action**
-- Call `ListFiles` with the path to that directory.
+Actions:
+  1. Call `ListFiles` with the `PathCfs` pointing to <base>.
 
-**Expected Outcome**
-- Returns a list of three `PathCfs` values.
-- The values are, in order: `<dir>/a.txt`, `<dir>/b.txt`, `<dir>/c.txt`
-  (paths relative to the project root, sorted alphabetically).
-- No error is raised.
+Expected outcome:
+  - Returns a list of three `PathCfs` values.
+  - The list is sorted alphabetically.
+  - The values correspond to `<base>/a.txt`, `<base>/b.txt`, `<base>/c.txt`
+    (each expressed as a path relative to the project root).
 
 ---
 
 #### TC-02: Lists files recursively
 
-**Setup**
-- Create the following directory structure at a valid project-relative path:
-  ```
-  dir/
-    alpha.txt
-    sub/
-      beta.txt
-      deep/
-        gamma.txt
-  ```
+Setup:
+  - Create the following directory structure within the project root:
+    ```
+    <base>/
+      alpha.txt
+      sub/
+        beta.txt
+        deep/
+          gamma.txt
+    ```
 
-**Action**
-- Call `ListFiles` with the path to `dir`.
+Actions:
+  1. Call `ListFiles` with the `PathCfs` pointing to <base>.
 
-**Expected Outcome**
-- Returns a list of three `PathCfs` values.
-- The values are, in order:
-  `dir/alpha.txt`, `dir/sub/beta.txt`, `dir/sub/deep/gamma.txt`
-  (sorted alphabetically).
-- No error is raised.
+Expected outcome:
+  - Returns a list of three `PathCfs` values.
+  - The list is sorted alphabetically.
+  - The values correspond to:
+    - `<base>/alpha.txt`
+    - `<base>/sub/beta.txt`
+    - `<base>/sub/deep/gamma.txt`
+    each expressed as a path relative to the project root.
 
 ---
 
 #### TC-03: Results are sorted alphabetically
 
-**Setup**
-- Create a temporary directory at a valid project-relative path.
-- Inside that directory, create three files in this order: `z.txt`, `a.txt`, `m.txt`.
+Setup:
+  - Create a temporary directory within the project root, referred to as <base>.
+  - Inside <base>, create three files in this order: `z.txt`, `a.txt`, `m.txt`.
 
-**Action**
-- Call `ListFiles` with the path to that directory.
+Actions:
+  1. Call `ListFiles` with the `PathCfs` pointing to <base>.
 
-**Expected Outcome**
-- Returns a list of three `PathCfs` values.
-- The values are, in order: `<dir>/a.txt`, `<dir>/m.txt`, `<dir>/z.txt`.
-- No error is raised.
+Expected outcome:
+  - Returns a list of three `PathCfs` values in the order:
+    `<base>/a.txt`, `<base>/m.txt`, `<base>/z.txt`.
 
 ---
 
@@ -80,31 +81,31 @@ function ListFiles(cfs_path: PathCfs) -> list of PathCfs
 
 #### TC-04: Empty directory
 
-**Setup**
-- Create a temporary directory at a valid project-relative path.
-- Do not create any files or subdirectories inside it.
+Setup:
+  - Create a temporary directory within the project root, referred to as <base>.
+  - Do not create any files or subdirectories inside <base>.
 
-**Action**
-- Call `ListFiles` with the path to that directory.
+Actions:
+  1. Call `ListFiles` with the `PathCfs` pointing to <base>.
 
-**Expected Outcome**
-- Returns an empty list.
-- No error is raised.
+Expected outcome:
+  - Returns an empty list.
+  - No error is raised.
 
 ---
 
 #### TC-05: Directory with only subdirectories
 
-**Setup**
-- Create a temporary directory at a valid project-relative path.
-- Inside that directory, create one or more subdirectories but no files at any level.
+Setup:
+  - Create a temporary directory within the project root, referred to as <base>.
+  - Inside <base>, create one or more subdirectories, but no files at any level.
 
-**Action**
-- Call `ListFiles` with the path to that directory.
+Actions:
+  1. Call `ListFiles` with the `PathCfs` pointing to <base>.
 
-**Expected Outcome**
-- Returns an empty list.
-- No error is raised.
+Expected outcome:
+  - Returns an empty list.
+  - No error is raised.
 
 ---
 
@@ -114,61 +115,62 @@ function ListFiles(cfs_path: PathCfs) -> list of PathCfs
 
 #### TC-06: Directory does not exist
 
-**Setup**
-- Choose a path that is valid according to `PathCfs` rules but refers to a
-  directory that does not exist on disk.
+Setup:
+  - Identify a path within the project root that does not exist on the filesystem.
 
-**Action**
-- Call `ListFiles` with that path.
+Actions:
+  1. Call `ListFiles` with a `PathCfs` pointing to the non-existent directory.
 
-**Expected Outcome**
-- Raises error "directory not found".
+Expected outcome:
+  - Raises error "directory not found".
 
 ---
 
 #### TC-07: Propagates validation errors from PathCfsToOs
 
-**Setup**
-- No filesystem setup required.
+Setup:
+  - No filesystem setup required.
 
-**Action**
-- Call `ListFiles` with an invalid `PathCfs` value such as `"../../outside"`.
+Actions:
+  1. Call `ListFiles` with an invalid `PathCfs` value such as `"../../outside"`.
 
-**Expected Outcome**
-- Raises error "directory traversal" propagated from `PathCfsToOs`.
+Expected outcome:
+  - Raises error "directory traversal", propagated from `PathCfsToOs`.
 
 ---
 
 #### TC-08: Propagates conversion errors from PathOsToCfs
 
-**Note:** Skip this test case on platforms where symlinks are not supported.
+Precondition:
+  - Skip this test on platforms where symlinks are not supported.
 
-**Setup**
-- Create a temporary directory at a valid project-relative path.
-- Inside that directory, create a regular file.
-- Inside that directory, also create a symlink that resolves to a file whose
-  absolute path is outside the project root.
+Setup:
+  - Create a temporary directory within the project root, referred to as <base>.
+  - Inside <base>, create a regular file.
+  - Inside <base>, create a symlink that resolves to a target outside the project root.
 
-**Action**
-- Call `ListFiles` with the path to that directory.
+Actions:
+  1. Call `ListFiles` with the `PathCfs` pointing to <base>.
 
-**Expected Outcome**
-- Raises error "resolves outside root" propagated from `PathOsToCfs`.
+Expected outcome:
+  - Raises error "resolves outside root", propagated from `PathOsToCfs`.
 
 ---
 
 #### TC-09: Walk error
 
-**Note:** Skip this test case on platforms where directory permissions cannot
-prevent traversal (e.g., some Windows configurations).
+Precondition:
+  - Skip this test on platforms where directory permissions cannot prevent traversal
+    (e.g., when running as a superuser).
 
-**Setup**
-- Create a temporary directory at a valid project-relative path.
-- Inside that directory, create a subdirectory.
-- Set the permissions on that subdirectory so that its contents cannot be read.
+Setup:
+  - Create a temporary directory within the project root, referred to as <base>.
+  - Inside <base>, create a subdirectory referred to as <restricted>.
+  - Inside <restricted>, create at least one file.
+  - Set the permissions on <restricted> so that its contents cannot be read.
 
-**Action**
-- Call `ListFiles` with the path to the parent directory.
+Actions:
+  1. Call `ListFiles` with the `PathCfs` pointing to <base>.
 
-**Expected Outcome**
-- Raises error "walk error".
+Expected outcome:
+  - Raises error "walk error".

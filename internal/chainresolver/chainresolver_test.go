@@ -1,8 +1,9 @@
-// code-from-spec: ROOT/golang/tests/chain/chain_resolver@ToDJrBvswf6lNrPYN2FwDJtWZwc
+// code-from-spec: ROOT/golang/tests/chain/resolver@B5oGnUJIgLEeYs59mJALC5xdoHQ
 package chainresolver_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,8 +11,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
 )
 
-// testChdir changes the working directory to dir for the duration of the test,
-// restoring the original directory in a cleanup function.
+// testChdir changes the working directory to dir for the duration of the test.
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
@@ -28,109 +28,45 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-// testWriteNode writes a _node.md file for the given logical name segment path
-// (relative to code-from-spec/) with the given frontmatter content.
-// The frontmatter is wrapped in --- delimiters automatically.
-func testWriteNode(t *testing.T, logicalPath string, frontmatter string) {
+// testWriteNode writes a _node.md file at the given path segments under the
+// working directory. The frontmatter is the raw string between the --- delimiters.
+// Pass an empty string for an empty frontmatter block.
+func testWriteNode(t *testing.T, frontmatter string, pathSegments ...string) {
 	t.Helper()
-	dir := filepath.Join("code-from-spec", filepath.FromSlash(logicalPath))
+	dir := filepath.Join(pathSegments[:len(pathSegments)-1]...)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("testWriteNode: mkdir %s: %v", dir, err)
+		t.Fatalf("testWriteNode MkdirAll: %v", err)
 	}
-	var content string
-	if frontmatter == "" {
-		content = "---\n---\n"
-	} else {
-		content = "---\n" + frontmatter + "\n---\n"
-	}
-	path := filepath.Join(dir, "_node.md")
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("testWriteNode: write %s: %v", path, err)
+	content := fmt.Sprintf("---\n%s---\n", frontmatter)
+	full := filepath.Join(pathSegments...)
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		t.Fatalf("testWriteNode WriteFile: %v", err)
 	}
 }
 
-// testWriteNodeRaw writes a _node.md file for the given logical name segment
-// path with completely raw file content (not wrapped in frontmatter delimiters).
-func testWriteNodeRaw(t *testing.T, logicalPath string, rawContent string) {
+// testSetupRoot creates the code-from-spec root directory structure inside
+// the given temp dir and changes to that directory.
+func testSetupRoot(t *testing.T) {
 	t.Helper()
-	dir := filepath.Join("code-from-spec", filepath.FromSlash(logicalPath))
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("testWriteNodeRaw: mkdir %s: %v", dir, err)
-	}
-	path := filepath.Join(dir, "_node.md")
-	if err := os.WriteFile(path, []byte(rawContent), 0o644); err != nil {
-		t.Fatalf("testWriteNodeRaw: write %s: %v", path, err)
-	}
-}
-
-// testLogicalToSegment converts a ROOT/... logical name to its path segment
-// under code-from-spec/ for use with testWriteNode.
-// e.g. "ROOT" -> ".", "ROOT/a" -> "a", "ROOT/a/b" -> "a/b"
-func testLogicalToSegment(logical string) string {
-	if logical == "ROOT" {
-		return "."
-	}
-	// Strip "ROOT/" prefix
-	return logical[len("ROOT/"):]
-}
-
-// testWriteLogical is a convenience wrapper that accepts a full logical name.
-func testWriteLogical(t *testing.T, logicalName string, frontmatter string) {
-	t.Helper()
-	seg := testLogicalToSegment(logicalName)
-	if seg == "." {
-		// ROOT node: write to code-from-spec/_node.md
-		dir := "code-from-spec"
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatalf("testWriteLogical: mkdir %s: %v", dir, err)
-		}
-		var content string
-		if frontmatter == "" {
-			content = "---\n---\n"
-		} else {
-			content = "---\n" + frontmatter + "\n---\n"
-		}
-		path := filepath.Join(dir, "_node.md")
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			t.Fatalf("testWriteLogical: write %s: %v", path, err)
-		}
-	} else {
-		testWriteNode(t, seg, frontmatter)
-	}
-}
-
-// testWriteLogicalRaw writes raw content for a logical name.
-func testWriteLogicalRaw(t *testing.T, logicalName string, rawContent string) {
-	t.Helper()
-	seg := testLogicalToSegment(logicalName)
-	if seg == "." {
-		dir := "code-from-spec"
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatalf("testWriteLogicalRaw: mkdir %s: %v", dir, err)
-		}
-		path := filepath.Join(dir, "_node.md")
-		if err := os.WriteFile(path, []byte(rawContent), 0o644); err != nil {
-			t.Fatalf("testWriteLogicalRaw: write %s: %v", path, err)
-		}
-	} else {
-		testWriteNodeRaw(t, seg, rawContent)
-	}
-}
-
-// testStringPtr returns a pointer to the given string.
-func testStringPtr(s string) *string {
-	return &s
-}
-
-// --------------------------------------------------------------------------
-// Ancestors and target
-// --------------------------------------------------------------------------
-
-func TestChainResolve_RootAsTarget(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
+	if err := os.MkdirAll("code-from-spec", 0o755); err != nil {
+		t.Fatalf("testSetupRoot MkdirAll: %v", err)
+	}
+}
 
-	testWriteLogical(t, "ROOT", "")
+// testNodePath returns the path to a _node.md file for a given set of path
+// segments under code-from-spec/.
+func testNodePath(segments ...string) []string {
+	parts := append([]string{"code-from-spec"}, segments...)
+	return append(parts, "_node.md")
+}
+
+// --- TC-01: Root as target ---
+
+func TestChainResolve_TC01_RootAsTarget(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
 
 	chain, err := chainresolver.ChainResolve("ROOT")
 	if err != nil {
@@ -138,35 +74,35 @@ func TestChainResolve_RootAsTarget(t *testing.T) {
 	}
 
 	if len(chain.Ancestors) != 0 {
-		t.Errorf("expected no ancestors, got %d", len(chain.Ancestors))
-	}
-	if chain.Target == nil {
-		t.Fatal("expected target, got nil")
-	}
-	if chain.Target.LogicalName != "ROOT" {
-		t.Errorf("target logical name: got %q, want %q", chain.Target.LogicalName, "ROOT")
-	}
-	if chain.Target.Qualifier != nil {
-		t.Errorf("target qualifier: expected absent, got %q", *chain.Target.Qualifier)
+		t.Errorf("expected 0 ancestors, got %d", len(chain.Ancestors))
 	}
 	if len(chain.Dependencies) != 0 {
-		t.Errorf("expected no dependencies, got %d", len(chain.Dependencies))
+		t.Errorf("expected 0 dependencies, got %d", len(chain.Dependencies))
 	}
 	if len(chain.External) != 0 {
-		t.Errorf("expected no external entries, got %d", len(chain.External))
+		t.Errorf("expected 0 external, got %d", len(chain.External))
+	}
+	if chain.Target == nil {
+		t.Fatal("expected non-nil target")
+	}
+	if chain.Target.LogicalName != "ROOT" {
+		t.Errorf("expected target logical name ROOT, got %q", chain.Target.LogicalName)
+	}
+	if chain.Target.Qualifier != nil {
+		t.Errorf("expected nil qualifier, got %q", *chain.Target.Qualifier)
 	}
 	if chain.Input != nil {
-		t.Errorf("expected no input, got %v", chain.Input)
+		t.Errorf("expected nil input, got %+v", chain.Input)
 	}
 }
 
-func TestChainResolve_LinearChain_AncestorsInRootFirstOrder(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-02: Linear chain — ancestors in root-first order ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "")
-	testWriteLogical(t, "ROOT/a/b", "")
+func TestChainResolve_TC02_LinearChainAncestors(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("a", "b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a/b")
 	if err != nil {
@@ -177,25 +113,25 @@ func TestChainResolve_LinearChain_AncestorsInRootFirstOrder(t *testing.T) {
 		t.Fatalf("expected 2 ancestors, got %d", len(chain.Ancestors))
 	}
 	if chain.Ancestors[0].LogicalName != "ROOT" {
-		t.Errorf("ancestors[0]: got %q, want %q", chain.Ancestors[0].LogicalName, "ROOT")
+		t.Errorf("expected first ancestor ROOT, got %q", chain.Ancestors[0].LogicalName)
 	}
 	if chain.Ancestors[1].LogicalName != "ROOT/a" {
-		t.Errorf("ancestors[1]: got %q, want %q", chain.Ancestors[1].LogicalName, "ROOT/a")
+		t.Errorf("expected second ancestor ROOT/a, got %q", chain.Ancestors[1].LogicalName)
+	}
+	if chain.Target == nil {
+		t.Fatal("expected non-nil target")
 	}
 	if chain.Target.LogicalName != "ROOT/a/b" {
-		t.Errorf("target: got %q, want %q", chain.Target.LogicalName, "ROOT/a/b")
-	}
-	if chain.Target.Qualifier != nil {
-		t.Errorf("target qualifier: expected absent, got %q", *chain.Target.Qualifier)
+		t.Errorf("expected target ROOT/a/b, got %q", chain.Target.LogicalName)
 	}
 }
 
-func TestChainResolve_SingleParent(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-03: Single parent ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "")
+func TestChainResolve_TC03_SingleParent(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "", testNodePath("a")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -206,56 +142,46 @@ func TestChainResolve_SingleParent(t *testing.T) {
 		t.Fatalf("expected 1 ancestor, got %d", len(chain.Ancestors))
 	}
 	if chain.Ancestors[0].LogicalName != "ROOT" {
-		t.Errorf("ancestors[0]: got %q, want %q", chain.Ancestors[0].LogicalName, "ROOT")
+		t.Errorf("expected ancestor ROOT, got %q", chain.Ancestors[0].LogicalName)
 	}
 	if chain.Target.LogicalName != "ROOT/a" {
-		t.Errorf("target: got %q, want %q", chain.Target.LogicalName, "ROOT/a")
+		t.Errorf("expected target ROOT/a, got %q", chain.Target.LogicalName)
 	}
 }
 
-func TestChainResolve_TargetWithEmptyFrontmatter(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-04: Target with empty frontmatter ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "")
+func TestChainResolve_TC04_EmptyFrontmatter(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "", testNodePath("a")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(chain.Ancestors) != 1 {
-		t.Errorf("expected 1 ancestor, got %d", len(chain.Ancestors))
-	}
-	if chain.Target.LogicalName != "ROOT/a" {
-		t.Errorf("target: got %q, want %q", chain.Target.LogicalName, "ROOT/a")
-	}
-	if chain.Target.Qualifier != nil {
-		t.Errorf("target qualifier: expected absent, got %q", *chain.Target.Qualifier)
-	}
 	if len(chain.Dependencies) != 0 {
-		t.Errorf("expected no dependencies, got %d", len(chain.Dependencies))
+		t.Errorf("expected 0 dependencies, got %d", len(chain.Dependencies))
 	}
 	if len(chain.External) != 0 {
-		t.Errorf("expected no external, got %d", len(chain.External))
+		t.Errorf("expected 0 external, got %d", len(chain.External))
 	}
 	if chain.Input != nil {
-		t.Errorf("expected no input, got %v", chain.Input)
+		t.Errorf("expected nil input, got %+v", chain.Input)
+	}
+	if chain.Target.LogicalName != "ROOT/a" {
+		t.Errorf("expected target ROOT/a, got %q", chain.Target.LogicalName)
 	}
 }
 
-// --------------------------------------------------------------------------
-// Dependencies — ROOT/ references
-// --------------------------------------------------------------------------
+// --- TC-05: Dependency without qualifier ---
 
-func TestChainResolve_DependencyWithoutQualifier(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ROOT/b")
-	testWriteLogical(t, "ROOT/b", "")
+func TestChainResolve_TC05_DependencyWithoutQualifier(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ROOT/b\n", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -267,20 +193,20 @@ func TestChainResolve_DependencyWithoutQualifier(t *testing.T) {
 	}
 	dep := chain.Dependencies[0]
 	if dep.LogicalName != "ROOT/b" {
-		t.Errorf("dep logical name: got %q, want %q", dep.LogicalName, "ROOT/b")
+		t.Errorf("expected dependency ROOT/b, got %q", dep.LogicalName)
 	}
 	if dep.Qualifier != nil {
-		t.Errorf("dep qualifier: expected absent, got %q", *dep.Qualifier)
+		t.Errorf("expected nil qualifier, got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_DependencyWithQualifier(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-06: Dependency with qualifier ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ROOT/b(interface)")
-	testWriteLogical(t, "ROOT/b", "")
+func TestChainResolve_TC06_DependencyWithQualifier(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ROOT/b(interface)\n", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -292,25 +218,25 @@ func TestChainResolve_DependencyWithQualifier(t *testing.T) {
 	}
 	dep := chain.Dependencies[0]
 	if dep.LogicalName != "ROOT/b" {
-		t.Errorf("dep logical name: got %q, want %q", dep.LogicalName, "ROOT/b")
+		t.Errorf("expected dependency logical name ROOT/b, got %q", dep.LogicalName)
 	}
 	if dep.Qualifier == nil {
-		t.Fatal("dep qualifier: expected present, got nil")
+		t.Fatal("expected non-nil qualifier")
 	}
 	if *dep.Qualifier != "interface" {
-		t.Errorf("dep qualifier: got %q, want %q", *dep.Qualifier, "interface")
+		t.Errorf("expected qualifier 'interface', got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_DependenciesSortedByFilePath(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-07: Dependencies sorted by file path then qualifier ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ROOT/z\n  - ROOT/m\n  - ROOT/b")
-	testWriteLogical(t, "ROOT/z", "")
-	testWriteLogical(t, "ROOT/m", "")
-	testWriteLogical(t, "ROOT/b", "")
+func TestChainResolve_TC07_DependenciesSortedByFilePath(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ROOT/z\n  - ROOT/m\n  - ROOT/b\n", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("b")...)
+	testWriteNode(t, "", testNodePath("m")...)
+	testWriteNode(t, "", testNodePath("z")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -320,27 +246,22 @@ func TestChainResolve_DependenciesSortedByFilePath(t *testing.T) {
 	if len(chain.Dependencies) != 3 {
 		t.Fatalf("expected 3 dependencies, got %d", len(chain.Dependencies))
 	}
-
-	// File paths resolve alphabetically as b < m < z
+	// Expect alphabetical order by file path: b, m, z
 	wantOrder := []string{"ROOT/b", "ROOT/m", "ROOT/z"}
-	for i, want := range wantOrder {
-		if chain.Dependencies[i].LogicalName != want {
-			t.Errorf("dependencies[%d]: got %q, want %q", i, chain.Dependencies[i].LogicalName, want)
+	for i, dep := range chain.Dependencies {
+		if dep.LogicalName != wantOrder[i] {
+			t.Errorf("dependencies[%d]: expected %q, got %q", i, wantOrder[i], dep.LogicalName)
 		}
 	}
 }
 
-// --------------------------------------------------------------------------
-// Dependencies — ARTIFACT/ references
-// --------------------------------------------------------------------------
+// --- TC-08: ARTIFACT dependency resolved from generating node ---
 
-func TestChainResolve_ArtifactDependencyResolvedFromGeneratingNode(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ARTIFACT/b(lib)")
-	testWriteLogical(t, "ROOT/b", "outputs:\n  - id: lib\n    path: out/lib.go")
+func TestChainResolve_TC08_ArtifactDependencyResolved(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ARTIFACT/b(lib)\n", testNodePath("a")...)
+	testWriteNode(t, "outputs:\n  - id: lib\n    path: out/lib.go\n", testNodePath("b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -352,28 +273,28 @@ func TestChainResolve_ArtifactDependencyResolvedFromGeneratingNode(t *testing.T)
 	}
 	dep := chain.Dependencies[0]
 	if dep.LogicalName != "ARTIFACT/b(lib)" {
-		t.Errorf("dep logical name: got %q, want %q", dep.LogicalName, "ARTIFACT/b(lib)")
+		t.Errorf("expected logical name ARTIFACT/b(lib), got %q", dep.LogicalName)
 	}
 	if dep.FilePath == nil {
-		t.Fatal("dep file path: expected present, got nil")
+		t.Fatal("expected non-nil file path")
 	}
 	if dep.FilePath.Value != "out/lib.go" {
-		t.Errorf("dep file path: got %q, want %q", dep.FilePath.Value, "out/lib.go")
+		t.Errorf("expected file path out/lib.go, got %q", dep.FilePath.Value)
 	}
 	if dep.Qualifier == nil {
-		t.Fatal("dep qualifier: expected present, got nil")
+		t.Fatal("expected non-nil qualifier")
 	}
 	if *dep.Qualifier != "lib" {
-		t.Errorf("dep qualifier: got %q, want %q", *dep.Qualifier, "lib")
+		t.Errorf("expected qualifier 'lib', got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_ArtifactWithoutQualifier_Error(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-09: ARTIFACT without qualifier — error ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ARTIFACT/b")
+func TestChainResolve_TC09_ArtifactWithoutQualifier_Error(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ARTIFACT/b\n", testNodePath("a")...)
 
 	_, err := chainresolver.ChainResolve("ROOT/a")
 	if err == nil {
@@ -384,13 +305,13 @@ func TestChainResolve_ArtifactWithoutQualifier_Error(t *testing.T) {
 	}
 }
 
-func TestChainResolve_ArtifactGeneratingNodeHasNoOutputs_Error(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-10: ARTIFACT — generating node has no outputs ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ARTIFACT/b(lib)")
-	testWriteLogical(t, "ROOT/b", "")
+func TestChainResolve_TC10_ArtifactGeneratingNodeNoOutputs_Error(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ARTIFACT/b(lib)\n", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("b")...)
 
 	_, err := chainresolver.ChainResolve("ROOT/a")
 	if err == nil {
@@ -401,14 +322,14 @@ func TestChainResolve_ArtifactGeneratingNodeHasNoOutputs_Error(t *testing.T) {
 	}
 }
 
-func TestChainResolve_ArtifactFileNotOnDisk_NoError(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-11: ARTIFACT — artifact file does not exist on disk ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ARTIFACT/b(lib)")
-	testWriteLogical(t, "ROOT/b", "outputs:\n  - id: lib\n    path: out/lib.go")
-	// Intentionally do NOT create out/lib.go on disk.
+func TestChainResolve_TC11_ArtifactFileNotOnDisk_NoError(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ARTIFACT/b(lib)\n", testNodePath("a")...)
+	testWriteNode(t, "outputs:\n  - id: lib\n    path: out/lib.go\n", testNodePath("b")...)
+	// out/lib.go is intentionally NOT created
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -420,20 +341,20 @@ func TestChainResolve_ArtifactFileNotOnDisk_NoError(t *testing.T) {
 	}
 	dep := chain.Dependencies[0]
 	if dep.FilePath == nil {
-		t.Fatal("dep file path: expected present, got nil")
+		t.Fatal("expected non-nil file path")
 	}
 	if dep.FilePath.Value != "out/lib.go" {
-		t.Errorf("dep file path: got %q, want %q", dep.FilePath.Value, "out/lib.go")
+		t.Errorf("expected file path out/lib.go, got %q", dep.FilePath.Value)
 	}
 }
 
-func TestChainResolve_ArtifactWithNonExistentOutputID_Error(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-12: ARTIFACT with non-existent output id — error ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ARTIFACT/b(missing)")
-	testWriteLogical(t, "ROOT/b", "outputs:\n  - id: lib\n    path: out/lib.go")
+func TestChainResolve_TC12_ArtifactNonExistentOutputID_Error(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ARTIFACT/b(missing)\n", testNodePath("a")...)
+	testWriteNode(t, "outputs:\n  - id: lib\n    path: out/lib.go\n", testNodePath("b")...)
 
 	_, err := chainresolver.ChainResolve("ROOT/a")
 	if err == nil {
@@ -444,14 +365,14 @@ func TestChainResolve_ArtifactWithNonExistentOutputID_Error(t *testing.T) {
 	}
 }
 
-func TestChainResolve_MixedRootAndArtifactDependencies(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-13: Mixed ROOT/ and ARTIFACT/ dependencies ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ROOT/c\n  - ARTIFACT/b(lib)")
-	testWriteLogical(t, "ROOT/b", "outputs:\n  - id: lib\n    path: out/lib.go")
-	testWriteLogical(t, "ROOT/c", "")
+func TestChainResolve_TC13_MixedDependencies(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ROOT/c\n  - ARTIFACT/b(lib)\n", testNodePath("a")...)
+	testWriteNode(t, "outputs:\n  - id: lib\n    path: out/lib.go\n", testNodePath("b")...)
+	testWriteNode(t, "", testNodePath("c")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -462,37 +383,32 @@ func TestChainResolve_MixedRootAndArtifactDependencies(t *testing.T) {
 		t.Fatalf("expected 2 dependencies, got %d", len(chain.Dependencies))
 	}
 
-	// Find each entry by logical name (order is by file path).
-	var foundC, foundArtifact bool
+	// Find entries by checking logical names
+	foundRootC := false
+	foundArtifactB := false
 	for _, dep := range chain.Dependencies {
-		switch dep.LogicalName {
-		case "ROOT/c":
-			foundC = true
-		case "ARTIFACT/b(lib)":
-			foundArtifact = true
-		default:
-			t.Errorf("unexpected dependency: %q", dep.LogicalName)
+		if dep.LogicalName == "ROOT/c" {
+			foundRootC = true
+		}
+		if dep.LogicalName == "ARTIFACT/b(lib)" {
+			foundArtifactB = true
 		}
 	}
-	if !foundC {
-		t.Error("expected dependency ROOT/c, not found")
+	if !foundRootC {
+		t.Error("expected dependency ROOT/c not found")
 	}
-	if !foundArtifact {
-		t.Error("expected dependency ARTIFACT/b(lib), not found")
+	if !foundArtifactB {
+		t.Error("expected dependency ARTIFACT/b(lib) not found")
 	}
 }
 
-// --------------------------------------------------------------------------
-// Dependencies — dedup
-// --------------------------------------------------------------------------
+// --- TC-14: Exact duplicate — same file, same qualifier ---
 
-func TestChainResolve_DeduplicateExactDuplicate(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ROOT/b\n  - ROOT/b")
-	testWriteLogical(t, "ROOT/b", "")
+func TestChainResolve_TC14_ExactDuplicateDependency(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ROOT/b\n  - ROOT/b\n", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -504,38 +420,13 @@ func TestChainResolve_DeduplicateExactDuplicate(t *testing.T) {
 	}
 }
 
-func TestChainResolve_DeduplicateNoQualifierSubsumesQualified(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-15: No qualifier subsumes qualifier ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ROOT/b\n  - ROOT/b(interface)")
-	testWriteLogical(t, "ROOT/b", "")
-
-	chain, err := chainresolver.ChainResolve("ROOT/a")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(chain.Dependencies) != 1 {
-		t.Fatalf("expected 1 dependency after subsumption, got %d", len(chain.Dependencies))
-	}
-	dep := chain.Dependencies[0]
-	if dep.LogicalName != "ROOT/b" {
-		t.Errorf("dep logical name: got %q, want %q", dep.LogicalName, "ROOT/b")
-	}
-	if dep.Qualifier != nil {
-		t.Errorf("dep qualifier: expected absent (no-qualifier wins), got %q", *dep.Qualifier)
-	}
-}
-
-func TestChainResolve_DeduplicateQualifierBeforeNoQualifier_NoQualifierWins(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ROOT/b(interface)\n  - ROOT/b")
-	testWriteLogical(t, "ROOT/b", "")
+func TestChainResolve_TC15_NoQualifierSubsumesQualifier(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ROOT/b\n  - ROOT/b(interface)\n", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -543,24 +434,46 @@ func TestChainResolve_DeduplicateQualifierBeforeNoQualifier_NoQualifierWins(t *t
 	}
 
 	if len(chain.Dependencies) != 1 {
-		t.Fatalf("expected 1 dependency after subsumption, got %d", len(chain.Dependencies))
+		t.Fatalf("expected 1 dependency after dedup, got %d", len(chain.Dependencies))
 	}
 	dep := chain.Dependencies[0]
 	if dep.LogicalName != "ROOT/b" {
-		t.Errorf("dep logical name: got %q, want %q", dep.LogicalName, "ROOT/b")
+		t.Errorf("expected logical name ROOT/b, got %q", dep.LogicalName)
 	}
 	if dep.Qualifier != nil {
-		t.Errorf("dep qualifier: expected absent (no-qualifier always wins), got %q", *dep.Qualifier)
+		t.Errorf("expected nil qualifier (no-qualifier wins), got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_DeduplicateSameFileDifferentQualifiers_BothKept(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-16: Qualifier before no-qualifier — no-qualifier wins ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ROOT/b(interface)\n  - ROOT/b(constraints)")
-	testWriteLogical(t, "ROOT/b", "")
+func TestChainResolve_TC16_QualifierBeforeNoQualifier_NoQualifierWins(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ROOT/b(interface)\n  - ROOT/b\n", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("b")...)
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Dependencies) != 1 {
+		t.Fatalf("expected 1 dependency after dedup, got %d", len(chain.Dependencies))
+	}
+	dep := chain.Dependencies[0]
+	if dep.Qualifier != nil {
+		t.Errorf("expected nil qualifier (no-qualifier wins), got %q", *dep.Qualifier)
+	}
+}
+
+// --- TC-17: Same file, different qualifiers — both kept ---
+
+func TestChainResolve_TC17_SameFileDifferentQualifiers_BothKept(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ROOT/b(interface)\n  - ROOT/b(constraints)\n", testNodePath("a")...)
+	testWriteNode(t, "", testNodePath("b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -568,32 +481,34 @@ func TestChainResolve_DeduplicateSameFileDifferentQualifiers_BothKept(t *testing
 	}
 
 	if len(chain.Dependencies) != 2 {
-		t.Fatalf("expected 2 dependencies (both qualifiers kept), got %d", len(chain.Dependencies))
+		t.Fatalf("expected 2 dependencies, got %d", len(chain.Dependencies))
 	}
 
-	// Both should be present; sorted alphabetically by qualifier.
-	var qualifiers []string
+	foundConstraints := false
+	foundInterface := false
 	for _, dep := range chain.Dependencies {
-		if dep.Qualifier == nil {
-			t.Error("dep qualifier: expected present, got nil")
-			continue
+		if dep.Qualifier != nil && *dep.Qualifier == "constraints" {
+			foundConstraints = true
 		}
-		qualifiers = append(qualifiers, *dep.Qualifier)
+		if dep.Qualifier != nil && *dep.Qualifier == "interface" {
+			foundInterface = true
+		}
 	}
-	if len(qualifiers) == 2 {
-		if qualifiers[0] != "constraints" || qualifiers[1] != "interface" {
-			t.Errorf("qualifiers sorted order: got %v, want [constraints interface]", qualifiers)
-		}
+	if !foundConstraints {
+		t.Error("expected dependency with qualifier 'constraints' not found")
+	}
+	if !foundInterface {
+		t.Error("expected dependency with qualifier 'interface' not found")
 	}
 }
 
-func TestChainResolve_DeduplicateArtifactSameLogicalName(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-18: Duplicate ARTIFACT — same logical name ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - ARTIFACT/b(lib)\n  - ARTIFACT/b(lib)")
-	testWriteLogical(t, "ROOT/b", "outputs:\n  - id: lib\n    path: out/lib.go")
+func TestChainResolve_TC18_DuplicateArtifact_Dedup(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - ARTIFACT/b(lib)\n  - ARTIFACT/b(lib)\n", testNodePath("a")...)
+	testWriteNode(t, "outputs:\n  - id: lib\n    path: out/lib.go\n", testNodePath("b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -605,16 +520,12 @@ func TestChainResolve_DeduplicateArtifactSameLogicalName(t *testing.T) {
 	}
 }
 
-// --------------------------------------------------------------------------
-// External
-// --------------------------------------------------------------------------
+// --- TC-19: External entries copied from frontmatter ---
 
-func TestChainResolve_ExternalEntriesCopiedFromFrontmatter(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "external:\n  - path: docs/api.yaml\n  - path: proto/v1.proto")
+func TestChainResolve_TC19_ExternalEntriesCopied(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "external:\n  - path: docs/api.yaml\n  - path: proto/v1.proto\n", testNodePath("a")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -624,21 +535,24 @@ func TestChainResolve_ExternalEntriesCopiedFromFrontmatter(t *testing.T) {
 	if len(chain.External) != 2 {
 		t.Fatalf("expected 2 external entries, got %d", len(chain.External))
 	}
+	// Sorted alphabetically: docs/api.yaml < proto/v1.proto
 	if chain.External[0].Path != "docs/api.yaml" {
-		t.Errorf("external[0].Path: got %q, want %q", chain.External[0].Path, "docs/api.yaml")
+		t.Errorf("expected first external path docs/api.yaml, got %q", chain.External[0].Path)
 	}
 	if chain.External[1].Path != "proto/v1.proto" {
-		t.Errorf("external[1].Path: got %q, want %q", chain.External[1].Path, "proto/v1.proto")
+		t.Errorf("expected second external path proto/v1.proto, got %q", chain.External[1].Path)
 	}
 }
 
-func TestChainResolve_ExternalWithFragmentsPreserved(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-20: External with fragments preserved ---
 
-	fm := "external:\n  - path: f.txt\n    fragments:\n      - lines: \"1-10\"\n        hash: abc"
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", fm)
+func TestChainResolve_TC20_ExternalFragmentsPreserved(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t,
+		"external:\n  - path: f.txt\n    fragments:\n      - lines: \"1-10\"\n        hash: abc\n",
+		testNodePath("a")...,
+	)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -650,26 +564,26 @@ func TestChainResolve_ExternalWithFragmentsPreserved(t *testing.T) {
 	}
 	ext := chain.External[0]
 	if ext.Path != "f.txt" {
-		t.Errorf("external[0].Path: got %q, want %q", ext.Path, "f.txt")
+		t.Errorf("expected path f.txt, got %q", ext.Path)
 	}
 	if len(ext.Fragments) != 1 {
 		t.Fatalf("expected 1 fragment, got %d", len(ext.Fragments))
 	}
 	frag := ext.Fragments[0]
 	if frag.Lines != "1-10" {
-		t.Errorf("fragment.Lines: got %q, want %q", frag.Lines, "1-10")
+		t.Errorf("expected lines '1-10', got %q", frag.Lines)
 	}
 	if frag.Hash != "abc" {
-		t.Errorf("fragment.Hash: got %q, want %q", frag.Hash, "abc")
+		t.Errorf("expected hash 'abc', got %q", frag.Hash)
 	}
 }
 
-func TestChainResolve_EmptyExternal(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-21: Empty external — no entries ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "")
+func TestChainResolve_TC21_EmptyExternal(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "", testNodePath("a")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -677,21 +591,17 @@ func TestChainResolve_EmptyExternal(t *testing.T) {
 	}
 
 	if len(chain.External) != 0 {
-		t.Errorf("expected no external entries, got %d", len(chain.External))
+		t.Errorf("expected 0 external entries, got %d", len(chain.External))
 	}
 }
 
-// --------------------------------------------------------------------------
-// Input
-// --------------------------------------------------------------------------
+// --- TC-22: Input resolved from generating node ---
 
-func TestChainResolve_InputResolvedFromGeneratingNode(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "input: ARTIFACT/b(data)")
-	testWriteLogical(t, "ROOT/b", "outputs:\n  - id: data\n    path: out/data.json")
+func TestChainResolve_TC22_InputResolved(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "input: \"ARTIFACT/b(data)\"\n", testNodePath("a")...)
+	testWriteNode(t, "outputs:\n  - id: data\n    path: out/data.json\n", testNodePath("b")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -699,31 +609,31 @@ func TestChainResolve_InputResolvedFromGeneratingNode(t *testing.T) {
 	}
 
 	if chain.Input == nil {
-		t.Fatal("expected input, got nil")
+		t.Fatal("expected non-nil input")
 	}
 	if chain.Input.LogicalName != "ARTIFACT/b(data)" {
-		t.Errorf("input logical name: got %q, want %q", chain.Input.LogicalName, "ARTIFACT/b(data)")
+		t.Errorf("expected input logical name ARTIFACT/b(data), got %q", chain.Input.LogicalName)
 	}
 	if chain.Input.FilePath == nil {
-		t.Fatal("input file path: expected present, got nil")
+		t.Fatal("expected non-nil input file path")
 	}
 	if chain.Input.FilePath.Value != "out/data.json" {
-		t.Errorf("input file path: got %q, want %q", chain.Input.FilePath.Value, "out/data.json")
+		t.Errorf("expected input file path out/data.json, got %q", chain.Input.FilePath.Value)
 	}
 	if chain.Input.Qualifier == nil {
-		t.Fatal("input qualifier: expected present, got nil")
+		t.Fatal("expected non-nil input qualifier")
 	}
 	if *chain.Input.Qualifier != "data" {
-		t.Errorf("input qualifier: got %q, want %q", *chain.Input.Qualifier, "data")
+		t.Errorf("expected input qualifier 'data', got %q", *chain.Input.Qualifier)
 	}
 }
 
-func TestChainResolve_NoInput_Absent(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-23: No input — absent ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "")
+func TestChainResolve_TC23_NoInput_Absent(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "", testNodePath("a")...)
 
 	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
@@ -731,16 +641,16 @@ func TestChainResolve_NoInput_Absent(t *testing.T) {
 	}
 
 	if chain.Input != nil {
-		t.Errorf("expected no input, got %v", chain.Input)
+		t.Errorf("expected nil input, got %+v", chain.Input)
 	}
 }
 
-func TestChainResolve_InputWithoutQualifier_Error(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-24: Input without qualifier — error ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "input: ARTIFACT/b")
+func TestChainResolve_TC24_InputWithoutQualifier_Error(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "input: \"ARTIFACT/b\"\n", testNodePath("a")...)
 
 	_, err := chainresolver.ChainResolve("ROOT/a")
 	if err == nil {
@@ -751,33 +661,13 @@ func TestChainResolve_InputWithoutQualifier_Error(t *testing.T) {
 	}
 }
 
-func TestChainResolve_InputWithNonExistentOutputID_Error(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-25: Input with non-existent output id — error ---
 
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "input: ARTIFACT/b(missing)")
-	testWriteLogical(t, "ROOT/b", "outputs:\n  - id: data\n    path: out/data.json")
-
-	_, err := chainresolver.ChainResolve("ROOT/a")
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
-		t.Errorf("expected ErrUnresolvableArtifact, got %v", err)
-	}
-}
-
-// --------------------------------------------------------------------------
-// Error cases
-// --------------------------------------------------------------------------
-
-func TestChainResolve_UnrecognizedPrefixInDependsOn_Error(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	testWriteLogical(t, "ROOT", "")
-	testWriteLogical(t, "ROOT/a", "depends_on:\n  - UNKNOWN/something")
+func TestChainResolve_TC25_InputNonExistentOutputID_Error(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "input: \"ARTIFACT/b(missing)\"\n", testNodePath("a")...)
+	testWriteNode(t, "outputs:\n  - id: data\n    path: out/data.json\n", testNodePath("b")...)
 
 	_, err := chainresolver.ChainResolve("ROOT/a")
 	if err == nil {
@@ -788,28 +678,53 @@ func TestChainResolve_UnrecognizedPrefixInDependsOn_Error(t *testing.T) {
 	}
 }
 
-func TestChainResolve_InvalidTargetLogicalName_Error(t *testing.T) {
+// --- TC-26: Unrecognized prefix in depends_on ---
+
+func TestChainResolve_TC26_UnrecognizedPrefix_Error(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+	testWriteNode(t, "depends_on:\n  - UNKNOWN/something\n", testNodePath("a")...)
+
+	_, err := chainresolver.ChainResolve("ROOT/a")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
+		t.Errorf("expected ErrUnresolvableArtifact, got %v", err)
+	}
+}
+
+// --- TC-27: Invalid target logical name ---
+
+func TestChainResolve_TC27_InvalidTargetLogicalName_Error(t *testing.T) {
+	testSetupRoot(t)
+
 	_, err := chainresolver.ChainResolve("INVALID/something")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	// The exact error is determined by LogicalNameGetParent / LogicalNameToPath;
-	// we only verify that an error is returned.
 }
 
-func TestChainResolve_UnreadableFrontmatter_Error(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// --- TC-28: Unreadable frontmatter ---
 
-	testWriteLogical(t, "ROOT", "")
-	// Write invalid YAML between frontmatter delimiters.
-	testWriteLogicalRaw(t, "ROOT/a", "---\n: invalid: yaml: [\nunclosed\n---\n")
+func TestChainResolve_TC28_UnreadableFrontmatter_Error(t *testing.T) {
+	testSetupRoot(t)
+	testWriteNode(t, "", testNodePath()...)
+
+	// Write invalid YAML in frontmatter
+	badContent := "---\nkey: [unclosed bracket\n---\n"
+	if err := os.WriteFile(filepath.Join("code-from-spec", "a", "_node.md"), []byte(badContent), 0o644); err != nil {
+		// File may not exist yet — create dirs first
+		if mkErr := os.MkdirAll(filepath.Join("code-from-spec", "a"), 0o755); mkErr != nil {
+			t.Fatalf("MkdirAll: %v", mkErr)
+		}
+		if err2 := os.WriteFile(filepath.Join("code-from-spec", "a", "_node.md"), []byte(badContent), 0o644); err2 != nil {
+			t.Fatalf("WriteFile: %v", err2)
+		}
+	}
 
 	_, err := chainresolver.ChainResolve("ROOT/a")
 	if err == nil {
 		t.Fatal("expected error, got nil")
-	}
-	if !errors.Is(err, chainresolver.ErrUnreadableFrontmatter) {
-		t.Errorf("expected ErrUnreadableFrontmatter, got %v", err)
 	}
 }

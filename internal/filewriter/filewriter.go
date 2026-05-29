@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_writer@giSZy_mwvtZyBg1rL8Zv_QpAEak
+// code-from-spec: ROOT/golang/implementation/os/file_writer@RYq5m1T1IbcIFo4W3Vis-MXVmXY
 
 package filewriter
 
@@ -21,32 +21,27 @@ var (
 )
 
 // FileWrite writes content to the file at cfs_path as UTF-8 encoded text.
-// If the file exists, it is overwritten. If it does not exist, it is
-// created. Intermediate directories are created as needed.
+// If the file exists, it is overwritten. If it does not exist, it is created.
+// Intermediate directories are created as needed.
 //
-// Content is written exactly as received — no normalization of line
-// endings or other transformations is applied.
+// Content is written exactly as received — no normalization of line endings
+// or other transformations is applied.
 //
-// The path is validated before writing — if validation fails, no file
-// or directory is created.
+// The path is validated before writing. If validation fails, no file or
+// directory is created.
 //
-// Possible errors:
-//   - pathutils.ErrPathEmpty
-//   - pathutils.ErrPathAbsolute
-//   - pathutils.ErrPathContainsBackslash
-//   - pathutils.ErrDirectoryTraversal
-//   - pathutils.ErrResolvesOutsideRoot
-//   - pathutils.ErrCannotDetermineRoot
-//   - ErrCannotCreateDirectory
-//   - ErrCannotWriteFile
+// Returns an error if:
+//   - path validation fails (errors from PathCfsToOs are propagated).
+//   - an intermediate directory cannot be created (ErrCannotCreateDirectory).
+//   - the file cannot be written (ErrCannotWriteFile).
 func FileWrite(cfs_path *pathutils.PathCfs, content string) error {
 	osPath, err := pathutils.PathCfsToOs(cfs_path)
 	if err != nil {
 		return err
 	}
 
-	parentDir := filepath.Dir(osPath.Value)
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
+	dir := filepath.Dir(osPath.Value)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("%w: %w", ErrCannotCreateDirectory, err)
 	}
 

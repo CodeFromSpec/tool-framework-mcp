@@ -1,39 +1,42 @@
 <!-- code-from-spec: ROOT/functional/logic/utils/text_normalization@Oso--NTz8yT0bgPb2Dokj1uJOuo -->
 
-# Text Normalization
+# text_normalization
 
-## Functions
+## function NormalizeText(raw_string) -> string
 
----
+Parameters:
+- raw_string: string
 
-function NormalizeText(raw_string) -> string
+Returns: string
 
-  1. If raw_string is empty, return "".
+### Logic
 
-  2. Trim leading and trailing whitespace characters from raw_string.
-     Whitespace characters are: space (U+0020) and horizontal tab (U+0009).
+1. If raw_string is empty, return "".
 
-  3. Scan the trimmed string for runs of consecutive whitespace characters.
-     For each run of one or more whitespace characters, replace the run
-     with a single space (U+0020).
+2. Trim all leading and trailing whitespace characters
+   (space U+0020 and horizontal tab U+0009) from raw_string.
 
-  4. Apply Unicode simple case folding to the resulting string.
-     This converts each character to its case-folded equivalent
-     (e.g., "A" -> "a", "Straße" -> "strasse").
+3. Scan the trimmed string for runs of one or more whitespace
+   characters (space U+0020 and horizontal tab U+0009).
+   Replace each such run with a single space (U+0020).
 
-  5. Return the transformed string.
+4. Apply Unicode simple case folding to the result.
+   For each character, replace it with its case-folded
+   equivalent (e.g., "A" -> "a", "Straße" -> "strasse").
 
-## Contracts
+5. Return the resulting string.
 
-- Pure function — performs no I/O and raises no errors.
-- Deterministic — identical inputs always produce identical outputs.
+### Contracts
 
-## Examples
+- Pure function — no I/O, no errors raised under any input.
+- Deterministic — same input always produces same output.
 
-| Input                    | Output                  |
-|--------------------------|-------------------------|
-| "  Interface  "          | "interface"             |
-| "PUBLIC"                 | "public"                |
-| "Straße"                 | "strasse"               |
-| "Testes   de   aceitação" | "testes de aceitação"  |
-| ""                       | ""                      |
+### Examples
+
+| Input                      | Output                    |
+|----------------------------|---------------------------|
+| `"  Interface  "`          | `"interface"`             |
+| `"PUBLIC"`                 | `"public"`                |
+| `"Straße"`                 | `"strasse"`               |
+| `"Testes   de   aceitação"`| `"testes de aceitação"`   |
+| `""`                       | `""`                      |

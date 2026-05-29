@@ -1,6 +1,8 @@
 <!-- code-from-spec: ROOT/functional/tests/os/file_writer@0nJhGWugLvOX7gEXetCTCyxWETM -->
 
-# FileWrite — Test Specification
+# Test Specification: FileWrite
+
+---
 
 ## Happy Path
 
@@ -8,95 +10,92 @@
 
 ### Test: Writes content to a new file
 
-Setup:
+**Setup**
 - Ensure the target file does not exist.
 
-Actions:
-1. Call `FileWrite` with a valid `cfs_path` pointing to a non-existent file
-   and `content` = `"hello world"`.
+**Actions**
+1. Call `FileWrite` with a valid `cfs_path` pointing to a non-existent file and content `"hello world"`.
 
-Expected outcome:
+**Expected outcome**
 - No error is returned.
-- The file is created at the resolved path.
-- The file contains exactly `"hello world"`.
+- The file exists at the resolved path.
+- The file content is exactly `"hello world"`.
 
 ---
 
 ### Test: Overwrites an existing file
 
-Setup:
+**Setup**
 - Create a file at the target path with content `"old"`.
 
-Actions:
-1. Call `FileWrite` with the same `cfs_path` and `content` = `"new"`.
+**Actions**
+1. Call `FileWrite` with the same `cfs_path` and content `"new"`.
 
-Expected outcome:
+**Expected outcome**
 - No error is returned.
-- The file exists at the resolved path.
-- The file contains exactly `"new"`.
-- No trace of `"old"` remains.
+- The file content is exactly `"new"`.
+- No trace of `"old"` remains in the file.
 
 ---
 
 ### Test: Creates intermediate directories
 
-Setup:
-- Ensure the parent directories `a/b/c/` do not exist under the CFS root.
+**Setup**
+- Ensure none of the intermediate directories (e.g., `"a/b/c/"`) exist.
 
-Actions:
-1. Call `FileWrite` with a `cfs_path` of `"a/b/c/file.txt"` and any non-empty
-   `content`.
+**Actions**
+1. Call `FileWrite` with a `cfs_path` whose parent directories do not exist (e.g., `"a/b/c/file.txt"`) and content `"hello"`.
 
-Expected outcome:
+**Expected outcome**
 - No error is returned.
-- All intermediate directories `a`, `a/b`, and `a/b/c` are created.
-- The file `a/b/c/file.txt` exists and contains the given content.
+- All intermediate directories are created.
+- The file exists at the resolved path with content `"hello"`.
 
 ---
 
 ### Test: Preserves UTF-8 content
 
-Setup:
+**Setup**
 - No prior state required.
 
-Actions:
-1. Call `FileWrite` with a valid `cfs_path` and `content` = `"café 日本語 🎉"`.
-2. Read the bytes of the written file back from disk.
+**Actions**
+1. Call `FileWrite` with a valid `cfs_path` and content `"café 日本語 🎉"`.
+2. Read the file back from the resolved path.
 
-Expected outcome:
+**Expected outcome**
 - No error is returned.
-- The raw bytes of the file match the UTF-8 encoding of `"café 日本語 🎉"` exactly.
+- The file content matches `"café 日本語 🎉"` byte-for-byte.
 
 ---
 
 ### Test: Preserves line endings as received
 
-Setup:
+**Setup**
 - No prior state required.
 
-Actions:
-1. Call `FileWrite` with a valid `cfs_path` and `content` = `"alpha\r\nbeta\r\n"`.
-2. Read the raw bytes of the written file back from disk.
+**Actions**
+1. Call `FileWrite` with a valid `cfs_path` and content `"alpha\r\nbeta\r\n"` (CRLF line endings).
+2. Read the file back from the resolved path in binary mode.
 
-Expected outcome:
+**Expected outcome**
 - No error is returned.
-- The raw bytes of the file contain CRLF sequences (`\r\n`) exactly as provided.
-- No normalization (e.g., conversion to `\n`) has occurred.
+- The file content contains CRLF (`\r\n`) line endings — not normalized to LF.
+- The content matches `"alpha\r\nbeta\r\n"` byte-for-byte.
 
 ---
 
 ### Test: Writes empty content
 
-Setup:
+**Setup**
 - No prior state required.
 
-Actions:
-1. Call `FileWrite` with a valid `cfs_path` and `content` = `""` (empty string).
+**Actions**
+1. Call `FileWrite` with a valid `cfs_path` and an empty string as content.
 
-Expected outcome:
+**Expected outcome**
 - No error is returned.
-- The file is created at the resolved path.
-- The file has a size of zero bytes.
+- The file exists at the resolved path.
+- The file contains zero bytes.
 
 ---
 
@@ -106,14 +105,13 @@ Expected outcome:
 
 ### Test: Propagates validation errors from PathCfsToOs
 
-Setup:
+**Setup**
 - No prior state required.
 
-Actions:
-1. Call `FileWrite` with an invalid `cfs_path` such as `"../../outside"` that
-   would escape the CFS root.
+**Actions**
+1. Call `FileWrite` with an invalid `cfs_path` that attempts directory traversal (e.g., `"../../outside"`).
 
-Expected outcome:
+**Expected outcome**
 - An error `"directory traversal"` is returned, propagated from `PathCfsToOs`.
 - No file is created.
 - No directory is created.
@@ -122,27 +120,24 @@ Expected outcome:
 
 ### Test: Cannot create directory
 
-Setup:
-- Create a regular file at a path that will conflict with a required intermediate
-  directory (e.g., create a file named `"a"` so that `"a/b/file.txt"` cannot
-  be created because `"a"` is not a directory).
+**Setup**
+- Create a regular file at a path that will conflict with a required intermediate directory (e.g., create a file named `"a"`, then attempt to write to `"a/b/file.txt"`).
 
-Actions:
-1. Call `FileWrite` with a `cfs_path` whose intermediate directory component
-   conflicts with the existing file (e.g., `"a/b/file.txt"`).
+**Actions**
+1. Call `FileWrite` with a `cfs_path` where an intermediate directory component conflicts with an existing file.
 
-Expected outcome:
+**Expected outcome**
 - An error `"cannot create directory"` is returned.
 
 ---
 
 ### Test: Cannot write file
 
-Setup:
-- Create a directory at the target path (not a file).
+**Setup**
+- Create a directory at the target path (e.g., a directory named `"target"` where `"target"` is the intended file path).
 
-Actions:
-1. Call `FileWrite` with a `cfs_path` that resolves to an existing directory.
+**Actions**
+1. Call `FileWrite` with a `cfs_path` that resolves to an existing directory (not a file).
 
-Expected outcome:
+**Expected outcome**
 - An error `"cannot write file"` is returned.

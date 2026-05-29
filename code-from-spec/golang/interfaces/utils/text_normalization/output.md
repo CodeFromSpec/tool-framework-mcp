@@ -1,6 +1,6 @@
-# Interface: `textnormalization`
+[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@KGEXuPdpOD_H_aqrR9oZrO6lzsM)
 
-<!-- code-from-spec: ROOT/golang/interfaces/utils/text_normalization@GfkyT8qLvX2L836LC7lEGjk1fZs -->
+# Interface: `textnormalization`
 
 ## Package
 
@@ -11,19 +11,17 @@ package textnormalization
 ## Import
 
 ```go
-import "github.com/CodeFromSpec/tool-framework-mcp/v2/internal/textnormalization"
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 ```
 
-## Functions
+## Function Signatures
 
 ```go
-// NormalizeText normalizes a raw string by trimming leading and trailing
-// whitespace, collapsing internal runs of whitespace to a single space,
-// converting the result to lowercase, and transliterating Unicode characters
-// to their ASCII equivalents where possible (e.g., "ß" → "ss").
-//
-// An empty string input returns an empty string.
-func NormalizeText(rawString string) string
+// NormalizeText trims leading and trailing whitespace from raw_string,
+// collapses internal runs of whitespace to a single space, and converts
+// the result to lowercase. Returns an empty string when raw_string is empty
+// or contains only whitespace.
+func NormalizeText(raw_string string) string
 ```
 
 ## Usage Example
@@ -34,7 +32,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/textnormalization"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 )
 
 func main() {
@@ -51,6 +49,6 @@ func main() {
 	// Output: testes de aceitação
 
 	fmt.Println(textnormalization.NormalizeText(""))
-	// Output:
+	// Output: 
 }
 ```

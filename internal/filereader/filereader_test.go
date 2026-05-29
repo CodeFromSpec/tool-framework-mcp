@@ -1,10 +1,10 @@
-// code-from-spec: ROOT/golang/tests/os/file_reader@1umvdWp7Rha53-0D0j0EuM9WC8s
-
+// code-from-spec: ROOT/golang/tests/os/file_reader@kS-o37iLa4E5gLpj3G_vi2W8zN4
 package filereader_test
 
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
@@ -29,8 +29,8 @@ func testChdir(t *testing.T, dir string) {
 
 func testOpenFile(t *testing.T, name string, content []byte) *pathutils.PathCfs {
 	t.Helper()
-	if err := os.WriteFile(name, content, 0o644); err != nil {
-		t.Fatalf("testOpenFile: write file: %v", err)
+	if err := os.WriteFile(name, content, 0600); err != nil {
+		t.Fatalf("testOpenFile: write %q: %v", name, err)
 	}
 	return &pathutils.PathCfs{Value: name}
 }
@@ -47,36 +47,24 @@ func TestOpensAndReadsAllLines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
-	}
-	if line != "alpha" {
-		t.Errorf("line 1: got %q, want %q", line, "alpha")
-	}
-
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 2: %v", err)
-	}
-	if line != "beta" {
-		t.Errorf("line 2: got %q, want %q", line, "beta")
-	}
-
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 3: %v", err)
-	}
-	if line != "gamma" {
-		t.Errorf("line 3: got %q, want %q", line, "gamma")
+	testCases := []string{"alpha", "beta", "gamma"}
+	for _, want := range testCases {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: unexpected error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FileReadLine = %q, want %q", got, want)
+		}
 	}
 
 	_, err = filereader.FileReadLine(reader)
 	if !errors.Is(err, filereader.ErrEndOfFile) {
-		t.Errorf("FileReadLine 4: got %v, want ErrEndOfFile", err)
+		t.Errorf("FileReadLine after last line: got error %v, want ErrEndOfFile", err)
 	}
+
+	filereader.FileClose(reader)
 }
 
 func TestNormalizesCRLFToLF(t *testing.T) {
@@ -89,23 +77,18 @@ func TestNormalizesCRLFToLF(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
-	}
-	if line != "alpha" {
-		t.Errorf("line 1: got %q, want %q", line, "alpha")
+	for _, want := range []string{"alpha", "beta"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: unexpected error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FileReadLine = %q, want %q", got, want)
+		}
 	}
 
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 2: %v", err)
-	}
-	if line != "beta" {
-		t.Errorf("line 2: got %q, want %q", line, "beta")
-	}
+	filereader.FileClose(reader)
 }
 
 func TestReadsFileWithNoTrailingNewline(t *testing.T) {
@@ -118,28 +101,23 @@ func TestReadsFileWithNoTrailingNewline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
-	}
-	if line != "alpha" {
-		t.Errorf("line 1: got %q, want %q", line, "alpha")
-	}
-
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 2: %v", err)
-	}
-	if line != "beta" {
-		t.Errorf("line 2: got %q, want %q", line, "beta")
+	for _, want := range []string{"alpha", "beta"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: unexpected error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FileReadLine = %q, want %q", got, want)
+		}
 	}
 
 	_, err = filereader.FileReadLine(reader)
 	if !errors.Is(err, filereader.ErrEndOfFile) {
-		t.Errorf("FileReadLine 3: got %v, want ErrEndOfFile", err)
+		t.Errorf("FileReadLine after last line: got error %v, want ErrEndOfFile", err)
 	}
+
+	filereader.FileClose(reader)
 }
 
 func TestFileSkipLinesAdvancesReader(t *testing.T) {
@@ -152,17 +130,18 @@ func TestFileSkipLinesAdvancesReader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
 	filereader.FileSkipLines(reader, 2)
 
-	line, err := filereader.FileReadLine(reader)
+	got, err := filereader.FileReadLine(reader)
 	if err != nil {
-		t.Fatalf("FileReadLine: %v", err)
+		t.Fatalf("FileReadLine: unexpected error: %v", err)
 	}
-	if line != "three" {
-		t.Errorf("got %q, want %q", line, "three")
+	if got != "three" {
+		t.Errorf("FileReadLine after skip = %q, want %q", got, "three")
 	}
+
+	filereader.FileClose(reader)
 }
 
 func TestFileSkipLinesPastEndOfFile(t *testing.T) {
@@ -175,14 +154,15 @@ func TestFileSkipLinesPastEndOfFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
 	filereader.FileSkipLines(reader, 10)
 
 	_, err = filereader.FileReadLine(reader)
 	if !errors.Is(err, filereader.ErrEndOfFile) {
-		t.Errorf("FileReadLine: got %v, want ErrEndOfFile", err)
+		t.Errorf("FileReadLine after skip past EOF: got error %v, want ErrEndOfFile", err)
 	}
+
+	filereader.FileClose(reader)
 }
 
 func TestPreservesLeadingWhitespace(t *testing.T) {
@@ -195,23 +175,18 @@ func TestPreservesLeadingWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
-	}
-	if line != "  alpha" {
-		t.Errorf("line 1: got %q, want %q", line, "  alpha")
+	for _, want := range []string{"  alpha", "    beta"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: unexpected error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FileReadLine = %q, want %q", got, want)
+		}
 	}
 
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 2: %v", err)
-	}
-	if line != "    beta" {
-		t.Errorf("line 2: got %q, want %q", line, "    beta")
-	}
+	filereader.FileClose(reader)
 }
 
 func TestPreservesTrailingWhitespace(t *testing.T) {
@@ -224,23 +199,18 @@ func TestPreservesTrailingWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
-	}
-	if line != "alpha  " {
-		t.Errorf("line 1: got %q, want %q", line, "alpha  ")
+	for _, want := range []string{"alpha  ", "beta   "} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: unexpected error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FileReadLine = %q, want %q", got, want)
+		}
 	}
 
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 2: %v", err)
-	}
-	if line != "beta   " {
-		t.Errorf("line 2: got %q, want %q", line, "beta   ")
-	}
+	filereader.FileClose(reader)
 }
 
 func TestPreservesInternalWhitespace(t *testing.T) {
@@ -253,23 +223,18 @@ func TestPreservesInternalWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
-	}
-	if line != "alpha   beta" {
-		t.Errorf("line 1: got %q, want %q", line, "alpha   beta")
+	for _, want := range []string{"alpha   beta", "one\ttwo"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: unexpected error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FileReadLine = %q, want %q", got, want)
+		}
 	}
 
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 2: %v", err)
-	}
-	if line != "one\ttwo" {
-		t.Errorf("line 2: got %q, want %q", line, "one\ttwo")
-	}
+	filereader.FileClose(reader)
 }
 
 func TestPreservesEmptyLines(t *testing.T) {
@@ -282,39 +247,18 @@ func TestPreservesEmptyLines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
-	}
-	if line != "alpha" {
-		t.Errorf("line 1: got %q, want %q", line, "alpha")
-	}
-
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 2: %v", err)
-	}
-	if line != "" {
-		t.Errorf("line 2: got %q, want empty string", line)
+	for _, want := range []string{"alpha", "", "", "beta"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: unexpected error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FileReadLine = %q, want %q", got, want)
+		}
 	}
 
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 3: %v", err)
-	}
-	if line != "" {
-		t.Errorf("line 3: got %q, want empty string", line)
-	}
-
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 4: %v", err)
-	}
-	if line != "beta" {
-		t.Errorf("line 4: got %q, want %q", line, "beta")
-	}
+	filereader.FileClose(reader)
 }
 
 func TestPreservesNonASCIICharacters(t *testing.T) {
@@ -327,31 +271,18 @@ func TestPreservesNonASCIICharacters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
-	}
-	if line != "café" {
-		t.Errorf("line 1: got %q, want %q", line, "café")
-	}
-
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 2: %v", err)
-	}
-	if line != "日本語" {
-		t.Errorf("line 2: got %q, want %q", line, "日本語")
+	for _, want := range []string{"café", "日本語", "🎉🚀"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: unexpected error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FileReadLine = %q, want %q", got, want)
+		}
 	}
 
-	line, err = filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine 3: %v", err)
-	}
-	if line != "🎉🚀" {
-		t.Errorf("line 3: got %q, want %q", line, "🎉🚀")
-	}
+	filereader.FileClose(reader)
 }
 
 // --- Edge Cases ---
@@ -366,12 +297,13 @@ func TestEmptyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
 	_, err = filereader.FileReadLine(reader)
 	if !errors.Is(err, filereader.ErrEndOfFile) {
-		t.Errorf("FileReadLine: got %v, want ErrEndOfFile", err)
+		t.Errorf("FileReadLine on empty file: got error %v, want ErrEndOfFile", err)
 	}
+
+	filereader.FileClose(reader)
 }
 
 func TestSingleLineWithoutNewline(t *testing.T) {
@@ -384,20 +316,21 @@ func TestSingleLineWithoutNewline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
-	defer filereader.FileClose(reader)
 
-	line, err := filereader.FileReadLine(reader)
+	got, err := filereader.FileReadLine(reader)
 	if err != nil {
-		t.Fatalf("FileReadLine 1: %v", err)
+		t.Fatalf("FileReadLine: unexpected error: %v", err)
 	}
-	if line != "hello" {
-		t.Errorf("got %q, want %q", line, "hello")
+	if got != "hello" {
+		t.Errorf("FileReadLine = %q, want %q", got, "hello")
 	}
 
 	_, err = filereader.FileReadLine(reader)
 	if !errors.Is(err, filereader.ErrEndOfFile) {
-		t.Errorf("FileReadLine 2: got %v, want ErrEndOfFile", err)
+		t.Errorf("FileReadLine after last line: got error %v, want ErrEndOfFile", err)
 	}
+
+	filereader.FileClose(reader)
 }
 
 // --- Failure Cases ---
@@ -406,11 +339,11 @@ func TestFileDoesNotExist(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	cfsPath := &pathutils.PathCfs{Value: "nonexistent_file.txt"}
+	cfsPath := &pathutils.PathCfs{Value: filepath.Join("nonexistent", "path", "file.txt")}
 
 	_, err := filereader.FileOpen(cfsPath)
 	if !errors.Is(err, filereader.ErrFileUnreadable) {
-		t.Errorf("FileOpen: got %v, want ErrFileUnreadable", err)
+		t.Errorf("FileOpen on nonexistent file: got error %v, want ErrFileUnreadable", err)
 	}
 }
 
@@ -429,7 +362,7 @@ func TestReadAfterClose(t *testing.T) {
 
 	_, err = filereader.FileReadLine(reader)
 	if !errors.Is(err, filereader.ErrEndOfFile) {
-		t.Errorf("FileReadLine after close: got %v, want ErrEndOfFile", err)
+		t.Errorf("FileReadLine after close: got error %v, want ErrEndOfFile", err)
 	}
 }
 

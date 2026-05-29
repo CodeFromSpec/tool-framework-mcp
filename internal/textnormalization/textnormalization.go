@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/utils/text_normalization@hdOyvGWKkfhzJinWQ7wK1ElVMuE
+// code-from-spec: ROOT/golang/implementation/utils/text_normalization@8GLhf-KcYcuwErRdHvA0WCZbUaU
 
 package textnormalization
 
@@ -8,37 +8,45 @@ import (
 	"golang.org/x/text/cases"
 )
 
-// NormalizeText normalizes a raw string by trimming leading and trailing
-// whitespace, collapsing internal runs of whitespace to a single space,
-// converting the result to lowercase, and transliterating Unicode characters
-// to their ASCII equivalents where possible (e.g., "ß" → "ss").
-//
-// An empty string input returns an empty string.
-func NormalizeText(rawString string) string {
-	if rawString == "" {
+// NormalizeText trims leading and trailing whitespace from raw_string,
+// collapses internal runs of whitespace to a single space, and converts
+// the result to lowercase using Unicode simple case folding. Returns an
+// empty string when raw_string is empty or contains only whitespace.
+func NormalizeText(raw_string string) string {
+	if raw_string == "" {
 		return ""
 	}
 
-	trimmed := strings.TrimFunc(rawString, func(r rune) bool {
+	// Trim leading and trailing whitespace (space and horizontal tab).
+	trimmed := strings.TrimFunc(raw_string, func(r rune) bool {
 		return r == ' ' || r == '\t'
 	})
 
-	var collapsed strings.Builder
+	if trimmed == "" {
+		return ""
+	}
+
+	// Collapse internal runs of whitespace (space and horizontal tab)
+	// to a single space.
+	var builder strings.Builder
 	inWhitespace := false
 	for _, r := range trimmed {
 		if r == ' ' || r == '\t' {
 			if !inWhitespace {
-				collapsed.WriteRune(' ')
+				builder.WriteRune(' ')
 				inWhitespace = true
 			}
 		} else {
-			collapsed.WriteRune(r)
+			builder.WriteRune(r)
 			inWhitespace = false
 		}
 	}
 
+	collapsed := builder.String()
+
+	// Apply Unicode simple case folding.
 	caser := cases.Fold()
-	folded := caser.String(collapsed.String())
+	folded := caser.String(collapsed)
 
 	return folded
 }

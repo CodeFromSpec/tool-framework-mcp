@@ -1,10 +1,7 @@
 <!-- code-from-spec: ROOT/functional/logic/utils/node_ranking@6kqVyq52zQSlETyDNKaRPwedc-k -->
 
-# NodeRankCompute
+## Data Structures
 
-## Records
-
-```
 record NodeRankInput
   logical_name: string
   frontmatter: Frontmatter
@@ -17,118 +14,129 @@ record InternalEntry
   logical_name: string
   dependencies: list of strings
   rank: integer
-```
 
-## Function
 
-```
-function NodeRankCompute(entries: list of NodeRankInput)
-  -> (ranked: list of NodeRankEntry, cycles: list of string)
+## Functions
+
+---
+
+function NodeRankCompute(entries: list of NodeRankInput) -> (ranked: list of NodeRankEntry, cycles: list of string)
   errors:
-    - "unresolvable reference": a depends_on or input target
-      cannot be resolved to any entry in the entry map.
-```
+    - "unresolvable reference": a depends_on or input target cannot be resolved.
 
-### Step 1 — Build entry map
+  1. **Build entry map** (Step 1)
 
-1. Create an empty entry map keyed by logical name.
-   Each value is an InternalEntry with an empty dependencies list and rank 0.
+     Initialize an empty entry map keyed by logical name,
+     where each value is an InternalEntry.
 
-2. For each NodeRankInput in entries:
-   a. Add an InternalEntry to the map keyed by `logical_name`.
-      Set dependencies to empty list (populated in Step 2).
-      Set rank to 0.
+     For each NodeRankInput in entries:
 
-   b. For each output in `frontmatter.outputs`:
-      - Construct the artifact logical name:
-        - Strip the "ROOT/" prefix from `logical_name`.
-        - Prepend "ARTIFACT/".
-        - Append "(<id>)" where <id> is the output's id field.
-        - Example: node "ROOT/a/b" with output id "foo" → "ARTIFACT/a/b(foo)".
-      - Add an InternalEntry to the map keyed by this artifact logical name.
-        Set dependencies to empty list (populated in Step 2).
-        Set rank to 0.
+       a. Add a spec node entry:
+          - key: the input's logical_name
+          - dependencies: empty list (populated in Step 2)
+          - rank: 0
 
-### Step 2 — Build dependency edges
+       b. For each output in the input's frontmatter.outputs:
+          - Derive the artifact logical name:
+            Strip the "ROOT/" prefix from the node's logical_name,
+            prepend "ARTIFACT/", and append "(<id>)" where <id>
+            is the output's id field.
+            Example: node "ROOT/a/b" with output id "foo"
+            → "ARTIFACT/a/b(foo)"
+          - Add an artifact entry:
+            - key: the derived artifact logical name
+            - dependencies: empty list (populated in Step 2)
+            - rank: 0
 
-1. For each spec node InternalEntry (entries whose key starts with "ROOT/"):
-   a. If the logical name is "ROOT", skip (no dependencies — handled in Step 3).
-   b. Otherwise:
-      - **Parent dependency**: call LogicalNameGetParent on the logical name.
-        Add the parent logical name to this entry's dependencies list.
-      - **depends_on dependencies**: for each item in `frontmatter.depends_on`:
-        - If the item starts with "ARTIFACT/", use it as-is as the lookup key.
-        - If the item starts with "ROOT/", call LogicalNameStripQualifier on it
-          to get the bare logical name; use that as the lookup key.
-        - If the lookup key is not found in the entry map,
+  2. **Build dependency edges** (Step 2)
+
+     For each spec node entry in the entry map:
+
+       a. Parent dependency:
+          If the logical_name is "ROOT", skip (ROOT has no parent).
+          Otherwise, call LogicalNameGetParent(logical_name)
+          to get the parent logical name. Add the parent logical
+          name to this entry's dependencies.
+          If the parent is not found in the entry map,
           raise error "unresolvable reference".
-        - Add the lookup key to this entry's dependencies list.
-      - **input dependency**: if `frontmatter.input` is non-empty:
-        - Use the input value as-is as the lookup key (it is an ARTIFACT/ reference).
-        - If the lookup key is not found in the entry map,
+
+       b. depends_on dependencies:
+          For each ref in frontmatter.depends_on:
+            - If ref starts with "ARTIFACT/", use ref as-is as the
+              lookup key.
+            - If ref starts with "ROOT/", call
+              LogicalNameStripQualifier(ref) to get the bare
+              logical name; use that as the lookup key.
+          If the lookup key is not found in the entry map,
           raise error "unresolvable reference".
-        - Add the lookup key to this entry's dependencies list.
+          Add the lookup key to this entry's dependencies.
 
-2. For each artifact InternalEntry (entries whose key starts with "ARTIFACT/"):
-   a. Determine the generating node's logical name:
-      - Strip the "ARTIFACT/" prefix from the artifact key.
-      - Remove the trailing "(<id>)" qualifier.
-      - Prepend "ROOT/".
-      - This is the generating node's logical name.
-   b. If the generating node logical name is not found in the entry map,
-      raise error "unresolvable reference".
-   c. Add the generating node logical name to this artifact entry's dependencies list.
+       c. input dependency:
+          If frontmatter.input is non-empty, add frontmatter.input
+          as a dependency (it is an "ARTIFACT/" reference, used as-is).
+          If frontmatter.input is not found in the entry map,
+          raise error "unresolvable reference".
 
-### Step 3 — Initialize ranks
+     For each artifact entry in the entry map:
+       - The generating node logical name is derived by:
+         stripping the "ARTIFACT/" prefix, stripping any qualifier,
+         and prepending "ROOT/".
+         Equivalently: call LogicalNameGetArtifactGenerator on the
+         artifact's logical name to obtain the generator node's
+         logical name.
+       - Add the generator's logical name to this artifact entry's
+         dependencies.
+       - If the generator is not found in the entry map,
+         raise error "unresolvable reference".
 
-1. Set the rank of the entry keyed "ROOT" to 0.
-   This rank is fixed and will not be updated during iteration.
+  3. **Initialize ranks** (Step 3)
 
-2. All other entries already have rank 0 from Step 1 (no change needed).
+     Set rank of entry keyed "ROOT" to 0.
+     Set rank of all other entries to 0.
+     (All entries begin at 0; ROOT is fixed and excluded from
+     iteration.)
 
-### Step 4 — Iterate and detect cycles
+  4. **Iterate and detect cycles** (Step 4)
 
-1. Let N = total number of entries in the map.
+     Let N = total number of entries in the entry map.
 
-2. Set changed_in_last_pass = empty list.
+     Initialize cycle_candidates as an empty list.
 
-3. Repeat up to N times (loop index i from 1 to N):
-   a. Set changed_this_pass = empty list.
-   b. For each InternalEntry in the map (excluding "ROOT"):
-      - For each dependency logical name in the entry's dependencies list:
-        - Look up the dependency's current rank in the entry map.
-      - Compute new_rank = 1 + max(rank of all dependencies).
-        If the entry has no dependencies, new_rank = 1.
-      - If new_rank > current rank of this entry:
-        - Update the entry's rank to new_rank.
-        - Add this entry's logical name to changed_this_pass.
-   c. If changed_this_pass is empty, stop iterating (converged, no cycles).
-   d. Set changed_in_last_pass = changed_this_pass.
+     Repeat up to N times (pass index from 1 to N):
 
-4. If the loop completed all N iterations without converging
-   (i.e., changed_this_pass was non-empty on the final pass):
-   - The entries in changed_in_last_pass are cycle participants.
-   - Proceed to Step 5 with these as the cycles list.
-   Otherwise, set cycles list to empty.
+       a. Set changed = false.
 
-### Step 5 — Output
+       b. For each entry in the entry map, excluding "ROOT":
+            Compute candidate_rank = 1 + max(rank of each entry
+            in this entry's dependencies list).
+            If candidate_rank > entry's current rank:
+              Update entry's rank to candidate_rank.
+              Set changed = true.
+              Record this entry's logical_name as a potential
+              cycle candidate.
 
-1. Build the ranked list:
-   For each InternalEntry in the entry map, create a NodeRankEntry
-   with logical_name and rank.
+       c. If changed is false, stop iterating (converged, no cycles).
 
-2. Sort the ranked list:
-   - Primary sort: rank ascending.
-   - Secondary sort: logical_name ascending (lexicographic).
+       d. If this is pass number N and changed is still true:
+            A cycle exists.
+            Set cycle_candidates to the list of logical names
+            that changed in this final pass.
+            Stop iterating.
 
-3. Return:
-   - ranked: the sorted list of NodeRankEntry records.
-   - cycles: the list of logical names from changed_in_last_pass
-     (empty if no cycles were detected).
-```
+     If the loop stopped due to non-convergence (pass N completed
+     with changes), the cycle_candidates list is non-empty.
+     Otherwise, cycle_candidates remains empty.
 
-## Error conditions
+  5. **Output** (Step 5)
 
-| Condition | Description |
-|---|---|
-| "unresolvable reference" | A depends_on entry, input field, or artifact's generating node could not be found in the entry map. The reference target was not present among the discovered nodes. |
+     Collect all entries from the entry map as NodeRankEntry records
+     (logical_name + rank).
+
+     Sort the collected entries:
+       - Primary sort: rank ascending.
+       - Secondary sort: logical_name ascending (lexicographic).
+
+     Return:
+       - ranked: the sorted list of NodeRankEntry records.
+       - cycles: the cycle_candidates list (empty if no cycle
+         was detected).

@@ -44,7 +44,8 @@
 
 **Action:** Call `PathValidateCfs` with `"internal/./config/config.go"`.
 
-**Expected outcome:** No error is returned. A single dot component (`"."`) resolves harmlessly.
+**Expected outcome:** No error is returned. A single dot segment resolves
+harmlessly and does not constitute a traversal.
 
 ---
 
@@ -54,7 +55,8 @@
 
 **Action:** Call `PathValidateCfs` with `"a/b/../c"`.
 
-**Expected outcome:** No error is returned. After normalization the path becomes `"a/c"`, which contains no `..` components.
+**Expected outcome:** No error is returned. After normalization the path
+becomes `"a/c"`, which contains no `..` components.
 
 ---
 
@@ -84,7 +86,7 @@
 
 **Action:** Call `PathValidateCfs` with `""`.
 
-**Expected outcome:** Error `"path is empty"` is returned.
+**Expected outcome:** An error matching `"path is empty"` is returned.
 
 ---
 
@@ -94,7 +96,7 @@
 
 **Action:** Call `PathValidateCfs` with `"/etc/passwd"`.
 
-**Expected outcome:** Error `"path is absolute"` is returned.
+**Expected outcome:** An error matching `"path is absolute"` is returned.
 
 ---
 
@@ -104,7 +106,7 @@
 
 **Action:** Call `PathValidateCfs` with `"C:/Windows/system32"`.
 
-**Expected outcome:** Error `"path is absolute"` is returned.
+**Expected outcome:** An error matching `"path is absolute"` is returned.
 
 ---
 
@@ -114,7 +116,7 @@
 
 **Action:** Call `PathValidateCfs` with `"internal\config\config.go"`.
 
-**Expected outcome:** Error `"path contains backslash"` is returned.
+**Expected outcome:** An error matching `"path contains backslash"` is returned.
 
 ---
 
@@ -124,7 +126,7 @@
 
 **Action:** Call `PathValidateCfs` with `"../../etc/passwd"`.
 
-**Expected outcome:** Error `"directory traversal"` is returned.
+**Expected outcome:** An error matching `"directory traversal"` is returned.
 
 ---
 
@@ -134,7 +136,7 @@
 
 **Action:** Call `PathValidateCfs` with `"internal/../../outside/file.go"`.
 
-**Expected outcome:** Error `"directory traversal"` is returned.
+**Expected outcome:** An error matching `"directory traversal"` is returned.
 
 ---
 
@@ -144,21 +146,30 @@
 
 ### TC-CO-01: Converts valid path that exists
 
-**Setup:** A file exists at the path `"internal/config/config.go"` relative to the project root.
+**Setup:** A file exists at `"internal/config/config.go"` inside the
+project root.
 
-**Action:** Call `PathCfsToOs` with a `PathCfs` whose value is `"internal/config/config.go"`.
+**Action:** Call `PathCfsToOs` with a `PathCfs` whose value is
+`"internal/config/config.go"`.
 
-**Expected outcome:** No error is returned. The resulting `PathOs` is absolute and its tail matches the OS-specific equivalent of `"internal/config/config.go"`.
+**Expected outcome:** No error is returned. The resulting `PathOs` value is
+absolute and ends with the OS-specific equivalent of
+`"internal/config/config.go"` (i.e. with the correct separator for the
+current OS).
 
 ---
 
 ### TC-CO-02: Converts valid path that does not exist
 
-**Setup:** No file exists at `"internal/newdir/newfile.go"` relative to the project root.
+**Setup:** No file exists at `"internal/newdir/newfile.go"` inside the
+project root.
 
-**Action:** Call `PathCfsToOs` with a `PathCfs` whose value is `"internal/newdir/newfile.go"`.
+**Action:** Call `PathCfsToOs` with a `PathCfs` whose value is
+`"internal/newdir/newfile.go"`.
 
-**Expected outcome:** No error is returned. The resulting `PathOs` is absolute and its tail matches the OS-specific equivalent of `"internal/newdir/newfile.go"`.
+**Expected outcome:** No error is returned. The resulting `PathOs` value is
+absolute and ends with the OS-specific equivalent of
+`"internal/newdir/newfile.go"`.
 
 ---
 
@@ -166,29 +177,35 @@
 
 **Setup:** none
 
-**Action:** Call `PathCfsToOs` with a `PathCfs` whose value is `"internal//config.go"`.
+**Action:** Call `PathCfsToOs` with a `PathCfs` whose value is
+`"internal//config.go"`.
 
-**Expected outcome:** No error is returned. The path is normalized and the result is a valid absolute `PathOs`.
+**Expected outcome:** No error is returned. The path is normalized — the
+resulting `PathOs` does not contain duplicate separators.
 
 ---
 
-### TC-CO-04: Rejects invalid CfsPath — directory traversal
+### TC-CO-04: Rejects invalid CfsPath
 
 **Setup:** none
 
-**Action:** Call `PathCfsToOs` with a `PathCfs` whose value is `"../../etc/passwd"`.
+**Action:** Call `PathCfsToOs` with a `PathCfs` whose value is
+`"../../etc/passwd"`.
 
-**Expected outcome:** Error `"directory traversal"` is returned. No `PathOs` is produced.
+**Expected outcome:** An error matching `"directory traversal"` is returned.
+No `PathOs` is produced.
 
 ---
 
 ### TC-CO-05: Rejects symlink escaping project root
 
-**Setup:** A symlink is created inside the project root. The symlink points to a directory that is outside the project root.
+**Setup:** Create a symlink inside the project root whose target is a
+directory outside the project root.
 
-**Action:** Call `PathCfsToOs` with a `PathCfs` that resolves through the symlink (e.g., `"<symlink-name>/secret.txt"`).
+**Action:** Call `PathCfsToOs` with a `PathCfs` that resolves through
+that symlink (e.g. `"<symlink-name>/sensitive-file"`).
 
-**Expected outcome:** Error `"resolves outside root"` is returned.
+**Expected outcome:** An error matching `"resolves outside root"` is returned.
 
 ---
 
@@ -197,10 +214,12 @@
 **Setup:** none
 
 **Action:**
-1. Call `PathCfsToOs` with a `PathCfs` whose value is `"internal/config/config.go"` to obtain a `PathOs`.
+1. Call `PathCfsToOs` with `"internal/config/config.go"` to obtain a
+   `PathOs`.
 2. Call `PathOsToCfs` with that `PathOs`.
 
-**Expected outcome:** No error at either step. The final `PathCfs` value equals `"internal/config/config.go"`.
+**Expected outcome:** No errors at either step. The final `PathCfs` value
+equals `"internal/config/config.go"`.
 
 ---
 
@@ -210,39 +229,49 @@
 
 ### TC-OC-01: Converts valid OS path that exists
 
-**Setup:** A file is created inside the project root. Its absolute OS path is known.
+**Setup:** A file exists inside the project root. Its absolute OS path is
+known.
 
-**Action:** Call `PathOsToCfs` with that absolute OS path wrapped in a `PathOs`.
+**Action:** Call `PathOsToCfs` with a `PathOs` whose value is the
+absolute OS path to that file.
 
-**Expected outcome:** No error is returned. The resulting `PathCfs` value uses forward slashes and is relative to the project root.
+**Expected outcome:** No error is returned. The resulting `PathCfs` value
+uses forward slashes, is relative (no leading slash, no drive letter), and
+correctly represents the path relative to the project root.
 
 ---
 
 ### TC-OC-02: Converts valid OS path that does not exist
 
-**Setup:** An absolute OS path is constructed to a location within the project root that does not correspond to any existing file.
+**Setup:** Construct an absolute OS path to a location inside the project
+root that does not correspond to an existing file.
 
-**Action:** Call `PathOsToCfs` with that `PathOs`.
+**Action:** Call `PathOsToCfs` with a `PathOs` whose value is that
+constructed path.
 
-**Expected outcome:** No error is returned. The resulting `PathCfs` value uses forward slashes and is relative to the project root.
+**Expected outcome:** No error is returned. The resulting `PathCfs` value
+uses forward slashes and is correctly relative to the project root.
 
 ---
 
 ### TC-OC-03: Result uses forward slashes
 
-**Setup:** A valid absolute OS path inside the project root is available (may use OS-native separators such as `\` on Windows).
+**Setup:** none
 
-**Action:** Call `PathOsToCfs` with that `PathOs`.
+**Action:** Call `PathOsToCfs` with a valid absolute OS path that is within
+the project root.
 
-**Expected outcome:** No error is returned. The resulting `PathCfs` value contains no backslash characters.
+**Expected outcome:** No error is returned. The resulting `PathCfs` value
+contains no backslash characters, regardless of the OS.
 
 ---
 
 ### TC-OC-04: Symlink within root resolving within root
 
-**Setup:** A symlink is created inside the project root. The symlink target is also inside the project root.
+**Setup:** Create a symlink inside the project root whose target is another
+location also inside the project root.
 
-**Action:** Call `PathOsToCfs` with the absolute OS path to the symlink.
+**Action:** Call `PathOsToCfs` with the absolute OS path of that symlink.
 
 **Expected outcome:** No error is returned. A valid `PathCfs` is returned.
 
@@ -252,9 +281,11 @@
 
 **Setup:** none
 
-**Action:** Call `PathOsToCfs` with an absolute OS path that points to a location outside the project root.
+**Action:** Call `PathOsToCfs` with an absolute OS path that is outside the
+project root (e.g. `"/tmp/outside/file.txt"` on Unix or an equivalent on
+Windows).
 
-**Expected outcome:** Error `"resolves outside root"` is returned.
+**Expected outcome:** An error matching `"resolves outside root"` is returned.
 
 ---
 
@@ -268,14 +299,19 @@
 
 **Action:** Call `PathGetProjectRoot`.
 
-**Expected outcome:** No error is returned. The resulting `PathOs` value is non-empty and is an absolute path.
+**Expected outcome:** No error is returned. The resulting `PathOs` value is
+non-empty and is an absolute path (starts with `/` on Unix, or a drive
+letter followed by `\` on Windows).
 
 ---
 
 ### TC-GR-02: Matches working directory
 
-**Setup:** The current working directory of the process is known.
+**Setup:** none
 
-**Action:** Call `PathGetProjectRoot`.
+**Action:** Call `PathGetProjectRoot`. Also obtain the current working
+directory of the process by any available means.
 
-**Expected outcome:** No error is returned. The resulting `PathOs` corresponds to the current working directory of the process.
+**Expected outcome:** No error is returned. The `PathOs` value returned by
+`PathGetProjectRoot` corresponds to the current working directory of the
+process.

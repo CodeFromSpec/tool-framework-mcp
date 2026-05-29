@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/chain/chain_resolver@jXrL6eFeIOcDo6a0VeG4dzwFrTI
+// code-from-spec: ROOT/golang/implementation/chain/resolver@YVgNXPoyfciYLcOe-TZ4T7VKbVU
 
 package chainresolver
 
@@ -12,38 +12,32 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-var (
-	// ErrInvalidLogicalName is returned when the target logical name
-	// cannot be converted to a file path or its parent cannot be derived.
-	ErrInvalidLogicalName = errors.New("invalid logical name")
+// ErrUnresolvableArtifact is returned when an ARTIFACT/ reference's
+// output id does not match any output declared in the referenced
+// node's frontmatter.
+var ErrUnresolvableArtifact = errors.New("unresolvable artifact")
 
-	// ErrUnreadableFrontmatter is returned when a node's spec file cannot
-	// be opened or its frontmatter cannot be parsed.
-	ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-
-	// ErrUnresolvableArtifact is returned when an ARTIFACT/ reference
-	// specifies an output id that does not appear in the node's declared
-	// outputs list.
-	ErrUnresolvableArtifact = errors.New("unresolvable artifact")
-)
-
-// ChainItem represents a single node in the resolved chain, identified
-// by its logical name and the CFS path to its spec file. An optional
-// qualifier is set when the item was referenced via an ARTIFACT/ prefix
-// and points to a specific output id.
+// ChainItem represents a single node entry within a resolved chain.
+// It holds the logical name, the CFS file path to the node's spec
+// file, and an optional qualifier (used when the item originates
+// from an ARTIFACT/ reference that targets a specific output id).
 type ChainItem struct {
 	LogicalName string
 	FilePath    *pathutils.PathCfs
 	Qualifier   *string
 }
 
-// Chain holds the fully resolved chain for a target node.
+// Chain holds the fully resolved chain for a target logical name.
+// It contains the ordered lists of ancestors, dependencies, external
+// files, the target itself, and an optional input artifact.
 //
-// Assembly order:
-//  1. Ancestors — from root down to (but not including) the target node.
-//  2. Dependencies — from the target's depends_on, sorted alphabetically
-//     by file path then by qualifier.
-//  3. External — from the target's external, sorted alphabetically by path.
+// Assembly order mirrors the order in which a downstream tool should
+// concatenate context:
+//  1. Ancestors — root down to (but not including) the target.
+//  2. Dependencies — target's depends_on, sorted alphabetically by
+//     file path then qualifier.
+//  3. External — target's external files, sorted alphabetically by
+//     path.
 //  4. Target — the target node itself.
 //  5. Input — the target's input artifact, if present.
 type Chain struct {
@@ -54,348 +48,283 @@ type Chain struct {
 	Input        *ChainItem
 }
 
-// ChainResolve builds and returns the full Chain for the given target
-// logical name.
+// ChainResolve builds and returns the full chain for the given target
+// logical name. It walks the ancestor hierarchy, collects depends_on
+// entries, gathers external file references, and resolves the optional
+// input artifact.
+//
+// The returned Chain fields are ordered as described in the Chain struct
+// documentation.
+//
+// Returns an error if:
+//   - the target logical name is invalid or cannot be converted to a
+//     path (errors propagated from LogicalNameToPath / LogicalNameGetParent).
+//   - any node's frontmatter cannot be parsed (frontmatter parse errors
+//     are propagated).
+//   - an ARTIFACT/ reference in depends_on specifies an output id that
+//     does not match any declared output in the referenced node's
+//     frontmatter (ErrUnresolvableArtifact).
 func ChainResolve(target_logical_name string) (*Chain, error) {
 	// Step 1 — Resolve ancestors and target
-	ancestors, target, err := resolveAncestorsAndTarget(target_logical_name)
-	if err != nil {
-		return nil, err
+	var ancestors []*ChainItem
+	var target *ChainItem
+
+	if target_logical_name == "ROOT" {
+		filePath, err := logicalnames.LogicalNameToPath("ROOT")
+		if err != nil {
+			return nil, fmt.Errorf("resolving ROOT path: %w", err)
+		}
+		target = &ChainItem{
+			LogicalName: "ROOT",
+			FilePath:    filePath,
+			Qualifier:   nil,
+		}
+		ancestors = []*ChainItem{}
+	} else {
+		// Collect the target and all ancestors into nameList
+		nameList := []string{}
+		nameList = append(nameList, target_logical_name)
+
+		currentName := target_logical_name
+		for {
+			parentName, err := logicalnames.LogicalNameGetParent(currentName)
+			if err != nil {
+				return nil, fmt.Errorf("getting parent of %q: %w", currentName, err)
+			}
+			nameList = append(nameList, parentName)
+			if parentName == "ROOT" {
+				break
+			}
+			currentName = parentName
+		}
+
+		// Sort alphabetically — this produces root-first order
+		sort.Strings(nameList)
+
+		// Convert each name to a ChainItem
+		items := make([]*ChainItem, 0, len(nameList))
+		for _, name := range nameList {
+			filePath, err := logicalnames.LogicalNameToPath(name)
+			if err != nil {
+				return nil, fmt.Errorf("resolving path for %q: %w", name, err)
+			}
+			items = append(items, &ChainItem{
+				LogicalName: name,
+				FilePath:    filePath,
+				Qualifier:   nil,
+			})
+		}
+
+		// Last item is the target; the rest are ancestors
+		target = items[len(items)-1]
+		ancestors = items[:len(items)-1]
 	}
 
 	// Step 2 — Resolve dependencies
 	targetFrontmatter, err := frontmatter.FrontmatterParse(target.FilePath)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
+		return nil, fmt.Errorf("parsing frontmatter for %q: %w", target.LogicalName, err)
 	}
 
-	deps, err := resolveDependencies(targetFrontmatter)
-	if err != nil {
-		return nil, err
-	}
+	dependencies := []*ChainItem{}
 
-	// Step 3 — Deduplicate dependencies
-	deps = deduplicateDependencies(deps)
+	for _, entry := range targetFrontmatter.DependsOn {
+		if len(entry) >= 5 && entry[:5] == "ROOT/" {
+			qualifier, hasQualifier := logicalnames.LogicalNameGetQualifier(entry)
+			bareName := logicalnames.LogicalNameStripQualifier(entry)
 
-	// Step 4 — Collect external
-	external := collectExternal(targetFrontmatter)
-
-	// Step 5 — Resolve input
-	inputItem, err := resolveInput(targetFrontmatter)
-	if err != nil {
-		return nil, err
-	}
-
-	// Step 6 — Return
-	return &Chain{
-		Ancestors:    ancestors,
-		Dependencies: deps,
-		External:     external,
-		Target:       target,
-		Input:        inputItem,
-	}, nil
-}
-
-// resolveAncestorsAndTarget builds the ancestors list and target ChainItem.
-func resolveAncestorsAndTarget(target_logical_name string) ([]*ChainItem, *ChainItem, error) {
-	if target_logical_name == "ROOT" {
-		path, err := logicalnames.LogicalNameToPath("ROOT")
-		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %w", ErrInvalidLogicalName, err)
-		}
-		item := &ChainItem{
-			LogicalName: "ROOT",
-			FilePath:    path,
-			Qualifier:   nil,
-		}
-		return []*ChainItem{}, item, nil
-	}
-
-	// Collect all logical names from target up to ROOT
-	names := []string{target_logical_name}
-	current := target_logical_name
-	for {
-		parent, err := logicalnames.LogicalNameGetParent(current)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %w", ErrInvalidLogicalName, err)
-		}
-		names = append(names, parent)
-		current = parent
-		if current == "ROOT" {
-			break
-		}
-	}
-
-	// Sort alphabetically — ROOT first, deepest path last
-	sort.Strings(names)
-
-	// Build ChainItems for each name
-	items := make([]*ChainItem, 0, len(names))
-	for _, name := range names {
-		path, err := logicalnames.LogicalNameToPath(name)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %w", ErrInvalidLogicalName, err)
-		}
-		items = append(items, &ChainItem{
-			LogicalName: name,
-			FilePath:    path,
-			Qualifier:   nil,
-		})
-	}
-
-	// Last item is the target; all preceding are ancestors
-	target := items[len(items)-1]
-	ancestors := items[:len(items)-1]
-
-	return ancestors, target, nil
-}
-
-// resolveDependencies resolves each entry in depends_on into ChainItems,
-// then sorts them by file path then qualifier.
-func resolveDependencies(fm *frontmatter.Frontmatter) ([]*ChainItem, error) {
-	var deps []*ChainItem
-
-	for _, entry := range fm.DependsOn {
-		if entry == nil {
-			continue
-		}
-		ref := *entry
-
-		if logicalnames.LogicalNameIsArtifact(ref) {
-			item, err := resolveArtifactRef(ref)
+			depPath, err := logicalnames.LogicalNameToPath(bareName)
 			if err != nil {
-				return nil, err
-			}
-			deps = append(deps, item)
-		} else if len(ref) >= 5 && ref[:5] == "ROOT/" || ref == "ROOT" {
-			qualifier, hasQualifier := logicalnames.LogicalNameGetQualifier(ref)
-			bare := logicalnames.LogicalNameStripQualifier(ref)
-
-			path, err := logicalnames.LogicalNameToPath(bare)
-			if err != nil {
-				return nil, fmt.Errorf("%w: %w", ErrInvalidLogicalName, err)
+				return nil, fmt.Errorf("resolving dependency path for %q: %w", bareName, err)
 			}
 
 			item := &ChainItem{
-				LogicalName: bare,
-				FilePath:    path,
+				LogicalName: bareName,
+				FilePath:    depPath,
 				Qualifier:   nil,
 			}
 			if hasQualifier {
 				q := qualifier
 				item.Qualifier = &q
 			}
-			deps = append(deps, item)
+			dependencies = append(dependencies, item)
+
+		} else if len(entry) >= 9 && entry[:9] == "ARTIFACT/" {
+			qualifier, hasQualifier := logicalnames.LogicalNameGetQualifier(entry)
+			if !hasQualifier {
+				return nil, fmt.Errorf("dependency %q: %w", entry, ErrUnresolvableArtifact)
+			}
+			artifactID := qualifier
+
+			generatorName, err := logicalnames.LogicalNameGetArtifactGenerator(entry)
+			if err != nil {
+				return nil, fmt.Errorf("getting artifact generator for %q: %w", entry, err)
+			}
+
+			generatorPath, err := logicalnames.LogicalNameToPath(generatorName)
+			if err != nil {
+				return nil, fmt.Errorf("resolving generator path for %q: %w", generatorName, err)
+			}
+
+			generatorFrontmatter, err := frontmatter.FrontmatterParse(generatorPath)
+			if err != nil {
+				return nil, fmt.Errorf("parsing frontmatter for generator %q: %w", generatorName, err)
+			}
+
+			artifactPath := ""
+			for _, output := range generatorFrontmatter.Outputs {
+				if output.ID == artifactID {
+					artifactPath = output.Path
+					break
+				}
+			}
+			if artifactPath == "" {
+				return nil, fmt.Errorf("artifact %q output id %q not found: %w", entry, artifactID, ErrUnresolvableArtifact)
+			}
+
+			q := artifactID
+			item := &ChainItem{
+				LogicalName: entry,
+				FilePath:    &pathutils.PathCfs{Value: artifactPath},
+				Qualifier:   &q,
+			}
+			dependencies = append(dependencies, item)
+
 		} else {
-			return nil, fmt.Errorf("%w: unsupported reference %q", ErrUnresolvableArtifact, ref)
+			return nil, fmt.Errorf("dependency %q has unrecognized prefix: %w", entry, ErrUnresolvableArtifact)
 		}
 	}
 
-	// Sort by file path, then qualifier (absent before present)
-	sort.SliceStable(deps, func(i, j int) bool {
-		pi := deps[i].FilePath.Value
-		pj := deps[j].FilePath.Value
+	// Sort dependencies by file_path, then qualifier (absent before present, then alphabetical)
+	sort.SliceStable(dependencies, func(i, j int) bool {
+		pi := dependencies[i].FilePath.Value
+		pj := dependencies[j].FilePath.Value
 		if pi != pj {
 			return pi < pj
 		}
-		// absent qualifier sorts before present
-		if deps[i].Qualifier == nil && deps[j].Qualifier != nil {
-			return true
-		}
-		if deps[i].Qualifier != nil && deps[j].Qualifier == nil {
+		qi := dependencies[i].Qualifier
+		qj := dependencies[j].Qualifier
+		if qi == nil && qj == nil {
 			return false
 		}
-		if deps[i].Qualifier != nil && deps[j].Qualifier != nil {
-			return *deps[i].Qualifier < *deps[j].Qualifier
+		if qi == nil {
+			return true
 		}
-		return false
+		if qj == nil {
+			return false
+		}
+		return *qi < *qj
 	})
 
-	return deps, nil
-}
-
-// resolveArtifactRef resolves an ARTIFACT/ reference into a ChainItem.
-func resolveArtifactRef(ref string) (*ChainItem, error) {
-	qualifier, hasQualifier := logicalnames.LogicalNameGetQualifier(ref)
-	if !hasQualifier {
-		return nil, fmt.Errorf("%w: ARTIFACT/ reference %q missing qualifier", ErrUnresolvableArtifact, ref)
-	}
-
-	generatorLogicalName, err := logicalnames.LogicalNameGetArtifactGenerator(ref)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidLogicalName, err)
-	}
-
-	generatorFilePath, err := logicalnames.LogicalNameToPath(generatorLogicalName)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidLogicalName, err)
-	}
-
-	generatorFrontmatter, err := frontmatter.FrontmatterParse(generatorFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
-	}
-
-	artifactPath, err := findOutputPath(generatorFrontmatter, qualifier, ref)
-	if err != nil {
-		return nil, err
-	}
-
-	q := qualifier
-	return &ChainItem{
-		LogicalName: ref,
-		FilePath:    &pathutils.PathCfs{Value: artifactPath},
-		Qualifier:   &q,
-	}, nil
-}
-
-// findOutputPath searches a frontmatter's outputs for an entry with the given id.
-func findOutputPath(fm *frontmatter.Frontmatter, id string, ref string) (string, error) {
-	for _, out := range fm.Outputs {
-		if out != nil && out.ID == id {
-			return out.Path, nil
-		}
-	}
-	return "", fmt.Errorf("%w: output id %q not found for %q", ErrUnresolvableArtifact, id, ref)
-}
-
-// deduplicateDependencies removes redundant entries from sorted deps.
-func deduplicateDependencies(deps []*ChainItem) []*ChainItem {
-	result := make([]*ChainItem, 0, len(deps))
-
-	for _, item := range deps {
-		if logicalnames.LogicalNameIsArtifact(item.LogicalName) {
-			// For ARTIFACT/ entries: skip exact duplicates by logical name
-			if containsArtifact(result, item.LogicalName) {
-				continue
+	// Step 3 — Deduplicate dependencies
+	deduped := []*ChainItem{}
+	for _, entry := range dependencies {
+		if logicalnames.LogicalNameIsArtifact(entry.LogicalName) {
+			// ARTIFACT/ entry: deduplicate by logical_name (including qualifier)
+			duplicate := false
+			for _, existing := range deduped {
+				if existing.LogicalName == entry.LogicalName {
+					duplicate = true
+					break
+				}
 			}
-			result = append(result, item)
+			if !duplicate {
+				deduped = append(deduped, entry)
+			}
 		} else {
-			// For ROOT/ entries
-			filePath := item.FilePath.Value
-
-			if item.Qualifier == nil {
-				// No qualifier — check if already present with no qualifier
-				if containsRootWithPath(result, filePath, nil) {
-					continue
+			// ROOT/ entry: deduplicate by file_path and qualifier
+			duplicate := false
+			for _, existing := range deduped {
+				if existing.FilePath.Value == entry.FilePath.Value {
+					// Same file_path and same qualifier → skip
+					if qualifierEqual(existing.Qualifier, entry.Qualifier) {
+						duplicate = true
+						break
+					}
+					// Existing has absent qualifier → existing subsumes any qualified entry
+					if existing.Qualifier == nil {
+						duplicate = true
+						break
+					}
 				}
-				// Add it and remove any previously added entries with same path + qualifier
-				result = removeRootWithPathAndQualifier(result, filePath)
-				result = append(result, item)
-			} else {
-				// Has qualifier — skip if same path+qualifier already present
-				if containsRootWithPath(result, filePath, item.Qualifier) {
-					continue
-				}
-				// Skip if same path with no qualifier already present (subsumed)
-				if containsRootWithPath(result, filePath, nil) {
-					continue
-				}
-				result = append(result, item)
+			}
+			if !duplicate {
+				deduped = append(deduped, entry)
 			}
 		}
 	}
+	dependencies = deduped
 
-	return result
-}
-
-// containsArtifact reports whether result already has an ARTIFACT/ item with the given logical name.
-func containsArtifact(result []*ChainItem, logicalName string) bool {
-	for _, r := range result {
-		if r.LogicalName == logicalName {
-			return true
-		}
-	}
-	return false
-}
-
-// containsRootWithPath reports whether result has a ROOT/ item matching the given path and qualifier.
-// If qualifier is nil, it looks for an entry with no qualifier.
-func containsRootWithPath(result []*ChainItem, filePath string, qualifier *string) bool {
-	for _, r := range result {
-		if logicalnames.LogicalNameIsArtifact(r.LogicalName) {
-			continue
-		}
-		if r.FilePath.Value != filePath {
-			continue
-		}
-		if qualifier == nil && r.Qualifier == nil {
-			return true
-		}
-		if qualifier != nil && r.Qualifier != nil && *qualifier == *r.Qualifier {
-			return true
-		}
-	}
-	return false
-}
-
-// removeRootWithPathAndQualifier removes from result any ROOT/ entries that have
-// the given file path AND a non-nil qualifier (they are subsumed by a no-qualifier entry).
-func removeRootWithPathAndQualifier(result []*ChainItem, filePath string) []*ChainItem {
-	filtered := result[:0]
-	for _, r := range result {
-		if !logicalnames.LogicalNameIsArtifact(r.LogicalName) &&
-			r.FilePath.Value == filePath &&
-			r.Qualifier != nil {
-			continue
-		}
-		filtered = append(filtered, r)
-	}
-	return filtered
-}
-
-// collectExternal copies and sorts the external list from frontmatter.
-func collectExternal(fm *frontmatter.Frontmatter) []*frontmatter.FrontmatterExternal {
-	if len(fm.External) == 0 {
-		return []*frontmatter.FrontmatterExternal{}
-	}
-
-	external := make([]*frontmatter.FrontmatterExternal, len(fm.External))
-	copy(external, fm.External)
-
+	// Step 4 — Collect external
+	external := make([]*frontmatter.FrontmatterExternal, len(targetFrontmatter.External))
+	copy(external, targetFrontmatter.External)
 	sort.SliceStable(external, func(i, j int) bool {
 		return external[i].Path < external[j].Path
 	})
 
-	return external
+	// Step 5 — Resolve input
+	var input *ChainItem
+
+	if targetFrontmatter.Input != "" {
+		inputEntry := targetFrontmatter.Input
+
+		qualifier, hasQualifier := logicalnames.LogicalNameGetQualifier(inputEntry)
+		if !hasQualifier {
+			return nil, fmt.Errorf("input %q missing qualifier: %w", inputEntry, ErrUnresolvableArtifact)
+		}
+		artifactID := qualifier
+
+		generatorName, err := logicalnames.LogicalNameGetArtifactGenerator(inputEntry)
+		if err != nil {
+			return nil, fmt.Errorf("getting input artifact generator for %q: %w", inputEntry, err)
+		}
+
+		generatorPath, err := logicalnames.LogicalNameToPath(generatorName)
+		if err != nil {
+			return nil, fmt.Errorf("resolving input generator path for %q: %w", generatorName, err)
+		}
+
+		generatorFrontmatter, err := frontmatter.FrontmatterParse(generatorPath)
+		if err != nil {
+			return nil, fmt.Errorf("parsing frontmatter for input generator %q: %w", generatorName, err)
+		}
+
+		artifactPath := ""
+		for _, output := range generatorFrontmatter.Outputs {
+			if output.ID == artifactID {
+				artifactPath = output.Path
+				break
+			}
+		}
+		if artifactPath == "" {
+			return nil, fmt.Errorf("input %q output id %q not found: %w", inputEntry, artifactID, ErrUnresolvableArtifact)
+		}
+
+		q := artifactID
+		input = &ChainItem{
+			LogicalName: inputEntry,
+			FilePath:    &pathutils.PathCfs{Value: artifactPath},
+			Qualifier:   &q,
+		}
+	}
+
+	return &Chain{
+		Ancestors:    ancestors,
+		Dependencies: dependencies,
+		External:     external,
+		Target:       target,
+		Input:        input,
+	}, nil
 }
 
-// resolveInput resolves the input artifact reference from frontmatter.
-func resolveInput(fm *frontmatter.Frontmatter) (*ChainItem, error) {
-	if fm.Input == "" {
-		return nil, nil
+// qualifierEqual returns true if both qualifier pointers are equal
+// (both nil, or both point to the same string value).
+func qualifierEqual(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
 	}
-
-	ref := fm.Input
-	qualifier, hasQualifier := logicalnames.LogicalNameGetQualifier(ref)
-	if !hasQualifier {
-		return nil, fmt.Errorf("%w: input reference %q missing qualifier", ErrUnresolvableArtifact, ref)
+	if a == nil || b == nil {
+		return false
 	}
-
-	generatorLogicalName, err := logicalnames.LogicalNameGetArtifactGenerator(ref)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidLogicalName, err)
-	}
-
-	generatorFilePath, err := logicalnames.LogicalNameToPath(generatorLogicalName)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidLogicalName, err)
-	}
-
-	generatorFrontmatter, err := frontmatter.FrontmatterParse(generatorFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
-	}
-
-	artifactPath, err := findOutputPath(generatorFrontmatter, qualifier, ref)
-	if err != nil {
-		return nil, err
-	}
-
-	q := qualifier
-	return &ChainItem{
-		LogicalName: ref,
-		FilePath:    &pathutils.PathCfs{Value: artifactPath},
-		Qualifier:   &q,
-	}, nil
+	return *a == *b
 }
