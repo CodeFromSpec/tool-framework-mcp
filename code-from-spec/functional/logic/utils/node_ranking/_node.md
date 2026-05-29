@@ -76,6 +76,12 @@ For each `NodeRankInput`:
 
 ### Step 2 — Build dependency edges
 
+Every entry will have at least one dependency: spec
+nodes (other than ROOT) always have a parent, and
+artifact entries always depend on their generating node.
+ROOT is the only entry with no dependencies — it is
+handled as a special case in Step 3.
+
 For each spec node entry:
 - **Parent**: derive from logical name using
   `LogicalNameGetParent`. The root node has no parent
