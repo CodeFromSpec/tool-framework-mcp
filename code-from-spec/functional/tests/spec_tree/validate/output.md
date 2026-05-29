@@ -1,22 +1,24 @@
-<!-- code-from-spec: ROOT/functional/tests/spec_tree/validate@dvGSX8kCWtPILGncqu5iNFr1ttY -->
+<!-- code-from-spec: ROOT/functional/tests/spec_tree/validate@6kf8-p9niA2nFi8RLdRjTCq81Ro -->
 
 # Test Specification: SpecTreeValidate
 
-## Interface
+Function under test: `SpecTreeValidate`
+Input type: `list of SpecTreeValidateInput`
+Output type: `list of FormatError`
 
-```
-record SpecTreeValidateInput
-  logical_name: string
-  frontmatter: Frontmatter
-  node: Node
+Each `SpecTreeValidateInput` has:
+- `logical_name`: string
+- `frontmatter`: Frontmatter (fields: `depends_on`, `outputs`, `input`, `external`)
+- `node`: Node (fields: `name_section.heading`, `public`, `agent`)
 
-record FormatError
-  node: string
-  rule: string
-  detail: string
+Each `FormatError` has:
+- `node`: string
+- `rule`: string
+- `detail`: string
 
-function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of FormatError
-```
+A node is a **leaf** if no other entry in the input list has a logical name
+that starts with that node's logical name followed by `/`.
+A node is **intermediate** if at least one such entry exists.
 
 ---
 
@@ -24,67 +26,85 @@ function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of For
 
 ### TC-HP-1: Valid leaf node passes all checks
 
-**Setup:**
-- Entry 1: logical_name = "ROOT", node has no agent section, node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.name_section.heading = "ROOT/a", frontmatter.depends_on = ["ROOT/b"] (where ROOT/b exists — see note), frontmatter.outputs = [{id: "out", path: "internal/a.go"}]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, frontmatter empty, heading = `"ROOT"`
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, depends_on = `["ROOT/b"]`
+  (assume `ROOT/b` is also in the input), outputs = `[{id: "out", path: "internal/a.go"}]`
 
-> Note: Add Entry 3: logical_name = "ROOT/b" to satisfy the dependency reference, and ensure ROOT is intermediate (ROOT/a exists as child). ROOT/a is a leaf (no entry starts with "ROOT/a/").
+  For a self-contained variant, use:
+- Entry 1: `logical_name = "ROOT"`, frontmatter empty, heading = `"ROOT"`
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty, no agent
 
-**Actions:** Call SpecTreeValidate with all three entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns an empty list of FormatErrors.
+**Expected outcome**
+Return value is an empty list (no `FormatError` records).
 
 ---
 
 ### TC-HP-2: Valid intermediate node passes all checks
 
-**Setup:**
-- Entry 1: logical_name = "ROOT", node.name_section.heading = "ROOT", no frontmatter fields (depends_on, outputs, input, external all absent), no agent section, node.public present with distinct subsections
-- Entry 2: logical_name = "ROOT/a", node.name_section.heading = "ROOT/a", leaf node (no children)
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, frontmatter empty (no depends_on, outputs, input,
+  external), heading = `"ROOT"`, no agent section
+- Entry 2: `logical_name = "ROOT/a"`, frontmatter empty, heading = `"ROOT/a"`, no agent section
 
-**Actions:** Call SpecTreeValidate with both entries.
+ROOT is intermediate (ROOT/a starts with "ROOT/"). ROOT/a is a leaf.
 
-**Expected outcome:** Returns an empty list of FormatErrors.
+**Actions**
+Call `SpecTreeValidate` with both entries.
+
+**Expected outcome**
+Return value is an empty list.
 
 ---
 
 ### TC-HP-3: Leaf with no frontmatter fields
 
-**Setup:**
-- Entry 1: logical_name = "ROOT", node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.name_section.heading = "ROOT/a", frontmatter is empty (no depends_on, no outputs, no input, no external), no agent section
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, frontmatter empty, heading = `"ROOT"`
+- Entry 2: `logical_name = "ROOT/a"`, frontmatter completely empty
+  (depends_on absent, outputs absent, input absent, external absent),
+  heading = `"ROOT/a"`, no agent section
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns an empty list of FormatErrors.
+**Expected outcome**
+Return value is an empty list.
 
 ---
 
 ## Rule: name_heading
 
-### TC-NH-1: Heading matches logical name
+### TC-NH-1: Heading matches logical name — no error
 
-**Setup:**
-- Entry 1: logical_name = "ROOT", node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.name_section.heading = "ROOT/a"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns no FormatError with rule = "name_heading".
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "name_heading"`.
 
 ---
 
 ### TC-NH-2: Heading does not match logical name
 
-**Setup:**
-- Entry 1: logical_name = "ROOT", node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.name_section.heading = "ROOT/wrong"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/wrong"`
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "name_heading"
+**Expected outcome**
+Return value contains exactly one `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "name_heading"`
 
 ---
 
@@ -92,83 +112,104 @@ function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of For
 
 ### TC-LOF-1: Intermediate node with depends_on
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.depends_on = ["ROOT/b"] (ROOT/b exists as Entry 4)
-- Entry 3: logical_name = "ROOT/a/b" (makes ROOT/a intermediate)
-- Entry 4: logical_name = "ROOT/b"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, depends_on = `["ROOT/b"]`
+- Entry 3: `logical_name = "ROOT/a/b"`, heading = `"ROOT/a/b"`, frontmatter empty
+- Entry 4: `logical_name = "ROOT/b"`, heading = `"ROOT/b"`, frontmatter empty
 
-**Actions:** Call SpecTreeValidate with all four entries.
+ROOT/a is intermediate (ROOT/a/b starts with "ROOT/a/").
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
-- detail references "depends_on"
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "leaf_only_fields"`
 
 ---
 
 ### TC-LOF-2: Intermediate node with outputs
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.outputs = [{id: "x", path: "x.go"}]
-- Entry 3: logical_name = "ROOT/a/b" (makes ROOT/a intermediate)
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  outputs = `[{id: "x", path: "x.go"}]`
+- Entry 3: `logical_name = "ROOT/a/b"`, heading = `"ROOT/a/b"`, frontmatter empty
 
-**Actions:** Call SpecTreeValidate with all three entries.
+ROOT/a is intermediate.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
-- detail references "outputs"
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "leaf_only_fields"`
 
 ---
 
 ### TC-LOF-3: Intermediate node with input
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.input = "ARTIFACT/c(id)"
-- Entry 3: logical_name = "ROOT/a/b" (makes ROOT/a intermediate)
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  input = `"ARTIFACT/c(id)"`
+- Entry 3: `logical_name = "ROOT/a/b"`, heading = `"ROOT/a/b"`, frontmatter empty
 
-**Actions:** Call SpecTreeValidate with all three entries.
+ROOT/a is intermediate.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
-- detail references "input"
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "leaf_only_fields"`
 
 ---
 
 ### TC-LOF-4: Intermediate node with external
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "some/file.txt"}]
-- Entry 3: logical_name = "ROOT/a/b" (makes ROOT/a intermediate)
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "some/file.txt"}]`
+- Entry 3: `logical_name = "ROOT/a/b"`, heading = `"ROOT/a/b"`, frontmatter empty
 
-**Actions:** Call SpecTreeValidate with all three entries.
+ROOT/a is intermediate.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
-- detail references "external"
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "leaf_only_fields"`
 
 ---
 
-### TC-LOF-5: Intermediate node with multiple restricted fields
+### TC-LOF-5: Intermediate node with multiple restricted fields — one error per field
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.depends_on = ["ROOT/b"] (ROOT/b exists as Entry 4), frontmatter.outputs = [{id: "x", path: "x.go"}]
-- Entry 3: logical_name = "ROOT/a/b" (makes ROOT/a intermediate)
-- Entry 4: logical_name = "ROOT/b"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  depends_on = `["ROOT/b"]`, outputs = `[{id: "x", path: "x.go"}]`
+- Entry 3: `logical_name = "ROOT/a/b"`, heading = `"ROOT/a/b"`, frontmatter empty
+- Entry 4: `logical_name = "ROOT/b"`, heading = `"ROOT/b"`, frontmatter empty
 
-**Actions:** Call SpecTreeValidate with all four entries.
+ROOT/a is intermediate.
 
-**Expected outcome:** Returns exactly two FormatErrors where both have:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
-- One error references "depends_on", the other references "outputs"
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains exactly two `FormatError` records where both have:
+- `node = "ROOT/a"`
+- `rule = "leaf_only_fields"`
+
+One error for `depends_on`, one error for `outputs`.
 
 ---
 
@@ -176,28 +217,38 @@ function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of For
 
 ### TC-LOA-1: Intermediate node with agent section
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.agent is present (non-absent)
-- Entry 3: logical_name = "ROOT/a/b" (makes ROOT/a intermediate)
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty,
+  `node.agent` is present (non-absent)
+- Entry 3: `logical_name = "ROOT/a/b"`, heading = `"ROOT/a/b"`, frontmatter empty
 
-**Actions:** Call SpecTreeValidate with all three entries.
+ROOT/a is intermediate.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "leaf_only_agent"
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "leaf_only_agent"`
 
 ---
 
 ### TC-LOA-2: Leaf node with agent section — no error
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.agent is present, no children (ROOT/a is a leaf)
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty,
+  `node.agent` is present
 
-**Actions:** Call SpecTreeValidate with both entries.
+ROOT/a is a leaf (no entry starts with "ROOT/a/").
 
-**Expected outcome:** Returns no FormatError with rule = "leaf_only_agent".
+**Actions**
+Call `SpecTreeValidate` with both entries.
+
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "leaf_only_agent"`.
 
 ---
 
@@ -205,355 +256,425 @@ function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of For
 
 ### TC-DT-1: depends_on targets non-existent ROOT node
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.depends_on = ["ROOT/missing"]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  depends_on = `["ROOT/missing"]`
 
-**Actions:** Call SpecTreeValidate with both entries.
+No entry with logical_name `"ROOT/missing"` exists.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "dependency_targets"
-- detail references "ROOT/missing"
+**Actions**
+Call `SpecTreeValidate` with both entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "dependency_targets"`
 
 ---
 
 ### TC-DT-2: depends_on targets ancestor
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a"
-- Entry 3: logical_name = "ROOT/a/b", frontmatter.depends_on = ["ROOT"]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty
+- Entry 3: `logical_name = "ROOT/a/b"`, heading = `"ROOT/a/b"`,
+  depends_on = `["ROOT"]`
 
-**Actions:** Call SpecTreeValidate with all three entries.
+`"ROOT"` is an ancestor of `"ROOT/a/b"` (ROOT/a/b starts with "ROOT/").
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a/b"
-- rule = "dependency_targets"
-- detail references "ROOT" as an ancestor
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a/b"`
+- `rule = "dependency_targets"`
 
 ---
 
 ### TC-DT-3: depends_on targets descendant
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.depends_on = ["ROOT/a/b"]
-- Entry 3: logical_name = "ROOT/a/b"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  depends_on = `["ROOT/a/b"]`
+- Entry 3: `logical_name = "ROOT/a/b"`, heading = `"ROOT/a/b"`, frontmatter empty
 
-**Actions:** Call SpecTreeValidate with all three entries.
+`"ROOT/a/b"` is a descendant of `"ROOT/a"` (ROOT/a/b starts with "ROOT/a/").
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "dependency_targets"
-- detail references "ROOT/a/b" as a descendant
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "dependency_targets"`
 
 ---
 
 ### TC-DT-4: depends_on targets self
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.depends_on = ["ROOT/a"]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  depends_on = `["ROOT/a"]`
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "dependency_targets"
-- detail references self-dependency
-
----
-
-### TC-DT-5: depends_on with valid ROOT qualifier
-
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a"
-- Entry 3: logical_name = "ROOT/b", frontmatter.depends_on = ["ROOT/a(interface)"]
-
-**Actions:** Call SpecTreeValidate with all three entries.
-
-**Expected outcome:** Returns no FormatError with rule = "dependency_targets" (qualifier is stripped; "ROOT/a" exists and is not an ancestor, descendant, or self of "ROOT/b").
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "dependency_targets"`
 
 ---
 
-### TC-DT-6: depends_on with valid ARTIFACT reference
+### TC-DT-5: depends_on with valid ROOT qualifier — no error
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.outputs = [{id: "lib", path: "lib.go"}]
-- Entry 3: logical_name = "ROOT/b", frontmatter.depends_on = ["ARTIFACT/a(lib)"]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty
+- Entry 3: `logical_name = "ROOT/b"`, heading = `"ROOT/b"`,
+  depends_on = `["ROOT/a(interface)"]`
 
-**Actions:** Call SpecTreeValidate with all three entries.
+The qualifier `(interface)` is stripped; the resolved target is `"ROOT/a"`,
+which exists and is not an ancestor, descendant, or self of `"ROOT/b"`.
 
-**Expected outcome:** Returns no FormatError with rule = "dependency_targets" (ARTIFACT reference resolves: logical_name "ROOT/a" exists and has output id "lib").
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "dependency_targets"`.
+
+---
+
+### TC-DT-6: depends_on with valid ARTIFACT reference — no error
+
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  outputs = `[{id: "lib", path: "lib.go"}]`
+- Entry 3: `logical_name = "ROOT/b"`, heading = `"ROOT/b"`,
+  depends_on = `["ARTIFACT/a(lib)"]`
+
+The reference `"ARTIFACT/a(lib)"` means: node `"ROOT/a"` must have an output
+with id `"lib"`. It does.
+
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "dependency_targets"`.
 
 ---
 
 ### TC-DT-7: depends_on with non-existent ARTIFACT reference
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.depends_on = ["ARTIFACT/missing(id)"]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  depends_on = `["ARTIFACT/missing(id)"]`
 
-**Actions:** Call SpecTreeValidate with both entries.
+No entry with logical_name `"ROOT/missing"` exists.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "dependency_targets"
-- detail references "ARTIFACT/missing(id)" as unresolvable
+**Actions**
+Call `SpecTreeValidate` with both entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "dependency_targets"`
 
 ---
 
 ### TC-DT-8: Multiple invalid depends_on — one error per entry
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.depends_on = ["ROOT/missing", "ROOT/also_missing"]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  depends_on = `["ROOT/missing", "ROOT/also_missing"]`
 
-**Actions:** Call SpecTreeValidate with both entries.
+Neither `"ROOT/missing"` nor `"ROOT/also_missing"` exist in the input list.
 
-**Expected outcome:** Returns exactly two FormatErrors where both have:
-- node = "ROOT/a"
-- rule = "dependency_targets"
-- One error references "ROOT/missing", the other references "ROOT/also_missing"
+**Actions**
+Call `SpecTreeValidate` with both entries.
+
+**Expected outcome**
+Return value contains exactly two `FormatError` records where both have:
+- `node = "ROOT/a"`
+- `rule = "dependency_targets"`
+
+One error per invalid depends_on entry.
 
 ---
 
 ## Rule: input_target
 
-### TC-IT-1: Valid input reference
+### TC-IT-1: Valid input reference — no error
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.outputs = [{id: "out", path: "a.go"}]
-- Entry 3: logical_name = "ROOT/b", frontmatter.input = "ARTIFACT/a(out)"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  outputs = `[{id: "out", path: "a.go"}]`
+- Entry 3: `logical_name = "ROOT/b"`, heading = `"ROOT/b"`,
+  input = `"ARTIFACT/a(out)"`
 
-**Actions:** Call SpecTreeValidate with all three entries.
+Node `"ROOT/a"` exists and has output with id `"out"`.
 
-**Expected outcome:** Returns no FormatError with rule = "input_target".
+**Actions**
+Call `SpecTreeValidate` with all entries.
+
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "input_target"`.
 
 ---
 
 ### TC-IT-2: Input not starting with "ARTIFACT/"
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.input = "ROOT/something"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  input = `"ROOT/something"`
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "input_target"
-- detail indicates the input value does not start with "ARTIFACT/"
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "input_target"`
 
 ---
 
 ### TC-IT-3: Input references non-existent artifact
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.input = "ARTIFACT/missing(id)"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  input = `"ARTIFACT/missing(id)"`
 
-**Actions:** Call SpecTreeValidate with both entries.
+No entry with logical_name `"ROOT/missing"` exists.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "input_target"
-- detail references "ARTIFACT/missing(id)" as unresolvable
+**Actions**
+Call `SpecTreeValidate` with both entries.
+
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "input_target"`
 
 ---
 
 ## Rule: external_files
 
+Hash algorithm: SHA-1 of the selected lines joined with `\n` (LF), where each
+line is read with `FileReadLine` (CRLF normalized to LF, line terminators
+stripped). The digest is encoded as base64url (RFC 4648 §5, no padding) —
+always 27 characters.
+
 ### TC-EF-1: External file exists — no fragments
 
-**Setup (disk):** Create file "some/file.txt" with any content.
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "some/file.txt"}]`
+- Create the file `"some/file.txt"` on disk with any content.
 
-**Setup (entries):**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "some/file.txt"}] (no fragments)
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Actions:** Call SpecTreeValidate with both entries.
-
-**Expected outcome:** Returns no FormatError with rule = "external_files".
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "external_files"`.
 
 ---
 
 ### TC-EF-2: External file does not exist
 
-**Setup (disk):** Do not create any file at "nonexistent.txt".
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "nonexistent.txt"}]`
+- Do not create the file `"nonexistent.txt"` on disk.
 
-**Setup (entries):**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "nonexistent.txt"}]
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Actions:** Call SpecTreeValidate with both entries.
-
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "external_files"
-- detail references "nonexistent.txt" as missing
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "external_files"`
 
 ---
 
 ### TC-EF-3: Fragment with valid hash
 
-**Setup (disk):** Create file "f.txt" with the following 5 lines of known content:
-```
-line one
-line two
-line three
-line four
-line five
-```
-Compute the correct hash of lines 1–3 (i.e., "line one\nline two\nline three") and use it as the fragment hash.
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "f.txt", fragments: [{lines: "1-3", hash: <correct-hash>}]}]`
+- Create the file `"f.txt"` on disk with at least 5 lines of known content,
+  for example:
+  ```
+  line one
+  line two
+  line three
+  line four
+  line five
+  ```
+- Compute `<correct-hash>` by:
+  1. Reading lines 1–3 with `FileReadLine` (stripping terminators, normalizing CRLF).
+  2. Joining them with `\n`: `"line one\nline two\nline three"`
+  3. Computing SHA-1 of that string.
+  4. Encoding the digest as base64url (RFC 4648 §5, no padding, 27 characters).
 
-**Setup (entries):**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "f.txt", fragments: [{lines: "1-3", hash: <correct hash>}]}]
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Actions:** Call SpecTreeValidate with both entries.
-
-**Expected outcome:** Returns no FormatError with rule = "external_files".
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "external_files"`.
 
 ---
 
 ### TC-EF-4: Fragment with invalid hash
 
-**Setup (disk):** Create file "f.txt" with the following 5 lines:
-```
-line one
-line two
-line three
-line four
-line five
-```
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "f.txt", fragments: [{lines: "1-3", hash: "wrong"}]}]`
+- Create `"f.txt"` on disk with at least 3 lines of known content.
 
-**Setup (entries):**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "f.txt", fragments: [{lines: "1-3", hash: "wrong"}]}]
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Actions:** Call SpecTreeValidate with both entries.
-
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "external_files"
-- detail indicates hash mismatch for "f.txt" lines 1–3
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "external_files"`
 
 ---
 
 ### TC-EF-5: Fragment with invalid range format
 
-**Setup (disk):** Create file "f.txt" with any content.
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "f.txt", fragments: [{lines: "abc", hash: "x"}]}]`
+- Create `"f.txt"` on disk with any content.
 
-**Setup (entries):**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "f.txt", fragments: [{lines: "abc", hash: "x"}]}]
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Actions:** Call SpecTreeValidate with both entries.
-
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "external_files"
-- detail indicates "abc" is not a valid line range format
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "external_files"`
 
 ---
 
 ### TC-EF-6: Fragment with start > end
 
-**Setup (disk):** Create file "f.txt" with any content.
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "f.txt", fragments: [{lines: "5-3", hash: "x"}]}]`
+- Create `"f.txt"` on disk with any content.
 
-**Setup (entries):**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "f.txt", fragments: [{lines: "5-3", hash: "x"}]}]
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Actions:** Call SpecTreeValidate with both entries.
-
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "external_files"
-- detail indicates start line (5) is greater than end line (3)
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "external_files"`
 
 ---
 
 ### TC-EF-7: Fragment with start < 1
 
-**Setup (disk):** Create file "f.txt" with any content.
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "f.txt", fragments: [{lines: "0-3", hash: "x"}]}]`
+- Create `"f.txt"` on disk with any content.
 
-**Setup (entries):**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "f.txt", fragments: [{lines: "0-3", hash: "x"}]}]
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Actions:** Call SpecTreeValidate with both entries.
-
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "external_files"
-- detail indicates start line (0) is less than 1
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "external_files"`
 
 ---
 
 ### TC-EF-8: Fragment out of range
 
-**Setup (disk):** Create file "f.txt" with exactly 5 lines of content.
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  external = `[{path: "f.txt", fragments: [{lines: "1-100", hash: "x"}]}]`
+- Create `"f.txt"` on disk with exactly 5 lines of content.
 
-**Setup (entries):**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.external = [{path: "f.txt", fragments: [{lines: "1-100", hash: "x"}]}]
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Actions:** Call SpecTreeValidate with both entries.
-
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "external_files"
-- detail indicates the fragment range (1–100) exceeds the file's total line count (5)
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "external_files"`
+- `detail` indicates the fragment is out of range.
 
 ---
 
 ## Rule: output_paths
 
-### TC-OP-1: Valid output path
+### TC-OP-1: Valid output path — no error
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.outputs = [{id: "x", path: "internal/x.go"}]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  outputs = `[{id: "x", path: "internal/x.go"}]`
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns no FormatError with rule = "output_paths".
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "output_paths"`.
 
 ---
 
 ### TC-OP-2: Output path with traversal
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.outputs = [{id: "x", path: "../../etc/passwd"}]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  outputs = `[{id: "x", path: "../../etc/passwd"}]`
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "output_paths"
-- detail references the path "../../etc/passwd" as containing traversal sequences
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "output_paths"`
 
 ---
 
 ### TC-OP-3: Output path with backslash
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter.outputs = [{id: "x", path: "internal\\x.go"}]
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`,
+  outputs = `[{id: "x", path: "internal\\x.go"}]`
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns at least one FormatError where:
-- node = "ROOT/a"
-- rule = "output_paths"
-- detail references the path "internal\\x.go" as containing a backslash
+**Expected outcome**
+Return value contains a `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "output_paths"`
 
 ---
 
@@ -561,55 +682,70 @@ line five
 
 ### TC-DS-1: Unique subsection headings — no error
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.public contains subsections with headings "Interface" and "Context" (both distinct)
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty,
+  `node.public` contains subsections with headings `"Interface"` and `"Context"`
+  (all distinct).
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns no FormatError with rule = "duplicate_subsections".
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "duplicate_subsections"`.
 
 ---
 
 ### TC-DS-2: Duplicate subsection headings
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.public contains two subsections both named "Interface"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty,
+  `node.public` contains two subsections both named `"Interface"`.
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns exactly one FormatError where:
-- node = "ROOT/a"
-- rule = "duplicate_subsections"
-- detail references the second occurrence of heading "Interface"
+**Expected outcome**
+Return value contains exactly one `FormatError` where:
+- `node = "ROOT/a"`
+- `rule = "duplicate_subsections"`
+
+The error corresponds to the second occurrence of `"Interface"`.
 
 ---
 
 ### TC-DS-3: Three identical subsection headings
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.public contains three subsections all named "Interface"
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty,
+  `node.public` contains three subsections all named `"Interface"`.
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns exactly two FormatErrors where both have:
-- node = "ROOT/a"
-- rule = "duplicate_subsections"
-- details reference the second and third occurrences of heading "Interface" respectively
+**Expected outcome**
+Return value contains exactly two `FormatError` records where both have:
+- `node = "ROOT/a"`
+- `rule = "duplicate_subsections"`
+
+The two errors correspond to the second and third occurrences of `"Interface"`.
 
 ---
 
 ### TC-DS-4: No public section — skip
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a", node.public is absent
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, frontmatter empty,
+  `node.public` is absent.
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns no FormatError with rule = "duplicate_subsections".
+**Expected outcome**
+Return value contains no `FormatError` with `rule = "duplicate_subsections"`.
 
 ---
 
@@ -617,23 +753,31 @@ line five
 
 ### TC-CC-1: Collects multiple errors from different rules
 
-**Setup:**
-- Entry 1: logical_name = "ROOT"
-- Entry 2: logical_name = "ROOT/a":
-  - node.name_section.heading = "ROOT/wrong" (triggers name_heading)
-  - frontmatter.depends_on = ["ROOT/missing"] (triggers dependency_targets)
-  - node.public contains two subsections both named "Interface" (triggers duplicate_subsections)
+**Setup**
+- Entry 1: `logical_name = "ROOT"`, heading = `"ROOT"`, frontmatter empty
+- Entry 2: `logical_name = "ROOT/a"`, heading = `"ROOT/a"`, all of:
+  - `node.name_section.heading = "ROOT/wrong"` (triggers `name_heading`)
+  - `depends_on = ["ROOT/missing"]` (triggers `dependency_targets`)
+  - `node.public` contains two subsections both named `"Interface"`
+    (triggers `duplicate_subsections`)
 
-**Actions:** Call SpecTreeValidate with both entries.
+**Actions**
+Call `SpecTreeValidate` with both entries.
 
-**Expected outcome:** Returns at least three FormatErrors, containing at least one each with rules "name_heading", "dependency_targets", and "duplicate_subsections", all with node = "ROOT/a".
+**Expected outcome**
+Return value contains at least three `FormatError` records. At least one has
+`rule = "name_heading"`, at least one has `rule = "dependency_targets"`, and
+at least one has `rule = "duplicate_subsections"`. All have `node = "ROOT/a"`.
 
 ---
 
 ### TC-CC-2: Empty input list
 
-**Setup:** No entries.
+**Setup**
+Input is an empty list (no `SpecTreeValidateInput` records).
 
-**Actions:** Call SpecTreeValidate with an empty list.
+**Actions**
+Call `SpecTreeValidate` with an empty list.
 
-**Expected outcome:** Returns an empty list of FormatErrors.
+**Expected outcome**
+Return value is an empty list (no `FormatError` records).

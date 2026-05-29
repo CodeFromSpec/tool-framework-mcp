@@ -172,6 +172,13 @@ Call SpecTreeValidate. Expect a FormatError with rule =
 
 ### external_files
 
+Fragment hashes use SHA-1 encoded as base64url (RFC 4648
+§5, no padding) — always 27 characters. The input to
+SHA-1 is the lines in the declared range, read with
+`FileReadLine` (which normalizes CRLF to LF and strips
+terminators), joined with `\n` (LF). Tests that need a
+"correct hash" must compute it using this algorithm.
+
 #### External file exists — no fragments
 
 Input: ROOT, ROOT/a with external = [{path:
@@ -190,7 +197,8 @@ SpecTreeValidate. Expect a FormatError with rule =
 
 Input: ROOT, ROOT/a with external = [{path: "f.txt",
 fragments: [{lines: "1-3", hash: <correct hash>}]}].
-Create "f.txt" with known content. Call
+Create "f.txt" with 5 lines of known content. Compute
+the correct hash per the rule above. Call
 SpecTreeValidate. Expect no external_files error.
 
 #### Fragment with invalid hash

@@ -1,0 +1,35 @@
+---
+depends_on:
+  - ARTIFACT/golang/interfaces/spec_tree/validate(interface)
+  - ARTIFACT/golang/interfaces/os/file_reader(interface)
+  - ARTIFACT/golang/interfaces/os/path_utils(interface)
+  - ARTIFACT/golang/interfaces/utils/text_normalization(interface)
+  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
+  - ARTIFACT/golang/interfaces/parsing/node_parsing(interface)
+input: ARTIFACT/functional/logic/spec_tree/validate(format_validation)
+outputs:
+  - id: spectreevalidate
+    path: internal/spectreevalidate/spectreevalidate.go
+---
+
+# ROOT/golang/implementation/spec_tree/validate
+
+# Agent
+
+Implement the pseudocode from the input as a Go package.
+
+## Go-specific guidance
+
+- Use the `filereader` package for `FileOpen`, `FileReadLine`,
+  `FileSkipLines`, `FileClose`.
+- Use the `pathutils` package for `PathValidateCfs` and `PathCfs`.
+- Use the `textnormalization` package for `NormalizeText`.
+- Use the `frontmatter` package for the `Frontmatter` record.
+- Use the `parsenode` package for the `Node` record.
+- The package name should be `spectreevalidate`.
+- `SpecTreeValidateInput` and `FormatError` are exported structs
+  in this package.
+- The function never returns an error — all problems are collected
+  as FormatError entries in the returned list.
+- For SHA-1 and base64url, use `crypto/sha1` and
+  `encoding/base64` (base64.RawURLEncoding).
