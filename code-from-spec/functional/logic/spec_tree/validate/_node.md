@@ -2,11 +2,9 @@
 depends_on:
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/os/path_utils
-  - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/parsing/frontmatter(interface)
   - ROOT/functional/logic/parsing/node_parsing(interface)
-  - ROOT/functional/logic/spec_tree/scan(interface)
 external:
   - path: CODE_FROM_SPEC.md
 outputs:
@@ -36,9 +34,6 @@ record FormatError
   detail: string
 
 function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of FormatError
-  errors:
-    - file unreadable: an external file cannot be read.
-    - fragment out of range: the file has fewer lines than the declared fragment range.
 ```
 
 Takes the full set of discovered nodes with their parsed
@@ -107,10 +102,12 @@ Each `depends_on` entry must be valid:
   truncate at that position to get the bare logical name
   (e.g. `ROOT/a/b(interface)` → `ROOT/a/b`). Verify the
   bare logical name exists in the known logical names
-  set. Also verify it does not point to an ancestor
-  (the bare name is a prefix of the current node's
-  logical name) or a descendant (the current node's
-  logical name is a prefix of the bare name).
+  set. Also verify it does not point to the node itself
+  (bare name equals the current node's logical name),
+  an ancestor (the bare name followed by `/` is a prefix
+  of the current node's logical name), or a descendant
+  (the current node's logical name followed by `/` is a
+  prefix of the bare name).
 
 - **`ARTIFACT/` references**: verify the reference exists
   in the known logical names set.
@@ -150,7 +147,8 @@ declared, process each fragment independently:
 - Use `FileSkipLines` to skip `start - 1` lines, then
   read `end - start + 1` lines with `FileReadLine`. If
   `FileReadLine` returns "end of file" before all lines
-  are read, raise "fragment out of range".
+  are read, call `FileClose`, report a format error
+  (fragment out of range), and skip this fragment.
 - Call `FileClose`.
 - Join the read lines with `\n` (LF) to form the content.
   `FileReadLine` already normalizes CRLF, so the result
@@ -173,8 +171,9 @@ project root).
 
 Rule name: `duplicate_subsections`.
 
-Within the `# Public` section, all `##` subsection
-headings must be unique after `TextNormalize`. Track
+If `node.public` is present and has subsections, all
+`##` subsection headings must be unique after
+`TextNormalize`. If `node.public` is absent, skip. Track
 seen headings; if a heading has already been seen,
 report a format error for that occurrence. The first
 occurrence is not an error — only subsequent repeats
