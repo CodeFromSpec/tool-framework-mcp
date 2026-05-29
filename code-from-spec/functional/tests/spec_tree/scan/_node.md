@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/spec_tree(interface)
+  - ROOT/functional/logic/spec_tree/scan(interface)
 outputs:
   - id: spec_tree_tests
-    path: code-from-spec/functional/tests/utils/spec_tree/output.md
+    path: code-from-spec/functional/tests/spec_tree/scan/output.md
 ---
 
-# ROOT/functional/tests/utils/spec_tree
+# ROOT/functional/tests/spec_tree/scan
 
 Test cases for the spec tree scanning component.
 

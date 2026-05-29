@@ -5,10 +5,10 @@ depends_on:
   - ROOT/functional/logic/utils/logical_names(interface)
 outputs:
   - id: spec_tree
-    path: code-from-spec/functional/logic/utils/spec_tree/output.md
+    path: code-from-spec/functional/logic/spec_tree/scan/output.md
 ---
 
-# ROOT/functional/logic/utils/spec_tree
+# ROOT/functional/logic/spec_tree/scan
 
 Scans the `code-from-spec/` directory and returns all
 spec nodes found.

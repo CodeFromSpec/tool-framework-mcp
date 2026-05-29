@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/format_validation(interface)
+  - ROOT/functional/logic/spec_tree/validate(interface)
 outputs:
   - id: format_validation_tests
-    path: code-from-spec/functional/tests/utils/format_validation/output.md
+    path: code-from-spec/functional/tests/spec_tree/validate/output.md
 ---
 
-# ROOT/functional/tests/utils/format_validation
+# ROOT/functional/tests/spec_tree/validate
 
 Test cases for the format validation component.
 

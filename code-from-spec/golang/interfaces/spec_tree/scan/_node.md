@@ -1,13 +1,13 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/spec_tree(interface)
+  - ROOT/functional/logic/spec_tree/scan(interface)
   - ARTIFACT/golang/interfaces/os/path_utils(interface)
 outputs:
   - id: interface
-    path: code-from-spec/golang/interfaces/utils/spec_tree/output.md
+    path: code-from-spec/golang/interfaces/spec_tree/scan/output.md
 ---
 
-# ROOT/golang/interfaces/utils/spec_tree
+# ROOT/golang/interfaces/spec_tree/scan
 
 # Public
 

@@ -1,9 +1,9 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/node_ranking
-  - ROOT/functional/logic/utils/format_validation
+  - ROOT/functional/logic/spec_tree/validate
   - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/spec_tree
+  - ROOT/functional/logic/spec_tree/scan
   - ROOT/functional/logic/parsing/artifact_tag
   - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/utils/text_normalization

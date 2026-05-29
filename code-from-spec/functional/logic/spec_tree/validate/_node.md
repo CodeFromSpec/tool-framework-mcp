@@ -6,14 +6,15 @@ depends_on:
   - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/parsing/node_parsing
   - ROOT/functional/logic/os/path_utils
+  - ROOT/functional/logic/spec_tree/scan(interface)
 external:
   - path: CODE_FROM_SPEC.md
 outputs:
   - id: format_validation
-    path: code-from-spec/functional/logic/utils/format_validation/output.md
+    path: code-from-spec/functional/logic/spec_tree/validate/output.md
 ---
 
-# ROOT/functional/logic/utils/format_validation
+# ROOT/functional/logic/spec_tree/validate
 
 Linter for spec nodes. Reads every node in the spec tree,
 parses its frontmatter and body, and checks structural rules
@@ -100,7 +101,7 @@ prefixes.
 
 Each `external` entry's `path` must point to an existing
 file. If `fragments` are declared, read the file using
-`file_reader`, extract the declared line range, compute
+  `file_reader`, extract the declared line range, compute
 SHA-1 + base64url hash, and verify it matches the declared
 `hash`.
 

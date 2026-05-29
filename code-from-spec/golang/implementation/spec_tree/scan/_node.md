@@ -1,16 +1,16 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/utils/spec_tree(interface)
+  - ARTIFACT/golang/interfaces/spec_tree/scan(interface)
   - ARTIFACT/golang/interfaces/os/list_files(interface)
   - ARTIFACT/golang/interfaces/os/path_utils(interface)
   - ARTIFACT/golang/interfaces/utils/logical_names(interface)
-input: ARTIFACT/functional/logic/utils/spec_tree(spec_tree)
+input: ARTIFACT/functional/logic/spec_tree/scan(spec_tree)
 outputs:
   - id: spectree
     path: internal/spectree/spectree.go
 ---
 
-# ROOT/golang/implementation/utils/spec_tree
+# ROOT/golang/implementation/spec_tree/scan
 
 # Agent
 
