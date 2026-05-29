@@ -24,12 +24,11 @@ var (
 	// start with ROOT/.
 	ErrUnsupportedReference = errors.New("unsupported reference")
 
-	// ErrInvalidPath is returned when a path is not a _node.md file
+	// ErrInvalidPath is returned when the path is not a _node.md file
 	// under code-from-spec/.
 	ErrInvalidPath = errors.New("invalid path")
 
-	// ErrNoParent is returned when the logical name is ROOT itself and
-	// has no parent.
+	// ErrNoParent is returned when the logical name is ROOT itself.
 	ErrNoParent = errors.New("no parent")
 
 	// ErrNotARootReference is returned when the logical name does not
@@ -51,35 +50,61 @@ var (
 // the corresponding _node.md file. Strips any qualifier before
 // resolving. Only accepts ROOT/ references.
 //
+// Path resolution:
+//   - ROOT        → code-from-spec/_node.md
+//   - ROOT/x/y    → code-from-spec/x/y/_node.md
+//   - ROOT/x/y(z) → code-from-spec/x/y/_node.md
+//
 // Possible errors:
-//   - ErrUnsupportedReference: the logical name does not start with ROOT/.
+//   - ErrUnsupportedReference
 func LogicalNameToPath(logical_name string) (*pathutils.PathCfs, error)
 
 // LogicalNameFromPath derives the ROOT/ logical name from a _node.md
 // file path. The inverse of LogicalNameToPath. Always returns a ROOT/
 // reference.
 //
+// Reverse resolution:
+//   - code-from-spec/_node.md     → ROOT
+//   - code-from-spec/x/_node.md   → ROOT/x
+//   - code-from-spec/x/y/_node.md → ROOT/x/y
+//
 // Possible errors:
-//   - ErrInvalidPath: the path is not a _node.md file under code-from-spec/.
+//   - ErrInvalidPath
 func LogicalNameFromPath(cfs_path *pathutils.PathCfs) (string, error)
 
 // LogicalNameGetParent returns the logical name of the parent node.
-// Strips any qualifier before computing the parent. Only accepts ROOT/
-// references.
+// Strips any qualifier before computing the parent. Only accepts
+// ROOT/ references.
+//
+// Examples:
+//   - ROOT/x     → ROOT
+//   - ROOT/x/y   → ROOT/x
+//   - ROOT/x/y(z)→ ROOT/x
 //
 // Possible errors:
-//   - ErrNoParent: the logical name is ROOT itself.
-//   - ErrNotARootReference: the logical name does not start with ROOT/.
+//   - ErrNoParent
+//   - ErrNotARootReference
 func LogicalNameGetParent(logical_name string) (string, error)
 
 // LogicalNameGetQualifier extracts the parenthetical qualifier from a
-// logical name. Returns ("", false) if no qualifier is present. Works
-// with both ROOT/ and ARTIFACT/ references.
+// logical name. Returns an empty string and false if no qualifier is
+// present. Works with both ROOT/ and ARTIFACT/ references.
 //
-// For example:
-//   - ROOT/x/y(z)  → ("z", true)
-//   - ROOT/x/y     → ("", false)
+// Examples:
+//   - ROOT/x/y(z)      → "z", true
+//   - ARTIFACT/x/y(id) → "id", true
+//   - ROOT/x/y         → "", false
 func LogicalNameGetQualifier(logical_name string) (string, bool)
+
+// LogicalNameStripQualifier returns the logical name without the
+// parenthetical qualifier. If no qualifier is present, returns the
+// input unchanged. Works with both ROOT/ and ARTIFACT/ references.
+//
+// Examples:
+//   - ROOT/x/y(z)      → ROOT/x/y
+//   - ARTIFACT/x/y(id) → ARTIFACT/x/y
+//   - ROOT/x/y         → ROOT/x/y
+func LogicalNameStripQualifier(logical_name string) string
 
 // LogicalNameHasParent returns true if the logical name is a ROOT/
 // reference other than ROOT itself. Returns false for ROOT, ARTIFACT/
@@ -96,15 +121,15 @@ func LogicalNameHasQualifier(logical_name string) bool
 func LogicalNameIsArtifact(logical_name string) bool
 
 // LogicalNameGetArtifactGenerator returns the ROOT/ logical name of
-// the node that generates the referenced artifact. Strips the ARTIFACT/
-// prefix and any qualifier.
+// the node that generates the referenced artifact. Strips the
+// ARTIFACT/ prefix and any qualifier.
 //
-// For example:
+// Examples:
 //   - ARTIFACT/x/y(id) → ROOT/x/y
 //   - ARTIFACT/x/y     → ROOT/x/y
 //
 // Possible errors:
-//   - ErrNotAnArtifactReference: the logical name does not start with ARTIFACT/.
+//   - ErrNotAnArtifactReference
 func LogicalNameGetArtifactGenerator(logical_name string) (string, error)
 ```
 
@@ -125,66 +150,46 @@ import (
 
 func main() {
 	// Convert a ROOT/ logical name to a PathCfs.
-	cfs, err := logicalnames.LogicalNameToPath("ROOT/x/y")
+	cfsPath, err := logicalnames.LogicalNameToPath("ROOT/golang/interfaces/utils/logical_names")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Path:", cfs.Value) // code-from-spec/x/y/_node.md
+	fmt.Println("Path:", cfsPath.Value)
+	// Output: code-from-spec/golang/interfaces/utils/logical_names/_node.md
 
-	// Convert a PathCfs back to a ROOT/ logical name.
-	name, err := logicalnames.LogicalNameFromPath(cfs)
+	// Derive a logical name from a _node.md path.
+	path := &pathutils.PathCfs{Value: "code-from-spec/golang/interfaces/utils/logical_names/_node.md"}
+	name, err := logicalnames.LogicalNameFromPath(path)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Logical name:", name) // ROOT/x/y
+	fmt.Println("Logical name:", name)
+	// Output: ROOT/golang/interfaces/utils/logical_names
 
 	// Get the parent of a logical name.
-	parent, err := logicalnames.LogicalNameGetParent("ROOT/x/y")
+	parent, err := logicalnames.LogicalNameGetParent("ROOT/golang/interfaces/utils/logical_names")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Parent:", parent) // ROOT/x
+	fmt.Println("Parent:", parent)
+	// Output: ROOT/golang/interfaces/utils
+
+	// Strip a qualifier from a logical name.
+	stripped := logicalnames.LogicalNameStripQualifier("ROOT/x/y(z)")
+	fmt.Println("Stripped:", stripped)
+	// Output: ROOT/x/y
 
 	// Extract a qualifier.
-	qualifier, ok := logicalnames.LogicalNameGetQualifier("ROOT/x/y(z)")
-	if ok {
-		fmt.Println("Qualifier:", qualifier) // z
-	}
+	qualifier, ok := logicalnames.LogicalNameGetQualifier("ARTIFACT/x/y(id)")
+	fmt.Println("Qualifier:", qualifier, "Present:", ok)
+	// Output: id true
 
-	// Check for a qualifier without extracting it.
-	fmt.Println("Has qualifier:", logicalnames.LogicalNameHasQualifier("ROOT/x/y(z)")) // true
-	fmt.Println("Has qualifier:", logicalnames.LogicalNameHasQualifier("ROOT/x/y"))    // false
-
-	// Check parent navigation.
-	fmt.Println("Has parent:", logicalnames.LogicalNameHasParent("ROOT/x/y")) // true
-	fmt.Println("Has parent:", logicalnames.LogicalNameHasParent("ROOT"))     // false
-
-	// Check if a logical name is an artifact reference.
-	fmt.Println("Is artifact:", logicalnames.LogicalNameIsArtifact("ARTIFACT/x/y(id)")) // true
-	fmt.Println("Is artifact:", logicalnames.LogicalNameIsArtifact("ROOT/x/y"))         // false
-
-	// Resolve an artifact reference to its generating node.
-	// Step 1: get the generator's logical name.
+	// Get the generator node for an artifact reference.
 	generator, err := logicalnames.LogicalNameGetArtifactGenerator("ARTIFACT/x/y(id)")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Generator:", generator) // ROOT/x/y
-
-	// Step 2: get the generator node's path.
-	genPath, err := logicalnames.LogicalNameToPath(generator)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Generator path:", genPath.Value) // code-from-spec/x/y/_node.md
-
-	// Step 3: get the artifact id.
-	artifactID, _ := logicalnames.LogicalNameGetQualifier("ARTIFACT/x/y(id)")
-	fmt.Println("Artifact id:", artifactID) // id
-
-	// Step 4: read the node's frontmatter, find the output entry whose
-	// id matches artifactID, and use its path to locate the artifact file.
-	_ = artifactID
-	_ = genPath
+	fmt.Println("Generator:", generator)
+	// Output: ROOT/x/y
 }
 ```

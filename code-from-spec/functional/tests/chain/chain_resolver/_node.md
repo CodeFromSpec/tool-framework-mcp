@@ -10,145 +10,262 @@ outputs:
 
 Test cases for the chain resolver component.
 
-Review status: pending
-
 # Public
 
 ## Test cases
 
-### Happy path
+All tests create a spec tree on disk with `_node.md`
+files containing frontmatter as needed, then call
+`ChainResolve` with a target logical name.
 
-#### Leaf node -- ancestors only, no dependencies
+### Ancestors and target
 
-Create a spec tree: ROOT, ROOT/a, ROOT/a/b (leaf).
-Call ResolveChain with "ROOT/a/b".
+#### Root as target
 
-Expect ancestors = ROOT, ROOT/a (sorted alphabetically),
-each with no qualifier. Target = ROOT/a/b with no
-qualifier. Dependencies empty. Code empty.
+Create spec tree: ROOT only. Call ChainResolve with
+"ROOT". Expect ancestors = empty, target =
+ChainItem(logical_name="ROOT", qualifier=absent).
 
-#### Leaf node -- with dependency, no qualifier
+#### Linear chain — ancestors in root-first order
 
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/b), ROOT/b. Call ResolveChain with "ROOT/a".
+Create spec tree: ROOT, ROOT/a, ROOT/a/b. Call
+ChainResolve with "ROOT/a/b". Expect ancestors =
+[ROOT, ROOT/a] in that order. Target = ROOT/a/b.
 
-Expect ancestors = ROOT. Target = ROOT/a. Dependencies
-contains one item ROOT/b with no qualifier.
+#### Single parent
 
-#### Leaf node -- with dependency, with qualifier
+Create spec tree: ROOT, ROOT/a. Call ChainResolve with
+"ROOT/a". Expect ancestors = [ROOT]. Target = ROOT/a.
 
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/b(interface)), ROOT/b. Call ResolveChain with
+#### Target with empty frontmatter
+
+Create spec tree: ROOT, ROOT/a (leaf, empty
+frontmatter). Call ChainResolve with "ROOT/a".
+
+Expect ancestors = [ROOT], target = ROOT/a,
+dependencies = empty, external = empty, input = absent.
+
+### Dependencies — ROOT/ references
+
+#### Dependency without qualifier
+
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ROOT/b"]), ROOT/b. Call ChainResolve with "ROOT/a".
+
+Expect dependencies contains one ChainItem with
+logical_name = "ROOT/b", qualifier = absent.
+
+#### Dependency with qualifier
+
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ROOT/b(interface)"]), ROOT/b. Call ChainResolve with
 "ROOT/a".
 
-Expect dependencies contains one item with logical name =
-"ROOT/b(interface)", file path pointing to ROOT/b's node
-file, qualifier = "interface".
+Expect dependencies contains one ChainItem with
+logical_name = "ROOT/b", qualifier = "interface".
 
-#### Dependencies sorted
+#### Dependencies sorted by file path then qualifier
 
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/z, ROOT/m, ROOT/b). Call ResolveChain with "ROOT/a".
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ROOT/z", "ROOT/m", "ROOT/b"]). Create ROOT/z, ROOT/m,
+ROOT/b. Call ChainResolve with "ROOT/a".
 
-Expect dependencies sorted by file path.
+Expect dependencies sorted alphabetically by file path.
 
-#### Leaf node -- outputs file exists on disk
+### Dependencies — ARTIFACT/ references
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs
-pointing to src/a.go). Create the file src/a.go on disk.
-Call ResolveChain with "ROOT/a".
+#### ARTIFACT dependency resolved from generating node
 
-Expect code = ["src/a.go"].
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ARTIFACT/b(lib)"]), ROOT/b (with outputs = [{id:
+"lib", path: "out/lib.go"}]). Call ChainResolve with
+"ROOT/a".
 
-#### Leaf node -- outputs file does not exist
+Expect dependencies contains one ChainItem with
+logical_name = "ARTIFACT/b(lib)", file_path =
+"out/lib.go", qualifier = "lib".
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs
-pointing to src/a.go). Do not create src/a.go.
-Call ResolveChain with "ROOT/a".
+#### ARTIFACT without qualifier — error
 
-Expect code is empty.
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ARTIFACT/b"]). Call ChainResolve with "ROOT/a".
 
-#### Multiple qualifiers for same file
+Expect error "unresolvable artifact".
 
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/b(interface) and ROOT/b(constraints)), ROOT/b.
-Call ResolveChain with "ROOT/a".
+#### ARTIFACT — generating node has no outputs
 
-Expect dependencies contains two items, both pointing to
-ROOT/b's file, one with qualifier = "interface", the other
-with qualifier = "constraints".
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ARTIFACT/b(lib)"]), ROOT/b (with empty frontmatter,
+no outputs). Call ChainResolve with "ROOT/a".
 
-### Edge cases
+Expect error "unresolvable artifact".
 
-#### Dedup: same file, same qualifier
+#### ARTIFACT — artifact file does not exist on disk
 
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/b, ROOT/b), ROOT/b. Call ResolveChain with "ROOT/a".
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ARTIFACT/b(lib)"]), ROOT/b (with outputs = [{id:
+"lib", path: "out/lib.go"}]). Do NOT create
+"out/lib.go" on disk. Call ChainResolve with "ROOT/a".
 
-Expect dependencies contains one item ROOT/b with no
-qualifier (not two).
+Expect no error. Dependencies contains one ChainItem
+with file_path = "out/lib.go". Existence is not
+verified by the resolver.
 
-#### Dedup: same file, different qualifiers -- both kept
+#### ARTIFACT with non-existent output id — error
 
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/b(interface), ROOT/b(constraints)), ROOT/b.
-Call ResolveChain with "ROOT/a".
-
-Expect dependencies contains two items for ROOT/b, one
-with qualifier = "interface", one with "constraints".
-
-#### Dedup: nil qualifier subsumes specific qualifiers
-
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/b, ROOT/b(interface)), ROOT/b. Call ResolveChain
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ARTIFACT/b(missing)"]), ROOT/b (with outputs =
+[{id: "lib", path: "out/lib.go"}]). Call ChainResolve
 with "ROOT/a".
 
-Expect dependencies contains one item ROOT/b with no
-qualifier. The ROOT/b(interface) entry is removed because
-no qualifier (whole public section) already includes the
-specific qualifier.
+Expect error "unresolvable artifact".
 
-#### Dedup: specific qualifier appears before nil -- nil wins
+#### Mixed ROOT/ and ARTIFACT/ dependencies
 
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/b(interface), ROOT/b), ROOT/b. Call ResolveChain
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ROOT/c", "ARTIFACT/b(lib)"]), ROOT/b (with outputs =
+[{id: "lib", path: "out/lib.go"}]), ROOT/c. Call
+ChainResolve with "ROOT/a".
+
+Expect dependencies contains both entries, sorted by
+file path value.
+
+### Dependencies — dedup
+
+#### Exact duplicate — same file, same qualifier
+
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ROOT/b", "ROOT/b"]), ROOT/b. Call ChainResolve with
+"ROOT/a".
+
+Expect dependencies contains one entry for ROOT/b
+(not two).
+
+#### No qualifier subsumes qualifier
+
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ROOT/b", "ROOT/b(interface)"]), ROOT/b. Call
+ChainResolve with "ROOT/a".
+
+Expect dependencies contains one entry for ROOT/b
+with qualifier = absent. The ROOT/b(interface) entry
+is removed.
+
+#### Qualifier before no-qualifier — no-qualifier wins
+
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ROOT/b(interface)", "ROOT/b"]), ROOT/b. Call
+ChainResolve with "ROOT/a".
+
+Expect dependencies contains one entry for ROOT/b
+with qualifier = absent.
+
+#### Same file, different qualifiers — both kept
+
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ROOT/b(interface)", "ROOT/b(constraints)"]), ROOT/b.
+Call ChainResolve with "ROOT/a".
+
+Expect dependencies contains two entries, one with
+qualifier = "constraints", one with "interface"
+(sorted).
+
+#### Duplicate ARTIFACT — same logical name
+
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["ARTIFACT/b(lib)", "ARTIFACT/b(lib)"]), ROOT/b (with
+outputs = [{id: "lib", path: "out/lib.go"}]). Call
+ChainResolve with "ROOT/a".
+
+Expect dependencies contains one ARTIFACT entry
+(not two).
+
+### External
+
+#### External entries copied from frontmatter
+
+Create spec tree: ROOT, ROOT/a (leaf, external =
+[{path: "docs/api.yaml"}, {path: "proto/v1.proto"}]).
+Call ChainResolve with "ROOT/a".
+
+Expect external list contains both entries, sorted
+by path: proto/v1.proto before docs/api.yaml? No —
+alphabetically: docs/api.yaml before proto/v1.proto.
+
+#### External with fragments preserved
+
+Create spec tree: ROOT, ROOT/a (leaf, external =
+[{path: "f.txt", fragments: [{lines: "1-10",
+hash: "abc"}]}]). Call ChainResolve with "ROOT/a".
+
+Expect external list contains one entry with path =
+"f.txt" and fragments preserved as-is.
+
+#### Empty external — no entries
+
+Create spec tree: ROOT, ROOT/a (leaf, no external).
+Call ChainResolve with "ROOT/a".
+
+Expect external list is empty.
+
+### Input
+
+#### Input resolved from generating node
+
+Create spec tree: ROOT, ROOT/a (leaf, input =
+"ARTIFACT/b(data)"), ROOT/b (with outputs = [{id:
+"data", path: "out/data.json"}]). Call ChainResolve
 with "ROOT/a".
 
-Expect dependencies contains one item ROOT/b with no
-qualifier. Even though the specific qualifier appeared
-first, the nil entry subsumes it.
+Expect input = ChainItem with logical_name =
+"ARTIFACT/b(data)", file_path = "out/data.json",
+qualifier = "data".
 
-#### Dedup: repeated qualifier for same file
+#### No input — absent
 
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/b(interface), ROOT/b(interface)), ROOT/b.
-Call ResolveChain with "ROOT/a".
+Create spec tree: ROOT, ROOT/a (leaf, no input). Call
+ChainResolve with "ROOT/a".
 
-Expect dependencies contains one item with qualifier =
-"interface" (not two).
+Expect input is absent.
 
-### Failure cases
+#### Input without qualifier — error
 
-#### Invalid logical name
+Create spec tree: ROOT, ROOT/a (leaf, input =
+"ARTIFACT/b"). Call ChainResolve with "ROOT/a".
 
-Call ResolveChain with "INVALID/something".
+Expect error "unresolvable artifact".
 
-Expect error containing "cannot resolve logical name".
+#### Input with non-existent output id — error
+
+Create spec tree: ROOT, ROOT/a (leaf, input =
+"ARTIFACT/b(missing)"), ROOT/b (with outputs = [{id:
+"data", path: "out/data.json"}]). Call ChainResolve
+with "ROOT/a".
+
+Expect error "unresolvable artifact".
+
+### Error cases
+
+#### Unrecognized prefix in depends_on
+
+Create spec tree: ROOT, ROOT/a (leaf, depends_on =
+["UNKNOWN/something"]). Call ChainResolve with "ROOT/a".
+
+Expect error "unresolvable artifact".
+
+#### Invalid target logical name
+
+Call ChainResolve with "INVALID/something".
+
+Expect error propagated from LogicalNameGetParent or
+LogicalNameToPath.
 
 #### Unreadable frontmatter
 
-Create a spec tree: ROOT, ROOT/a (leaf). Write invalid
-YAML in ROOT/a's frontmatter. Call ResolveChain with
-"ROOT/a".
+Create spec tree: ROOT, ROOT/a with invalid YAML in
+frontmatter. Call ChainResolve with "ROOT/a".
 
-Expect error from frontmatter parsing.
-
-#### Unresolvable dependency
-
-Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-ROOT/nonexistent). Call ResolveChain with "ROOT/a".
-
-Expect error containing "cannot resolve logical name".
+Expect error "unreadable frontmatter".
 
 # Agent
 
@@ -157,4 +274,10 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Use the function name from the interface: `ResolveChain`.
+- Use the function name from the interface: `ChainResolve`.
+- Use the record names from the interface: `ChainItem`,
+  `Chain`.
+- Each test case creates a spec tree on disk with
+  `_node.md` files, then calls `ChainResolve`.
+- Describe setup as files to create with their
+  frontmatter content.

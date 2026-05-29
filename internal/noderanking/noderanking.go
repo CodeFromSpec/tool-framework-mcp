@@ -1,9 +1,8 @@
-// code-from-spec: ROOT/golang/implementation/utils/node_ranking@kx762p-lmfd7j3n0TGb_Lk7pOEY
+// code-from-spec: ROOT/golang/implementation/utils/node_ranking@mDCxxcEljTdvETDrHeW57HUhjKA
 
 package noderanking
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,10 +10,6 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
 )
-
-// ErrUnresolvableReference is returned when a depends_on or input
-// target cannot be resolved to any known node in the input set.
-var ErrUnresolvableReference = errors.New("unresolvable reference")
 
 // NodeRankInput represents a single discovered node and its parsed
 // frontmatter, used as input to the ranking computation.
@@ -30,11 +25,15 @@ type NodeRankEntry struct {
 	Rank        int
 }
 
-// internalEntry holds the working state for a node or artifact during ranking.
+// ErrUnresolvableReference is returned when a depends_on or input
+// target cannot be resolved to any known node in the input set.
+var ErrUnresolvableReference = fmt.Errorf("unresolvable reference")
+
+// internalEntry is used internally during ranking computation.
 type internalEntry struct {
 	logicalName  string
-	rank         int
 	dependencies []string
+	rank         int
 }
 
 // NodeRankCompute takes the full set of discovered nodes with their
@@ -50,24 +49,23 @@ func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles 
 	entryMap := make(map[string]*internalEntry)
 
 	for _, input := range entries {
-		// Add spec node entry
 		entryMap[input.LogicalName] = &internalEntry{
 			logicalName:  input.LogicalName,
-			rank:         0,
 			dependencies: []string{},
+			rank:         0,
 		}
 
-		// Add artifact entries for each output
 		if input.Frontmatter != nil {
 			for _, output := range input.Frontmatter.Outputs {
-				// Construct artifact logical name:
-				// Strip "ROOT/" prefix, prepend "ARTIFACT/", append "(id)"
-				stripped := strings.TrimPrefix(input.LogicalName, "ROOT/")
-				artifactName := "ARTIFACT/" + stripped + "(" + output.ID + ")"
+				// Construct artifact logical name: ARTIFACT/<suffix>(<id>)
+				// Strip "ROOT/" prefix from logical_name
+				suffix := strings.TrimPrefix(input.LogicalName, "ROOT/")
+				artifactName := "ARTIFACT/" + suffix + "(" + output.ID + ")"
+
 				entryMap[artifactName] = &internalEntry{
 					logicalName:  artifactName,
-					rank:         0,
 					dependencies: []string{},
+					rank:         0,
 				}
 			}
 		}
@@ -75,17 +73,16 @@ func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles 
 
 	// Step 2 — Build dependency edges
 
-	// Process spec node entries
+	// Step 2a: spec node entries (keys starting with "ROOT/")
 	for _, input := range entries {
 		entry := entryMap[input.LogicalName]
 
-		// ROOT has no parent dependencies
 		if input.LogicalName == "ROOT" {
-			entry.dependencies = []string{}
+			// Skip ROOT — no dependencies
 			continue
 		}
 
-		// Add parent as dependency
+		// Parent dependency
 		parent, err := logicalnames.LogicalNameGetParent(input.LogicalName)
 		if err != nil {
 			return nil, nil, fmt.Errorf("getting parent of %q: %w", input.LogicalName, err)
@@ -96,69 +93,67 @@ func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles 
 			continue
 		}
 
-		// Process depends_on entries
+		// depends_on dependencies
 		for _, dep := range input.Frontmatter.DependsOn {
 			if dep == nil {
 				continue
 			}
-			depName := *dep
+			depValue := *dep
 			var lookupKey string
-
-			if strings.HasPrefix(depName, "ARTIFACT/") {
-				lookupKey = depName
-			} else if strings.HasPrefix(depName, "ROOT/") {
-				// Strip any parenthetical qualifier
-				if idx := strings.Index(depName, "("); idx >= 0 {
-					lookupKey = depName[:idx]
-				} else {
-					lookupKey = depName
-				}
+			if strings.HasPrefix(depValue, "ARTIFACT/") {
+				lookupKey = depValue
+			} else if strings.HasPrefix(depValue, "ROOT/") {
+				lookupKey = logicalnames.LogicalNameStripQualifier(depValue)
 			} else {
-				lookupKey = depName
+				lookupKey = depValue
 			}
 
 			if _, found := entryMap[lookupKey]; !found {
-				return nil, nil, fmt.Errorf("%w: %q referenced by %q", ErrUnresolvableReference, lookupKey, input.LogicalName)
+				return nil, nil, fmt.Errorf("%w: %q", ErrUnresolvableReference, lookupKey)
 			}
 			entry.dependencies = append(entry.dependencies, lookupKey)
 		}
 
-		// Process input dependency
+		// input dependency
 		if input.Frontmatter.Input != "" {
 			lookupKey := input.Frontmatter.Input
 			if _, found := entryMap[lookupKey]; !found {
-				return nil, nil, fmt.Errorf("%w: input %q referenced by %q", ErrUnresolvableReference, lookupKey, input.LogicalName)
+				return nil, nil, fmt.Errorf("%w: %q", ErrUnresolvableReference, lookupKey)
 			}
 			entry.dependencies = append(entry.dependencies, lookupKey)
 		}
 	}
 
-	// Process artifact entries
+	// Step 2b: artifact entries (keys starting with "ARTIFACT/")
 	for key, entry := range entryMap {
 		if !strings.HasPrefix(key, "ARTIFACT/") {
 			continue
 		}
 
-		generatorName, err := logicalnames.LogicalNameGetArtifactGenerator(key)
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting artifact generator for %q: %w", key, err)
+		// Derive the generating node's logical name
+		// Strip "ARTIFACT/" prefix and the trailing "(<id>)" qualifier
+		withoutPrefix := strings.TrimPrefix(key, "ARTIFACT/")
+		// Remove trailing qualifier
+		qualifierStart := strings.LastIndex(withoutPrefix, "(")
+		if qualifierStart >= 0 {
+			withoutPrefix = withoutPrefix[:qualifierStart]
 		}
+		generatingNode := "ROOT/" + withoutPrefix
 
-		if _, found := entryMap[generatorName]; !found {
-			return nil, nil, fmt.Errorf("%w: artifact generator %q not found for %q", ErrUnresolvableReference, generatorName, key)
+		if _, found := entryMap[generatingNode]; !found {
+			return nil, nil, fmt.Errorf("%w: %q", ErrUnresolvableReference, generatingNode)
 		}
-
-		entry.dependencies = []string{generatorName}
+		entry.dependencies = append(entry.dependencies, generatingNode)
 	}
 
 	// Step 3 — Initialize ranks
-	// ROOT stays at 0; all others already initialized to 0.
+	// "ROOT" rank is fixed at 0; all others are already 0 from Step 1.
 
 	// Step 4 — Iterate and detect cycles
 	n := len(entryMap)
-	changedInLastPass := []string{}
+	var changedInLastPass []string
 
-	for pass := 0; pass < n; pass++ {
+	for i := 0; i < n; i++ {
 		changedThisPass := []string{}
 
 		for key, entry := range entryMap {
@@ -166,52 +161,58 @@ func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles 
 				continue
 			}
 
-			// Compute candidate_rank = 1 + max(rank of all dependencies)
-			candidateRank := 1
+			if len(entry.dependencies) == 0 {
+				newRank := 1
+				if newRank > entry.rank {
+					entry.rank = newRank
+					changedThisPass = append(changedThisPass, key)
+				}
+				continue
+			}
+
+			maxDepRank := 0
 			for _, depName := range entry.dependencies {
 				dep, found := entryMap[depName]
 				if !found {
-					// Should have been caught in step 2, but guard anyway
-					return nil, nil, fmt.Errorf("%w: %q", ErrUnresolvableReference, depName)
+					// Should not happen — already validated in Step 2
+					continue
 				}
-				if 1+dep.rank > candidateRank {
-					candidateRank = 1 + dep.rank
+				if dep.rank > maxDepRank {
+					maxDepRank = dep.rank
 				}
 			}
 
-			if candidateRank > entry.rank {
-				entry.rank = candidateRank
-				changedThisPass = append(changedThisPass, entry.logicalName)
+			newRank := 1 + maxDepRank
+			if newRank > entry.rank {
+				entry.rank = newRank
+				changedThisPass = append(changedThisPass, key)
 			}
 		}
 
 		if len(changedThisPass) == 0 {
-			// Convergence reached
+			// Converged — no cycles
 			changedInLastPass = []string{}
 			break
 		}
-
 		changedInLastPass = changedThisPass
 	}
 
 	// Step 5 — Output
-
-	// Collect all entries
-	result := make([]*NodeRankEntry, 0, len(entryMap))
+	ranked = make([]*NodeRankEntry, 0, len(entryMap))
 	for _, entry := range entryMap {
-		result = append(result, &NodeRankEntry{
+		ranked = append(ranked, &NodeRankEntry{
 			LogicalName: entry.logicalName,
 			Rank:        entry.rank,
 		})
 	}
 
 	// Sort: primary by rank ascending, secondary by logical name ascending
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Rank != result[j].Rank {
-			return result[i].Rank < result[j].Rank
+	sort.Slice(ranked, func(i, j int) bool {
+		if ranked[i].Rank != ranked[j].Rank {
+			return ranked[i].Rank < ranked[j].Rank
 		}
-		return result[i].LogicalName < result[j].LogicalName
+		return ranked[i].LogicalName < ranked[j].LogicalName
 	})
 
-	return result, changedInLastPass, nil
+	return ranked, changedInLastPass, nil
 }

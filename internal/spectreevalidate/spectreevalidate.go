@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/spec_tree/validate@-966vFr9gx1ObecjgbH6_wzX5Aw
+// code-from-spec: ROOT/golang/implementation/spec_tree/validate@CbThEj8DzS37hMYf5Bje-cugDKs
 
 package spectreevalidate
 
@@ -38,31 +38,29 @@ type FormatError struct {
 // SpecTreeValidate validates the full set of discovered nodes against the
 // spec tree format rules. It returns a list of FormatErrors describing every
 // violation found. The returned slice is empty when all nodes are valid.
+//
+// A node is considered to have children if any other entry in the input list
+// has a logical name that starts with the node's logical name followed by
+// "/". A node is considered a leaf if no other entry starts with its logical
+// name followed by "/".
 func SpecTreeValidate(entries []*SpecTreeValidateInput) ([]*FormatError, error) {
-	// Step 1 — Build the known names set.
+	// Step 1 — Build the known logical names set.
 	knownNames := make(map[string]struct{})
-
 	for _, entry := range entries {
 		knownNames[entry.LogicalName] = struct{}{}
 	}
-
 	for _, entry := range entries {
-		if entry.Frontmatter == nil {
-			continue
-		}
-		barePath := strings.TrimPrefix(entry.LogicalName, "ROOT/")
-		for _, output := range entry.Frontmatter.Outputs {
-			if output == nil {
-				continue
+		if len(entry.Frontmatter.Outputs) > 0 {
+			barePath := strings.TrimPrefix(entry.LogicalName, "ROOT/")
+			for _, output := range entry.Frontmatter.Outputs {
+				artifactName := "ARTIFACT/" + barePath + "(" + output.ID + ")"
+				knownNames[artifactName] = struct{}{}
 			}
-			artifactName := "ARTIFACT/" + barePath + "(" + output.ID + ")"
-			knownNames[artifactName] = struct{}{}
 		}
 	}
 
-	// Step 2 — Validate each entry.
-	var formatErrors []*FormatError
-
+	// Step 2 — Collect errors across all entries.
+	var errs []*FormatError
 	for _, entry := range entries {
 		hasChildren := false
 		prefix := entry.LogicalName + "/"
@@ -73,49 +71,42 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput) ([]*FormatError, error) 
 			}
 		}
 
-		formatErrors = append(formatErrors, validateNameHeading(entry)...)
-		formatErrors = append(formatErrors, validateLeafOnlyFields(entry, hasChildren)...)
-		formatErrors = append(formatErrors, validateLeafOnlyAgent(entry, hasChildren)...)
-		formatErrors = append(formatErrors, validateDependencyTargets(entry, knownNames)...)
-		formatErrors = append(formatErrors, validateInputTarget(entry, knownNames)...)
-		formatErrors = append(formatErrors, validateExternalFiles(entry)...)
-		formatErrors = append(formatErrors, validateOutputPaths(entry)...)
-		formatErrors = append(formatErrors, validateDuplicateSubsections(entry)...)
+		errs = append(errs, ruleNameHeading(entry)...)
+		errs = append(errs, ruleLeafOnlyFields(entry, hasChildren)...)
+		errs = append(errs, ruleLeafOnlyAgent(entry, hasChildren)...)
+		errs = append(errs, ruleDependencyTargets(entry, knownNames)...)
+		errs = append(errs, ruleInputTarget(entry, knownNames)...)
+		errs = append(errs, ruleExternalFiles(entry)...)
+		errs = append(errs, ruleOutputPaths(entry)...)
+		errs = append(errs, ruleDuplicateSubsections(entry)...)
 	}
 
-	return formatErrors, nil
+	return errs, nil
 }
 
-func validateNameHeading(entry *SpecTreeValidateInput) []*FormatError {
+func ruleNameHeading(entry *SpecTreeValidateInput) []*FormatError {
 	if entry.Node == nil || entry.Node.NameSection == nil {
 		return nil
 	}
-
 	normalizedHeading := textnormalization.NormalizeText(entry.Node.NameSection.Heading)
 	normalizedName := textnormalization.NormalizeText(entry.LogicalName)
-
 	if normalizedHeading != normalizedName {
 		return []*FormatError{
 			{
 				Node:   entry.LogicalName,
 				Rule:   "name_heading",
-				Detail: fmt.Sprintf("name section heading %q does not match logical name %q", entry.Node.NameSection.Heading, entry.LogicalName),
+				Detail: fmt.Sprintf("first heading %s does not match logical name %s", normalizedHeading, normalizedName),
 			},
 		}
 	}
 	return nil
 }
 
-func validateLeafOnlyFields(entry *SpecTreeValidateInput, hasChildren bool) []*FormatError {
+func ruleLeafOnlyFields(entry *SpecTreeValidateInput, hasChildren bool) []*FormatError {
 	if !hasChildren {
 		return nil
 	}
-	if entry.Frontmatter == nil {
-		return nil
-	}
-
 	var errs []*FormatError
-
 	if len(entry.Frontmatter.DependsOn) > 0 {
 		errs = append(errs, &FormatError{
 			Node:   entry.LogicalName,
@@ -144,19 +135,11 @@ func validateLeafOnlyFields(entry *SpecTreeValidateInput, hasChildren bool) []*F
 			Detail: "outputs is only permitted on leaf nodes",
 		})
 	}
-
 	return errs
 }
 
-func validateLeafOnlyAgent(entry *SpecTreeValidateInput, hasChildren bool) []*FormatError {
-	if !hasChildren {
-		return nil
-	}
-	if entry.Node == nil {
-		return nil
-	}
-
-	if entry.Node.Agent != nil {
+func ruleLeafOnlyAgent(entry *SpecTreeValidateInput, hasChildren bool) []*FormatError {
+	if hasChildren && entry.Node != nil && entry.Node.Agent != nil {
 		return []*FormatError{
 			{
 				Node:   entry.LogicalName,
@@ -168,124 +151,104 @@ func validateLeafOnlyAgent(entry *SpecTreeValidateInput, hasChildren bool) []*Fo
 	return nil
 }
 
-func validateDependencyTargets(entry *SpecTreeValidateInput, knownNames map[string]struct{}) []*FormatError {
-	if entry.Frontmatter == nil {
-		return nil
+// logicalNameStripQualifier removes a parenthetical qualifier from a logical
+// name, e.g. "ROOT/a/b(qualifier)" becomes "ROOT/a/b".
+func logicalNameStripQualifier(name string) string {
+	if idx := strings.Index(name, "("); idx != -1 {
+		return name[:idx]
 	}
+	return name
+}
 
+func ruleDependencyTargets(entry *SpecTreeValidateInput, knownNames map[string]struct{}) []*FormatError {
 	var errs []*FormatError
-
-	for _, refPtr := range entry.Frontmatter.DependsOn {
-		if refPtr == nil {
+	for _, depPtr := range entry.Frontmatter.DependsOn {
+		if depPtr == nil {
 			continue
 		}
-		ref := *refPtr
+		dep := *depPtr
 
-		if strings.HasPrefix(ref, "ROOT/") {
-			bareName := ref
-			if idx := strings.Index(ref, "("); idx != -1 {
-				bareName = ref[:idx]
-			}
-
-			if _, exists := knownNames[bareName]; !exists {
+		if strings.HasPrefix(dep, "ROOT/") {
+			bareName := logicalNameStripQualifier(dep)
+			if _, known := knownNames[bareName]; !known {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "dependency_targets",
-					Detail: fmt.Sprintf("depends_on refers to unknown node %q", ref),
+					Detail: fmt.Sprintf("depends_on entry %s references unknown node %s", dep, bareName),
 				})
 				continue
 			}
-
 			if bareName == entry.LogicalName {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "dependency_targets",
-					Detail: fmt.Sprintf("depends_on refers to the node itself: %q", ref),
+					Detail: fmt.Sprintf("depends_on entry %s points to the node itself", dep),
 				})
 				continue
 			}
-
 			if strings.HasPrefix(entry.LogicalName, bareName+"/") {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "dependency_targets",
-					Detail: fmt.Sprintf("depends_on refers to an ancestor node: %q", ref),
+					Detail: fmt.Sprintf("depends_on entry %s points to an ancestor", dep),
 				})
 				continue
 			}
-
 			if strings.HasPrefix(bareName, entry.LogicalName+"/") {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "dependency_targets",
-					Detail: fmt.Sprintf("depends_on refers to a descendant node: %q", ref),
+					Detail: fmt.Sprintf("depends_on entry %s points to a descendant", dep),
 				})
 				continue
 			}
-
-		} else if strings.HasPrefix(ref, "ARTIFACT/") {
-			if _, exists := knownNames[ref]; !exists {
+		} else if strings.HasPrefix(dep, "ARTIFACT/") {
+			if _, known := knownNames[dep]; !known {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "dependency_targets",
-					Detail: fmt.Sprintf("depends_on refers to unknown artifact %q", ref),
+					Detail: fmt.Sprintf("depends_on entry %s references unknown artifact", dep),
 				})
-				continue
 			}
 		} else {
 			errs = append(errs, &FormatError{
 				Node:   entry.LogicalName,
 				Rule:   "dependency_targets",
-				Detail: fmt.Sprintf("depends_on entry has unrecognized prefix: %q", ref),
+				Detail: fmt.Sprintf("depends_on entry %s has unrecognized prefix", dep),
 			})
 		}
 	}
-
 	return errs
 }
 
-func validateInputTarget(entry *SpecTreeValidateInput, knownNames map[string]struct{}) []*FormatError {
-	if entry.Frontmatter == nil || entry.Frontmatter.Input == "" {
+func ruleInputTarget(entry *SpecTreeValidateInput, knownNames map[string]struct{}) []*FormatError {
+	if entry.Frontmatter.Input == "" {
 		return nil
 	}
-
-	input := entry.Frontmatter.Input
-
-	if !strings.HasPrefix(input, "ARTIFACT/") {
+	if !strings.HasPrefix(entry.Frontmatter.Input, "ARTIFACT/") {
 		return []*FormatError{
 			{
 				Node:   entry.LogicalName,
 				Rule:   "input_target",
-				Detail: fmt.Sprintf("input must start with ARTIFACT/, got %q", input),
+				Detail: fmt.Sprintf("input must be an ARTIFACT/ reference, got %s", entry.Frontmatter.Input),
 			},
 		}
 	}
-
-	if _, exists := knownNames[input]; !exists {
+	if _, known := knownNames[entry.Frontmatter.Input]; !known {
 		return []*FormatError{
 			{
 				Node:   entry.LogicalName,
 				Rule:   "input_target",
-				Detail: fmt.Sprintf("input refers to unknown artifact %q", input),
+				Detail: fmt.Sprintf("input references unknown artifact %s", entry.Frontmatter.Input),
 			},
 		}
 	}
-
 	return nil
 }
 
-func validateExternalFiles(entry *SpecTreeValidateInput) []*FormatError {
-	if entry.Frontmatter == nil {
-		return nil
-	}
-
+func ruleExternalFiles(entry *SpecTreeValidateInput) []*FormatError {
 	var errs []*FormatError
-
 	for _, ext := range entry.Frontmatter.External {
-		if ext == nil {
-			continue
-		}
-
 		pathCfs := &pathutils.PathCfs{Value: ext.Path}
 
 		// Step 1 — Verify existence.
@@ -294,7 +257,7 @@ func validateExternalFiles(entry *SpecTreeValidateInput) []*FormatError {
 			errs = append(errs, &FormatError{
 				Node:   entry.LogicalName,
 				Rule:   "external_files",
-				Detail: fmt.Sprintf("external file cannot be opened: %q", ext.Path),
+				Detail: fmt.Sprintf("external file %s cannot be opened: %s", ext.Path, err.Error()),
 			})
 			continue
 		}
@@ -304,63 +267,77 @@ func validateExternalFiles(entry *SpecTreeValidateInput) []*FormatError {
 		if len(ext.Fragments) == 0 {
 			continue
 		}
-
 		for _, fragment := range ext.Fragments {
-			if fragment == nil {
-				continue
-			}
-
-			start, end, parseErr := parseLineRange(fragment.Lines)
-			if parseErr != nil || start < 1 || start > end {
+			start, end, parseErr := parseFragmentLines(fragment.Lines)
+			if parseErr != nil {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "external_files",
-					Detail: fmt.Sprintf("fragment has invalid lines range %q in %q", fragment.Lines, ext.Path),
+					Detail: fmt.Sprintf("external file %s fragment has invalid lines format: %s", ext.Path, fragment.Lines),
+				})
+				continue
+			}
+			if start < 1 {
+				errs = append(errs, &FormatError{
+					Node:   entry.LogicalName,
+					Rule:   "external_files",
+					Detail: fmt.Sprintf("external file %s fragment start line must be >= 1, got %d", ext.Path, start),
+				})
+				continue
+			}
+			if start > end {
+				errs = append(errs, &FormatError{
+					Node:   entry.LogicalName,
+					Rule:   "external_files",
+					Detail: fmt.Sprintf("external file %s fragment start %d exceeds end %d", ext.Path, start, end),
 				})
 				continue
 			}
 
-			fragmentReader, openErr := filereader.FileOpen(pathCfs)
+			fragReader, openErr := filereader.FileOpen(pathCfs)
 			if openErr != nil {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "external_files",
-					Detail: fmt.Sprintf("external file cannot be opened for fragment read: %q", ext.Path),
+					Detail: fmt.Sprintf("external file %s cannot be opened for fragment read: %s", ext.Path, openErr.Error()),
 				})
 				continue
 			}
 
-			filereader.FileSkipLines(fragmentReader, start-1)
+			filereader.FileSkipLines(fragReader, start-1)
 
 			lineCount := end - start + 1
 			readLines := make([]string, 0, lineCount)
 			outOfRange := false
-
 			for i := 0; i < lineCount; i++ {
-				line, readErr := filereader.FileReadLine(fragmentReader)
+				line, readErr := filereader.FileReadLine(fragReader)
 				if readErr != nil {
 					if errors.Is(readErr, filereader.ErrEndOfFile) {
-						filereader.FileClose(fragmentReader)
+						filereader.FileClose(fragReader)
 						errs = append(errs, &FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "external_files",
-							Detail: fmt.Sprintf("fragment out of range: lines %d-%d in %q", start, end, ext.Path),
+							Detail: fmt.Sprintf("external file %s fragment %s is out of range", ext.Path, fragment.Lines),
 						})
 						outOfRange = true
 						break
 					}
-					filereader.FileClose(fragmentReader)
+					filereader.FileClose(fragReader)
+					errs = append(errs, &FormatError{
+						Node:   entry.LogicalName,
+						Rule:   "external_files",
+						Detail: fmt.Sprintf("external file %s fragment %s read error: %s", ext.Path, fragment.Lines, readErr.Error()),
+					})
 					outOfRange = true
 					break
 				}
 				readLines = append(readLines, line)
 			}
-
 			if outOfRange {
 				continue
 			}
 
-			filereader.FileClose(fragmentReader)
+			filereader.FileClose(fragReader)
 
 			content := strings.Join(readLines, "\n")
 			digest := sha1.Sum([]byte(content))
@@ -370,82 +347,66 @@ func validateExternalFiles(entry *SpecTreeValidateInput) []*FormatError {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "external_files",
-					Detail: fmt.Sprintf("fragment hash mismatch for lines %d-%d in %q: expected %q, got %q", start, end, ext.Path, fragment.Hash, computedHash),
+					Detail: fmt.Sprintf("external file %s fragment %s hash mismatch: expected %s, got %s", ext.Path, fragment.Lines, fragment.Hash, computedHash),
 				})
 			}
 		}
 	}
-
 	return errs
 }
 
-// parseLineRange parses a string of the form "<start>-<end>" and returns
-// the two integers. Returns an error if the format is invalid.
-func parseLineRange(s string) (int, int, error) {
-	parts := strings.SplitN(s, "-", 2)
+// parseFragmentLines parses a fragment lines string of the form "<start>-<end>"
+// and returns start and end as integers. Returns an error if the format is invalid.
+func parseFragmentLines(lines string) (int, int, error) {
+	parts := strings.SplitN(lines, "-", 2)
 	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("invalid range format: %q", s)
+		return 0, 0, fmt.Errorf("invalid lines format: %s", lines)
 	}
 	start, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return 0, 0, fmt.Errorf("invalid start in range %q: %w", s, err)
+		return 0, 0, fmt.Errorf("invalid start in lines format: %s", lines)
 	}
 	end, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return 0, 0, fmt.Errorf("invalid end in range %q: %w", s, err)
+		return 0, 0, fmt.Errorf("invalid end in lines format: %s", lines)
 	}
 	return start, end, nil
 }
 
-func validateOutputPaths(entry *SpecTreeValidateInput) []*FormatError {
-	if entry.Frontmatter == nil {
-		return nil
-	}
-
+func ruleOutputPaths(entry *SpecTreeValidateInput) []*FormatError {
 	var errs []*FormatError
-
 	for _, output := range entry.Frontmatter.Outputs {
-		if output == nil {
-			continue
-		}
 		if err := pathutils.PathValidateCfs(output.Path); err != nil {
 			errs = append(errs, &FormatError{
 				Node:   entry.LogicalName,
 				Rule:   "output_paths",
-				Detail: fmt.Sprintf("output path %q is invalid: %s", output.Path, err.Error()),
+				Detail: fmt.Sprintf("output path %s is invalid: %s", output.Path, err.Error()),
 			})
 		}
 	}
-
 	return errs
 }
 
-func validateDuplicateSubsections(entry *SpecTreeValidateInput) []*FormatError {
+func ruleDuplicateSubsections(entry *SpecTreeValidateInput) []*FormatError {
 	if entry.Node == nil || entry.Node.Public == nil {
 		return nil
 	}
 	if len(entry.Node.Public.Subsections) == 0 {
 		return nil
 	}
-
 	var errs []*FormatError
 	seenHeadings := make(map[string]struct{})
-
 	for _, subsection := range entry.Node.Public.Subsections {
-		if subsection == nil {
-			continue
-		}
-		normalized := textnormalization.NormalizeText(subsection.Heading)
-		if _, exists := seenHeadings[normalized]; exists {
+		normalizedHeading := textnormalization.NormalizeText(subsection.Heading)
+		if _, seen := seenHeadings[normalizedHeading]; seen {
 			errs = append(errs, &FormatError{
 				Node:   entry.LogicalName,
 				Rule:   "duplicate_subsections",
-				Detail: fmt.Sprintf("duplicate public subsection heading %q", subsection.Heading),
+				Detail: fmt.Sprintf("duplicate ## subsection heading %q in # Public section", subsection.Heading),
 			})
 		} else {
-			seenHeadings[normalized] = struct{}{}
+			seenHeadings[normalizedHeading] = struct{}{}
 		}
 	}
-
 	return errs
 }

@@ -70,9 +70,9 @@ If the target logical name is `"ROOT"`, create a single
 `LogicalNameToPath`, qualifier absent). Ancestors list
 is empty. Skip to Step 2.
 
-Otherwise, starting from the target logical name, walk
-upward using `LogicalNameGetParent` repeatedly,
-collecting each logical name until reaching `ROOT`
+Otherwise, add the target logical name to the list.
+Then walk upward using `LogicalNameGetParent` repeatedly,
+adding each parent to the list until reaching `ROOT`
 (inclusive). If `LogicalNameGetParent` fails, propagate
 the error.
 
@@ -94,7 +94,8 @@ Read the target node's frontmatter using
 parsing fails, raise "unreadable frontmatter".
 
 For each entry in `frontmatter.depends_on`, determine
-whether it starts with `ROOT/` or `ARTIFACT/`:
+whether it starts with `ROOT/` or `ARTIFACT/`. If
+neither, raise "unresolvable artifact".
 
 **`ROOT/` references:**
 1. Extract the qualifier using `LogicalNameGetQualifier`
@@ -134,6 +135,9 @@ then by qualifier (absent sorts before present).
 ### Step 3 — Deduplicate dependencies
 
 Remove duplicate entries from the dependencies list.
+
+Determine whether each entry is `ROOT/` or `ARTIFACT/`
+using `LogicalNameIsArtifact`.
 
 For `ROOT/` entries:
 - Two entries are duplicates when they have the same
