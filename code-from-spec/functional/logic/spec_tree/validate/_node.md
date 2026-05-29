@@ -73,7 +73,7 @@ Rule name: `name_heading`.
 
 The first section heading (`node.name_section.heading`)
 must match the entry's `logical_name`. Comparison uses
-`TextNormalize` on both values.
+`NormalizeText` on both values.
 
 #### leaf_only_fields
 
@@ -175,7 +175,7 @@ Rule name: `duplicate_subsections`.
 
 If `node.public` is present and has subsections, all
 `##` subsection headings must be unique after
-`TextNormalize`. If `node.public` is absent, skip. Track
+`NormalizeText`. If `node.public` is absent, skip. Track
 seen headings; if a heading has already been seen,
 report a format error for that occurrence. The first
 occurrence is not an error — only subsequent repeats

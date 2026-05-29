@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_reader@MEeLfTrvL7FXmn5jy7rgq-xbH9o
+// code-from-spec: ROOT/golang/implementation/os/file_reader@r99XOcUFy48N-ZLWbMwKAN69hHg
 
 package filereader
 
@@ -12,24 +12,26 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/pathutils"
 )
 
-// ErrEndOfFile is returned by FileReadLine when there are no more lines
-// to read, including after FileClose has been called.
-var ErrEndOfFile = errors.New("end of file")
-
-// ErrFileUnreadable is returned by FileOpen when the path is valid but
-// the file cannot be opened.
-var ErrFileUnreadable = errors.New("file unreadable")
-
 // FileReader holds the state for sequential line-by-line reading of a file.
 // Obtain a FileReader via FileOpen. The caller must call FileClose when done
 // to release the underlying file handle.
 type FileReader struct {
 	CfsPath *pathutils.PathCfs
-
+	osPath  *pathutils.PathOs
 	file    *os.File
 	scanner *bufio.Scanner
 	closed  bool
 }
+
+var (
+	// ErrEndOfFile is returned by FileReadLine when there are no more lines
+	// to read, including after FileClose has been called.
+	ErrEndOfFile = errors.New("end of file")
+
+	// ErrFileUnreadable is returned by FileOpen when the path is valid but
+	// the file cannot be opened.
+	ErrFileUnreadable = errors.New("file unreadable")
+)
 
 // FileOpen opens the file at cfs_path and prepares it for sequential
 // line-by-line reading starting from the beginning of the file.
@@ -49,13 +51,14 @@ func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error) {
 
 	f, err := os.Open(osPath.Value)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, osPath.Value)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	scanner := bufio.NewScanner(f)
 
 	return &FileReader{
 		CfsPath: cfs_path,
+		osPath:  osPath,
 		file:    f,
 		scanner: scanner,
 		closed:  false,
@@ -78,11 +81,6 @@ func FileReadLine(reader *FileReader) (string, error) {
 	}
 
 	line := reader.scanner.Text()
-
-	// bufio.Scanner with the default ScanLines already strips line terminators,
-	// but the spec requires explicit CRLF normalization. When using a custom
-	// split function we handle it ourselves. With ScanLines, "\r" may still be
-	// present at the end of lines on files with CRLF endings, so we strip it.
 	line = strings.TrimRight(line, "\r")
 
 	return line, nil
@@ -97,7 +95,8 @@ func FileSkipLines(reader *FileReader, count int) {
 	}
 
 	for i := 0; i < count; i++ {
-		if !reader.scanner.Scan() {
+		_, err := FileReadLine(reader)
+		if errors.Is(err, ErrEndOfFile) {
 			return
 		}
 	}
@@ -112,7 +111,7 @@ func FileClose(reader *FileReader) {
 	}
 
 	reader.file.Close()
-	reader.closed = true
 	reader.file = nil
 	reader.scanner = nil
+	reader.closed = true
 }

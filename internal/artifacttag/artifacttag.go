@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@MPUokAIeJZnNLWxjOMSksNs5azg
+// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@5xwnlLy2HPiM_vLnyd1P9Zmb15U
 
 package artifacttag
 
@@ -63,24 +63,22 @@ func ArtifactTagExtract(file_path *pathutils.PathCfs) (*ArtifactTag, error) {
 	// Step 1: Open the file.
 	reader, err := filereader.FileOpen(file_path)
 	if err != nil {
-		if errors.Is(err, filereader.ErrFileUnreadable) {
-			return nil, fmt.Errorf("%w", filereader.ErrFileUnreadable)
-		}
-		return nil, fmt.Errorf("opening file: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 
-	// Step 2: Set found_line to empty (no match yet).
+	// Step 2: Initialize tracking variables.
 	foundLine := ""
+	var readError error
 
-	// Step 3: Loop over lines.
+	// Step 3: Scan lines for the tag prefix.
 	for {
 		line, err := filereader.FileReadLine(reader)
 		if errors.Is(err, filereader.ErrEndOfFile) {
 			break
 		}
 		if err != nil {
-			filereader.FileClose(reader)
-			return nil, fmt.Errorf("reading file: %w", err)
+			readError = err
+			break
 		}
 		if strings.Contains(line, tagPrefix) {
 			foundLine = line
@@ -91,38 +89,43 @@ func ArtifactTagExtract(file_path *pathutils.PathCfs) (*ArtifactTag, error) {
 	// Step 4: Close the reader.
 	filereader.FileClose(reader)
 
-	// Step 5: If no match was found, return ErrNoTagFound.
+	// Step 5: Propagate read errors.
+	if readError != nil {
+		return nil, fmt.Errorf("file unreadable: %w", readError)
+	}
+
+	// Step 6: Check if a tag line was found.
 	if foundLine == "" {
 		return nil, fmt.Errorf("%w", ErrNoTagFound)
 	}
 
-	// Step 6: Take the portion after the first occurrence of the prefix.
+	// Step 7: Extract the raw tag value from the line.
 	idx := strings.Index(foundLine, tagPrefix)
 	rawTag := foundLine[idx+len(tagPrefix):]
-
-	// Step 7: Trim leading whitespace from rawTag.
 	rawTag = strings.TrimLeft(rawTag, " \t")
 
-	// Step 8: Find the first "@" in rawTag.
+	// Step 8: Find the "@" separator.
 	atIdx := strings.Index(rawTag, "@")
-	if atIdx < 0 {
+	if atIdx == -1 {
 		return nil, fmt.Errorf("%w", ErrMalformedTag)
 	}
 
-	// Step 9: Extract the logical name (before "@").
+	// Step 9: Extract the logical name.
 	logicalName := rawTag[:atIdx]
 	if logicalName == "" {
 		return nil, fmt.Errorf("%w", ErrMalformedTag)
 	}
 
-	// Step 10: Extract the hash as exactly 27 characters after "@".
-	afterAt := rawTag[atIdx+1:]
-	if len(afterAt) < 27 {
+	// Step 10: Extract the remainder after "@".
+	remainder := rawTag[atIdx+1:]
+	if len(remainder) < 27 {
 		return nil, fmt.Errorf("%w", ErrMalformedTag)
 	}
-	hash := afterAt[:27]
 
-	// Step 11: Return the ArtifactTag.
+	// Step 11: Take the first 27 characters as the hash.
+	hash := remainder[:27]
+
+	// Step 12: Return the populated ArtifactTag.
 	return &ArtifactTag{
 		LogicalName: logicalName,
 		Hash:        hash,
