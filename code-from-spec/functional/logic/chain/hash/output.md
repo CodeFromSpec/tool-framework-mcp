@@ -1,239 +1,216 @@
-<!-- code-from-spec: ROOT/functional/logic/chain/hash@LnlHpQD8K08ZDj1G6yTTQx6Or7E -->
+<!-- code-from-spec: ROOT/functional/logic/chain/hash@l4pnqGLJRfmstBcpzIHb-dqT44Y -->
 
-# ChainHashCompute
+# Chain Hash — Pseudocode
 
-function ChainHashCompute(chain: Chain) -> string
+## Records
+
+```
+record ContentHash
+  raw_bytes: 20 bytes (SHA-1 digest)
+```
+
+---
+
+## Functions
+
+---
+
+### HashSection(section: NodeSection) -> optional ContentHash
+
+Computes SHA-1 for a full section (# Public or # Agent).
+
+1. If section is absent, return absent.
+
+2. If section has no content lines and no subsections, return absent.
+
+3. Initialize an empty byte buffer.
+
+4. Append section.raw_heading + "\n" to the buffer.
+
+5. For each line in section.content:
+     Append line + "\n" to the buffer.
+
+6. For each subsection in section.subsections:
+     Append subsection.raw_heading + "\n" to the buffer.
+     For each line in subsection.content:
+       Append line + "\n" to the buffer.
+
+7. Compute SHA-1 of the buffer. Return the result as a ContentHash.
+
+---
+
+### HashSubsection(section: NodeSection, qualifier: string) -> optional ContentHash
+
+Computes SHA-1 for a specific ## subsection within # Public.
+
+1. If section is absent, return absent.
+
+2. Compute normalized_qualifier = NormalizeText(qualifier).
+
+3. Find the subsection in section.subsections whose heading equals
+   normalized_qualifier.
+   If not found, return absent.
+
+4. Initialize an empty byte buffer.
+
+5. Append subsection.raw_heading + "\n" to the buffer.
+
+6. For each line in subsection.content:
+     Append line + "\n" to the buffer.
+
+7. Compute SHA-1 of the buffer. Return the result as a ContentHash.
+
+---
+
+### HashFileStrippingFrontmatter(file_path: PathCfs) -> ContentHash
+  errors:
+    - file unreadable: file cannot be opened or read.
+
+1. Call FileOpen(file_path).
+   If it fails, raise error "file unreadable".
+   Set reader to the result.
+
+2. Call FileReadLine(reader) to read the first line.
+   If "end of file" is raised:
+     Call FileClose(reader).
+     Return SHA-1 of empty bytes as a ContentHash.
+
+3. If the first line equals exactly "---":
+     Read lines until a line equals exactly "---".
+       Discard each line.
+       If "end of file" is raised before the closing "---":
+         Call FileClose(reader).
+         Raise error "file unreadable".
+     Frontmatter has been skipped. Proceed to step 4 to read remaining lines.
+   Else:
+     The first line is content. Initialize buffer and append first_line + "\n".
+     Proceed to step 4 to continue reading remaining lines.
+
+4. Initialize buffer if not already initialized.
+   Loop:
+     Call FileReadLine(reader).
+     If "end of file" is raised, stop the loop.
+     Append line + "\n" to the buffer.
+
+5. Call FileClose(reader).
+
+6. Compute SHA-1 of the buffer. Return as a ContentHash.
+
+---
+
+### HashExternalFile(external: FrontmatterExternal) -> ContentHash
+  errors:
+    - file unreadable: file cannot be opened or read.
+
+1. Create a PathCfs from external.path.
+
+2. If external.fragments is absent or empty:
+     Call FileOpen(path).
+     If it fails, raise error "file unreadable".
+     Set reader to the result.
+     Initialize an empty byte buffer.
+     Loop:
+       Call FileReadLine(reader).
+       If "end of file" is raised, stop the loop.
+       Append line + "\n" to the buffer.
+     Call FileClose(reader).
+     Compute SHA-1 of the buffer. Return as a ContentHash.
+
+3. Else (external has fragments):
+     Initialize an empty byte buffer.
+     For each fragment in external.fragments (in declaration order):
+       Parse fragment.lines as "<start>-<end>" where start and end are
+       integers (1-based, inclusive).
+       Call FileOpen(path).
+       If it fails, raise error "file unreadable".
+       Set reader to the result.
+       Call FileSkipLines(reader, start - 1).
+       Read (end - start + 1) lines:
+         For i from 1 to (end - start + 1):
+           Call FileReadLine(reader).
+           If "end of file" is raised:
+             Call FileClose(reader).
+             Raise error "file unreadable".
+           Append line + "\n" to the buffer.
+       Call FileClose(reader).
+     Compute SHA-1 of the buffer. Return as a ContentHash.
+
+---
+
+### ChainHashCompute(chain: Chain) -> string
   errors:
     - file unreadable: a file in the chain cannot be read or opened.
     - parse failure: a node file cannot be parsed.
 
-Returns a 27-character base64url-encoded SHA-1 hash representing
-the combined content state of all positions in the chain.
+**Step 1 — Collect content hashes in chain assembly order**
 
----
+Initialize an empty list: content_hashes.
 
-## Step 1 — Collect content hashes
+**1a. Ancestors**
 
-Process each position in chain assembly order. For each position,
-compute a SHA-1 content hash (20 raw bytes). Skip any position
-whose relevant content is absent or empty — contribute nothing
-to the list.
+For each ancestor in chain.ancestors (from root down to target's parent):
+  Call NodeParse(ancestor.logical_name).
+  If it fails, raise error "parse failure".
+  Call HashSection(node.public).
+  If the result is not absent, append it to content_hashes.
 
-### 1a. Ancestors
+**1b. Dependencies**
 
-For each item in `chain.ancestors` (root down to target's parent):
-
-  1. Call NodeParse with `ancestor.logical_name`.
-     If NodeParse fails, raise error "parse failure".
-
-  2. Hash the `# Public` section using the full-section rule
-     (see "Hashing a full section" below).
-     If the section is absent or has no content and no subsections, skip.
-
-  3. Append the resulting content hash to the list.
-
-### 1b. Dependencies
-
-For each item in `chain.dependencies` (alphabetical order by file_path,
+For each dep in chain.dependencies (already in alphabetical order by file path,
 then qualifier):
+  If LogicalNameIsArtifact(dep.logical_name) is true:
+    Call HashFileStrippingFrontmatter(dep.file_path).
+    If it fails, propagate error.
+    Append the result to content_hashes.
+  Else if dep.qualifier is absent:
+    Call NodeParse(dep.logical_name).
+    If it fails, raise error "parse failure".
+    Call HashSection(node.public).
+    If the result is not absent, append it to content_hashes.
+  Else (dep.qualifier is present):
+    Call NodeParse(dep.logical_name).
+    If it fails, raise error "parse failure".
+    Call HashSubsection(node.public, dep.qualifier).
+    If the result is not absent, append it to content_hashes.
 
-  1. If LogicalNameIsArtifact(dep.logical_name) is true:
-       Hash the artifact file at `dep.file_path`
-       (see "Hashing artifact files" below).
-       Append the content hash to the list.
+**1c. External files**
 
-  2. Else if dep.qualifier is absent:
-       Call NodeParse with `dep.logical_name`.
-       If NodeParse fails, raise error "parse failure".
-       Hash the `# Public` section (full section).
-       If absent or empty, skip.
-       Append the content hash to the list.
+For each external in chain.external (already in alphabetical order by path):
+  Call HashExternalFile(external).
+  If it fails, propagate error.
+  Append the result to content_hashes.
 
-  3. Else (qualifier is present):
-       Call NodeParse with `dep.logical_name`.
-       If NodeParse fails, raise error "parse failure".
-       Hash the `## <qualifier>` subsection within `# Public`
-       (see "Hashing a subsection" below).
-       If not found, skip.
-       Append the content hash to the list.
+**1d. Target # Public**
 
-### 1c. External files
+Call NodeParse(chain.target.logical_name).
+If it fails, raise error "parse failure".
+Set target_node to the result.
+Call HashSection(target_node.public).
+If the result is not absent, append it to content_hashes.
 
-For each item in `chain.external` (alphabetical order by path):
+**1e. Target # Agent**
 
-  1. If `external.fragments` is absent:
-       Hash the full file content
-       (see "Hashing external files — no fragments" below).
+Call HashSection(target_node.agent).
+If the result is not absent, append it to content_hashes.
 
-  2. Else:
-       Hash by fragment ranges in declaration order
-       (see "Hashing external files — with fragments" below).
+**1f. Input (if present)**
 
-  3. Append the content hash to the list.
+If chain.input is not absent:
+  Call HashFileStrippingFrontmatter(chain.input.file_path).
+  If it fails, propagate error.
+  Append the result to content_hashes.
 
-### 1d. Target — # Public
+**Step 2 — Compute final hash**
 
-  1. Call NodeParse with `chain.target.logical_name`.
-     If NodeParse fails, raise error "parse failure".
-     Store the result as `target_node` for reuse in 1e.
+1. Initialize an empty byte buffer.
 
-  2. Hash the `# Public` section (full section).
-     If absent or empty, skip.
-     Append the content hash to the list.
+2. For each content_hash in content_hashes (in order):
+     Append content_hash.raw_bytes (20 bytes) to the buffer.
 
-### 1e. Target — # Agent
+3. Compute SHA-1 of the buffer.
 
-  1. Using the `target_node` result from step 1d:
+4. Encode the 20-byte SHA-1 result as base64url (RFC 4648 §5, no padding).
+   The result is exactly 27 characters.
 
-  2. Hash the `# Agent` section (full section).
-     If absent or empty, skip.
-     Append the content hash to the list.
-
-### 1f. Input
-
-  If `chain.input` is present:
-
-  1. Hash the artifact file at `chain.input.file_path`
-     (see "Hashing artifact files" below).
-     Append the content hash to the list.
-
----
-
-## Step 2 — Compute final hash
-
-  1. Concatenate all content hashes from Step 1 as raw bytes,
-     in the order they were appended (20 bytes each).
-
-  2. Compute SHA-1 of the concatenated bytes.
-
-  3. Encode the 20-byte SHA-1 result as base64url
-     (RFC 4648 §5, no padding).
-
-  4. Return the resulting 27-character string.
-
----
-
-## Hashing a full section
-
-Given a NodeSection (e.g., the `# Public` or `# Agent` section):
-
-  1. If the section is absent, return absent (skip).
-
-  2. If the section has no content lines and no subsections,
-     return absent (skip).
-
-  3. Collect lines to hash:
-       - The section's `raw_heading` line.
-       - All lines in `section.content`.
-       - For each subsection in `section.subsections` (in order):
-           - The subsection's `raw_heading` line.
-           - All lines in `subsection.content`.
-
-  4. After each line collected above, append "\n" (LF).
-
-  5. Compute SHA-1 of the resulting byte sequence.
-
-  6. Return the 20-byte SHA-1.
-
----
-
-## Hashing a subsection
-
-Given a qualifier string and a NodeSection (`# Public`):
-
-  1. If `node.public` is absent, return absent (skip).
-
-  2. Search `node.public.subsections` for a subsection whose
-     `heading` matches the qualifier (case-insensitive).
-     If not found, return absent (skip).
-
-  3. Collect lines to hash:
-       - The subsection's `raw_heading` line.
-       - All lines in `subsection.content`.
-
-  4. After each line collected above, append "\n" (LF).
-
-  5. Compute SHA-1 of the resulting byte sequence.
-
-  6. Return the 20-byte SHA-1.
-
----
-
-## Hashing artifact files
-
-Given a file_path (PathCfs) for an artifact or input file:
-
-  1. Call FileOpen with `file_path`.
-     If the file cannot be opened, raise error "file unreadable".
-
-  2. Attempt to read the first line with FileReadLine.
-     If end of file immediately, the file is empty:
-       Call FileClose.
-       Return absent (skip — no content hash contributed).
-
-  3. If the first line is exactly "---" (frontmatter delimiter):
-       Read and discard lines until a line that is exactly "---"
-       is encountered (the closing delimiter).
-       If end of file is reached before finding the closing "---",
-       treat the rest of the file as content (no frontmatter end found).
-
-  4. Read all remaining lines with FileReadLine until end of file.
-
-  5. For each content line, append "\n" after it.
-
-  6. If there are no content lines (file had only frontmatter),
-     Call FileClose.
-     Return absent (skip).
-
-  7. Compute SHA-1 of the collected byte sequence.
-
-  8. Call FileClose.
-
-  9. Return the 20-byte SHA-1.
-
----
-
-## Hashing external files — no fragments
-
-Given a file_path (PathCfs) with no fragments declared:
-
-  1. Call FileOpen with `file_path`.
-     If the file cannot be opened, raise error "file unreadable".
-
-  2. Read all lines with FileReadLine until end of file.
-     After each line, append "\n".
-
-  3. Compute SHA-1 of the collected byte sequence.
-
-  4. Call FileClose.
-
-  5. Return the 20-byte SHA-1.
-
----
-
-## Hashing external files — with fragments
-
-Given a file_path (PathCfs) and a list of fragments in declaration order:
-
-  1. Collect all fragment byte sequences:
-
-     For each fragment in declaration order:
-
-       a. Parse `fragment.lines` as "<start>-<end>" (1-based, inclusive integers).
-
-       b. Call FileOpen with `file_path`.
-          If the file cannot be opened, raise error "file unreadable".
-
-       c. Call FileSkipLines with count = start - 1,
-          to skip to the first line of the fragment.
-
-       d. Read (end - start + 1) lines with FileReadLine.
-          After each line, append "\n".
-
-       e. Call FileClose.
-
-       f. Append the collected bytes to the fragment accumulator.
-
-  2. Compute SHA-1 of the concatenated fragment bytes (all fragments joined).
-
-  3. Return the 20-byte SHA-1.
+5. Return the 27-character string.
+```
