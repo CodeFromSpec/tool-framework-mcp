@@ -1,4 +1,5 @@
-// code-from-spec: ROOT/golang/tests/parsing/frontmatter@BNr95Vpxl9F8nD1z0NIdQ4_KaQ4
+// code-from-spec: ROOT/golang/tests/parsing/frontmatter@uL9aJGzKm8FNTdmECm0BC5WEe14
+
 package frontmatter_test
 
 import (
@@ -6,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
@@ -27,18 +29,23 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-// testWriteFile creates intermediate directories and writes content to a file
-// relative to the current working directory.
-func testWriteFile(t *testing.T, path string, content string) {
+// testWriteFile creates any intermediate directories and writes content to
+// a relative path within the current working directory.
+func testWriteFile(t *testing.T, relPath string, content string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-		t.Fatalf("testWriteFile %q: %v", path, err)
+	if err := os.MkdirAll(".", 0755); err != nil {
+		t.Fatalf("testWriteFile MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(relPath, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteFile WriteFile %s: %v", relPath, err)
 	}
 }
 
-// --- Happy Path ---
+// ---------------------------------------------------------------------------
+// Happy Path
+// ---------------------------------------------------------------------------
 
-func TestFrontmatterParse_AllFields(t *testing.T) {
+func TestFrontmatterParse_CompleteAllFields(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
@@ -68,43 +75,59 @@ body content here
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(fm.DependsOn) != 2 || fm.DependsOn[0] != "dep-one" || fm.DependsOn[1] != "dep-two" {
-		t.Errorf("depends_on = %v, want [dep-one dep-two]", fm.DependsOn)
+	// depends_on
+	if len(fm.DependsOn) != 2 {
+		t.Fatalf("expected 2 depends_on, got %d", len(fm.DependsOn))
+	}
+	if fm.DependsOn[0] != "dep-one" {
+		t.Errorf("DependsOn[0] = %q, want %q", fm.DependsOn[0], "dep-one")
+	}
+	if fm.DependsOn[1] != "dep-two" {
+		t.Errorf("DependsOn[1] = %q, want %q", fm.DependsOn[1], "dep-two")
 	}
 
+	// external
 	if len(fm.External) != 1 {
-		t.Fatalf("external len = %d, want 1", len(fm.External))
+		t.Fatalf("expected 1 external, got %d", len(fm.External))
 	}
 	ext := fm.External[0]
 	if ext.Path != "some/external/file.md" {
-		t.Errorf("external[0].path = %q, want %q", ext.Path, "some/external/file.md")
+		t.Errorf("External[0].Path = %q, want %q", ext.Path, "some/external/file.md")
 	}
 	if len(ext.Fragments) != 1 {
-		t.Fatalf("external[0].fragments len = %d, want 1", len(ext.Fragments))
+		t.Fatalf("expected 1 fragment, got %d", len(ext.Fragments))
 	}
 	frag := ext.Fragments[0]
 	if frag.Description != "Fragment description" {
-		t.Errorf("fragment.description = %q, want %q", frag.Description, "Fragment description")
+		t.Errorf("Fragment.Description = %q, want %q", frag.Description, "Fragment description")
 	}
 	if frag.Lines != "10-20" {
-		t.Errorf("fragment.lines = %q, want %q", frag.Lines, "10-20")
+		t.Errorf("Fragment.Lines = %q, want %q", frag.Lines, "10-20")
 	}
 	if frag.Hash != "abc123" {
-		t.Errorf("fragment.hash = %q, want %q", frag.Hash, "abc123")
+		t.Errorf("Fragment.Hash = %q, want %q", frag.Hash, "abc123")
 	}
 
+	// input
 	if fm.Input != "some/input/file.md" {
-		t.Errorf("input = %q, want %q", fm.Input, "some/input/file.md")
+		t.Errorf("Input = %q, want %q", fm.Input, "some/input/file.md")
 	}
 
+	// outputs
 	if len(fm.Outputs) != 2 {
-		t.Fatalf("outputs len = %d, want 2", len(fm.Outputs))
+		t.Fatalf("expected 2 outputs, got %d", len(fm.Outputs))
 	}
-	if fm.Outputs[0].ID != "out-one" || fm.Outputs[0].Path != "path/to/out-one.go" {
-		t.Errorf("outputs[0] = {%q %q}, want {out-one path/to/out-one.go}", fm.Outputs[0].ID, fm.Outputs[0].Path)
+	if fm.Outputs[0].ID != "out-one" {
+		t.Errorf("Outputs[0].ID = %q, want %q", fm.Outputs[0].ID, "out-one")
 	}
-	if fm.Outputs[1].ID != "out-two" || fm.Outputs[1].Path != "path/to/out-two.go" {
-		t.Errorf("outputs[1] = {%q %q}, want {out-two path/to/out-two.go}", fm.Outputs[1].ID, fm.Outputs[1].Path)
+	if fm.Outputs[0].Path != "path/to/out-one.go" {
+		t.Errorf("Outputs[0].Path = %q, want %q", fm.Outputs[0].Path, "path/to/out-one.go")
+	}
+	if fm.Outputs[1].ID != "out-two" {
+		t.Errorf("Outputs[1].ID = %q, want %q", fm.Outputs[1].ID, "out-two")
+	}
+	if fm.Outputs[1].Path != "path/to/out-two.go" {
+		t.Errorf("Outputs[1].Path = %q, want %q", fm.Outputs[1].Path, "path/to/out-two.go")
 	}
 }
 
@@ -126,19 +149,22 @@ outputs:
 	}
 
 	if len(fm.DependsOn) != 0 {
-		t.Errorf("depends_on = %v, want empty", fm.DependsOn)
+		t.Errorf("expected empty DependsOn, got %v", fm.DependsOn)
 	}
 	if len(fm.External) != 0 {
-		t.Errorf("external = %v, want empty", fm.External)
+		t.Errorf("expected empty External, got %v", fm.External)
 	}
 	if fm.Input != "" {
-		t.Errorf("input = %q, want empty", fm.Input)
+		t.Errorf("expected empty Input, got %q", fm.Input)
 	}
 	if len(fm.Outputs) != 1 {
-		t.Fatalf("outputs len = %d, want 1", len(fm.Outputs))
+		t.Fatalf("expected 1 output, got %d", len(fm.Outputs))
 	}
-	if fm.Outputs[0].ID != "result" || fm.Outputs[0].Path != "gen/result.go" {
-		t.Errorf("outputs[0] = {%q %q}, want {result gen/result.go}", fm.Outputs[0].ID, fm.Outputs[0].Path)
+	if fm.Outputs[0].ID != "result" {
+		t.Errorf("Outputs[0].ID = %q, want %q", fm.Outputs[0].ID, "result")
+	}
+	if fm.Outputs[0].Path != "gen/result.go" {
+		t.Errorf("Outputs[0].Path = %q, want %q", fm.Outputs[0].Path, "gen/result.go")
 	}
 }
 
@@ -159,17 +185,23 @@ depends_on:
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(fm.DependsOn) != 2 || fm.DependsOn[0] != "alpha" || fm.DependsOn[1] != "beta" {
-		t.Errorf("depends_on = %v, want [alpha beta]", fm.DependsOn)
+	if len(fm.DependsOn) != 2 {
+		t.Fatalf("expected 2 depends_on, got %d", len(fm.DependsOn))
+	}
+	if fm.DependsOn[0] != "alpha" {
+		t.Errorf("DependsOn[0] = %q, want %q", fm.DependsOn[0], "alpha")
+	}
+	if fm.DependsOn[1] != "beta" {
+		t.Errorf("DependsOn[1] = %q, want %q", fm.DependsOn[1], "beta")
 	}
 	if len(fm.External) != 0 {
-		t.Errorf("external = %v, want empty", fm.External)
+		t.Errorf("expected empty External, got %v", fm.External)
 	}
 	if fm.Input != "" {
-		t.Errorf("input = %q, want empty", fm.Input)
+		t.Errorf("expected empty Input, got %q", fm.Input)
 	}
 	if len(fm.Outputs) != 0 {
-		t.Errorf("outputs = %v, want empty", fm.Outputs)
+		t.Errorf("expected empty Outputs, got %v", fm.Outputs)
 	}
 }
 
@@ -198,29 +230,41 @@ external:
 	}
 
 	if len(fm.External) != 2 {
-		t.Fatalf("external len = %d, want 2", len(fm.External))
+		t.Fatalf("expected 2 externals, got %d", len(fm.External))
 	}
 
 	first := fm.External[0]
 	if first.Path != "first/path.md" {
-		t.Errorf("external[0].path = %q, want %q", first.Path, "first/path.md")
+		t.Errorf("External[0].Path = %q, want %q", first.Path, "first/path.md")
 	}
 	if len(first.Fragments) != 2 {
-		t.Fatalf("external[0].fragments len = %d, want 2", len(first.Fragments))
+		t.Fatalf("External[0]: expected 2 fragments, got %d", len(first.Fragments))
 	}
-	if first.Fragments[0].Description != "First fragment" || first.Fragments[0].Lines != "1-5" || first.Fragments[0].Hash != "hash-one" {
-		t.Errorf("external[0].fragments[0] = %+v", first.Fragments[0])
+	if first.Fragments[0].Description != "First fragment" {
+		t.Errorf("Fragment[0].Description = %q, want %q", first.Fragments[0].Description, "First fragment")
 	}
-	if first.Fragments[1].Description != "Second fragment" || first.Fragments[1].Lines != "7-9" || first.Fragments[1].Hash != "hash-two" {
-		t.Errorf("external[0].fragments[1] = %+v", first.Fragments[1])
+	if first.Fragments[0].Lines != "1-5" {
+		t.Errorf("Fragment[0].Lines = %q, want %q", first.Fragments[0].Lines, "1-5")
+	}
+	if first.Fragments[0].Hash != "hash-one" {
+		t.Errorf("Fragment[0].Hash = %q, want %q", first.Fragments[0].Hash, "hash-one")
+	}
+	if first.Fragments[1].Description != "Second fragment" {
+		t.Errorf("Fragment[1].Description = %q, want %q", first.Fragments[1].Description, "Second fragment")
+	}
+	if first.Fragments[1].Lines != "7-9" {
+		t.Errorf("Fragment[1].Lines = %q, want %q", first.Fragments[1].Lines, "7-9")
+	}
+	if first.Fragments[1].Hash != "hash-two" {
+		t.Errorf("Fragment[1].Hash = %q, want %q", first.Fragments[1].Hash, "hash-two")
 	}
 
 	second := fm.External[1]
 	if second.Path != "second/path.md" {
-		t.Errorf("external[1].path = %q, want %q", second.Path, "second/path.md")
+		t.Errorf("External[1].Path = %q, want %q", second.Path, "second/path.md")
 	}
 	if len(second.Fragments) != 0 {
-		t.Errorf("external[1].fragments = %v, want empty", second.Fragments)
+		t.Errorf("External[1]: expected no fragments, got %d", len(second.Fragments))
 	}
 }
 
@@ -240,16 +284,16 @@ input: "data/source.txt"
 	}
 
 	if fm.Input != "data/source.txt" {
-		t.Errorf("input = %q, want %q", fm.Input, "data/source.txt")
+		t.Errorf("Input = %q, want %q", fm.Input, "data/source.txt")
 	}
 	if len(fm.DependsOn) != 0 {
-		t.Errorf("depends_on = %v, want empty", fm.DependsOn)
+		t.Errorf("expected empty DependsOn, got %v", fm.DependsOn)
 	}
 	if len(fm.External) != 0 {
-		t.Errorf("external = %v, want empty", fm.External)
+		t.Errorf("expected empty External, got %v", fm.External)
 	}
 	if len(fm.Outputs) != 0 {
-		t.Errorf("outputs = %v, want empty", fm.Outputs)
+		t.Errorf("expected empty Outputs, got %v", fm.Outputs)
 	}
 }
 
@@ -273,20 +317,20 @@ external:
 	}
 
 	if len(fm.External) != 1 {
-		t.Fatalf("external len = %d, want 1", len(fm.External))
+		t.Fatalf("expected 1 external, got %d", len(fm.External))
 	}
 	if len(fm.External[0].Fragments) != 1 {
-		t.Fatalf("external[0].fragments len = %d, want 1", len(fm.External[0].Fragments))
+		t.Fatalf("expected 1 fragment, got %d", len(fm.External[0].Fragments))
 	}
 	frag := fm.External[0].Fragments[0]
 	if frag.Description != "" {
-		t.Errorf("fragment.description = %q, want empty", frag.Description)
+		t.Errorf("Fragment.Description = %q, want empty", frag.Description)
 	}
 	if frag.Lines != "3-8" {
-		t.Errorf("fragment.lines = %q, want %q", frag.Lines, "3-8")
+		t.Errorf("Fragment.Lines = %q, want %q", frag.Lines, "3-8")
 	}
 	if frag.Hash != "no-desc-hash" {
-		t.Errorf("fragment.hash = %q, want %q", frag.Hash, "no-desc-hash")
+		t.Errorf("Fragment.Hash = %q, want %q", frag.Hash, "no-desc-hash")
 	}
 }
 
@@ -309,16 +353,16 @@ another_unknown: 42
 	}
 
 	if len(fm.DependsOn) != 1 || fm.DependsOn[0] != "known-dep" {
-		t.Errorf("depends_on = %v, want [known-dep]", fm.DependsOn)
+		t.Errorf("DependsOn = %v, want [known-dep]", fm.DependsOn)
 	}
 	if len(fm.External) != 0 {
-		t.Errorf("external = %v, want empty", fm.External)
+		t.Errorf("expected empty External, got %v", fm.External)
 	}
 	if fm.Input != "" {
-		t.Errorf("input = %q, want empty", fm.Input)
+		t.Errorf("expected empty Input, got %q", fm.Input)
 	}
 	if len(fm.Outputs) != 0 {
-		t.Errorf("outputs = %v, want empty", fm.Outputs)
+		t.Errorf("expected empty Outputs, got %v", fm.Outputs)
 	}
 }
 
@@ -337,20 +381,22 @@ No frontmatter here.
 	}
 
 	if len(fm.DependsOn) != 0 {
-		t.Errorf("depends_on = %v, want empty", fm.DependsOn)
+		t.Errorf("expected empty DependsOn, got %v", fm.DependsOn)
 	}
 	if len(fm.External) != 0 {
-		t.Errorf("external = %v, want empty", fm.External)
+		t.Errorf("expected empty External, got %v", fm.External)
 	}
 	if fm.Input != "" {
-		t.Errorf("input = %q, want empty", fm.Input)
+		t.Errorf("expected empty Input, got %q", fm.Input)
 	}
 	if len(fm.Outputs) != 0 {
-		t.Errorf("outputs = %v, want empty", fm.Outputs)
+		t.Errorf("expected empty Outputs, got %v", fm.Outputs)
 	}
 }
 
-// --- Edge Cases ---
+// ---------------------------------------------------------------------------
+// Edge Cases
+// ---------------------------------------------------------------------------
 
 func TestFrontmatterParse_EmptyFrontmatter(t *testing.T) {
 	dir := t.TempDir()
@@ -367,16 +413,16 @@ func TestFrontmatterParse_EmptyFrontmatter(t *testing.T) {
 	}
 
 	if len(fm.DependsOn) != 0 {
-		t.Errorf("depends_on = %v, want empty", fm.DependsOn)
+		t.Errorf("expected empty DependsOn, got %v", fm.DependsOn)
 	}
 	if len(fm.External) != 0 {
-		t.Errorf("external = %v, want empty", fm.External)
+		t.Errorf("expected empty External, got %v", fm.External)
 	}
 	if fm.Input != "" {
-		t.Errorf("input = %q, want empty", fm.Input)
+		t.Errorf("expected empty Input, got %q", fm.Input)
 	}
 	if len(fm.Outputs) != 0 {
-		t.Errorf("outputs = %v, want empty", fm.Outputs)
+		t.Errorf("expected empty Outputs, got %v", fm.Outputs)
 	}
 }
 
@@ -397,25 +443,25 @@ depends_on:
 	}
 
 	if len(fm.DependsOn) != 1 || fm.DependsOn[0] != "lonely-dep" {
-		t.Errorf("depends_on = %v, want [lonely-dep]", fm.DependsOn)
+		t.Errorf("DependsOn = %v, want [lonely-dep]", fm.DependsOn)
 	}
 	if len(fm.External) != 0 {
-		t.Errorf("external = %v, want empty", fm.External)
+		t.Errorf("expected empty External, got %v", fm.External)
 	}
 	if fm.Input != "" {
-		t.Errorf("input = %q, want empty", fm.Input)
+		t.Errorf("expected empty Input, got %q", fm.Input)
 	}
 	if len(fm.Outputs) != 0 {
-		t.Errorf("outputs = %v, want empty", fm.Outputs)
+		t.Errorf("expected empty Outputs, got %v", fm.Outputs)
 	}
 }
 
-func TestFrontmatterParse_DelimiterWithTrailingWhitespaceNotRecognized(t *testing.T) {
+func TestFrontmatterParse_DelimiterWithTrailingWhitespace(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	// First line is "---   " (dashes + spaces), not a valid delimiter.
-	content := "---   \ndepends_on:\n  - \"something\"\nbody content\n"
+	// First line is "---   " (dashes with trailing spaces) — not a valid delimiter.
+	content := "---   \nbody content here\n"
 	testWriteFile(t, "spec.md", content)
 
 	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "spec.md"})
@@ -424,31 +470,33 @@ func TestFrontmatterParse_DelimiterWithTrailingWhitespaceNotRecognized(t *testin
 	}
 
 	if len(fm.DependsOn) != 0 {
-		t.Errorf("depends_on = %v, want empty", fm.DependsOn)
+		t.Errorf("expected empty DependsOn, got %v", fm.DependsOn)
 	}
 	if len(fm.External) != 0 {
-		t.Errorf("external = %v, want empty", fm.External)
+		t.Errorf("expected empty External, got %v", fm.External)
 	}
 	if fm.Input != "" {
-		t.Errorf("input = %q, want empty", fm.Input)
+		t.Errorf("expected empty Input, got %q", fm.Input)
 	}
 	if len(fm.Outputs) != 0 {
-		t.Errorf("outputs = %v, want empty", fm.Outputs)
+		t.Errorf("expected empty Outputs, got %v", fm.Outputs)
 	}
 }
 
-// --- Failure Cases ---
+// ---------------------------------------------------------------------------
+// Failure Cases
+// ---------------------------------------------------------------------------
 
 func TestFrontmatterParse_FileDoesNotExist(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "nonexistent.md"})
+	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "nonexistent/file.txt"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, frontmatter.ErrFileUnreadable) {
-		t.Errorf("error = %v, want ErrFileUnreadable", err)
+	if !errors.Is(err, filereader.ErrFileUnreadable) {
+		t.Errorf("expected ErrFileUnreadable, got %v", err)
 	}
 }
 
@@ -458,7 +506,7 @@ func TestFrontmatterParse_PropagatesPathErrors(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
-		t.Errorf("error = %v, want ErrDirectoryTraversal", err)
+		t.Errorf("expected ErrDirectoryTraversal, got %v", err)
 	}
 }
 
@@ -477,7 +525,7 @@ depends_on: [unclosed bracket
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
-		t.Errorf("error = %v, want ErrMalformedYAML", err)
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
 	}
 }
 
@@ -497,11 +545,11 @@ body content with no closing delimiter
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
-		t.Errorf("error = %v, want ErrMalformedYAML", err)
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
 	}
 }
 
-func TestFrontmatterParse_MissingPathInExternalEntry(t *testing.T) {
+func TestFrontmatterParse_MissingRequiredFieldInExternal(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
@@ -519,11 +567,11 @@ external:
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
-		t.Errorf("error = %v, want ErrMalformedYAML", err)
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
 	}
 }
 
-func TestFrontmatterParse_MissingHashInFragment(t *testing.T) {
+func TestFrontmatterParse_MissingRequiredFieldInFragment(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
@@ -541,11 +589,11 @@ external:
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
-		t.Errorf("error = %v, want ErrMalformedYAML", err)
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
 	}
 }
 
-func TestFrontmatterParse_MissingPathInOutputEntry(t *testing.T) {
+func TestFrontmatterParse_MissingRequiredFieldInOutput(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
@@ -561,6 +609,6 @@ outputs:
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
-		t.Errorf("error = %v, want ErrMalformedYAML", err)
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
 	}
 }

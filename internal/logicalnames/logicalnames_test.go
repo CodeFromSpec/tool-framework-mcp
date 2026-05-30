@@ -1,4 +1,5 @@
-// code-from-spec: ROOT/golang/tests/utils/logical_names@frGcNmDNh-qXcuuQA50Chc3nr0k
+// code-from-spec: ROOT/golang/tests/utils/logical_names@tIIp-kUAPDumljUoPjqBW6-hm38
+
 package logicalnames_test
 
 import (
@@ -31,22 +32,22 @@ func TestLogicalNameToPath(t *testing.T) {
 			wantPath: "code-from-spec/payments/processor/_node.md",
 		},
 		{
-			name:     "Strips qualifier before resolving",
+			name:     "strips qualifier before resolving",
 			input:    "ROOT/x/y(interface)",
 			wantPath: "code-from-spec/x/y/_node.md",
 		},
 		{
-			name:    "Rejects ARTIFACT reference",
+			name:    "rejects ARTIFACT reference",
 			input:   "ARTIFACT/x(y)",
 			wantErr: logicalnames.ErrUnsupportedReference,
 		},
 		{
-			name:    "Rejects unrecognized prefix",
+			name:    "rejects unrecognized prefix",
 			input:   "UNKNOWN/something",
 			wantErr: logicalnames.ErrUnsupportedReference,
 		},
 		{
-			name:    "Rejects empty string",
+			name:    "rejects empty string",
 			input:   "",
 			wantErr: logicalnames.ErrUnsupportedReference,
 		},
@@ -86,22 +87,22 @@ func TestLogicalNameFromPath(t *testing.T) {
 		wantErr  error
 	}{
 		{
-			name:     "Root node",
+			name:     "root node",
 			input:    "code-from-spec/_node.md",
 			wantName: "ROOT",
 		},
 		{
-			name:     "Nested node",
+			name:     "nested node",
 			input:    "code-from-spec/x/y/_node.md",
 			wantName: "ROOT/x/y",
 		},
 		{
-			name:    "Rejects non-node path",
+			name:    "rejects non-node path",
 			input:   "internal/config/config.go",
 			wantErr: logicalnames.ErrInvalidPath,
 		},
 		{
-			name:    "Rejects path without _node.md",
+			name:    "rejects path without _node.md",
 			input:   "code-from-spec/x/y/output.md",
 			wantErr: logicalnames.ErrInvalidPath,
 		},
@@ -151,7 +152,7 @@ func TestLogicalNameGetParent(t *testing.T) {
 			wantParent: "ROOT/domain",
 		},
 		{
-			name:       "Strips qualifier before computing parent",
+			name:       "strips qualifier before computing parent",
 			input:      "ROOT/domain/config(interface)",
 			wantParent: "ROOT/domain",
 		},
@@ -161,7 +162,7 @@ func TestLogicalNameGetParent(t *testing.T) {
 			wantErr: logicalnames.ErrNoParent,
 		},
 		{
-			name:    "Rejects ARTIFACT reference",
+			name:    "rejects ARTIFACT reference",
 			input:   "ARTIFACT/x(y)",
 			wantErr: logicalnames.ErrNotARootReference,
 		},
@@ -201,24 +202,24 @@ func TestLogicalNameGetQualifier(t *testing.T) {
 		wantOk        bool
 	}{
 		{
-			name:          "Extracts qualifier from ROOT reference",
+			name:          "extracts qualifier from ROOT reference",
 			input:         "ROOT/x/y(interface)",
 			wantQualifier: "interface",
 			wantOk:        true,
 		},
 		{
-			name:          "Extracts qualifier from ARTIFACT reference",
+			name:          "extracts qualifier from ARTIFACT reference",
 			input:         "ARTIFACT/x/y(id)",
 			wantQualifier: "id",
 			wantOk:        true,
 		},
 		{
-			name:   "Returns absent when no qualifier",
+			name:   "returns absent when no qualifier",
 			input:  "ROOT/x/y",
 			wantOk: false,
 		},
 		{
-			name:   "Returns absent for ROOT alone",
+			name:   "returns absent for ROOT alone",
 			input:  "ROOT",
 			wantOk: false,
 		},
@@ -243,42 +244,42 @@ func TestLogicalNameGetQualifier(t *testing.T) {
 
 func TestLogicalNameStripQualifier(t *testing.T) {
 	tests := []struct {
-		name  string
-		input string
-		want  string
+		name     string
+		input    string
+		wantOut  string
 	}{
 		{
-			name:  "Strips qualifier from ROOT reference",
-			input: "ROOT/x/y(interface)",
-			want:  "ROOT/x/y",
+			name:    "strips qualifier from ROOT reference",
+			input:   "ROOT/x/y(interface)",
+			wantOut: "ROOT/x/y",
 		},
 		{
-			name:  "Strips qualifier from ARTIFACT reference",
-			input: "ARTIFACT/x/y(id)",
-			want:  "ARTIFACT/x/y",
+			name:    "strips qualifier from ARTIFACT reference",
+			input:   "ARTIFACT/x/y(id)",
+			wantOut: "ARTIFACT/x/y",
 		},
 		{
-			name:  "No qualifier — returns unchanged",
-			input: "ROOT/x/y",
-			want:  "ROOT/x/y",
+			name:    "no qualifier — returns unchanged",
+			input:   "ROOT/x/y",
+			wantOut: "ROOT/x/y",
 		},
 		{
-			name:  "ROOT alone — returns unchanged",
-			input: "ROOT",
-			want:  "ROOT",
+			name:    "ROOT alone — returns unchanged",
+			input:   "ROOT",
+			wantOut: "ROOT",
 		},
 		{
-			name:  "Empty string — returns unchanged",
-			input: "",
-			want:  "",
+			name:    "empty string — returns unchanged",
+			input:   "",
+			wantOut: "",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := logicalnames.LogicalNameStripQualifier(tc.input)
-			if got != tc.want {
-				t.Errorf("got %q, want %q", got, tc.want)
+			if got != tc.wantOut {
+				t.Errorf("got %q, want %q", got, tc.wantOut)
 			}
 		})
 	}
@@ -315,7 +316,7 @@ func TestLogicalNameHasParent(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "Empty string",
+			name:  "empty string",
 			input: "",
 			want:  false,
 		},
@@ -342,12 +343,12 @@ func TestLogicalNameHasQualifier(t *testing.T) {
 		want  bool
 	}{
 		{
-			name:  "Without qualifier",
+			name:  "without qualifier",
 			input: "ROOT/x",
 			want:  false,
 		},
 		{
-			name:  "With qualifier",
+			name:  "with qualifier",
 			input: "ROOT/x(y)",
 			want:  true,
 		},
@@ -362,7 +363,7 @@ func TestLogicalNameHasQualifier(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "Empty string",
+			name:  "empty string",
 			input: "",
 			want:  false,
 		},
@@ -399,7 +400,7 @@ func TestLogicalNameIsArtifact(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "Empty string",
+			name:  "empty string",
 			input: "",
 			want:  false,
 		},
@@ -423,28 +424,28 @@ func TestLogicalNameGetArtifactGenerator(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
-		wantName  string
+		wantGen   string
 		wantErr   error
 	}{
 		{
-			name:     "Simple artifact",
-			input:    "ARTIFACT/x(y)",
-			wantName: "ROOT/x",
+			name:    "simple artifact",
+			input:   "ARTIFACT/x(y)",
+			wantGen: "ROOT/x",
 		},
 		{
-			name:     "Nested artifact",
-			input:    "ARTIFACT/x/y/z(id)",
-			wantName: "ROOT/x/y/z",
+			name:    "nested artifact",
+			input:   "ARTIFACT/x/y/z(id)",
+			wantGen: "ROOT/x/y/z",
 		},
 		{
-			name:    "Rejects ROOT reference",
+			name:    "rejects ROOT reference",
 			input:   "ROOT/x(y)",
 			wantErr: logicalnames.ErrNotAnArtifactReference,
 		},
 		{
-			name:     "Artifact reference without qualifier",
-			input:    "ARTIFACT/x",
-			wantName: "ROOT/x",
+			name:    "artifact reference without qualifier",
+			input:   "ARTIFACT/x",
+			wantGen: "ROOT/x",
 		},
 	}
 
@@ -463,8 +464,8 @@ func TestLogicalNameGetArtifactGenerator(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got != tc.wantName {
-				t.Errorf("got %q, want %q", got, tc.wantName)
+			if got != tc.wantGen {
+				t.Errorf("got %q, want %q", got, tc.wantGen)
 			}
 		})
 	}

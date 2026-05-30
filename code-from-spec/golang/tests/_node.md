@@ -62,6 +62,48 @@ func testChdir(t *testing.T, dir string) {
 Tests that do not create files (pure function tests)
 do not need this pattern.
 
+## PathCfs values in tests
+
+`PathCfs` values must always use forward slashes (`/`),
+even on Windows. Never use `filepath.Separator` or
+backslashes in `PathCfs.Value`. For example, to test a
+nonexistent file: `PathCfs{Value: "nonexistent/file.txt"}`,
+not `"nonexistent\file.txt"`.
+
+## Error propagation across packages
+
+When a function propagates an error from another package
+(e.g. `FrontmatterParse` propagating from `FileOpen`),
+the error chain preserves the original sentinel. Use
+`errors.Is` with the sentinel from the **originating**
+package (e.g. `filereader.ErrFileUnreadable`), not a
+re-declared sentinel in the calling package — unless
+the calling package's interface explicitly declares its
+own sentinel and wraps it.
+
+## Constructing records from other packages
+
+When tests construct records manually (e.g.
+`SpecTreeValidateInput`, `Chain`, `ChainItem`), the
+field values must be consistent with what the real
+producers would generate:
+
+- `NodeSection.Heading` is the **normalized** form
+  (lowercase, whitespace collapsed) as produced by
+  `NodeParse`. Example: `"root/a"` for a node at
+  `ROOT/a`.
+- `NodeSection.RawHeading` is the original line as read
+  from the file. Example: `"# ROOT/a"`.
+- `NodeSection.Content` is a `[]string` (list of lines).
+- `ChainItem.LogicalName` must be a valid logical name
+  (`ROOT/` for spec nodes, `ARTIFACT/` for artifacts).
+  For spec nodes, the logical name must resolve to a
+  `_node.md` file that exists on disk (via
+  `LogicalNameToPath`). Tests must create the spec tree
+  files accordingly.
+- `ChainItem.FilePath` is a `PathCfs` with forward
+  slashes.
+
 ## Error and style conventions
 
 - Use `errors.Is` to check error sentinels.

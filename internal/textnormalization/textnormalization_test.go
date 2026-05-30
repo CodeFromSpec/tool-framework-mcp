@@ -1,5 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/text_normalization@MTK_sxnYOjfibR3h7lX14Trrz0E
-
+// code-from-spec: ROOT/golang/tests/utils/text_normalization@KK8woURiyCRqeez-q7UUcqBJAwk
 package textnormalization_test
 
 import (
@@ -9,13 +8,11 @@ import (
 )
 
 func TestNormalizeText(t *testing.T) {
-	type testCase struct {
+	tests := []struct {
 		name  string
 		input string
 		want  string
-	}
-
-	tests := []testCase{
+	}{
 		// Identity
 		{name: "TC-01 already normalized", input: "public", want: "public"},
 		{name: "TC-02 single word", input: "Interface", want: "interface"},
