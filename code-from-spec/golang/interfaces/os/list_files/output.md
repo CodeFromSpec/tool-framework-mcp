@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/list_files@Zxs88k51iT5lI6_P5QhqS3w_xM4)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/list_files@fu18yPTnlODZM7TjbkGB_enHxzE)
 
 # Package `listfiles`
 
@@ -6,7 +6,8 @@
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/listfiles"
 ```
 
-Provides recursive directory listing, returning all files under a given directory as `PathCfs` values sorted alphabetically.
+Package `listfiles` provides a function to recursively list all files under a
+given directory, returning paths in the framework's canonical CFS format.
 
 ---
 
@@ -17,12 +18,12 @@ package listfiles
 
 import "errors"
 
-// ErrDirectoryNotFound is returned when the given directory does not exist.
+// ErrDirectoryNotFound is returned when the specified directory does not exist.
 var ErrDirectoryNotFound = errors.New("directory not found")
 
 // ErrWalkError is returned when a filesystem error occurs while traversing
 // the directory tree.
-var ErrWalkError = errors.New("walk error")
+var ErrWalkError = errors.New("filesystem walk error")
 ```
 
 ---
@@ -35,14 +36,15 @@ package listfiles
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
 // ListFiles returns all files (not directories) found recursively under the
-// given directory. Results are PathCfs values sorted alphabetically. If the
-// directory exists but contains no files, returns an empty slice.
+// directory identified by cfsPath. Results are returned as PathCfs values
+// sorted alphabetically. If the directory exists but contains no files, an
+// empty slice is returned.
 //
 // Errors:
 //   - ErrDirectoryNotFound: the directory does not exist.
-//   - ErrWalkError: a filesystem error occurred while traversing.
-//   - (PathUtils.*): propagated from PathCfsToOs.
-//   - (PathUtils.*): propagated from PathOsToCfs.
+//   - ErrWalkError: a filesystem error occurred while traversing the tree.
+//   - (PathUtils.*): propagated from pathutils.PathCfsToOs.
+//   - (PathUtils.*): propagated from pathutils.PathOsToCfs.
 func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error)
 ```
 
@@ -54,6 +56,7 @@ func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error)
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -62,15 +65,32 @@ import (
 )
 
 func main() {
-	dir := &pathutils.PathCfs{Value: "internal/listfiles"}
+	dir := &pathutils.PathCfs{Value: "code-from-spec/functional/logic"}
 
 	files, err := listfiles.ListFiles(dir)
 	if err != nil {
-		log.Fatalf("ListFiles: %v", err)
+		if errors.Is(err, listfiles.ErrDirectoryNotFound) {
+			log.Fatal("directory does not exist")
+		}
+		if errors.Is(err, listfiles.ErrWalkError) {
+			log.Fatal("error walking directory tree")
+		}
+		// PathUtils errors propagated from PathCfsToOs or PathOsToCfs.
+		if errors.Is(err, pathutils.ErrPathEmpty) {
+			log.Fatal("path must not be empty")
+		}
+		if errors.Is(err, pathutils.ErrDirectoryTraversal) {
+			log.Fatal("path traversal detected")
+		}
+		if errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
+			log.Fatal("path resolves outside project root")
+		}
+		log.Fatalf("unexpected error: %v", err)
 	}
 
+	fmt.Printf("found %d file(s):\n", len(files))
 	for _, f := range files {
-		fmt.Println(f.Value)
+		fmt.Println(" ", f.Value)
 	}
 }
 ```

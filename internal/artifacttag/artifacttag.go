@@ -1,5 +1,8 @@
-// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@zcpELs5g-jysroUXSfhjouQPhDc
+// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@d1f2fUv4GKKv0CGMFdpixT5Taig
 
+// Package artifacttag provides functionality for extracting the
+// code-from-spec artifact tag from generated source files. The tag
+// encodes the logical name and hash of the spec that produced the file.
 package artifacttag
 
 import (
@@ -11,16 +14,23 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-// ArtifactTag holds the parsed components of a code-from-spec tag found in a file.
+// ArtifactTag holds the parsed components of a code-from-spec tag
+// found in a generated source file.
 //
-// The tag has the format:
+// Tag format:
 //
 //	code-from-spec: <logical-name>@<hash>
 //
-// It may appear inside any comment syntax (//, #, /* */, --, <!-- -->).
+// The tag may appear inside any comment syntax (//, #, /* */, --, <!-- -->).
+// Parsing is line-based and does not interpret comment delimiters.
 type ArtifactTag struct {
+	// LogicalName is the logical node name extracted from the tag,
+	// for example "ROOT/golang/interfaces/parsing/artifact_tag".
 	LogicalName string
-	Hash        string
+
+	// Hash is the chain hash extracted from the tag,
+	// for example "Na2fdUmffqbI_YdC0liSgTl_-fQ".
+	Hash string
 }
 
 // ErrFileUnreadable is returned when the file cannot be opened or read.
@@ -29,29 +39,31 @@ var ErrFileUnreadable = errors.New("file unreadable")
 // ErrNoTagFound is returned when the file contains no code-from-spec: substring.
 var ErrNoTagFound = errors.New("no tag found")
 
-// ErrMalformedTag is returned when a code-from-spec: tag exists but cannot be
-// parsed — missing @, empty logical name, or wrong hash length.
+// ErrMalformedTag is returned when the tag exists but cannot be parsed
+// (missing @, empty logical name, or wrong hash length).
 var ErrMalformedTag = errors.New("malformed tag")
 
 const tagPrefix = "code-from-spec: "
+const hashLength = 27
 
-// ArtifactTagExtract opens the file at filePath, scans each line for the
-// code-from-spec: pattern, and returns the parsed ArtifactTag.
+// ArtifactTagExtract scans the file at filePath line by line for the
+// first occurrence of the substring "code-from-spec:" and parses the
+// logical name and hash from it.
 //
 // The tag format is:
 //
 //	code-from-spec: <logical-name>@<hash>
 //
-// Comment syntax is ignored — any line containing the substring is considered.
+// Parsing is purely textual — comment delimiters are ignored.
 //
 // Errors:
 //   - ErrFileUnreadable: the file cannot be opened or read.
-//   - ErrNoTagFound: the file has no code-from-spec: substring.
-//   - ErrMalformedTag: the tag exists but cannot be parsed (no @, empty name,
-//     wrong hash length).
+//   - ErrNoTagFound: no "code-from-spec:" substring was found in the file.
+//   - ErrMalformedTag: the tag was found but could not be parsed
+//     (e.g. no @ separator, empty logical name, or wrong hash length).
 //   - (FileReader.*): propagated from FileOpen.
 func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
-	// Step 1: Open the file.
+	// Step 1: Open the file for reading.
 	reader, err := filereader.FileOpen(filePath)
 	if err != nil {
 		if errors.Is(err, filereader.ErrFileUnreadable) {
@@ -60,18 +72,16 @@ func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
 		return nil, fmt.Errorf("opening file: %w", err)
 	}
 
-	// Step 2: Set found_line to empty.
+	// Steps 2–4: Scan lines until a match or EOF.
 	foundLine := ""
-
-	// Step 3: Loop reading lines until EOF or match.
 	for {
 		line, err := filereader.FileReadLine(reader)
-		if errors.Is(err, filereader.ErrEndOfFile) {
-			break
-		}
 		if err != nil {
+			if errors.Is(err, filereader.ErrEndOfFile) {
+				break
+			}
 			filereader.FileClose(reader)
-			return nil, fmt.Errorf("reading file: %w", err)
+			return nil, fmt.Errorf("%w: reading line: %w", ErrFileUnreadable, err)
 		}
 		if strings.Contains(line, tagPrefix) {
 			foundLine = line
@@ -79,40 +89,42 @@ func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
 		}
 	}
 
-	// Step 4: Close the reader.
 	filereader.FileClose(reader)
 
-	// Step 5: If no match was found, return ErrNoTagFound.
+	// Step 5: Check if tag was found.
 	if foundLine == "" {
-		return nil, fmt.Errorf("%w", ErrNoTagFound)
+		return nil, fmt.Errorf("%w: the file has no code-from-spec: tag", ErrNoTagFound)
 	}
 
-	// Step 6: Extract the content after the prefix and trim leading whitespace.
+	// Step 6: Extract the raw tag substring after the prefix.
 	idx := strings.Index(foundLine, tagPrefix)
-	tagContent := strings.TrimLeft(foundLine[idx+len(tagPrefix):], " \t")
+	rawTag := foundLine[idx+len(tagPrefix):]
 
-	// Step 7: Find the first '@'.
-	atIdx := strings.Index(tagContent, "@")
+	// Step 7: Trim leading whitespace.
+	rawTag = strings.TrimLeft(rawTag, " \t")
+
+	// Step 8: Find the first "@".
+	atIdx := strings.Index(rawTag, "@")
 	if atIdx == -1 {
-		return nil, fmt.Errorf("%w: tag missing '@' separator", ErrMalformedTag)
+		return nil, fmt.Errorf("%w: no @ separator found in tag", ErrMalformedTag)
 	}
 
-	// Step 8: Extract logical name.
-	logicalName := tagContent[:atIdx]
+	// Step 9: Extract logical name.
+	logicalName := rawTag[:atIdx]
 	if logicalName == "" {
 		return nil, fmt.Errorf("%w: logical name is empty", ErrMalformedTag)
 	}
 
-	// Step 9: Extract hash candidate.
-	hashCandidate := tagContent[atIdx+1:]
-	if len(hashCandidate) < 27 {
+	// Step 10: Extract the hash candidate.
+	hashCandidate := rawTag[atIdx+1:]
+	if len(hashCandidate) < hashLength {
 		return nil, fmt.Errorf("%w: hash must be at least 27 characters", ErrMalformedTag)
 	}
 
-	// Step 10: Take the first 27 characters as the hash.
-	hash := hashCandidate[:27]
+	// Step 11: Take the first 27 characters as the hash.
+	hash := hashCandidate[:hashLength]
 
-	// Step 11: Return the parsed tag.
+	// Step 12: Return the result.
 	return &ArtifactTag{
 		LogicalName: logicalName,
 		Hash:        hash,

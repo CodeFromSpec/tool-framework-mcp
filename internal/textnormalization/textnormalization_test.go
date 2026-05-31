@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/text_normalization@xVZhE8F5gTT9JagKyWLAwVZw8V4
+// code-from-spec: ROOT/golang/tests/utils/text_normalization@Bf96t0s9wTdr2hoM6DEy7JO-n-0
 package textnormalization_test
 
 import (
@@ -14,7 +14,7 @@ func TestNormalizeText(t *testing.T) {
 		want  string
 	}
 
-	tests := []testCase{
+	cases := []testCase{
 		// Identity
 		{
 			name:  "already normalized",
@@ -112,6 +112,8 @@ func TestNormalizeText(t *testing.T) {
 			want:  "",
 		},
 		{
+			// The space between "hello" and "world" is a non-breaking space U+00A0.
+			// It is not ASCII whitespace, so it must not be collapsed or trimmed.
 			name:  "non-breaking space is not whitespace",
 			input: "hello world",
 			want:  "hello world",
@@ -123,11 +125,11 @@ func TestNormalizeText(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := textnormalization.NormalizeText(tc.input)
 			if got != tc.want {
-				t.Errorf("NormalizeText(%q) = %q, want %q", tc.input, got, tc.want)
+				t.Errorf("NormalizeText(%q) = %q; want %q", tc.input, got, tc.want)
 			}
 		})
 	}

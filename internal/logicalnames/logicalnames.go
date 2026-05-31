@@ -1,5 +1,8 @@
-// code-from-spec: ROOT/golang/implementation/utils/logical_names@P8ZwFDAeIylcxOCgQZ8PMWc7NxQ
+// code-from-spec: ROOT/golang/implementation/utils/logical_names@zqUOKWLUbYJFQ4mK079YpI6YXak
 
+// Package logicalnames provides functions for working with logical names —
+// the ROOT/ and ARTIFACT/ reference strings used throughout the framework
+// to identify spec nodes and generated artifacts.
 package logicalnames
 
 import (
@@ -10,56 +13,63 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-// ErrUnsupportedReference is returned when a logical name is not a ROOT/ reference.
-var ErrUnsupportedReference = errors.New("unsupported reference: not a ROOT/ reference")
+// ErrUnsupportedReference is returned when a logical name is not a
+// ROOT/ reference (neither ROOT nor ROOT/...).
+var ErrUnsupportedReference = errors.New("unsupported reference: expected a ROOT/ reference")
 
-// ErrInvalidPath is returned when a path is not a _node.md file under code-from-spec/.
+// ErrInvalidPath is returned when a path is not a _node.md file
+// under code-from-spec/.
 var ErrInvalidPath = errors.New("invalid path: not a _node.md file under code-from-spec/")
 
-// ErrNoParent is returned when the logical name is ROOT itself and has no parent.
-var ErrNoParent = errors.New("no parent: ROOT has no parent")
+// ErrNoParent is returned when the logical name is ROOT itself and
+// has no parent.
+var ErrNoParent = errors.New("no parent: ROOT has no parent node")
 
-// ErrNotARootReference is returned when the logical name is not a ROOT/ reference.
+// ErrNotARootReference is returned when the logical name is not a
+// ROOT/ reference (neither ROOT nor ROOT/...).
 var ErrNotARootReference = errors.New("not a ROOT/ reference")
 
-// ErrNotAnArtifactReference is returned when the logical name does not start with ARTIFACT/.
+// ErrNotAnArtifactReference is returned when the logical name does
+// not start with ARTIFACT/.
 var ErrNotAnArtifactReference = errors.New("not an ARTIFACT/ reference")
 
-// LogicalNameToPath converts a ROOT/ logical name to the PathCfs of the
-// corresponding _node.md file. Strips any qualifier before resolving.
+// LogicalNameToPath converts a ROOT/ logical name to the PathCfs of
+// the corresponding _node.md file. Strips any qualifier before resolving.
 // Only accepts ROOT/ references (including ROOT itself).
 //
 // Errors:
 //   - ErrUnsupportedReference: the logical name is not a ROOT/ reference
 //     (neither ROOT nor ROOT/...).
 func LogicalNameToPath(logicalName string) (*pathutils.PathCfs, error) {
-	// Step 1: must start with "ROOT" (either "ROOT" or "ROOT/...")
-	if !strings.HasPrefix(logicalName, "ROOT") {
+	// Step 1: must start with "ROOT" (either exactly "ROOT" or "ROOT/..." or "ROOT(...)")
+	if logicalName != "ROOT" && !strings.HasPrefix(logicalName, "ROOT/") &&
+		!strings.HasPrefix(logicalName, "ROOT(") {
 		return nil, fmt.Errorf("%w: logical name must be a ROOT/ reference", ErrUnsupportedReference)
 	}
 
 	// Step 2: strip any qualifier
-	bareName := LogicalNameStripQualifier(logicalName)
+	bare := LogicalNameStripQualifier(logicalName)
 
-	// Step 3: if exactly "ROOT", return the root node path
-	if bareName == "ROOT" {
+	// Step 3: if bare is exactly "ROOT", return root node path
+	if bare == "ROOT" {
 		return &pathutils.PathCfs{Value: "code-from-spec/_node.md"}, nil
 	}
 
-	// Step 4: verify bare name starts with "ROOT/"
-	if !strings.HasPrefix(bareName, "ROOT/") {
+	// Step 4: verify it starts with "ROOT/"
+	if !strings.HasPrefix(bare, "ROOT/") {
 		return nil, fmt.Errorf("%w: logical name must be a ROOT/ reference", ErrUnsupportedReference)
 	}
 
-	// Step 5: strip the "ROOT/" prefix to get the relative segment
-	relativeSegment := strings.TrimPrefix(bareName, "ROOT/")
+	// Step 5: strip "ROOT/" prefix to get relative segment
+	segment := strings.TrimPrefix(bare, "ROOT/")
 
 	// Step 6: return the PathCfs
-	return &pathutils.PathCfs{Value: "code-from-spec/" + relativeSegment + "/_node.md"}, nil
+	return &pathutils.PathCfs{Value: "code-from-spec/" + segment + "/_node.md"}, nil
 }
 
-// LogicalNameFromPath derives the ROOT/ logical name from a _node.md file
-// path. The inverse of LogicalNameToPath. Always returns a ROOT/ reference.
+// LogicalNameFromPath derives the ROOT/ logical name from a _node.md
+// file path. The inverse of LogicalNameToPath. Always returns a ROOT/
+// reference.
 //
 // Errors:
 //   - ErrInvalidPath: the path is not a _node.md file under code-from-spec/.
@@ -76,132 +86,133 @@ func LogicalNameFromPath(cfsPath *pathutils.PathCfs) (string, error) {
 		return "", fmt.Errorf("%w: path is not a _node.md file", ErrInvalidPath)
 	}
 
-	// Step 4: root node
+	// Step 4: if exactly the root node path, return "ROOT"
 	if pathValue == "code-from-spec/_node.md" {
 		return "ROOT", nil
 	}
 
-	// Step 5: strip leading "code-from-spec/" and trailing "/_node.md"
-	withoutPrefix := strings.TrimPrefix(pathValue, "code-from-spec/")
-	middleSegment := strings.TrimSuffix(withoutPrefix, "/_node.md")
+	// Step 5: strip prefix "code-from-spec/" and suffix "/_node.md"
+	middle := strings.TrimPrefix(pathValue, "code-from-spec/")
+	middle = strings.TrimSuffix(middle, "/_node.md")
 
-	// Step 6: return "ROOT/<middle segment>"
-	return "ROOT/" + middleSegment, nil
+	// Step 6: return "ROOT/<middle>"
+	return "ROOT/" + middle, nil
 }
 
 // LogicalNameGetParent returns the logical name of the parent node.
-// Strips any qualifier before computing the parent.
-// Only accepts ROOT/ references (including ROOT itself, which returns NoParent).
+// Strips any qualifier before computing the parent. Only accepts ROOT/
+// references (including ROOT itself, which returns ErrNoParent).
 //
 // Errors:
 //   - ErrNoParent: the logical name is ROOT itself.
 //   - ErrNotARootReference: the logical name is not a ROOT/ reference
 //     (neither ROOT nor ROOT/...).
 func LogicalNameGetParent(logicalName string) (string, error) {
-	// Step 1: must start with "ROOT"
-	if !strings.HasPrefix(logicalName, "ROOT") {
+	// Step 1: must start with "ROOT" (either exactly "ROOT" or "ROOT/..." or "ROOT(...)")
+	if logicalName != "ROOT" && !strings.HasPrefix(logicalName, "ROOT/") &&
+		!strings.HasPrefix(logicalName, "ROOT(") {
 		return "", fmt.Errorf("%w: logical name must be a ROOT/ reference", ErrNotARootReference)
 	}
 
 	// Step 2: strip any qualifier
-	bareName := LogicalNameStripQualifier(logicalName)
+	bare := LogicalNameStripQualifier(logicalName)
 
-	// Step 3: if exactly "ROOT", no parent
-	if bareName == "ROOT" {
+	// Step 3: if bare is exactly "ROOT", it has no parent
+	if bare == "ROOT" {
 		return "", fmt.Errorf("%w: ROOT has no parent", ErrNoParent)
 	}
 
-	// Step 4: must contain "/" after "ROOT"
-	if !strings.Contains(bareName, "/") {
+	// Step 4: must contain "/" after "ROOT" (i.e. starts with "ROOT/")
+	if !strings.HasPrefix(bare, "ROOT/") {
 		return "", fmt.Errorf("%w: logical name must be a ROOT/ reference", ErrNotARootReference)
 	}
 
-	// Step 5: find the last "/"
-	lastSlash := strings.LastIndex(bareName, "/")
-	parent := bareName[:lastSlash]
+	// Step 5: find the last "/" in bare name
+	lastSlash := strings.LastIndex(bare, "/")
+	parent := bare[:lastSlash]
 
-	// Step 6 & 7: return parent (handles both "ROOT" and deeper paths)
+	// Step 6: if parent is "ROOT", return "ROOT"
+	if parent == "ROOT" {
+		return "ROOT", nil
+	}
+
+	// Step 7: return parent
 	return parent, nil
 }
 
-// LogicalNameGetQualifier extracts the parenthetical qualifier from a logical
-// name. Returns ("", false) if no qualifier is present. Works with both ROOT/
-// and ARTIFACT/ references.
+// LogicalNameGetQualifier extracts the parenthetical qualifier from a
+// logical name. Returns ("", false) if no qualifier is present. Works
+// with both ROOT/ and ARTIFACT/ references.
 //
 // Examples:
-//   - "ROOT/x/y(z)"      → ("z", true)
-//   - "ROOT/x/y"         → ("", false)
-//   - "ARTIFACT/x/y(id)" → ("id", true)
-func LogicalNameGetQualifier(logicalName string) (qualifier string, ok bool) {
-	// Step 1: check for "(<qualifier>)" at the end
+//   - "ROOT/x/y(z)"        → ("z", true)
+//   - "ROOT/x/y"           → ("", false)
+//   - "ARTIFACT/x/y(id)"   → ("id", true)
+func LogicalNameGetQualifier(logicalName string) (qualifier string, present bool) {
+	// Step 1: look for "(<qualifier>)" at end of string — closing ")" must be last char
 	if !strings.HasSuffix(logicalName, ")") {
 		return "", false
 	}
 
-	// Step 2: find the last "(" to get the qualifier
 	openParen := strings.LastIndex(logicalName, "(")
-	if openParen == -1 {
+	if openParen < 0 {
 		return "", false
 	}
 
-	// Extract the qualifier between "(" and ")"
+	// Step 2: extract content between parentheses
 	qualifier = logicalName[openParen+1 : len(logicalName)-1]
-	if qualifier == "" {
-		return "", false
-	}
-
 	return qualifier, true
 }
 
-// LogicalNameStripQualifier returns the logical name without the parenthetical
-// qualifier. If no qualifier is present, returns the input unchanged.
-// Works with both ROOT/ and ARTIFACT/ references.
+// LogicalNameStripQualifier returns the logical name without the
+// parenthetical qualifier. If no qualifier is present, returns the
+// input unchanged. Works with both ROOT/ and ARTIFACT/ references.
 //
 // Examples:
-//   - "ROOT/x/y(z)"       → "ROOT/x/y"
-//   - "ARTIFACT/x/y(id)"  → "ARTIFACT/x/y"
-//   - "ROOT/x/y"          → "ROOT/x/y"
+//   - "ROOT/x/y(z)"        → "ROOT/x/y"
+//   - "ARTIFACT/x/y(id)"   → "ARTIFACT/x/y"
+//   - "ROOT/x/y"           → "ROOT/x/y"
 func LogicalNameStripQualifier(logicalName string) string {
-	// Step 1: check for "(<qualifier>)" at the end
+	// Step 1: look for "(<qualifier>)" at end of string — closing ")" must be last char
 	if !strings.HasSuffix(logicalName, ")") {
 		return logicalName
 	}
 
-	// Step 2: find the last "(" and strip from there
 	openParen := strings.LastIndex(logicalName, "(")
-	if openParen == -1 {
+	if openParen < 0 {
 		return logicalName
 	}
 
+	// Step 2: return substring before the opening "("
 	return logicalName[:openParen]
 }
 
-// LogicalNameHasParent returns true if the logical name is a ROOT/ reference
-// other than ROOT itself. Returns false for ROOT, ARTIFACT/ references, and
-// unrecognized prefixes.
+// LogicalNameHasParent returns true if the logical name is a ROOT/
+// reference other than ROOT itself. Returns false for ROOT, ARTIFACT/
+// references, and unrecognized prefixes.
 func LogicalNameHasParent(logicalName string) bool {
 	// Step 1: strip qualifier
-	bareName := LogicalNameStripQualifier(logicalName)
+	bare := LogicalNameStripQualifier(logicalName)
 
 	// Step 2: if exactly "ROOT", return false
-	if bareName == "ROOT" {
+	if bare == "ROOT" {
 		return false
 	}
 
 	// Step 3: if starts with "ROOT/", return true
-	if strings.HasPrefix(bareName, "ROOT/") {
+	if strings.HasPrefix(bare, "ROOT/") {
 		return true
 	}
 
-	// Step 4: return false
+	// Step 4: all other cases, return false
 	return false
 }
 
 // LogicalNameHasQualifier returns true if the logical name contains a
 // parenthetical qualifier. Works with both ROOT/ and ARTIFACT/ references.
 func LogicalNameHasQualifier(logicalName string) bool {
-	_, ok := LogicalNameGetQualifier(logicalName)
-	return ok
+	_, present := LogicalNameGetQualifier(logicalName)
+	return present
 }
 
 // LogicalNameIsArtifact returns true if the logical name starts with ARTIFACT/.
@@ -209,13 +220,13 @@ func LogicalNameIsArtifact(logicalName string) bool {
 	return strings.HasPrefix(logicalName, "ARTIFACT/")
 }
 
-// LogicalNameGetArtifactGenerator returns the ROOT/ logical name of the node
-// that generates the referenced artifact. Strips the ARTIFACT/ prefix and any
-// qualifier.
+// LogicalNameGetArtifactGenerator returns the ROOT/ logical name of
+// the node that generates the referenced artifact. Strips the
+// ARTIFACT/ prefix and any qualifier.
 //
 // Examples:
-//   - "ARTIFACT/x/y(id)" → "ROOT/x/y"
-//   - "ARTIFACT/x/y"     → "ROOT/x/y"
+//   - "ARTIFACT/x/y(id)"  → "ROOT/x/y"
+//   - "ARTIFACT/x/y"      → "ROOT/x/y"
 //
 // Errors:
 //   - ErrNotAnArtifactReference: the logical name does not start with ARTIFACT/.
@@ -225,11 +236,11 @@ func LogicalNameGetArtifactGenerator(logicalName string) (string, error) {
 		return "", fmt.Errorf("%w: logical name does not start with ARTIFACT/", ErrNotAnArtifactReference)
 	}
 
-	// Step 2: strip any qualifier
-	bareName := LogicalNameStripQualifier(logicalName)
+	// Step 2: strip qualifier
+	bare := LogicalNameStripQualifier(logicalName)
 
-	// Step 3: strip the "ARTIFACT/" prefix
-	segment := strings.TrimPrefix(bareName, "ARTIFACT/")
+	// Step 3: strip "ARTIFACT/" prefix to get segment
+	segment := strings.TrimPrefix(bare, "ARTIFACT/")
 
 	// Step 4: return "ROOT/<segment>"
 	return "ROOT/" + segment, nil

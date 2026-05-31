@@ -1,50 +1,51 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/hash_fragment@ywMOxq2ekK_UzD1oiY73bi7wP3M)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/hash_fragment@s4O45OTH0zIyRUdZF90uCYNhb18)
 
 # Interface: `mcphashfragment`
 
-## Package
+## Package declaration
 
 ```go
 package mcphashfragment
 ```
 
-## Import
+## Import path
 
 ```go
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcphashfragment"
 ```
 
-## Error Sentinels
+## Error sentinels
 
 ```go
 import "errors"
 
-// ErrInvalidLineRange is returned when the line range format is invalid,
-// the start line is less than 1, start exceeds end, or end exceeds the
-// file's total line count.
+// ErrInvalidLineRange is returned when the lines parameter has an invalid
+// format, start < 1, start > end, or end exceeds the file's line count.
 var ErrInvalidLineRange = errors.New("invalid line range")
 ```
 
-## Function Signatures
+> Errors propagated from `PathUtils` and `FileReader` are owned by their
+> respective packages and are not re-declared here.
+
+## Function signatures
 
 ```go
-// MCPHashFragment reads lines [start, end] (inclusive, 1-based) from the
-// file at path (relative to the project root, forward slashes), computes
-// a SHA-1 digest of those lines, and returns it as a base64url-encoded
-// string (RFC 4648 §5, no padding, 27 characters).
+// MCPHashFragment computes a SHA-1 digest of the specified line range within
+// the given file. The digest is base64url encoded (RFC 4648 §5, no padding),
+// producing a 27-character string.
 //
-// path must pass PathUtils.PathValidateCfs validation.
-// lines must be a range string of the form "start-end" (e.g. "150-210").
+// path must be a file path relative to the project root using forward slashes.
+// lines must be a line range in the form "start-end" (e.g., "150-210").
 //
 // Errors:
-//   - ErrInvalidLineRange: range format is invalid, start < 1,
+//   - ErrInvalidLineRange: the range format is invalid, start < 1,
 //     start > end, or end exceeds the file's line count.
-//   - PathUtils errors propagated from PathValidateCfs.
-//   - FileReader errors propagated from FileOpen.
+//   - PathUtils errors: propagated from PathValidateCfs.
+//   - FileReader errors: propagated from FileOpen.
 func MCPHashFragment(path string, lines string) (string, error)
 ```
 
-## Usage Example
+## Usage example
 
 ```go
 package main
@@ -57,13 +58,14 @@ import (
 )
 
 func main() {
-	// Compute the SHA-1 hash of lines 150 through 210 of a source file.
+	// Compute the SHA-1 hash (base64url, no padding) of lines 150–210
+	// in the given source file.
 	hash, err := mcphashfragment.MCPHashFragment("internal/mypackage/myfile.go", "150-210")
 	if err != nil {
-		log.Fatalf("hash_fragment failed: %v", err)
+		log.Fatalf("MCPHashFragment failed: %v", err)
 	}
 
-	// hash is a 27-character base64url string (RFC 4648 §5, no padding).
+	// hash is a 27-character base64url string, e.g. "s4O45OTH0zIyRUdZF90uCYNhb18"
 	fmt.Println(hash)
 }
 ```

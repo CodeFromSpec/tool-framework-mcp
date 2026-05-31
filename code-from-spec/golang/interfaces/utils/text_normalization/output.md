@@ -1,36 +1,25 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@ReqXVnYDBbG4KdvHzJkzR6yBYp4)
+[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@CLPByLzWxcWyzlZ2k5V1SC2hgxs)
 
 # Package `textnormalization`
-
-**Import path:**
 
 ```go
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 ```
 
-## Overview
-
-The `textnormalization` package provides utilities for normalizing text strings — trimming whitespace, lowercasing, and expanding Unicode characters such as ligatures and diacritics.
-
----
-
 ## Functions
 
-### `NormalizeText`
-
 ```go
+package textnormalization
+
 // NormalizeText trims leading and trailing whitespace from raw,
-// converts it to lowercase, and expands Unicode characters
-// (e.g., "Straße" → "strasse"). Multiple internal spaces are
-// collapsed to a single space. Returns an empty string unchanged.
+// collapses any interior runs of whitespace to a single space,
+// and converts all characters to their lowercase equivalents.
+// Characters with Unicode folding equivalents (e.g. "ß" → "ss")
+// are expanded accordingly. An empty string returns an empty string.
 func NormalizeText(raw string) string
 ```
 
----
-
-## Examples
-
-### Typical call pattern
+## Usage Example
 
 ```go
 package main
@@ -42,26 +31,28 @@ import (
 )
 
 func main() {
-	fmt.Println(textnormalization.NormalizeText("  Interface  "))
-	// Output: interface
+	inputs := []string{
+		"  Interface  ",
+		"PUBLIC",
+		"Straße",
+		"Testes   de   aceitação",
+		"",
+	}
 
-	fmt.Println(textnormalization.NormalizeText("PUBLIC"))
-	// Output: public
-
-	fmt.Println(textnormalization.NormalizeText("Straße"))
-	// Output: strasse
-
-	fmt.Println(textnormalization.NormalizeText("Testes   de   aceitação"))
-	// Output: testes de aceitação
-
-	fmt.Println(textnormalization.NormalizeText(""))
+	for _, input := range inputs {
+		result := textnormalization.NormalizeText(input)
+		fmt.Printf("%q → %q\n", input, result)
+	}
 	// Output:
+	// "  Interface  " → "interface"
+	// "PUBLIC" → "public"
+	// "Straße" → "strasse"
+	// "Testes   de   aceitação" → "testes de aceitação"
+	// "" → ""
 }
 ```
 
----
-
-## Input / Output Reference
+## Examples
 
 | Input | Output |
 |---|---|

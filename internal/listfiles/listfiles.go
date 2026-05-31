@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/list_files@giODF5txl5la8V-cE3NAoRbiLcc
+// code-from-spec: ROOT/golang/implementation/os/list_files@qDrfdL6T2r1IidJ2HIIIrEawedQ
 
 package listfiles
 
@@ -13,82 +13,75 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-// ErrDirectoryNotFound is returned when the given directory does not exist.
+// ErrDirectoryNotFound is returned when the specified directory does not exist.
 var ErrDirectoryNotFound = errors.New("directory not found")
 
 // ErrWalkError is returned when a filesystem error occurs while traversing
 // the directory tree.
-var ErrWalkError = errors.New("walk error")
+var ErrWalkError = errors.New("filesystem walk error")
 
 // ListFiles returns all files (not directories) found recursively under the
-// given directory. Results are PathCfs values sorted alphabetically. If the
-// directory exists but contains no files, returns an empty slice.
+// directory identified by cfsPath. Results are returned as PathCfs values
+// sorted alphabetically. If the directory exists but contains no files, an
+// empty slice is returned.
 //
 // Errors:
 //   - ErrDirectoryNotFound: the directory does not exist.
-//   - ErrWalkError: a filesystem error occurred while traversing.
-//   - (PathUtils.*): propagated from PathCfsToOs.
-//   - (PathUtils.*): propagated from PathOsToCfs.
+//   - ErrWalkError: a filesystem error occurred while traversing the tree.
+//   - (PathUtils.*): propagated from pathutils.PathCfsToOs.
+//   - (PathUtils.*): propagated from pathutils.PathOsToCfs.
 func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
-	// Step 1: Convert CFS path to OS-native absolute path.
+	// Step 1: Convert CFS path to OS path.
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
-		return nil, fmt.Errorf("ListFiles: %w", err)
+		return nil, fmt.Errorf("converting cfs path to os path: %w", err)
 	}
 
 	// Step 2: Check that the path refers to an existing directory.
 	info, err := os.Stat(osPath.Value)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("ListFiles: %w", ErrDirectoryNotFound)
+			return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, cfsPath.Value)
 		}
-		return nil, fmt.Errorf("ListFiles: %w", ErrDirectoryNotFound)
+		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, cfsPath.Value)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("ListFiles: %w", ErrDirectoryNotFound)
+		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, cfsPath.Value)
 	}
 
-	// Step 3 & 4: Walk the directory tree recursively.
+	// Step 3: Initialize results slice.
 	var results []*pathutils.PathCfs
 
+	// Step 4: Recursively walk the directory tree.
 	walkErr := filepath.WalkDir(osPath.Value, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("%w: %v", ErrWalkError, err)
+			return fmt.Errorf("%w: %s", ErrWalkError, err.Error())
 		}
 
-		// Step 4: Skip directories, process files.
+		// Skip directories — continue traversing their contents.
 		if d.IsDir() {
 			return nil
 		}
 
-		// Step 4a: Convert the file's OS path to a PathCfs.
-		fileCfsPath, convertErr := pathutils.PathOsToCfs(&pathutils.PathOs{Value: path})
-		if convertErr != nil {
-			return convertErr
+		// Convert the file's OS path to a CFS path.
+		entryOsPath := &pathutils.PathOs{Value: path}
+		entryCfsPath, err := pathutils.PathOsToCfs(entryOsPath)
+		if err != nil {
+			return fmt.Errorf("converting os path to cfs path: %w", err)
 		}
 
-		// Step 4b: Append the resulting PathCfs to the result list.
-		results = append(results, fileCfsPath)
+		results = append(results, entryCfsPath)
 		return nil
 	})
-
 	if walkErr != nil {
-		// Distinguish between a walk initiation error and a propagated PathOsToCfs error.
-		if errors.Is(walkErr, ErrWalkError) {
-			return nil, fmt.Errorf("ListFiles: %w", walkErr)
-		}
-		return nil, fmt.Errorf("ListFiles: %w", walkErr)
+		return nil, walkErr
 	}
 
-	// Step 5: Sort the result list alphabetically by the PathCfs value field.
+	// Step 5: Sort results alphabetically by their value field.
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Value < results[j].Value
 	})
 
-	// Step 6: Return the sorted list. If no files were found, return an empty slice.
-	if results == nil {
-		results = []*pathutils.PathCfs{}
-	}
-
+	// Step 6: Return results.
 	return results, nil
 }

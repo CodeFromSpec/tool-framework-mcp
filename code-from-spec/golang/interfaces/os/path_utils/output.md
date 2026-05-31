@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/path_utils@ZJe3r0ztGKe39vfe1vI9lwsdF0Q)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/path_utils@aSkWddeikRDcMdF6HMrgF6e50CI)
 
 # Package `pathutils`
 
@@ -6,7 +6,7 @@
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 ```
 
-Provides path conversion and validation utilities for the Code from Spec framework. All framework-facing paths use the `PathCfs` format; OS-level operations use `PathOs`.
+Package `pathutils` provides path conversion and validation between the framework's canonical path format (CFS) and the operating system's native path format.
 
 ---
 
@@ -15,32 +15,26 @@ Provides path conversion and validation utilities for the Code from Spec framewo
 ```go
 package pathutils
 
-// PathCfs is a path in the Code from Spec standard format:
-//   - Forward slash (/) as separator, always.
-//   - Relative to the project root.
-//   - No .. components, no drive letters, no leading /, no backslashes.
-//
-// This is the only path format used in the framework's public API —
-// in frontmatter fields (outputs, external, input), in logical names,
-// and in tool parameters.
+// PathCfs represents a path in the Code from Spec standard format.
+// It uses forward slash (/) as separator, is always relative to the
+// project root, and contains no .. components, drive letters, leading
+// slashes, or backslashes.
 //
 // Examples:
-//   - internal/filereader/filereader.go
-//   - code-from-spec/functional/logic/os/file_reader/_node.md
+//   - "internal/filereader/filereader.go"
+//   - "code-from-spec/functional/logic/os/file_reader/_node.md"
 type PathCfs struct {
 	Value string
 }
 
-// PathOs is an absolute path in the operating system's native format:
-//   - OS-specific separator (/ on Unix, \ on Windows).
-//   - Always absolute.
+// PathOs represents an absolute path in the operating system's native
+// format. It uses the OS-specific separator and is always absolute.
 //
-// This type is never exposed in the framework's public API.
-// It exists only inside the os/ layer for interacting with the filesystem.
+// Examples (Unix):
+//   - "/home/user/myproject/internal/filereader/filereader.go"
 //
-// Examples:
-//   - /home/user/myproject/internal/filereader/filereader.go  (Unix)
-//   - C:\Users\user\myproject\internal\filereader\filereader.go  (Windows)
+// Examples (Windows):
+//   - `C:\Users\user\myproject\internal\filereader\filereader.go`
 type PathOs struct {
 	Value string
 }
@@ -55,25 +49,28 @@ package pathutils
 
 import "errors"
 
-// ErrCannotDetermineRoot is returned when the working directory cannot be read.
+// ErrCannotDetermineRoot is returned when the working directory cannot
+// be read and the project root cannot be determined.
 var ErrCannotDetermineRoot = errors.New("cannot determine project root")
 
-// ErrPathEmpty is returned when a PathCfs value is empty.
+// ErrPathEmpty is returned when a CFS path value is empty.
 var ErrPathEmpty = errors.New("path is empty")
 
-// ErrPathAbsolute is returned when a PathCfs value starts with / or a drive letter like C:.
+// ErrPathAbsolute is returned when a CFS path starts with / or a
+// drive letter (e.g. C:).
 var ErrPathAbsolute = errors.New("path must be relative, not absolute")
 
-// ErrPathContainsBackslash is returned when a PathCfs value contains \ characters.
-var ErrPathContainsBackslash = errors.New("path contains backslash")
+// ErrPathContainsBackslash is returned when a CFS path contains
+// backslash characters.
+var ErrPathContainsBackslash = errors.New("path contains backslash characters")
 
-// ErrDirectoryTraversal is returned when a PathCfs value contains .. components
-// after normalization.
-var ErrDirectoryTraversal = errors.New("path contains directory traversal")
+// ErrDirectoryTraversal is returned when a CFS path contains ..
+// components after normalization.
+var ErrDirectoryTraversal = errors.New("path contains directory traversal components")
 
-// ErrResolvesOutsideRoot is returned when a path resolves to a location outside
-// the project root.
-var ErrResolvesOutsideRoot = errors.New("path resolves outside project root")
+// ErrResolvesOutsideRoot is returned when a path resolves to a location
+// outside the project root.
+var ErrResolvesOutsideRoot = errors.New("path resolves outside the project root")
 ```
 
 ---
@@ -86,43 +83,49 @@ package pathutils
 // PathGetProjectRoot returns the project root as a PathOs.
 // The root is determined from the working directory of the process.
 //
-// Returns ErrCannotDetermineRoot if the working directory cannot be read.
+// Errors:
+//   - ErrCannotDetermineRoot: the working directory cannot be read.
 func PathGetProjectRoot() (*PathOs, error)
 
-// PathValidateCfs validates that a value conforms to the PathCfs format rules.
-// Raises an error describing the first violation found.
-// Follows OWASP guidance for path traversal prevention.
+// PathValidateCfs validates that a value conforms to the PathCfs
+// format rules. Returns an error describing the violation if the
+// value does not conform. Follows OWASP guidance for path traversal
+// prevention.
 //
-// Use this for sanity checks on parameters received from callers.
-// Does not verify that the file exists or resolve symlinks — use PathCfsToOs for that.
+// This function does not verify that the file exists or resolve
+// symlinks. Use PathCfsToOs for that.
 //
 // Errors:
 //   - ErrPathEmpty: the path value is empty.
 //   - ErrPathAbsolute: the path starts with / or a drive letter like C:.
 //   - ErrPathContainsBackslash: the path contains \ characters.
-//   - ErrDirectoryTraversal: the path contains .. components after normalization.
+//   - ErrDirectoryTraversal: the path contains .. components after
+//     normalization.
 func PathValidateCfs(value string) error
 
 // PathCfsToOs validates a PathCfs and converts it to an absolute PathOs.
-// This is the single entry point for going from framework paths to OS paths.
-// If validation fails, no conversion happens — an error is returned.
+// This is the single entry point for going from framework paths to OS
+// paths. If validation fails, no conversion happens and an error is
+// returned.
 //
-// The target file or directory does not need to exist.
-// The conversion is purely path-based: it validates the format, converts
-// separators, and checks containment, but does not require the path to
-// resolve to an actual filesystem entry.
+// The target file or directory does not need to exist. The conversion
+// is purely path-based — it validates the format, converts separators,
+// and checks containment, but does not require the path to resolve to
+// an actual filesystem entry.
 //
 // Errors:
-//   - ErrResolvesOutsideRoot: after resolving symlinks, the path is outside the project root.
+//   - ErrResolvesOutsideRoot: after resolving symlinks, the path is
+//     outside the project root.
 //   - (PathUtils.*): propagated from PathValidateCfs.
 //   - (PathUtils.*): propagated from PathGetProjectRoot.
 func PathCfsToOs(cfsPath *PathCfs) (*PathOs, error)
 
-// PathOsToCfs converts an absolute PathOs to a PathCfs relative to the project root.
-// Used internally by components that receive paths from the OS (e.g. directory listing).
+// PathOsToCfs converts an absolute PathOs to a PathCfs relative to the
+// project root. Used internally by components that receive paths from
+// the OS (e.g. directory listing).
 //
-// The target file or directory does not need to exist.
-// The conversion is purely path-based.
+// The target file or directory does not need to exist. The conversion
+// is purely path-based.
 //
 // Errors:
 //   - ErrResolvesOutsideRoot: the path is not within the project root.
@@ -138,6 +141,7 @@ func PathOsToCfs(osPath *PathOs) (*PathCfs, error)
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -145,31 +149,44 @@ import (
 )
 
 func main() {
-	// Validate a CFS-format path before using it.
-	if err := pathutils.PathValidateCfs("internal/filereader/filereader.go"); err != nil {
+	// Get the project root.
+	root, err := pathutils.PathGetProjectRoot()
+	if err != nil {
+		log.Fatalf("failed to determine project root: %v", err)
+	}
+	fmt.Println("project root:", root.Value)
+
+	// Validate a CFS path before using it.
+	rawPath := "internal/filereader/filereader.go"
+	if err := pathutils.PathValidateCfs(rawPath); err != nil {
+		if errors.Is(err, pathutils.ErrPathEmpty) {
+			log.Fatal("path must not be empty")
+		}
+		if errors.Is(err, pathutils.ErrDirectoryTraversal) {
+			log.Fatal("path traversal detected")
+		}
 		log.Fatalf("invalid path: %v", err)
 	}
 
-	// Convert a CFS path to an OS-native absolute path.
-	cfs := &pathutils.PathCfs{Value: "internal/filereader/filereader.go"}
-	osPath, err := pathutils.PathCfsToOs(cfs)
+	// Convert a CFS path to an OS path.
+	cfsPath := &pathutils.PathCfs{Value: rawPath}
+	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
-		log.Fatalf("PathCfsToOs: %v", err)
+		if errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
+			log.Fatal("path escapes project root")
+		}
+		log.Fatalf("conversion failed: %v", err)
 	}
-	fmt.Println("OS path:", osPath.Value)
+	fmt.Println("os path:", osPath.Value)
 
-	// Convert an OS-native absolute path back to a CFS path.
-	root, err := pathutils.PathGetProjectRoot()
+	// Convert an OS path back to a CFS path.
+	backToCfs, err := pathutils.PathOsToCfs(osPath)
 	if err != nil {
-		log.Fatalf("PathGetProjectRoot: %v", err)
+		if errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
+			log.Fatal("os path is outside project root")
+		}
+		log.Fatalf("reverse conversion failed: %v", err)
 	}
-	fmt.Println("Project root:", root.Value)
-
-	reconstructed := &pathutils.PathOs{Value: osPath.Value}
-	cfsBack, err := pathutils.PathOsToCfs(reconstructed)
-	if err != nil {
-		log.Fatalf("PathOsToCfs: %v", err)
-	}
-	fmt.Println("CFS path:", cfsBack.Value)
+	fmt.Println("cfs path:", backToCfs.Value)
 }
 ```

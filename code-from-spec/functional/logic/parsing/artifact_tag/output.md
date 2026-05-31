@@ -1,68 +1,69 @@
-<!-- code-from-spec: ROOT/functional/logic/parsing/artifact_tag@npVvrSV44M4zMIVGc6HwdynaRTA -->
+<!-- code-from-spec: ROOT/functional/logic/parsing/artifact_tag@XY0chhvi-N9_etVVcJpmVaxRFo8 -->
 
-## ArtifactTag
+# artifact_tag
 
-A record representing a parsed artifact tag found in a generated file.
+## Records
 
-Fields:
-- logical_name: string — the logical name portion of the tag
-- hash: string — the 27-character base64url hash portion of the tag
+```
+record ArtifactTag
+  logical_name: string
+  hash: string
+```
 
+## Functions
 
-## ArtifactTagExtract(file_path) -> ArtifactTag
+```
+function ArtifactTagExtract(file_path: pathutils.PathCfs) -> ArtifactTag
+  errors:
+    - FileUnreadable: the file cannot be opened or read.
+    - NoTagFound: the file has no "code-from-spec: " substring.
+    - MalformedTag: the tag exists but cannot be parsed
+      (no @, empty name, wrong hash length).
+    - (FileReader.*): propagated from FileOpen.
+```
 
-Parameters:
-- file_path: PathCfs — path to the file to scan
+### ArtifactTagExtract
 
-Returns: ArtifactTag
+  1. Call FileOpen(file_path) to open the file for reading.
+     If FileOpen raises FileUnreadable or any PathUtils error,
+     propagate the error to the caller without further processing.
 
-Errors:
-- FileUnreadable: the file cannot be opened or read
-- NoTagFound: the file contains no "code-from-spec: " substring
-- MalformedTag: a tag was found but cannot be parsed (missing "@", empty logical name, or fewer than 27 characters after "@")
-- (FileReader.*): propagated from FileOpen
+  2. Set found_line to empty.
+     Set reader_done to false.
 
-Steps:
+  3. Loop:
+     Call FileReadLine(reader) to get the next line.
+     If FileReadLine raises EndOfFile, set reader_done to true and break the loop.
+     If the line contains the substring "code-from-spec: ",
+       set found_line to this line and break the loop.
 
-1. Open the file at file_path using FileOpen.
-   If FileOpen raises an error, propagate it.
-   Bind the result to reader.
+  4. Call FileClose(reader).
 
-2. Set found_line to empty (no match yet).
+  5. If found_line is empty,
+     raise error "NoTagFound: the file has no code-from-spec: tag".
 
-3. Loop:
-   a. Call FileReadLine(reader).
-      If EndOfFile is raised, exit the loop.
-   b. If the current line contains the substring "code-from-spec: ":
-      Set found_line to this line.
-      Exit the loop.
+  6. Find the position of "code-from-spec: " in found_line.
+     Take the substring starting immediately after "code-from-spec: ".
+     Call this raw_tag.
 
-4. Call FileClose(reader).
+  7. Trim leading whitespace from raw_tag.
 
-5. If found_line is empty (no match was found):
-   Raise error NoTagFound.
+  8. Find the first occurrence of "@" in raw_tag.
+     If "@" is not found,
+       raise error "MalformedTag: no @ separator found in tag".
 
-6. Take the substring of found_line starting immediately after
-   the first occurrence of "code-from-spec: ".
-   Trim leading whitespace from this substring.
-   Bind the result to tag_content.
+  9. Extract logical_name as everything before the first "@" in raw_tag.
+     If logical_name is empty,
+       raise error "MalformedTag: logical name is empty".
 
-7. Find the index of the first occurrence of "@" in tag_content.
-   If "@" is not found:
-     Raise error MalformedTag "tag missing '@' separator".
+  10. Extract the substring immediately after "@".
+      Call this hash_candidate.
+      If the length of hash_candidate is less than 27,
+        raise error "MalformedTag: hash must be at least 27 characters".
 
-8. Extract logical_name as the substring of tag_content from
-   position 0 up to (but not including) the "@".
-   If logical_name is empty:
-     Raise error MalformedTag "logical name is empty".
+  11. Set hash to the first 27 characters of hash_candidate.
 
-9. Extract hash_candidate as the substring of tag_content
-   starting immediately after "@".
-   If the length of hash_candidate is less than 27:
-     Raise error MalformedTag "hash must be at least 27 characters".
-
-10. Set hash to the first 27 characters of hash_candidate.
-
-11. Return ArtifactTag with:
-    - logical_name: logical_name
-    - hash: hash
+  12. Return ArtifactTag with
+        logical_name set to the extracted logical_name
+        hash set to hash.
+```

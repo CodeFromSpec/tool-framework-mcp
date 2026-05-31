@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/hash_fragment@u-jaOuH4RrKUA8PbyyKuk8qbCD4 -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/hash_fragment@Cv4svwS9lP9fKBeuL5pcUWEK5FE -->
 
 # MCPHashFragment
 
@@ -10,43 +10,50 @@ function MCPHashFragment(path: string, lines: string) -> string
     - (PathUtils.*): propagated from PathValidateCfs.
     - (FileReader.*): propagated from FileOpen.
 
-  1. Call PathValidateCfs with path.
+  1. Validate path.
+     Call PathValidateCfs with path.
      If it raises an error, propagate it to the caller.
 
-  2. Parse lines as a line range in the format "<start>-<end>".
-     Both start and end are 1-based integers, inclusive.
-     If the format does not match "<integer>-<integer>",
-       raise error InvalidLineRange: "invalid line range format".
-     If start < 1,
-       raise error InvalidLineRange: "start line must be >= 1".
-     If start > end,
-       raise error InvalidLineRange: "start line must be <= end line".
+  2. Parse line range.
+     Split lines on the character "-".
+     If the result does not have exactly two parts, raise InvalidLineRange
+       with message "invalid line range format: expected <start>-<end>".
+     Parse the first part as integer start.
+     Parse the second part as integer end.
+     If either part is not a valid integer, raise InvalidLineRange
+       with message "invalid line range format: start and end must be integers".
+     If start < 1, raise InvalidLineRange
+       with message "invalid line range: start must be >= 1".
+     If start > end, raise InvalidLineRange
+       with message "invalid line range: start must be <= end".
 
-  3. Create a PathCfs record with value set to path.
+  3. Read lines from the file.
+     Create a PathCfs record with value set to path.
      Call FileOpen with that PathCfs.
      If FileOpen raises an error, propagate it to the caller.
-     The result is a FileReader, call it reader.
+     The result is reader.
 
-  4. Call FileSkipLines(reader, start - 1) to skip past lines
-     before the requested range.
+     Call FileSkipLines with reader and count = start - 1.
 
-  5. Set lines_to_read = end - start + 1.
-     Create an empty list called collected_lines.
-     For each index from 1 to lines_to_read:
-       Call FileReadLine(reader).
+     Set line_count = end - start + 1.
+     Initialize collected_lines as an empty list of strings.
+     For each index from 1 to line_count:
+       Call FileReadLine with reader.
        If FileReadLine raises EndOfFile:
-         Call FileClose(reader).
-         Raise error InvalidLineRange: "end line exceeds file line count".
+         Call FileClose with reader.
+         Raise InvalidLineRange with message
+           "invalid line range: end exceeds the file's line count".
        Append the returned line to collected_lines.
 
-  6. Call FileClose(reader).
+     Call FileClose with reader.
 
-  7. Build the hash input string by taking each line in
-     collected_lines in order and appending "\n" after it,
-     including after the last line.
+  4. Compute the hash.
+     Initialize content as an empty string.
+     For each line in collected_lines:
+       Append line to content.
+       Append "\n" to content.
+     Compute the SHA-1 digest of content (treated as a byte sequence in UTF-8).
+     Encode the 20-byte digest as base64url (RFC 4648 §5, no padding).
+     The result is a 27-character string.
 
-  8. Compute the SHA-1 digest of the hash input string (20 bytes).
-     Encode the digest using base64url (RFC 4648 §5, no padding),
-     producing a 27-character string.
-
-  9. Return the 27-character base64url-encoded hash string.
+     Return the hash string.

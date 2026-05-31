@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/validate@FHDzLohZVJV75klbkXJoRnrgbRw)
+[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/validate@7JYnYA5dB4CM-i0zxhrYouaAduI)
 
 # Package `spectreevalidate`
 
@@ -6,7 +6,7 @@
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
 ```
 
-Takes the full set of discovered nodes with their parsed frontmatter and body. Returns a list of format errors (empty if all nodes are valid).
+Package `spectreevalidate` validates the full set of discovered spec tree nodes, checking each node's parsed frontmatter and body against format rules. It returns a list of format errors describing any violations found.
 
 ---
 
@@ -15,28 +15,34 @@ Takes the full set of discovered nodes with their parsed frontmatter and body. R
 ```go
 package spectreevalidate
 
-// SpecTreeValidateInput holds a single discovered node with its parsed
-// frontmatter and parsed node structure, as input to SpecTreeValidate.
+import (
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
+)
+
+// SpecTreeValidateInput holds the data for a single spec tree node
+// that is to be validated.
 type SpecTreeValidateInput struct {
-	// LogicalName is the logical name of the node (e.g. "ROOT/foo/bar").
+	// LogicalName is the full logical name of the node (e.g. "ROOT/a/b").
 	LogicalName string
 
-	// Frontmatter is the parsed frontmatter of the node file.
+	// Frontmatter holds the parsed frontmatter for this node.
 	Frontmatter *frontmatter.Frontmatter
 
-	// Node is the parsed node structure.
+	// Node holds the parsed node body for this node.
 	Node *parsenode.Node
 }
 
-// FormatError describes a single validation failure for a node.
+// FormatError describes a single format rule violation found during
+// validation of a spec tree node.
 type FormatError struct {
-	// Node is the logical name of the node that failed validation.
+	// Node is the logical name of the node that violated the rule.
 	Node string
 
-	// Rule is the name of the rule that was violated.
+	// Rule is the name or identifier of the rule that was violated.
 	Rule string
 
-	// Detail provides additional context about the violation.
+	// Detail provides a human-readable explanation of the violation.
 	Detail string
 }
 ```
@@ -50,13 +56,15 @@ package spectreevalidate
 
 // SpecTreeValidate validates the full set of discovered nodes.
 //
-// A node has children if any other entry in the input list has a logical name
-// that starts with the node's logical name followed by "/". For example, given
-// entries "ROOT/a" and "ROOT/a/b", "ROOT/a" has children. "ROOT/a/b" is a leaf
-// if no entry starts with "ROOT/a/b/".
+// It takes the complete list of nodes with their parsed frontmatter and
+// body, and returns a list of FormatError values describing any format
+// violations found. The returned slice is empty when all nodes are valid.
 //
-// Returns a list of FormatErrors describing all violations found. Returns an
-// empty slice when all nodes are valid.
+// A node is considered to have children if any other entry in the input
+// list has a logical name that starts with the node's logical name
+// followed by "/". For example, given entries "ROOT/a" and "ROOT/a/b",
+// "ROOT/a" has children. A node is a leaf if no other entry's logical
+// name starts with its own logical name followed by "/".
 func SpecTreeValidate(entries []*SpecTreeValidateInput) []*FormatError
 ```
 
@@ -76,40 +84,62 @@ import (
 )
 
 func main() {
-	// Build the input list from discovered nodes (frontmatter and node already parsed).
+	// Build the input list from previously parsed nodes.
+	// In practice, these would be populated by the spec tree scan and parsing steps.
 	entries := []*spectreevalidate.SpecTreeValidateInput{
 		{
-			LogicalName: "ROOT/foo",
+			LogicalName: "ROOT/a",
 			Frontmatter: &frontmatter.Frontmatter{
 				DependsOn: []string{},
+				External:  []*frontmatter.FrontmatterExternal{},
+				Input:     "",
 				Outputs:   []*frontmatter.FrontmatterOutput{},
 			},
 			Node: &parsenode.Node{
-				NameSection: &parsenode.NodeSection{Heading: "foo"},
+				NameSection: &parsenode.NodeSection{
+					Heading:     "a",
+					RawHeading:  "# a",
+					Content:     []string{},
+					Subsections: []*parsenode.NodeSubsection{},
+				},
+				Public:  nil,
+				Agent:   nil,
+				Private: []*parsenode.NodeSection{},
 			},
 		},
 		{
-			LogicalName: "ROOT/foo/bar",
+			LogicalName: "ROOT/a/b",
 			Frontmatter: &frontmatter.Frontmatter{
-				DependsOn: []string{"ROOT/foo"},
+				DependsOn: []string{},
+				External:  []*frontmatter.FrontmatterExternal{},
+				Input:     "",
 				Outputs: []*frontmatter.FrontmatterOutput{
-					{ID: "interface", Path: "code-from-spec/golang/interfaces/foo/bar/output.md"},
+					{ID: "interface", Path: "code-from-spec/golang/interfaces/a/b/output.md"},
 				},
 			},
 			Node: &parsenode.Node{
-				NameSection: &parsenode.NodeSection{Heading: "bar"},
+				NameSection: &parsenode.NodeSection{
+					Heading:     "a/b",
+					RawHeading:  "# a/b",
+					Content:     []string{},
+					Subsections: []*parsenode.NodeSubsection{},
+				},
+				Public:  nil,
+				Agent:   nil,
+				Private: []*parsenode.NodeSection{},
 			},
 		},
 	}
 
-	errs := spectreevalidate.SpecTreeValidate(entries)
-	if len(errs) == 0 {
-		fmt.Println("All nodes are valid.")
+	// Validate all nodes.
+	formatErrors := spectreevalidate.SpecTreeValidate(entries)
+	if len(formatErrors) == 0 {
+		fmt.Println("all nodes are valid")
 		return
 	}
 
-	for _, e := range errs {
-		fmt.Printf("node: %s  rule: %s  detail: %s\n", e.Node, e.Rule, e.Detail)
+	for _, fe := range formatErrors {
+		fmt.Printf("node=%s rule=%s detail=%s\n", fe.Node, fe.Rule, fe.Detail)
 	}
 }
 ```

@@ -1,8 +1,6 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/write_file@1Rb_j6ZEv_liolvA_-T2bkY7dPw -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/write_file@EHwM0Hvwvn-wVVr0Zr7k2u-j-6Q -->
 
 # MCPWriteFile
-
-## Function signature
 
 ```
 function MCPWriteFile(logical_name: string, path: string, content: string) -> string
@@ -15,46 +13,43 @@ function MCPWriteFile(logical_name: string, path: string, content: string) -> st
     - (FileWriter.*): propagated from FileWrite.
 ```
 
-## Logic
-
-### Step 1 — Read frontmatter
+## Step 1 — Read frontmatter
 
 1. Call `LogicalNameToPath` with `logical_name`.
-   If it raises an error, propagate it unchanged.
+   If it raises an error, propagate it to the caller.
 
 2. Call `FrontmatterParse` with the resolved path.
-   If it raises an error, raise error "unreadable frontmatter".
+   If parsing fails, raise error "unreadable frontmatter".
 
 3. If `frontmatter.outputs` is empty, raise error "no outputs".
 
-### Step 2 — Validate path
+## Step 2 — Validate path
 
 4. Construct a `PathCfs` record with `value` set to `path`.
 
-5. Call `PathValidateCfs` with the `path` string.
-   If it raises an error, propagate it unchanged.
+5. Call `PathValidateCfs` with `path`.
+   If it raises an error, propagate it to the caller.
 
-### Step 3 — Check path against outputs
+## Step 3 — Check path against outputs
 
 6. For each entry in `frontmatter.outputs`:
      If `entry.path` equals `path` (exact string match), proceed to Step 4.
 
 7. If no entry matched, raise error "path not in outputs".
 
-### Step 4 — Write file
+## Step 4 — Write file
 
-8. Call `FileWrite` with the `PathCfs` and `content`.
-   If it raises an error, propagate it unchanged.
+8. Call `FileWrite` with the `PathCfs` record and `content`.
+   If it raises an error, propagate it to the caller.
 
-9. Return `"wrote <path>"` where `<path>` is the value of the `path` parameter.
+9. Return `"wrote <path>"` where `<path>` is the `path` string.
 
-## Error conditions
+## Contracts
 
-| Error | Condition |
-|---|---|
-| `UnreadableFrontmatter` | `FrontmatterParse` fails for any reason. |
-| `NoOutputs` | The node's frontmatter has an empty `outputs` list. |
-| `PathNotInOutputs` | The `path` string does not exactly match the `path` field of any entry in `frontmatter.outputs`. |
-| `LogicalNames.*` | Propagated from `LogicalNameToPath` (e.g. `UnsupportedReference`). |
-| `PathUtils.*` | Propagated from `PathValidateCfs` (e.g. `PathEmpty`, `PathAbsolute`, `PathContainsBackslash`, `DirectoryTraversal`). |
-| `FileWriter.*` | Propagated from `FileWrite` (e.g. `CannotCreateDirectory`, `CannotWriteFile`). |
+- Only writes to paths declared in the node's `outputs` list.
+- Path validation uses `PathValidateCfs` — same rules as the OS layer.
+- File writing uses `FileWrite` — creates intermediate directories,
+  overwrites existing files.
+- Writes exactly one file per call.
+- Content is written exactly as received — no line ending normalization
+  or other transformations.

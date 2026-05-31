@@ -1,143 +1,152 @@
-<!-- code-from-spec: ROOT/functional/tests/spec_tree/scan@3oU5PLHwcGCjvoTa7lpI-4kW01Q -->
+<!-- code-from-spec: ROOT/functional/tests/spec_tree/scan@DUDAJKBt7krislaGiFBs3mBKuTo -->
 
 # Test Specification: SpecTreeScan
 
-## Interface
+## Function Under Test
 
-```
-function SpecTreeScan() -> list of SpecTreeNode
-```
+`SpecTreeScan() -> list of SpecTreeNode`
 
 Each `SpecTreeNode` has:
 - `logical_name`: string
-- `file_path`: PathCfs
+- `file_path`: pathutils.PathCfs
 
 ---
 
-## Happy Path Tests
+## Happy Path Test Cases
 
-### TC-1: Root node only
+### TC-01: Root node only
 
-**Setup**
+**Setup:**
 - Create `code-from-spec/_node.md`.
 
-**Action**
+**Action:**
 - Call `SpecTreeScan`.
 
-**Expected outcome**
-- Returns a list with exactly one entry.
-- Entry has `logical_name` = `"ROOT"` and `file_path` = `code-from-spec/_node.md`.
+**Expected outcome:**
+- Returns a list with exactly one `SpecTreeNode`.
+- The entry has `logical_name` = `"ROOT"` and
+  `file_path` = `code-from-spec/_node.md`.
 
 ---
 
-### TC-2: Root and nested nodes
+### TC-02: Root and nested nodes
 
-**Setup**
+**Setup:**
 - Create `code-from-spec/_node.md`.
 - Create `code-from-spec/a/_node.md`.
 - Create `code-from-spec/a/b/_node.md`.
 
-**Action**
+**Action:**
 - Call `SpecTreeScan`.
 
-**Expected outcome**
-- Returns a list with exactly three entries.
-- Entry 1: `logical_name` = `"ROOT"`, `file_path` = `code-from-spec/_node.md`.
-- Entry 2: `logical_name` = `"ROOT/a"`, `file_path` = `code-from-spec/a/_node.md`.
-- Entry 3: `logical_name` = `"ROOT/a/b"`, `file_path` = `code-from-spec/a/b/_node.md`.
+**Expected outcome:**
+- Returns a list with exactly three `SpecTreeNode` entries.
+- Entry 1: `logical_name` = `"ROOT"`,
+  `file_path` = `code-from-spec/_node.md`.
+- Entry 2: `logical_name` = `"ROOT/a"`,
+  `file_path` = `code-from-spec/a/_node.md`.
+- Entry 3: `logical_name` = `"ROOT/a/b"`,
+  `file_path` = `code-from-spec/a/b/_node.md`.
 
 ---
 
-### TC-3: Ignores non-node files
+### TC-03: Ignores non-node files
 
-**Setup**
+**Setup:**
 - Create `code-from-spec/_node.md`.
-- Create `code-from-spec/x/output.md` (not a `_node.md`).
+- Create `code-from-spec/x/output.md` (not a `_node.md` file).
 
-**Action**
+**Action:**
 - Call `SpecTreeScan`.
 
-**Expected outcome**
-- Returns a list with exactly one entry.
-- Entry has `logical_name` = `"ROOT"` and `file_path` = `code-from-spec/_node.md`.
-- No entry for `code-from-spec/x/output.md`.
+**Expected outcome:**
+- Returns a list with exactly one `SpecTreeNode`.
+- The only entry has `logical_name` = `"ROOT"` and
+  `file_path` = `code-from-spec/_node.md`.
+- No entry exists for anything under `code-from-spec/x/`.
 
 ---
 
-### TC-4: Ignores directories without _node.md
+### TC-04: Ignores directories without _node.md
 
-**Setup**
+**Setup:**
 - Create `code-from-spec/_node.md`.
-- Create an empty subdirectory `code-from-spec/x/y/` (no files inside).
+- Create an empty subdirectory `code-from-spec/x/y/`
+  (no files inside).
 
-**Action**
+**Action:**
 - Call `SpecTreeScan`.
 
-**Expected outcome**
-- Returns a list with exactly one entry.
-- Entry has `logical_name` = `"ROOT"` and `file_path` = `code-from-spec/_node.md`.
-- No entries corresponding to `code-from-spec/x/y/`.
+**Expected outcome:**
+- Returns a list with exactly one `SpecTreeNode`.
+- The only entry has `logical_name` = `"ROOT"` and
+  `file_path` = `code-from-spec/_node.md`.
+- No entries exist for `code-from-spec/x/` or
+  `code-from-spec/x/y/`.
 
 ---
 
-### TC-5: Result is sorted by logical name
+### TC-05: Result is sorted by logical name
 
-**Setup**
+**Setup:**
 - Create `code-from-spec/z/_node.md`.
 - Create `code-from-spec/_node.md`.
 - Create `code-from-spec/a/b/_node.md`.
 
-**Action**
+**Action:**
 - Call `SpecTreeScan`.
 
-**Expected outcome**
-- Returns a list with exactly three entries in alphabetical order by `logical_name`:
-  1. `logical_name` = `"ROOT"`, `file_path` = `code-from-spec/_node.md`.
-  2. `logical_name` = `"ROOT/a/b"`, `file_path` = `code-from-spec/a/b/_node.md`.
-  3. `logical_name` = `"ROOT/z"`, `file_path` = `code-from-spec/z/_node.md`.
+**Expected outcome:**
+- Returns a list with exactly three `SpecTreeNode` entries
+  sorted alphabetically by `logical_name`.
+- Entry 1: `logical_name` = `"ROOT"`.
+- Entry 2: `logical_name` = `"ROOT/a/b"`.
+- Entry 3: `logical_name` = `"ROOT/z"`.
 
 ---
 
-## Failure Case Tests
+## Failure Case Test Cases
 
-### TC-6: No code-from-spec directory
+### TC-06: No code-from-spec directory
 
-**Setup**
+**Setup:**
 - Do not create a `code-from-spec/` directory.
 
-**Action**
+**Action:**
 - Call `SpecTreeScan`.
 
-**Expected outcome**
-- Returns an error propagated from `ListFiles` (directory not found).
-- Does not return a list of nodes.
+**Expected outcome:**
+- Returns an error propagated from `ListFiles`
+  indicating the directory was not found.
+- No list is returned.
 
 ---
 
-### TC-7: Empty code-from-spec directory
+### TC-07: Empty code-from-spec directory
 
-**Setup**
-- Create `code-from-spec/` directory with no files inside.
+**Setup:**
+- Create `code-from-spec/` with no files or subdirectories
+  inside.
 
-**Action**
+**Action:**
 - Call `SpecTreeScan`.
 
-**Expected outcome**
+**Expected outcome:**
 - Returns error `NoNodesFound`.
-- Does not return a list of nodes.
+- No list is returned.
 
 ---
 
-### TC-8: Only non-node files in code-from-spec
+### TC-08: Only non-node files in code-from-spec
 
-**Setup**
+**Setup:**
 - Create `code-from-spec/README.md`.
 - Create `code-from-spec/x/output.md`.
 - Do not create any `_node.md` files.
 
-**Action**
+**Action:**
 - Call `SpecTreeScan`.
 
-**Expected outcome**
+**Expected outcome:**
 - Returns error `NoNodesFound`.
-- Does not return a list of nodes.
+- No list is returned.
