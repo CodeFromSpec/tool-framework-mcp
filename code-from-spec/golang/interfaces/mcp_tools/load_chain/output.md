@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@wsXp3hy6G2YGL3gKujbUlM28kEA)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@y6eQCq8oQixNQQd-yj4O0V9DYpM)
 
 # Package `mcploadchain`
 
@@ -6,7 +6,7 @@
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
 ```
 
-Implements the `load_chain` MCP tool, which resolves and assembles the full spec chain context for a given logical name, returning the chain hash, concatenated context, and optional input artifact content.
+Package `mcploadchain` implements the `load_chain` MCP tool, which resolves a spec chain for a given logical name, computes its hash, and returns the concatenated chain context together with an optional input artifact.
 
 ---
 
@@ -15,16 +15,16 @@ Implements the `load_chain` MCP tool, which resolves and assembles the full spec
 ```go
 package mcploadchain
 
-// MCPLoadChainResult holds the output of a successful MCPLoadChain call.
+// MCPLoadChainResult holds the result of a successful load_chain tool call.
 type MCPLoadChainResult struct {
-	// ChainHash is the 27-character base64url chain hash.
+	// ChainHash is the 27-character base64url-encoded SHA-1 chain hash.
 	ChainHash string
 
-	// Context contains all chain content concatenated as a single stream.
+	// Context is all chain content concatenated as a single stream.
 	Context string
 
-	// Input contains the content of the input artifact, excluding frontmatter.
-	// It is nil when the target node has no input field.
+	// Input is the content of the input artifact, excluding frontmatter.
+	// It is nil when the target node has no input artifact.
 	Input *string
 }
 ```
@@ -41,7 +41,8 @@ import "errors"
 // ErrNoOutputs is returned when the target node has no outputs field.
 var ErrNoOutputs = errors.New("no outputs")
 
-// ErrInvalidOutputPath is returned when an output path fails path validation.
+// ErrInvalidOutputPath is returned when an output path fails path
+// validation.
 var ErrInvalidOutputPath = errors.New("invalid output path")
 ```
 
@@ -52,14 +53,9 @@ var ErrInvalidOutputPath = errors.New("invalid output path")
 ```go
 package mcploadchain
 
-// MCPLoadChain resolves and assembles the full spec chain for the given
-// logical name and returns the chain hash, concatenated context, and
-// optional input content.
-//
-// The function resolves the chain for the target node, computes its hash,
-// and concatenates all chain positions into a single context string. If
-// the target node declares an input artifact, its content (excluding
-// frontmatter) is returned in the Input field of the result.
+// MCPLoadChain resolves the spec chain for the given logical name,
+// computes the chain hash, and returns the concatenated context and
+// optional input artifact content.
 //
 // Errors:
 //   - ErrNoOutputs: the target node has no outputs field.
@@ -90,40 +86,41 @@ import (
 )
 
 func main() {
+	// Call MCPLoadChain with the logical name of the target node.
 	result, err := mcploadchain.MCPLoadChain("ROOT/golang/interfaces/mcp_tools/load_chain")
 	if err != nil {
-		// Check for sentinels owned by this package.
 		if errors.Is(err, mcploadchain.ErrNoOutputs) {
-			log.Fatalf("target node has no outputs: %v", err)
+			log.Fatal("target node has no outputs field")
 		}
 		if errors.Is(err, mcploadchain.ErrInvalidOutputPath) {
-			log.Fatalf("invalid output path: %v", err)
+			log.Fatal("an output path failed validation")
 		}
-
-		// Check for propagated sentinels from dependency packages.
 		if errors.Is(err, chainresolver.ErrUnreadableFrontmatter) {
-			log.Fatalf("unreadable frontmatter: %v", err)
+			log.Fatal("could not parse a node's frontmatter")
 		}
 		if errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
-			log.Fatalf("unresolvable artifact: %v", err)
+			log.Fatal("an ARTIFACT/ reference could not be resolved")
 		}
 		if errors.Is(err, chainhash.ErrFileUnreadable) {
-			log.Fatalf("file unreadable: %v", err)
+			log.Fatal("a file in the chain could not be read")
 		}
 		if errors.Is(err, chainhash.ErrParseFailure) {
-			log.Fatalf("parse failure: %v", err)
+			log.Fatal("a node file in the chain could not be parsed")
 		}
-
-		log.Fatalf("MCPLoadChain: %v", err)
+		log.Fatalf("unexpected error: %v", err)
 	}
 
-	fmt.Printf("chain hash : %s\n", result.ChainHash)
-	fmt.Printf("context    : %d bytes\n", len(result.Context))
+	// The chain hash is a 27-character base64url-encoded SHA-1 string.
+	fmt.Printf("chain_hash: %s\n", result.ChainHash)
 
+	// The context contains all chain content concatenated.
+	fmt.Printf("context length: %d bytes\n", len(result.Context))
+
+	// Input is only present when the target node declares an input artifact.
 	if result.Input != nil {
-		fmt.Printf("input      : %d bytes\n", len(*result.Input))
+		fmt.Printf("input length: %d bytes\n", len(*result.Input))
 	} else {
-		fmt.Println("input      : <none>")
+		fmt.Println("input: (none)")
 	}
 }
 ```

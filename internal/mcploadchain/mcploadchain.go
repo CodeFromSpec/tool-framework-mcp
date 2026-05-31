@@ -1,11 +1,9 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@X7lROk45mSOZE6YdwCFrtDFJfjg
-
+// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@hUvtcTNsCGCbnyLB7kzonfPApJQ
 package mcploadchain
 
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
@@ -23,27 +21,22 @@ var ErrNoOutputs = errors.New("no outputs")
 // ErrInvalidOutputPath is returned when an output path fails path validation.
 var ErrInvalidOutputPath = errors.New("invalid output path")
 
-// MCPLoadChainResult holds the output of a successful MCPLoadChain call.
+// MCPLoadChainResult holds the result of a successful load_chain tool call.
 type MCPLoadChainResult struct {
-	// ChainHash is the 27-character base64url chain hash.
+	// ChainHash is the 27-character base64url-encoded SHA-1 chain hash.
 	ChainHash string
 
-	// Context contains all chain content concatenated as a single stream.
+	// Context is all chain content concatenated as a single stream.
 	Context string
 
-	// Input contains the content of the input artifact, excluding frontmatter.
-	// It is nil when the target node has no input field.
+	// Input is the content of the input artifact, excluding frontmatter.
+	// It is nil when the target node has no input artifact.
 	Input *string
 }
 
-// MCPLoadChain resolves and assembles the full spec chain for the given
-// logical name and returns the chain hash, concatenated context, and
-// optional input content.
-//
-// The function resolves the chain for the target node, computes its hash,
-// and concatenates all chain positions into a single context string. If
-// the target node declares an input artifact, its content (excluding
-// frontmatter) is returned in the Input field of the result.
+// MCPLoadChain resolves the spec chain for the given logical name,
+// computes the chain hash, and returns the concatenated context and
+// optional input artifact content.
 //
 // Errors:
 //   - ErrNoOutputs: the target node has no outputs field.
@@ -56,32 +49,32 @@ type MCPLoadChainResult struct {
 func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error) {
 	// Step 1 — Validate and resolve
 
-	// 1. Resolve the target node's file path.
+	// 1. Convert logical name to file path.
 	filePath, err := logicalnames.LogicalNameToPath(logical_name)
 	if err != nil {
-		return nil, fmt.Errorf("LogicalNameToPath: %w", err)
+		return nil, fmt.Errorf("MCPLoadChain: resolving logical name: %w", err)
 	}
 
-	// 2. Parse frontmatter and verify outputs exist.
+	// 2. Parse frontmatter and check for outputs.
 	fm, err := frontmatter.FrontmatterParse(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("FrontmatterParse: %w", err)
+		return nil, fmt.Errorf("MCPLoadChain: parsing frontmatter: %w", err)
 	}
 	if len(fm.Outputs) == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrNoOutputs, logical_name)
+		return nil, fmt.Errorf("MCPLoadChain: %w", ErrNoOutputs)
 	}
 
 	// 3. Validate each output path.
 	for _, output := range fm.Outputs {
 		if err := pathutils.PathValidateCfs(output.Path); err != nil {
-			return nil, fmt.Errorf("%w: %s: %w", ErrInvalidOutputPath, output.Path, err)
+			return nil, fmt.Errorf("MCPLoadChain: validating output path %q: %w", output.Path, ErrInvalidOutputPath)
 		}
 	}
 
 	// 4. Resolve the chain.
 	chain, err := chainresolver.ChainResolve(logical_name)
 	if err != nil {
-		return nil, fmt.Errorf("ChainResolve: %w", err)
+		return nil, fmt.Errorf("MCPLoadChain: resolving chain: %w", err)
 	}
 
 	// Step 2 — Compute chain hash
@@ -89,21 +82,22 @@ func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error) {
 	// 5. Compute the chain hash.
 	chainHash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		return nil, fmt.Errorf("ChainHashCompute: %w", err)
+		return nil, fmt.Errorf("MCPLoadChain: computing chain hash: %w", err)
 	}
 
 	// Step 3 — Build context stream
 
 	// 6. Initialize context.
-	var contextBuilder strings.Builder
+	var context string
 
-	// 7. Ancestors — emit public sections.
+	// 7. Ancestors.
 	for _, ancestor := range chain.Ancestors {
 		node, err := parsenode.NodeParse(ancestor.LogicalName)
 		if err != nil {
-			return nil, fmt.Errorf("NodeParse(%s): %w", ancestor.LogicalName, err)
+			return nil, fmt.Errorf("MCPLoadChain: parsing ancestor %q: %w", ancestor.LogicalName, err)
 		}
 
+		// Skip if public is absent or has empty content and subsections.
 		if node.Public == nil {
 			continue
 		}
@@ -111,285 +105,274 @@ func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error) {
 			continue
 		}
 
-		contextBuilder.WriteString(node.Public.RawHeading)
-		contextBuilder.WriteString("\n")
+		context += node.Public.RawHeading + "\n"
 		for _, line := range node.Public.Content {
-			contextBuilder.WriteString(line)
-			contextBuilder.WriteString("\n")
+			context += line + "\n"
 		}
 		for _, sub := range node.Public.Subsections {
-			contextBuilder.WriteString(sub.RawHeading)
-			contextBuilder.WriteString("\n")
+			context += sub.RawHeading + "\n"
 			for _, line := range sub.Content {
-				contextBuilder.WriteString(line)
-				contextBuilder.WriteString("\n")
+				context += line + "\n"
 			}
 		}
 	}
 
-	// 8. Dependencies — emit dependency content.
+	// 8. Dependencies.
 	for _, dep := range chain.Dependencies {
 		if logicalnames.LogicalNameIsArtifact(dep.LogicalName) {
-			// 8a. Artifact dependency — read file content, strip frontmatter.
-			reader, err := filereader.FileOpen(dep.FilePath)
+			// 8a. Artifact reference — open the file and strip frontmatter.
+			reader, err := filereader.FileOpen(&dep.FilePath)
 			if err != nil {
-				return nil, fmt.Errorf("FileOpen(%s): %w", dep.FilePath.Value, err)
+				return nil, fmt.Errorf("MCPLoadChain: opening artifact %q: %w", dep.LogicalName, err)
 			}
-			content, err := readAllStrippingFrontmatter(reader)
-			filereader.FileClose(reader)
+			firstLine, hasFirstLine, err := stripFrontmatter(reader)
 			if err != nil {
-				return nil, fmt.Errorf("reading artifact %s: %w", dep.FilePath.Value, err)
+				filereader.FileClose(reader)
+				return nil, fmt.Errorf("MCPLoadChain: stripping frontmatter from artifact %q: %w", dep.LogicalName, err)
 			}
-			contextBuilder.WriteString(content)
-		} else if dep.Qualifier == nil {
-			// 8b. Node dependency without qualifier — emit full public section.
-			node, err := parsenode.NodeParse(dep.LogicalName)
-			if err != nil {
-				return nil, fmt.Errorf("NodeParse(%s): %w", dep.LogicalName, err)
+			if hasFirstLine {
+				context += firstLine + "\n"
 			}
-
-			if node.Public != nil {
-				contextBuilder.WriteString(node.Public.RawHeading)
-				contextBuilder.WriteString("\n")
-				for _, line := range node.Public.Content {
-					contextBuilder.WriteString(line)
-					contextBuilder.WriteString("\n")
-				}
-				for _, sub := range node.Public.Subsections {
-					contextBuilder.WriteString(sub.RawHeading)
-					contextBuilder.WriteString("\n")
-					for _, line := range sub.Content {
-						contextBuilder.WriteString(line)
-						contextBuilder.WriteString("\n")
-					}
-				}
-			}
-		} else {
-			// 8c. Node dependency with qualifier — emit matching subsection only.
-			node, err := parsenode.NodeParse(dep.LogicalName)
-			if err != nil {
-				return nil, fmt.Errorf("NodeParse(%s): %w", dep.LogicalName, err)
-			}
-
-			normalizedQualifier := textnormalization.NormalizeText(*dep.Qualifier)
-			if node.Public != nil {
-				for _, sub := range node.Public.Subsections {
-					if sub.Heading == normalizedQualifier {
-						contextBuilder.WriteString(sub.RawHeading)
-						contextBuilder.WriteString("\n")
-						for _, line := range sub.Content {
-							contextBuilder.WriteString(line)
-							contextBuilder.WriteString("\n")
-						}
+			for {
+				line, err := filereader.FileReadLine(reader)
+				if err != nil {
+					if errors.Is(err, filereader.ErrEndOfFile) {
 						break
 					}
+					filereader.FileClose(reader)
+					return nil, fmt.Errorf("MCPLoadChain: reading artifact %q: %w", dep.LogicalName, err)
+				}
+				context += line + "\n"
+			}
+			filereader.FileClose(reader)
+
+		} else if dep.Qualifier == "" {
+			// 8b. No qualifier — emit full public section.
+			node, err := parsenode.NodeParse(dep.LogicalName)
+			if err != nil {
+				return nil, fmt.Errorf("MCPLoadChain: parsing dependency %q: %w", dep.LogicalName, err)
+			}
+			context += node.Public.RawHeading + "\n"
+			for _, line := range node.Public.Content {
+				context += line + "\n"
+			}
+			for _, sub := range node.Public.Subsections {
+				context += sub.RawHeading + "\n"
+				for _, line := range sub.Content {
+					context += line + "\n"
+				}
+			}
+
+		} else {
+			// 8c. Qualifier present — emit the matching subsection.
+			node, err := parsenode.NodeParse(dep.LogicalName)
+			if err != nil {
+				return nil, fmt.Errorf("MCPLoadChain: parsing dependency %q: %w", dep.LogicalName, err)
+			}
+			normalizedQualifier := textnormalization.NormalizeText(dep.Qualifier)
+			var matchedSub *parsenode.NodeSubsection
+			for _, sub := range node.Public.Subsections {
+				if sub.Heading == normalizedQualifier {
+					matchedSub = sub
+					break
+				}
+			}
+			if matchedSub != nil {
+				context += matchedSub.RawHeading + "\n"
+				for _, line := range matchedSub.Content {
+					context += line + "\n"
 				}
 			}
 		}
 	}
 
-	// 9. External — emit external file content.
+	// 9. External.
 	for _, ext := range chain.External {
 		extPath := &pathutils.PathCfs{Value: ext.Path}
 
 		if len(ext.Fragments) == 0 {
-			// 9b. No fragments — emit entire file.
+			// 9b. No fragments — read entire file.
 			reader, err := filereader.FileOpen(extPath)
 			if err != nil {
-				return nil, fmt.Errorf("FileOpen(%s): %w", ext.Path, err)
+				return nil, fmt.Errorf("MCPLoadChain: opening external %q: %w", ext.Path, err)
 			}
 			for {
 				line, err := filereader.FileReadLine(reader)
-				if errors.Is(err, filereader.ErrEndOfFile) {
-					break
-				}
 				if err != nil {
-					filereader.FileClose(reader)
-					return nil, fmt.Errorf("FileReadLine(%s): %w", ext.Path, err)
-				}
-				contextBuilder.WriteString(line)
-				contextBuilder.WriteString("\n")
-			}
-			filereader.FileClose(reader)
-		} else {
-			// 9c. Fragments present — emit each fragment's line range.
-			for _, frag := range ext.Fragments {
-				start, end, err := parseLineRange(frag.Lines)
-				if err != nil {
-					return nil, fmt.Errorf("parseLineRange(%q): %w", frag.Lines, err)
-				}
-
-				reader, err := filereader.FileOpen(extPath)
-				if err != nil {
-					return nil, fmt.Errorf("FileOpen(%s): %w", ext.Path, err)
-				}
-
-				filereader.FileSkipLines(reader, start-1)
-
-				linesToRead := end - start + 1
-				for i := 0; i < linesToRead; i++ {
-					line, err := filereader.FileReadLine(reader)
 					if errors.Is(err, filereader.ErrEndOfFile) {
 						break
 					}
+					filereader.FileClose(reader)
+					return nil, fmt.Errorf("MCPLoadChain: reading external %q: %w", ext.Path, err)
+				}
+				context += line + "\n"
+			}
+			filereader.FileClose(reader)
+
+		} else {
+			// 9c. Fragments present.
+			for _, frag := range ext.Fragments {
+				start, end, err := parseLineRange(frag.Lines)
+				if err != nil {
+					return nil, fmt.Errorf("MCPLoadChain: parsing fragment lines %q: %w", frag.Lines, err)
+				}
+				reader, err := filereader.FileOpen(extPath)
+				if err != nil {
+					return nil, fmt.Errorf("MCPLoadChain: opening external fragment %q: %w", ext.Path, err)
+				}
+				filereader.FileSkipLines(reader, start-1)
+				count := end - start + 1
+				for i := 0; i < count; i++ {
+					line, err := filereader.FileReadLine(reader)
 					if err != nil {
+						if errors.Is(err, filereader.ErrEndOfFile) {
+							break
+						}
 						filereader.FileClose(reader)
-						return nil, fmt.Errorf("FileReadLine(%s): %w", ext.Path, err)
+						return nil, fmt.Errorf("MCPLoadChain: reading external fragment %q: %w", ext.Path, err)
 					}
-					contextBuilder.WriteString(line)
-					contextBuilder.WriteString("\n")
+					context += line + "\n"
 				}
 				filereader.FileClose(reader)
 			}
 		}
 	}
 
-	// 10. Target Public — emit reduced frontmatter block and public section.
+	// 10. Target Public.
 
 	// 10a. Emit reduced frontmatter block.
-	contextBuilder.WriteString("---\n")
-	contextBuilder.WriteString("outputs:\n")
+	context += "---\n"
+	context += "outputs:\n"
 	for _, output := range fm.Outputs {
-		contextBuilder.WriteString("  - id: ")
-		contextBuilder.WriteString(output.ID)
-		contextBuilder.WriteString("\n")
-		contextBuilder.WriteString("    path: ")
-		contextBuilder.WriteString(output.Path)
-		contextBuilder.WriteString("\n")
+		context += "  - id: " + output.ID + "\n"
+		context += "    path: " + output.Path + "\n"
 	}
-	contextBuilder.WriteString("---\n")
+	context += "---\n"
 
 	// 10b. Parse the target node.
 	targetNode, err := parsenode.NodeParse(chain.Target.LogicalName)
 	if err != nil {
-		return nil, fmt.Errorf("NodeParse(%s): %w", chain.Target.LogicalName, err)
+		return nil, fmt.Errorf("MCPLoadChain: parsing target node: %w", err)
 	}
 
 	// 10c. Emit public section if present.
 	if targetNode.Public != nil {
-		contextBuilder.WriteString(targetNode.Public.RawHeading)
-		contextBuilder.WriteString("\n")
+		context += targetNode.Public.RawHeading + "\n"
 		for _, line := range targetNode.Public.Content {
-			contextBuilder.WriteString(line)
-			contextBuilder.WriteString("\n")
+			context += line + "\n"
 		}
 		for _, sub := range targetNode.Public.Subsections {
-			contextBuilder.WriteString(sub.RawHeading)
-			contextBuilder.WriteString("\n")
+			context += sub.RawHeading + "\n"
 			for _, line := range sub.Content {
-				contextBuilder.WriteString(line)
-				contextBuilder.WriteString("\n")
+				context += line + "\n"
 			}
 		}
 	}
 
-	// 11. Target Agent — emit agent section if present.
+	// 11. Target Agent.
 	if targetNode.Agent != nil {
-		contextBuilder.WriteString(targetNode.Agent.RawHeading)
-		contextBuilder.WriteString("\n")
+		context += targetNode.Agent.RawHeading + "\n"
 		for _, line := range targetNode.Agent.Content {
-			contextBuilder.WriteString(line)
-			contextBuilder.WriteString("\n")
+			context += line + "\n"
 		}
 		for _, sub := range targetNode.Agent.Subsections {
-			contextBuilder.WriteString(sub.RawHeading)
-			contextBuilder.WriteString("\n")
+			context += sub.RawHeading + "\n"
 			for _, line := range sub.Content {
-				contextBuilder.WriteString(line)
-				contextBuilder.WriteString("\n")
+				context += line + "\n"
 			}
 		}
 	}
 
 	// Step 4 — Extract input
 
-	// 12. If chain.input is present, read its content stripping frontmatter.
+	// 12. Read input artifact if present.
 	var inputContent *string
 	if chain.Input != nil {
-		reader, err := filereader.FileOpen(chain.Input.FilePath)
+		reader, err := filereader.FileOpen(&chain.Input.FilePath)
 		if err != nil {
-			return nil, fmt.Errorf("FileOpen(%s): %w", chain.Input.FilePath.Value, err)
+			return nil, fmt.Errorf("MCPLoadChain: opening input artifact: %w", err)
 		}
-		content, err := readAllStrippingFrontmatter(reader)
+		firstLine, hasFirstLine, err := stripFrontmatter(reader)
+		if err != nil {
+			filereader.FileClose(reader)
+			return nil, fmt.Errorf("MCPLoadChain: stripping frontmatter from input: %w", err)
+		}
+		var inputBuf string
+		if hasFirstLine {
+			inputBuf += firstLine + "\n"
+		}
+		for {
+			line, err := filereader.FileReadLine(reader)
+			if err != nil {
+				if errors.Is(err, filereader.ErrEndOfFile) {
+					break
+				}
+				filereader.FileClose(reader)
+				return nil, fmt.Errorf("MCPLoadChain: reading input artifact: %w", err)
+			}
+			inputBuf += line + "\n"
+		}
 		filereader.FileClose(reader)
-		if err != nil {
-			return nil, fmt.Errorf("reading input %s: %w", chain.Input.FilePath.Value, err)
-		}
-		inputContent = &content
+		inputContent = &inputBuf
 	}
 
 	// Step 5 — Return result
 
-	// 13. Build and return the result.
-	result := &MCPLoadChainResult{
+	return &MCPLoadChainResult{
 		ChainHash: chainHash,
-		Context:   contextBuilder.String(),
+		Context:   context,
 		Input:     inputContent,
-	}
-	return result, nil
+	}, nil
 }
 
-// readAllStrippingFrontmatter reads all lines from reader, stripping any
-// leading frontmatter block delimited by "---" markers, and returns the
-// remaining content as a single string with each line followed by "\n".
+// stripFrontmatter reads and discards a YAML frontmatter block (delimited by
+// "---" lines) from reader. It returns the first content line after the
+// frontmatter, a bool indicating whether a first content line was returned,
+// and any read error.
 //
-// The reader must already be open. The caller is responsible for closing it.
-func readAllStrippingFrontmatter(reader *filereader.FileReader) (string, error) {
-	var builder strings.Builder
-
-	// Read the first line to check for frontmatter.
-	firstLine, err := filereader.FileReadLine(reader)
-	if errors.Is(err, filereader.ErrEndOfFile) {
-		// Empty file.
-		return "", nil
-	}
+// If the first line of the file is "---", the function discards all lines up
+// to and including the closing "---". The first content line is then read and
+// returned as the first line.
+//
+// If the first line is not "---", frontmatter is absent. That line is returned
+// as-is as the first content line (hasFirstLine = true).
+func stripFrontmatter(reader *filereader.FileReader) (firstLine string, hasFirstLine bool, err error) {
+	line, err := filereader.FileReadLine(reader)
 	if err != nil {
-		return "", fmt.Errorf("FileReadLine: %w", err)
-	}
-
-	if firstLine == "---" {
-		// Frontmatter present — discard lines until the closing "---".
-		for {
-			line, err := filereader.FileReadLine(reader)
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				// No closing delimiter found — treat rest as content (already consumed).
-				return builder.String(), nil
-			}
-			if err != nil {
-				return "", fmt.Errorf("FileReadLine: %w", err)
-			}
-			if line == "---" {
-				// Closing delimiter found — content starts after this.
-				break
-			}
-		}
-	} else {
-		// No frontmatter — the first line is content.
-		builder.WriteString(firstLine)
-		builder.WriteString("\n")
-	}
-
-	// Read all remaining lines as content.
-	for {
-		line, err := filereader.FileReadLine(reader)
 		if errors.Is(err, filereader.ErrEndOfFile) {
-			break
+			return "", false, nil
 		}
-		if err != nil {
-			return "", fmt.Errorf("FileReadLine: %w", err)
-		}
-		builder.WriteString(line)
-		builder.WriteString("\n")
+		return "", false, err
 	}
 
-	return builder.String(), nil
+	if line != "---" {
+		// No frontmatter — this line is content.
+		return line, true, nil
+	}
+
+	// Frontmatter present — discard until closing "---".
+	for {
+		l, err := filereader.FileReadLine(reader)
+		if err != nil {
+			if errors.Is(err, filereader.ErrEndOfFile) {
+				// Frontmatter was never closed; no content remains.
+				return "", false, nil
+			}
+			return "", false, err
+		}
+		if l == "---" {
+			// Closing delimiter found; no first content line to return yet.
+			return "", false, nil
+		}
+	}
 }
 
-// parseLineRange parses a "start-end" string into integer start and end values.
-func parseLineRange(lines string) (start, end int, err error) {
+// parseLineRange parses a "start-end" fragment line range string into
+// integer start and end values.
+func parseLineRange(lines string) (start int, end int, err error) {
 	_, err = fmt.Sscanf(lines, "%d-%d", &start, &end)
 	if err != nil {
-		return 0, 0, fmt.Errorf("invalid line range %q: %w", lines, err)
+		return 0, 0, fmt.Errorf("parseLineRange: invalid range %q: %w", lines, err)
 	}
 	return start, end, nil
 }

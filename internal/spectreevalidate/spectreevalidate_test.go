@@ -1,10 +1,11 @@
-// code-from-spec: ROOT/golang/tests/spec_tree/validate@_hFe_ELYpH6FGfpkivuFODZbiyY
+// code-from-spec: ROOT/golang/tests/spec_tree/validate@ddW3dSvlnb10bCqnosUIxshB4_E
 package spectreevalidate_test
 
 import (
 	"crypto/sha1"
 	"encoding/base64"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
@@ -12,7 +13,8 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
 )
 
-// testChdir changes the working directory to dir for the duration of the test.
+// testChdir changes the working directory to dir for the duration of
+// the test, restoring it on cleanup.
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
@@ -29,42 +31,55 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-// testMakeRootEntry constructs a minimal valid ROOT node entry.
-func testMakeRootEntry() *spectreevalidate.SpecTreeValidateInput {
-	return &spectreevalidate.SpecTreeValidateInput{
-		LogicalName: "ROOT",
-		Frontmatter: &frontmatter.Frontmatter{},
-		Node: &parsenode.Node{
-			NameSection: &parsenode.NodeSection{
-				Heading:    "root",
-				RawHeading: "# ROOT",
-				Content:    []string{},
-			},
-			Public: &parsenode.NodeSection{
-				Heading:    "public",
-				RawHeading: "# Public",
-				Content:    []string{},
-			},
-		},
-	}
-}
-
-// testMakeEntry constructs a minimal valid leaf entry with the given logical name.
-func testMakeEntry(logicalName string) *spectreevalidate.SpecTreeValidateInput {
+// testMakeEntry builds a SpecTreeValidateInput with the given logical name
+// and minimal node structure. The heading is the path portion after "ROOT/"
+// (lowercased), matching what NodeParse would produce.
+func testMakeEntry(logicalName string, fm *frontmatter.Frontmatter, node *parsenode.Node) *spectreevalidate.SpecTreeValidateInput {
 	return &spectreevalidate.SpecTreeValidateInput{
 		LogicalName: logicalName,
-		Frontmatter: &frontmatter.Frontmatter{},
-		Node: &parsenode.Node{
-			NameSection: &parsenode.NodeSection{
-				Heading:    logicalName,
-				RawHeading: "# " + logicalName,
-				Content:    []string{},
-			},
-		},
+		Frontmatter: fm,
+		Node:        node,
 	}
 }
 
-// testCountErrors counts FormatErrors matching node and rule.
+// testEmptyFM returns an empty Frontmatter.
+func testEmptyFM() *frontmatter.Frontmatter {
+	return &frontmatter.Frontmatter{
+		DependsOn: []string{},
+		External:  []*frontmatter.FrontmatterExternal{},
+		Input:     "",
+		Outputs:   []*frontmatter.FrontmatterOutput{},
+	}
+}
+
+// testMakeNode builds a minimal Node with the given heading (normalized)
+// and raw heading.
+func testMakeNode(heading, rawHeading string) *parsenode.Node {
+	return &parsenode.Node{
+		NameSection: &parsenode.NodeSection{
+			Heading:     heading,
+			RawHeading:  rawHeading,
+			Content:     []string{},
+			Subsections: []*parsenode.NodeSubsection{},
+		},
+		Public:  nil,
+		Agent:   nil,
+		Private: []*parsenode.NodeSection{},
+	}
+}
+
+// testHasError checks if the slice contains at least one error matching the
+// given node and rule.
+func testHasError(errs []*spectreevalidate.FormatError, node, rule string) bool {
+	for _, e := range errs {
+		if e.Node == node && e.Rule == rule {
+			return true
+		}
+	}
+	return false
+}
+
+// testCountErrors counts errors matching the given node and rule.
 func testCountErrors(errs []*spectreevalidate.FormatError, node, rule string) int {
 	count := 0
 	for _, e := range errs {
@@ -75,365 +90,526 @@ func testCountErrors(errs []*spectreevalidate.FormatError, node, rule string) in
 	return count
 }
 
-// testHasError returns true if any error matches node and rule.
-func testHasError(errs []*spectreevalidate.FormatError, node, rule string) bool {
-	return testCountErrors(errs, node, rule) > 0
-}
-
-// testFragmentHash computes the SHA-1 base64url (no padding) hash of lines joined with \n.
-func testFragmentHash(lines ...string) string {
+// testFragmentHash computes the SHA-1 base64url (no padding) hash of
+// the given lines, each terminated by '\n'.
+func testFragmentHash(lines []string) string {
 	h := sha1.New()
 	for _, line := range lines {
 		h.Write([]byte(line + "\n"))
 	}
-	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	digest := h.Sum(nil)
+	return base64.RawURLEncoding.EncodeToString(digest)
 }
 
-// ---- Happy path ----
+// testWriteFile creates a file at the given relative path (from cwd),
+// creating parent directories as needed.
+func testWriteFile(t *testing.T, relPath, content string) {
+	t.Helper()
+	dir := filepath.Dir(relPath)
+	if dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("testWriteFile mkdir: %v", err)
+		}
+	}
+	if err := os.WriteFile(relPath, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteFile: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Happy Path
+// ---------------------------------------------------------------------------
 
 func TestValidLeafNodePassesAllChecks(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.DependsOn = []string{"ROOT"}
-	entry.Frontmatter.Outputs = []*frontmatter.FrontmatterOutput{
-		{ID: "out", Path: "internal/out.go"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/b"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{{ID: "out", Path: "internal/out.go"}},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/b", testEmptyFM(), testMakeNode("root/b", "# ROOT/b")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if len(errs) != 0 {
-		t.Errorf("expected no errors, got %d: %v", len(errs), errs)
+		t.Errorf("expected no errors, got %d: %+v", len(errs), errs)
 	}
 }
 
 func TestValidIntermediateNodePassesAllChecks(t *testing.T) {
-	root := testMakeRootEntry()
-
-	intermediate := testMakeEntry("ROOT/a")
-	intermediate.Node.Public = &parsenode.NodeSection{
-		Heading:    "public",
-		RawHeading: "# Public",
-		Content:    []string{},
+	rootNode := testMakeNode("root", "# ROOT")
+	rootNode.Public = &parsenode.NodeSection{
+		Heading:     "public",
+		RawHeading:  "# Public",
+		Content:     []string{},
+		Subsections: []*parsenode.NodeSubsection{},
 	}
 
-	leaf := testMakeEntry("ROOT/a/b")
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), rootNode),
+		testMakeEntry("ROOT/a", testEmptyFM(), testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, intermediate, leaf})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if len(errs) != 0 {
-		t.Errorf("expected no errors, got %d: %v", len(errs), errs)
+		t.Errorf("expected no errors, got %d: %+v", len(errs), errs)
 	}
 }
 
 func TestLeafWithNoFrontmatterFields(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if len(errs) != 0 {
-		t.Errorf("expected no errors, got %d: %v", len(errs), errs)
+		t.Errorf("expected no errors, got %d: %+v", len(errs), errs)
 	}
 }
 
-// ---- Rule: name_heading ----
+// ---------------------------------------------------------------------------
+// Rule: name_heading
+// ---------------------------------------------------------------------------
 
 func TestNameHeadingMatches(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
-	if testHasError(errs, "ROOT/a", "name_heading") {
-		t.Error("expected no name_heading error, but found one")
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "name_heading" {
+			t.Errorf("unexpected name_heading error: %+v", e)
+		}
 	}
 }
 
 func TestNameHeadingDoesNotMatch(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Node.NameSection.Heading = "ROOT/wrong"
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), testMakeNode("root/wrong", "# ROOT/wrong")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "name_heading") {
-		t.Error("expected name_heading error for ROOT/a, got none")
+		t.Errorf("expected name_heading error for ROOT/a, got: %+v", errs)
 	}
 }
 
-// ---- Rule: leaf_only_fields ----
+// ---------------------------------------------------------------------------
+// Rule: leaf_only_fields
+// ---------------------------------------------------------------------------
 
 func TestIntermediateNodeWithDependsOn(t *testing.T) {
-	root := testMakeRootEntry()
-	intermediate := testMakeEntry("ROOT/a")
-	intermediate.Frontmatter.DependsOn = []string{"ROOT/b"}
-	leaf := testMakeEntry("ROOT/a/b")
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/b"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/a/b", testEmptyFM(), testMakeNode("root/a/b", "# ROOT/a/b")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, intermediate, leaf})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "leaf_only_fields") {
-		t.Error("expected leaf_only_fields error for ROOT/a, got none")
+		t.Errorf("expected leaf_only_fields error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestIntermediateNodeWithOutputs(t *testing.T) {
-	root := testMakeRootEntry()
-	intermediate := testMakeEntry("ROOT/a")
-	intermediate.Frontmatter.Outputs = []*frontmatter.FrontmatterOutput{
-		{ID: "x", Path: "x.go"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{{ID: "x", Path: "x.go"}},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/a/b", testEmptyFM(), testMakeNode("root/a/b", "# ROOT/a/b")),
 	}
-	leaf := testMakeEntry("ROOT/a/b")
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, intermediate, leaf})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "leaf_only_fields") {
-		t.Error("expected leaf_only_fields error for ROOT/a, got none")
+		t.Errorf("expected leaf_only_fields error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestIntermediateNodeWithInput(t *testing.T) {
-	root := testMakeRootEntry()
-	intermediate := testMakeEntry("ROOT/a")
-	intermediate.Frontmatter.Input = "ARTIFACT/c(id)"
-	leaf := testMakeEntry("ROOT/a/b")
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "ARTIFACT/c(id)",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/a/b", testEmptyFM(), testMakeNode("root/a/b", "# ROOT/a/b")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, intermediate, leaf})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "leaf_only_fields") {
-		t.Error("expected leaf_only_fields error for ROOT/a, got none")
+		t.Errorf("expected leaf_only_fields error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestIntermediateNodeWithExternal(t *testing.T) {
-	root := testMakeRootEntry()
-	intermediate := testMakeEntry("ROOT/a")
-	intermediate.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{Path: "some/file.txt"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{Path: "some/file.txt", Fragments: []*frontmatter.FrontmatterExternalFragment{}},
+			},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/a/b", testEmptyFM(), testMakeNode("root/a/b", "# ROOT/a/b")),
 	}
-	leaf := testMakeEntry("ROOT/a/b")
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, intermediate, leaf})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "leaf_only_fields") {
-		t.Error("expected leaf_only_fields error for ROOT/a, got none")
+		t.Errorf("expected leaf_only_fields error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestIntermediateNodeWithMultipleRestrictedFields(t *testing.T) {
-	root := testMakeRootEntry()
-	intermediate := testMakeEntry("ROOT/a")
-	intermediate.Frontmatter.DependsOn = []string{"ROOT/b"}
-	intermediate.Frontmatter.Outputs = []*frontmatter.FrontmatterOutput{
-		{ID: "x", Path: "x.go"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/b"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{{ID: "x", Path: "x.go"}},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/a/b", testEmptyFM(), testMakeNode("root/a/b", "# ROOT/a/b")),
 	}
-	leaf := testMakeEntry("ROOT/a/b")
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, intermediate, leaf})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	count := testCountErrors(errs, "ROOT/a", "leaf_only_fields")
 	if count != 2 {
-		t.Errorf("expected exactly 2 leaf_only_fields errors for ROOT/a, got %d", count)
+		t.Errorf("expected exactly 2 leaf_only_fields errors for ROOT/a, got %d: %+v", count, errs)
 	}
 }
 
-// ---- Rule: leaf_only_agent ----
+// ---------------------------------------------------------------------------
+// Rule: leaf_only_agent
+// ---------------------------------------------------------------------------
 
 func TestIntermediateNodeWithAgentSection(t *testing.T) {
-	root := testMakeRootEntry()
-	intermediate := testMakeEntry("ROOT/a")
-	intermediate.Node.Agent = &parsenode.NodeSection{
-		Heading:    "agent",
-		RawHeading: "# Agent",
-		Content:    []string{"some content"},
+	nodeA := testMakeNode("root/a", "# ROOT/a")
+	nodeA.Agent = &parsenode.NodeSection{
+		Heading:     "agent",
+		RawHeading:  "# Agent",
+		Content:     []string{"Agent instructions."},
+		Subsections: []*parsenode.NodeSubsection{},
 	}
-	leaf := testMakeEntry("ROOT/a/b")
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, intermediate, leaf})
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), nodeA),
+		testMakeEntry("ROOT/a/b", testEmptyFM(), testMakeNode("root/a/b", "# ROOT/a/b")),
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "leaf_only_agent") {
-		t.Error("expected leaf_only_agent error for ROOT/a, got none")
+		t.Errorf("expected leaf_only_agent error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestLeafNodeWithAgentSectionNoError(t *testing.T) {
-	root := testMakeRootEntry()
-	leaf := testMakeEntry("ROOT/a")
-	leaf.Node.Agent = &parsenode.NodeSection{
-		Heading:    "agent",
-		RawHeading: "# Agent",
-		Content:    []string{"agent guidance"},
+	nodeA := testMakeNode("root/a", "# ROOT/a")
+	nodeA.Agent = &parsenode.NodeSection{
+		Heading:     "agent",
+		RawHeading:  "# Agent",
+		Content:     []string{"Agent instructions."},
+		Subsections: []*parsenode.NodeSubsection{},
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, leaf})
-	if testHasError(errs, "ROOT/a", "leaf_only_agent") {
-		t.Error("expected no leaf_only_agent error for leaf ROOT/a, but found one")
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), nodeA),
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "leaf_only_agent" {
+			t.Errorf("unexpected leaf_only_agent error: %+v", e)
+		}
 	}
 }
 
-// ---- Rule: dependency_targets ----
+// ---------------------------------------------------------------------------
+// Rule: dependency_targets
+// ---------------------------------------------------------------------------
 
 func TestDependsOnTargetsNonExistentRootNode(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.DependsOn = []string{"ROOT/missing"}
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/missing"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "dependency_targets") {
-		t.Error("expected dependency_targets error for ROOT/a, got none")
+		t.Errorf("expected dependency_targets error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestDependsOnTargetsAncestor(t *testing.T) {
-	root := testMakeRootEntry()
-	parent := testMakeEntry("ROOT/a")
-	child := testMakeEntry("ROOT/a/b")
-	child.Frontmatter.DependsOn = []string{"ROOT"}
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/a/b", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a/b", "# ROOT/a/b")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, parent, child})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a/b", "dependency_targets") {
-		t.Error("expected dependency_targets error for ROOT/a/b (ancestor), got none")
+		t.Errorf("expected dependency_targets error for ROOT/a/b, got: %+v", errs)
 	}
 }
 
 func TestDependsOnTargetsDescendant(t *testing.T) {
-	root := testMakeRootEntry()
-	parent := testMakeEntry("ROOT/a")
-	parent.Frontmatter.DependsOn = []string{"ROOT/a/b"}
-	child := testMakeEntry("ROOT/a/b")
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/a/b"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/a/b", testEmptyFM(), testMakeNode("root/a/b", "# ROOT/a/b")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, parent, child})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "dependency_targets") {
-		t.Error("expected dependency_targets error for ROOT/a (descendant), got none")
+		t.Errorf("expected dependency_targets error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestDependsOnTargetsSelf(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.DependsOn = []string{"ROOT/a"}
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/a"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "dependency_targets") {
-		t.Error("expected dependency_targets error for ROOT/a (self), got none")
+		t.Errorf("expected dependency_targets error for ROOT/a, got: %+v", errs)
 	}
 }
 
-func TestDependsOnWithValidRootQualifier(t *testing.T) {
-	root := testMakeRootEntry()
-	entryA := testMakeEntry("ROOT/a")
-	entryB := testMakeEntry("ROOT/b")
-	entryB.Frontmatter.DependsOn = []string{"ROOT/a(interface)"}
+func TestDependsOnWithValidROOTQualifier(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/b", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/a(interface)"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/b", "# ROOT/b")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entryA, entryB})
-	if testHasError(errs, "ROOT/b", "dependency_targets") {
-		t.Error("expected no dependency_targets error for ROOT/b with valid qualifier, but found one")
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "dependency_targets" {
+			t.Errorf("unexpected dependency_targets error: %+v", e)
+		}
 	}
 }
 
-func TestDependsOnWithValidArtifactReference(t *testing.T) {
-	root := testMakeRootEntry()
-	entryA := testMakeEntry("ROOT/a")
-	entryA.Frontmatter.Outputs = []*frontmatter.FrontmatterOutput{
-		{ID: "lib", Path: "lib.go"},
+func TestDependsOnWithValidARTIFACTReference(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{{ID: "lib", Path: "lib.go"}},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/b", &frontmatter.Frontmatter{
+			DependsOn: []string{"ARTIFACT/a(lib)"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/b", "# ROOT/b")),
 	}
-	entryB := testMakeEntry("ROOT/b")
-	entryB.Frontmatter.DependsOn = []string{"ARTIFACT/a(lib)"}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entryA, entryB})
-	if testHasError(errs, "ROOT/b", "dependency_targets") {
-		t.Error("expected no dependency_targets error for ROOT/b with valid ARTIFACT reference, but found one")
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "dependency_targets" {
+			t.Errorf("unexpected dependency_targets error: %+v", e)
+		}
 	}
 }
 
-func TestDependsOnWithNonExistentArtifactReference(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.DependsOn = []string{"ARTIFACT/missing(id)"}
+func TestDependsOnWithNonExistentARTIFACTReference(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ARTIFACT/missing(id)"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "dependency_targets") {
-		t.Error("expected dependency_targets error for ROOT/a with non-existent ARTIFACT, got none")
+		t.Errorf("expected dependency_targets error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestMultipleInvalidDependsOnOneErrorPerEntry(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.DependsOn = []string{"ROOT/missing", "ROOT/also_missing"}
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/missing", "ROOT/also_missing"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	count := testCountErrors(errs, "ROOT/a", "dependency_targets")
 	if count != 2 {
-		t.Errorf("expected exactly 2 dependency_targets errors for ROOT/a, got %d", count)
+		t.Errorf("expected exactly 2 dependency_targets errors for ROOT/a, got %d: %+v", count, errs)
 	}
 }
 
-// ---- Rule: input_target ----
+// ---------------------------------------------------------------------------
+// Rule: input_target
+// ---------------------------------------------------------------------------
 
 func TestValidInputReference(t *testing.T) {
-	root := testMakeRootEntry()
-	entryA := testMakeEntry("ROOT/a")
-	entryA.Frontmatter.Outputs = []*frontmatter.FrontmatterOutput{
-		{ID: "out", Path: "a.go"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{{ID: "out", Path: "a.go"}},
+		}, testMakeNode("root/a", "# ROOT/a")),
+		testMakeEntry("ROOT/b", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "ARTIFACT/a(out)",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/b", "# ROOT/b")),
 	}
-	entryB := testMakeEntry("ROOT/b")
-	entryB.Frontmatter.Input = "ARTIFACT/a(out)"
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entryA, entryB})
-	if testHasError(errs, "ROOT/b", "input_target") {
-		t.Error("expected no input_target error for ROOT/b with valid input, but found one")
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "input_target" {
+			t.Errorf("unexpected input_target error: %+v", e)
+		}
 	}
 }
 
-func TestInputNotStartingWithArtifact(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.Input = "ROOT/something"
+func TestInputNotStartingWithARTIFACT(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "ROOT/something",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "input_target") {
-		t.Error("expected input_target error for ROOT/a (non-ARTIFACT input), got none")
+		t.Errorf("expected input_target error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestInputReferencesNonExistentArtifact(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.Input = "ARTIFACT/missing(id)"
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "ARTIFACT/missing(id)",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "input_target") {
-		t.Error("expected input_target error for ROOT/a with non-existent artifact, got none")
+		t.Errorf("expected input_target error for ROOT/a, got: %+v", errs)
 	}
 }
 
-// ---- Rule: external_files ----
+// ---------------------------------------------------------------------------
+// Rule: external_files
+// ---------------------------------------------------------------------------
 
 func TestExternalFileExistsNoFragments(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
+	testWriteFile(t, "some/file.txt", "hello\n")
 
-	if err := os.MkdirAll("some", 0755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	if err := os.WriteFile("some/file.txt", []byte("hello\nworld\n"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{Path: "some/file.txt", Fragments: []*frontmatter.FrontmatterExternalFragment{}},
+			},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{Path: "some/file.txt"},
-	}
-
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
-	if testHasError(errs, "ROOT/a", "external_files") {
-		t.Error("expected no external_files error, but found one")
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "external_files" {
+			t.Errorf("unexpected external_files error: %+v", e)
+		}
 	}
 }
 
 func TestExternalFileDoesNotExist(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
+	// Do not create "nonexistent.txt"
 
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{Path: "nonexistent.txt"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{Path: "nonexistent.txt", Fragments: []*frontmatter.FrontmatterExternalFragment{}},
+			},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "external_files") {
-		t.Error("expected external_files error for missing file, got none")
+		t.Errorf("expected external_files error for ROOT/a, got: %+v", errs)
 	}
 }
 
@@ -441,27 +617,34 @@ func TestFragmentWithValidHash(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	content := "alpha\nbeta\ngamma\ndelta\nepsilon\n"
-	if err := os.WriteFile("f.txt", []byte(content), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	fileContent := "alpha\nbravo\ncharlie\ndelta\necho\n"
+	testWriteFile(t, "f.txt", fileContent)
 
-	correctHash := testFragmentHash("alpha", "beta", "gamma")
+	// Compute the correct hash for lines 1-3 (alpha, bravo, charlie).
+	correctHash := testFragmentHash([]string{"alpha", "bravo", "charlie"})
 
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{
-			Path: "f.txt",
-			Fragments: []*frontmatter.FrontmatterExternalFragment{
-				{Lines: "1-3", Hash: correctHash},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{
+					Path: "f.txt",
+					Fragments: []*frontmatter.FrontmatterExternalFragment{
+						{Lines: "1-3", Hash: correctHash},
+					},
+				},
 			},
-		},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
-	if testHasError(errs, "ROOT/a", "external_files") {
-		t.Errorf("expected no external_files error with valid hash %q, but found one", correctHash)
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "external_files" {
+			t.Errorf("unexpected external_files error: %+v", e)
+		}
 	}
 }
 
@@ -469,50 +652,57 @@ func TestFragmentWithInvalidHash(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	content := "alpha\nbeta\ngamma\ndelta\nepsilon\n"
-	if err := os.WriteFile("f.txt", []byte(content), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	fileContent := "alpha\nbravo\ncharlie\ndelta\necho\n"
+	testWriteFile(t, "f.txt", fileContent)
 
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{
-			Path: "f.txt",
-			Fragments: []*frontmatter.FrontmatterExternalFragment{
-				{Lines: "1-3", Hash: "wrong"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{
+					Path: "f.txt",
+					Fragments: []*frontmatter.FrontmatterExternalFragment{
+						{Lines: "1-3", Hash: "wrong_______________________"},
+					},
+				},
 			},
-		},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "external_files") {
-		t.Error("expected external_files error for invalid hash, got none")
+		t.Errorf("expected external_files error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestFragmentWithInvalidRangeFormat(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
+	testWriteFile(t, "f.txt", "hello\n")
 
-	if err := os.WriteFile("f.txt", []byte("line1\nline2\n"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{
-			Path: "f.txt",
-			Fragments: []*frontmatter.FrontmatterExternalFragment{
-				{Lines: "abc", Hash: "x"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{
+					Path: "f.txt",
+					Fragments: []*frontmatter.FrontmatterExternalFragment{
+						{Lines: "abc", Hash: "x"},
+					},
+				},
 			},
-		},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "external_files") {
-		t.Error("expected external_files error for invalid range format, got none")
+		t.Errorf("expected external_files error for ROOT/a, got: %+v", errs)
 	}
 }
 
@@ -520,24 +710,29 @@ func TestFragmentWithStartGreaterThanEnd(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	if err := os.WriteFile("f.txt", []byte("line1\nline2\nline3\n"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	fileContent := "alpha\nbravo\ncharlie\ndelta\necho\n"
+	testWriteFile(t, "f.txt", fileContent)
 
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{
-			Path: "f.txt",
-			Fragments: []*frontmatter.FrontmatterExternalFragment{
-				{Lines: "5-3", Hash: "x"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{
+					Path: "f.txt",
+					Fragments: []*frontmatter.FrontmatterExternalFragment{
+						{Lines: "5-3", Hash: "x"},
+					},
+				},
 			},
-		},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "external_files") {
-		t.Error("expected external_files error for start > end, got none")
+		t.Errorf("expected external_files error for ROOT/a, got: %+v", errs)
 	}
 }
 
@@ -545,24 +740,29 @@ func TestFragmentWithStartLessThanOne(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	if err := os.WriteFile("f.txt", []byte("line1\nline2\nline3\n"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	fileContent := "alpha\nbravo\ncharlie\ndelta\necho\n"
+	testWriteFile(t, "f.txt", fileContent)
 
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{
-			Path: "f.txt",
-			Fragments: []*frontmatter.FrontmatterExternalFragment{
-				{Lines: "0-3", Hash: "x"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{
+					Path: "f.txt",
+					Fragments: []*frontmatter.FrontmatterExternalFragment{
+						{Lines: "0-3", Hash: "x"},
+					},
+				},
 			},
-		},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "external_files") {
-		t.Error("expected external_files error for start < 1, got none")
+		t.Errorf("expected external_files error for ROOT/a, got: %+v", errs)
 	}
 }
 
@@ -570,192 +770,223 @@ func TestFragmentOutOfRange(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	content := "line1\nline2\nline3\nline4\nline5\n"
-	if err := os.WriteFile("f.txt", []byte(content), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	fileContent := "alpha\nbravo\ncharlie\ndelta\necho\n"
+	testWriteFile(t, "f.txt", fileContent)
 
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.External = []*frontmatter.FrontmatterExternal{
-		{
-			Path: "f.txt",
-			Fragments: []*frontmatter.FrontmatterExternalFragment{
-				{Lines: "1-100", Hash: "x"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External: []*frontmatter.FrontmatterExternal{
+				{
+					Path: "f.txt",
+					Fragments: []*frontmatter.FrontmatterExternalFragment{
+						{Lines: "1-100", Hash: "x"},
+					},
+				},
 			},
-		},
+			Input:   "",
+			Outputs: []*frontmatter.FrontmatterOutput{},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "external_files") {
-		t.Error("expected external_files error for out-of-range fragment, got none")
-	}
-	// Verify detail indicates out of range
-	found := false
-	for _, e := range errs {
-		if e.Node == "ROOT/a" && e.Rule == "external_files" {
-			found = true
-			if e.Detail == "" {
-				t.Error("expected non-empty detail for out-of-range fragment error")
-			}
-			break
-		}
-	}
-	if !found {
-		t.Error("no external_files error found for ROOT/a")
+		t.Errorf("expected external_files error for ROOT/a, got: %+v", errs)
 	}
 }
 
-// ---- Rule: output_paths ----
+// ---------------------------------------------------------------------------
+// Rule: output_paths
+// ---------------------------------------------------------------------------
 
 func TestValidOutputPath(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.Outputs = []*frontmatter.FrontmatterOutput{
-		{ID: "x", Path: "internal/x.go"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{{ID: "x", Path: "internal/x.go"}},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
-	if testHasError(errs, "ROOT/a", "output_paths") {
-		t.Error("expected no output_paths error for valid path, but found one")
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "output_paths" {
+			t.Errorf("unexpected output_paths error: %+v", e)
+		}
 	}
 }
 
 func TestOutputPathWithTraversal(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.Outputs = []*frontmatter.FrontmatterOutput{
-		{ID: "x", Path: "../../etc/passwd"},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{{ID: "x", Path: "../../etc/passwd"}},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "output_paths") {
-		t.Error("expected output_paths error for traversal path, got none")
+		t.Errorf("expected output_paths error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestOutputPathWithBackslash(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Frontmatter.Outputs = []*frontmatter.FrontmatterOutput{
-		{ID: "x", Path: `internal\x.go`},
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{{ID: "x", Path: `internal\x.go`}},
+		}, testMakeNode("root/a", "# ROOT/a")),
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	if !testHasError(errs, "ROOT/a", "output_paths") {
-		t.Error("expected output_paths error for path with backslash, got none")
+		t.Errorf("expected output_paths error for ROOT/a, got: %+v", errs)
 	}
 }
 
-// ---- Rule: duplicate_subsections ----
+// ---------------------------------------------------------------------------
+// Rule: duplicate_subsections
+// ---------------------------------------------------------------------------
 
 func TestUniqueSubsectionHeadingsNoError(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Node.Public = &parsenode.NodeSection{
+	nodeA := testMakeNode("root/a", "# ROOT/a")
+	nodeA.Public = &parsenode.NodeSection{
 		Heading:    "public",
 		RawHeading: "# Public",
 		Content:    []string{},
 		Subsections: []*parsenode.NodeSubsection{
-			{Heading: "interface", RawHeading: "## Interface", Content: []string{}},
-			{Heading: "context", RawHeading: "## Context", Content: []string{}},
+			{Heading: "interface", RawHeading: "## Interface", Content: []string{"Types."}},
+			{Heading: "context", RawHeading: "## Context", Content: []string{"Background."}},
 		},
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
-	if testHasError(errs, "ROOT/a", "duplicate_subsections") {
-		t.Error("expected no duplicate_subsections error for unique headings, but found one")
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), nodeA),
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "duplicate_subsections" {
+			t.Errorf("unexpected duplicate_subsections error: %+v", e)
+		}
 	}
 }
 
 func TestDuplicateSubsectionHeadings(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Node.Public = &parsenode.NodeSection{
+	nodeA := testMakeNode("root/a", "# ROOT/a")
+	nodeA.Public = &parsenode.NodeSection{
 		Heading:    "public",
 		RawHeading: "# Public",
 		Content:    []string{},
 		Subsections: []*parsenode.NodeSubsection{
-			{Heading: "interface", RawHeading: "## Interface", Content: []string{}},
-			{Heading: "interface", RawHeading: "## Interface", Content: []string{}},
+			{Heading: "interface", RawHeading: "## Interface", Content: []string{"First."}},
+			{Heading: "interface", RawHeading: "## Interface", Content: []string{"Second."}},
 		},
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), nodeA),
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	count := testCountErrors(errs, "ROOT/a", "duplicate_subsections")
 	if count != 1 {
-		t.Errorf("expected exactly 1 duplicate_subsections error for ROOT/a, got %d", count)
+		t.Errorf("expected exactly 1 duplicate_subsections error for ROOT/a, got %d: %+v", count, errs)
 	}
 }
 
 func TestThreeIdenticalSubsectionHeadings(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	entry.Node.Public = &parsenode.NodeSection{
+	nodeA := testMakeNode("root/a", "# ROOT/a")
+	nodeA.Public = &parsenode.NodeSection{
 		Heading:    "public",
 		RawHeading: "# Public",
 		Content:    []string{},
 		Subsections: []*parsenode.NodeSubsection{
-			{Heading: "interface", RawHeading: "## Interface", Content: []string{}},
-			{Heading: "interface", RawHeading: "## Interface", Content: []string{}},
-			{Heading: "interface", RawHeading: "## Interface", Content: []string{}},
+			{Heading: "interface", RawHeading: "## Interface", Content: []string{"First."}},
+			{Heading: "interface", RawHeading: "## Interface", Content: []string{"Second."}},
+			{Heading: "interface", RawHeading: "## Interface", Content: []string{"Third."}},
 		},
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), nodeA),
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
 	count := testCountErrors(errs, "ROOT/a", "duplicate_subsections")
 	if count != 2 {
-		t.Errorf("expected exactly 2 duplicate_subsections errors for ROOT/a, got %d", count)
+		t.Errorf("expected exactly 2 duplicate_subsections errors for ROOT/a, got %d: %+v", count, errs)
 	}
 }
 
-func TestNoPublicSectionSkipDuplicateCheck(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	// entry.Node.Public is nil
+func TestNoPublicSectionSkipDuplicateSubsections(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", testEmptyFM(), testMakeNode("root/a", "# ROOT/a")),
+	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
-	if testHasError(errs, "ROOT/a", "duplicate_subsections") {
-		t.Error("expected no duplicate_subsections error when public section absent, but found one")
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	for _, e := range errs {
+		if e.Rule == "duplicate_subsections" {
+			t.Errorf("unexpected duplicate_subsections error: %+v", e)
+		}
 	}
 }
 
-// ---- Cross-cutting ----
+// ---------------------------------------------------------------------------
+// Cross-Cutting
+// ---------------------------------------------------------------------------
 
 func TestCollectsMultipleErrorsFromDifferentRules(t *testing.T) {
-	root := testMakeRootEntry()
-	entry := testMakeEntry("ROOT/a")
-	// Triggers name_heading
-	entry.Node.NameSection.Heading = "ROOT/wrong"
-	// Triggers dependency_targets
-	entry.Frontmatter.DependsOn = []string{"ROOT/nonexistent"}
-	// Triggers duplicate_subsections
-	entry.Node.Public = &parsenode.NodeSection{
+	nodeA := testMakeNode("root/wrong", "# ROOT/wrong")
+	nodeA.Public = &parsenode.NodeSection{
 		Heading:    "public",
 		RawHeading: "# Public",
 		Content:    []string{},
 		Subsections: []*parsenode.NodeSubsection{
-			{Heading: "interface", RawHeading: "## Interface", Content: []string{}},
-			{Heading: "interface", RawHeading: "## Interface", Content: []string{}},
+			{Heading: "interface", RawHeading: "## Interface", Content: []string{"First."}},
+			{Heading: "interface", RawHeading: "## Interface", Content: []string{"Second."}},
 		},
 	}
 
-	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{root, entry})
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		testMakeEntry("ROOT", testEmptyFM(), testMakeNode("root", "# ROOT")),
+		testMakeEntry("ROOT/a", &frontmatter.Frontmatter{
+			DependsOn: []string{"ROOT/missing"},
+			External:  []*frontmatter.FrontmatterExternal{},
+			Input:     "",
+			Outputs:   []*frontmatter.FrontmatterOutput{},
+		}, nodeA),
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
 
 	if !testHasError(errs, "ROOT/a", "name_heading") {
-		t.Error("expected name_heading error, got none")
+		t.Errorf("expected name_heading error for ROOT/a, got: %+v", errs)
 	}
 	if !testHasError(errs, "ROOT/a", "dependency_targets") {
-		t.Error("expected dependency_targets error, got none")
+		t.Errorf("expected dependency_targets error for ROOT/a, got: %+v", errs)
 	}
 	if !testHasError(errs, "ROOT/a", "duplicate_subsections") {
-		t.Error("expected duplicate_subsections error, got none")
+		t.Errorf("expected duplicate_subsections error for ROOT/a, got: %+v", errs)
 	}
 }
 
 func TestEmptyInputList(t *testing.T) {
 	errs := spectreevalidate.SpecTreeValidate([]*spectreevalidate.SpecTreeValidateInput{})
 	if len(errs) != 0 {
-		t.Errorf("expected no errors for empty input, got %d", len(errs))
+		t.Errorf("expected no errors for empty input, got %d: %+v", len(errs), errs)
 	}
 }
