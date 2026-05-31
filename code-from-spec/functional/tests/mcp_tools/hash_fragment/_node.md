@@ -14,78 +14,93 @@ Test cases for the hash fragment tool.
 
 ## Test cases
 
+Fragment hashes use SHA-1 encoded as base64url (RFC 4648
+§5, no padding) — always 27 characters. The input to
+SHA-1 is the extracted lines, each with `\n` appended
+(including the last line). Tests that verify a specific
+hash value must compute it using this algorithm.
+
 ### Happy path
 
 #### Hashes a valid line range
 
-Create a file with multiple lines of known content. Call
-the hash fragment handler with path pointing to the file
-and lines = "2-4".
+Create a file with 5 lines of known content. Call
+MCPHashFragment with path pointing to the file and
+lines = "2-4".
 
-Expect success. The result contains a 27-character
-base64url-encoded SHA-1 hash matching the expected SHA-1
-of lines 2 through 4 (inclusive, joined with LF).
+Expect success. The result is a 27-character string
+matching the SHA-1 of lines 2-4 (each with `\n`
+appended).
 
 #### Single line range
 
-Create a file with multiple lines. Call the handler with
+Create a file with 5 lines. Call MCPHashFragment with
 lines = "3-3".
 
-Expect success. The hash matches the SHA-1 of just line 3.
+Expect success. The hash matches the SHA-1 of line 3
+with `\n` appended.
 
 #### First line of file
 
-Create a file with multiple lines. Call the handler with
+Create a file with 5 lines. Call MCPHashFragment with
 lines = "1-1".
 
-Expect success. The hash matches the SHA-1 of the first
-line only.
+Expect success. The hash matches the SHA-1 of the
+first line with `\n` appended.
 
 #### Last line of file
 
-Create a file with exactly 5 lines. Call the handler with
-lines = "5-5".
+Create a file with exactly 5 lines. Call MCPHashFragment
+with lines = "5-5".
 
 Expect success. The hash matches the SHA-1 of the last
-line.
+line with `\n` appended.
 
-### Failure cases
+#### Hash is deterministic
 
-#### File not found
+Create a file with known content. Call MCPHashFragment
+twice with the same path and lines. Expect both results
+are identical.
 
-Call the handler with path = "nonexistent.go" and
-lines = "1-5". Expect error containing "file not found".
+### Error cases
 
-#### Invalid line range format -- not a range
+#### File does not exist
 
-Call the handler with lines = "abc". Expect error
-containing "invalid line range".
+Call MCPHashFragment with path = "nonexistent.go" and
+lines = "1-5". Expect error FileUnreadable (propagated
+from FileReader via FileOpen).
 
-#### Invalid line range format -- start greater than end
+#### Invalid line range format — not a range
 
-Call the handler with lines = "5-2". Expect error
-containing "invalid line range".
+Call MCPHashFragment with lines = "abc". Expect error
+InvalidLineRange.
+
+#### Start greater than end
+
+Call MCPHashFragment with lines = "5-2". Expect error
+InvalidLineRange.
+
+#### Start less than 1
+
+Call MCPHashFragment with lines = "0-5". Expect error
+InvalidLineRange.
 
 #### Line range out of bounds
 
-Create a file with 3 lines. Call the handler with
-lines = "1-10". Expect error containing "invalid line
-range" and the file's actual line count.
+Create a file with 3 lines. Call MCPHashFragment with
+lines = "1-10". Expect error InvalidLineRange.
 
 #### Empty path
 
-Call the handler with path = "" and lines = "1-5". Expect
-error from path validation.
+Call MCPHashFragment with path = "" and lines = "1-5".
+Expect error PathEmpty (propagated from PathUtils via
+PathValidateCfs).
 
-#### Path traversal attempt
+#### Path traversal
 
-Call the handler with path = "../../etc/passwd" and
-lines = "1-5". Expect error from path validation.
-
-#### Start line is zero
-
-Call the handler with lines = "0-5". Expect error
-containing "invalid line range".
+Call MCPHashFragment with path = "../../etc/passwd" and
+lines = "1-5". Expect error DirectoryTraversal
+(propagated from PathUtils via PathValidateCfs).
 
 # Agent
 
@@ -94,12 +109,9 @@ case with its setup, actions, and expected outcome.
 
 ## Rules
 
-- Describe tests in terms of the functional interface —
-  use function names and error names from the interface,
-  not language-specific constructs.
-- Each test case has: a description, setup (what files to
-  create and with what content), actions (what functions
-  to call), and expected outcome.
-- Do not prescribe how to create test files or assert
-  results — those are implementation details for the
-  language layer.
+- Use the function name from the interface:
+  `MCPHashFragment`.
+- Use formal error names (PascalCase) as defined in the
+  interface.
+- When verifying hash values, compute the expected hash
+  per the hashing convention described above.
