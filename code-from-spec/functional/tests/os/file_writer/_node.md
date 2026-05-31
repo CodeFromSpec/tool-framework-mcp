@@ -57,22 +57,21 @@ Expect a file to be created with zero bytes.
 #### Propagates validation errors from PathCfsToOs
 
 Call `FileWrite` with an invalid `PathCfs` (e.g.,
-`"../../outside"`). Expect error "directory traversal"
-propagated from `PathCfsToOs`. Expect no file or
-directory to be created.
+`"../../outside"`). Expect error DirectoryTraversal (propagated from
+PathUtils). Expect no file or directory to be created.
 
 #### Cannot create directory
 
 Call `FileWrite` with a path where an intermediate
 directory cannot be created (e.g., a path component
 conflicts with an existing file). Expect error
-"cannot create directory".
+CannotCreateDirectory.
 
 #### Cannot write file
 
 Call `FileWrite` with a path pointing to a directory
 that exists (not a file). Expect error
-"cannot write file".
+CannotWriteFile.
 
 # Agent
 

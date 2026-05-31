@@ -20,14 +20,14 @@ record FileReader
 
 function FileOpen(cfs_path: PathCfs) -> FileReader
   errors:
-    - (path errors): propagated from PathCfsToOs.
-    - file unreadable: the path is valid but the file
-      cannot be opened (does not exist, permission denied,
-      or other OS error).
+    - FileUnreadable: the path is valid but the file
+      cannot be opened (does not exist, permission
+      denied, or other OS error).
+    - (PathUtils.*): propagated from PathCfsToOs.
 
 function FileReadLine(reader: FileReader) -> string
   errors:
-    - end of file: no more lines to read.
+    - EndOfFile: no more lines to read.
 
 function FileSkipLines(reader: FileReader, count: integer)
 

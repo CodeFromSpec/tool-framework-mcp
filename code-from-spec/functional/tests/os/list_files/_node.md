@@ -64,27 +64,27 @@ list.
 #### Directory does not exist
 
 Call `ListFiles` with a path to a non-existent directory.
-Expect error "directory not found".
+Expect error DirectoryNotFound.
 
 #### Propagates validation errors from PathCfsToOs
 
 Call `ListFiles` with an invalid `PathCfs` (e.g.,
-`"../../outside"`). Expect error "directory traversal"
-propagated from `PathCfsToOs`.
+`"../../outside"`). Expect error DirectoryTraversal (propagated from
+PathUtils).
 
 #### Propagates conversion errors from PathOsToCfs
 
 Create a directory containing a regular file and a
 symlink that points to a file outside the project root.
-Call `ListFiles`. Expect error "resolves outside root"
-propagated from `PathOsToCfs`. Skip on platforms where
+Call `ListFiles`. Expect error ResolvesOutsideRoot (propagated from
+PathUtils). Skip on platforms where
 symlinks are not supported.
 
 #### Walk error
 
 Create a directory containing a subdirectory with
 permissions that prevent reading. Call `ListFiles` on
-the parent. Expect error "walk error". Skip on
+the parent. Expect error WalkError. Skip on
 platforms where directory permissions cannot prevent
 traversal.
 

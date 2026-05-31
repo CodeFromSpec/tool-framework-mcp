@@ -17,11 +17,11 @@ Recursively lists all files under a directory.
 ```
 function ListFiles(cfs_path: PathCfs) -> list of PathCfs
   errors:
-    - (validation errors): propagated from PathCfsToOs.
-    - (conversion errors): propagated from PathOsToCfs.
-    - directory not found: the directory does not exist.
-    - walk error: a filesystem error occurred while
+    - DirectoryNotFound: the directory does not exist.
+    - WalkError: a filesystem error occurred while
       traversing.
+    - (PathUtils.*): propagated from PathCfsToOs.
+    - (PathUtils.*): propagated from PathOsToCfs.
 ```
 
 Returns all files (not directories) found recursively

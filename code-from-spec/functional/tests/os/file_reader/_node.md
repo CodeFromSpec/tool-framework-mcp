@@ -36,7 +36,7 @@ in the returned strings.
 Create a file containing `"alpha"` (with LF) and `"beta"`
 (no trailing newline). Call `FileOpen`, then `FileReadLine`
 twice. Expect `"alpha"` and `"beta"`. A third
-`FileReadLine` raises "end of file".
+`FileReadLine` raises EndOfFile.
 
 #### FileSkipLines advances the reader
 
@@ -48,7 +48,7 @@ Create a file containing `"one"`, `"two"`, `"three"`,
 
 Create a file containing `"one"`, `"two"`. Call `FileOpen`,
 then `FileSkipLines(10)`. Expect no error. Then
-`FileReadLine` raises "end of file".
+`FileReadLine` raises EndOfFile.
 
 #### Preserves leading whitespace
 
@@ -88,25 +88,25 @@ CJK, and emoji pass through unchanged.
 #### Empty file
 
 Create an empty file. Call `FileOpen`, then `FileReadLine`.
-Expect "end of file" immediately.
+Expect EndOfFile immediately.
 
 #### Single line without newline
 
 Create a file containing only `"hello"` with no newline.
 Call `FileOpen`, then `FileReadLine`. Expect `"hello"`.
-A second `FileReadLine` raises "end of file".
+A second `FileReadLine` raises EndOfFile.
 
 ### Failure cases
 
 #### File does not exist
 
 Call `FileOpen` with a non-existent path. Expect
-"file unreadable".
+FileUnreadable.
 
 #### Read after close
 
 Create a file containing `"alpha"`. Call `FileOpen`, then
-`FileClose`, then `FileReadLine`. Expect "end of file".
+`FileClose`, then `FileReadLine`. Expect EndOfFile.
 
 #### Skip after close
 

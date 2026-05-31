@@ -18,7 +18,7 @@ navigating the spec tree hierarchy.
 ```
 function LogicalNameToPath(logical_name: string) -> PathCfs
   errors:
-    - unsupported reference: the logical name does not
+    - UnsupportedReference: the logical name does not
       start with ROOT/.
 ```
 
@@ -29,7 +29,7 @@ resolving. Only accepts `ROOT/` references.
 ```
 function LogicalNameFromPath(cfs_path: PathCfs) -> string
   errors:
-    - invalid path: the path is not a _node.md file
+    - InvalidPath: the path is not a _node.md file
       under code-from-spec/.
 ```
 
@@ -40,8 +40,8 @@ a `ROOT/` reference.
 ```
 function LogicalNameGetParent(logical_name: string) -> string
   errors:
-    - no parent: the logical name is ROOT itself.
-    - not a ROOT reference: the logical name does not
+    - NoParent: the logical name is ROOT itself.
+    - NotARootReference: the logical name does not
       start with ROOT/.
 ```
 
@@ -94,7 +94,7 @@ Returns true if the logical name starts with `ARTIFACT/`.
 ```
 function LogicalNameGetArtifactGenerator(logical_name: string) -> string
   errors:
-    - not an artifact reference: the logical name does not
+    - NotAnArtifactReference: the logical name does not
       start with ARTIFACT/.
 ```
 

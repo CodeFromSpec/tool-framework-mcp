@@ -118,34 +118,34 @@ line is not recognized as a delimiter.
 #### File does not exist
 
 Call `FrontmatterParse` with a `PathCfs` pointing to a
-non-existent file. Expect "file unreadable".
+non-existent file. Expect error FileUnreadable.
 
 #### Propagates path errors
 
 Call `FrontmatterParse` with an invalid `PathCfs`
-(e.g., `"../../outside"`). Expect error "directory
-traversal" propagated from `FileOpen`.
+(e.g., `"../../outside"`). Expect error DirectoryTraversal (propagated from
+FileReader/PathUtils via FileOpen).
 
 #### Malformed YAML
 
 Create a file with invalid YAML between frontmatter
 delimiters. Call `FrontmatterParse`.
 
-Expect "malformed YAML".
+Expect error MalformedYAML.
 
 #### Unclosed frontmatter block
 
 Create a file that starts with `---` but has no closing
 `---`. Call `FrontmatterParse`.
 
-Expect "malformed YAML".
+Expect error MalformedYAML.
 
 #### Missing required field in external entry
 
 Create a file with an `external` entry that has no
 `path` field. Call `FrontmatterParse`.
 
-Expect "malformed YAML".
+Expect error MalformedYAML.
 
 #### Missing required field in fragment
 
@@ -153,14 +153,14 @@ Create a file with an `external` entry containing a
 fragment that has `lines` but no `hash`. Call
 `FrontmatterParse`.
 
-Expect "malformed YAML".
+Expect error MalformedYAML.
 
 #### Missing required field in output entry
 
 Create a file with an `outputs` entry that has `id`
 but no `path`. Call `FrontmatterParse`.
 
-Expect "malformed YAML".
+Expect error MalformedYAML.
 
 # Agent
 

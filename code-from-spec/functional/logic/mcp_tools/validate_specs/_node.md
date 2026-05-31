@@ -38,8 +38,9 @@ record ValidationReport
 
 function ValidateSpecs() -> ValidationReport
   errors:
-    - unreadable file: a spec node file cannot be read.
-    - parse failure: a spec node file has invalid structure.
+    - UnreadableFile: a spec node file cannot be read.
+    - ParseFailure: a spec node file has invalid
+      structure.
 ```
 
 No parameters. Scans the entire spec tree starting from

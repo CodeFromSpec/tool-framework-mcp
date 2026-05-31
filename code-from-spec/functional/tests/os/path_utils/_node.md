@@ -55,32 +55,32 @@ Expect no error.
 #### Rejects empty string
 
 Call `PathValidateCfs` with `""`.
-Expect error "path is empty".
+Expect error PathEmpty.
 
 #### Rejects absolute path with leading slash
 
 Call `PathValidateCfs` with `"/etc/passwd"`.
-Expect error "path is absolute".
+Expect error PathAbsolute.
 
 #### Rejects absolute path with drive letter
 
 Call `PathValidateCfs` with `"C:/Windows/system32"`.
-Expect error "path is absolute".
+Expect error PathAbsolute.
 
 #### Rejects backslash
 
 Call `PathValidateCfs` with `"internal\config\config.go"`.
-Expect error "path contains backslash".
+Expect error PathContainsBackslash.
 
 #### Rejects simple traversal
 
 Call `PathValidateCfs` with `"../../etc/passwd"`.
-Expect error "directory traversal".
+Expect error DirectoryTraversal.
 
 #### Rejects embedded traversal
 
 Call `PathValidateCfs` with `"internal/../../outside/file.go"`.
-Expect error "directory traversal".
+Expect error DirectoryTraversal.
 
 ### PathCfsToOs
 
@@ -104,13 +104,13 @@ Expect success — the path is normalized.
 #### Rejects invalid CfsPath
 
 Call `PathCfsToOs` with `"../../etc/passwd"`.
-Expect error "directory traversal".
+Expect error DirectoryTraversal.
 
 #### Rejects symlink escaping project root
 
 Create a symlink inside the project root pointing to a
 directory outside it. Call `PathCfsToOs` with a path
-through the symlink. Expect error "resolves outside root".
+through the symlink. Expect error ResolvesOutsideRoot.
 
 #### Roundtrip: CfsToOs then OsToCfs
 
@@ -150,8 +150,8 @@ another location inside the project root. Call
 #### Rejects path outside project root
 
 Call `PathOsToCfs` with an absolute OS path that is
-outside the project root. Expect error "resolves outside
-root".
+outside the project root. Expect error
+ResolvesOutsideRoot.
 
 ### PathGetProjectRoot
 

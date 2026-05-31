@@ -37,24 +37,24 @@ record Node
 
 function NodeParse(logical_name: string) -> Node
   errors:
-    - not a ROOT reference: the logical name does not
+    - NotARootReference: the logical name does not
       start with ROOT/.
-    - has qualifier: the logical name contains a
+    - HasQualifier: the logical name contains a
       parenthetical qualifier.
-    - (path errors): propagated from FileOpen.
-    - file unreadable: the file cannot be opened or read.
-    - unexpected content before first heading: file body
+    - FileUnreadable: the file cannot be opened or read.
+    - UnexpectedContentBeforeFirstHeading: file body
       has non-blank content before the first level-1
       heading, or has no level-1 heading at all. Blank
       lines before the first heading are not an error.
-    - node name does not match: the first heading does not
+    - NodeNameDoesNotMatch: the first heading does not
       match the logical name after normalization.
-    - duplicate public section: more than one `# Public`
+    - DuplicatePublicSection: more than one Public
       section exists.
-    - duplicate agent section: more than one `# Agent`
+    - DuplicateAgentSection: more than one Agent
       section exists.
-    - duplicate subsection: two `##` headings within the
-      same section normalize to the same text.
+    - DuplicateSubsection: two level-2 headings within
+      the same section normalize to the same text.
+    - (FileReader.*): propagated from FileOpen.
 ```
 
 `NodeSubsection` and `NodeSection` have two heading fields:

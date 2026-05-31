@@ -23,30 +23,31 @@ record PathOs
 
 function PathGetProjectRoot() -> PathOs
   errors:
-    - cannot determine root: the working directory cannot
+    - CannotDetermineRoot: the working directory cannot
       be read.
 
 function PathValidateCfs(value: string)
   errors:
-    - path is empty: the path value is empty.
-    - path is absolute: the path starts with / or a
-      drive letter like C:.
-    - path contains backslash: the path contains \ characters.
-    - directory traversal: the path contains .. components
-      after normalization.
+    - PathEmpty: the path value is empty.
+    - PathAbsolute: the path starts with / or a drive
+      letter like C:.
+    - PathContainsBackslash: the path contains \
+      characters.
+    - DirectoryTraversal: the path contains ..
+      components after normalization.
 
 function PathCfsToOs(cfs_path: PathCfs) -> PathOs
   errors:
-    - (validation errors): propagated from PathValidateCfs.
-    - (root errors): propagated from PathGetProjectRoot.
-    - resolves outside root: after resolving symlinks, the
-      path is outside the project root.
+    - ResolvesOutsideRoot: after resolving symlinks,
+      the path is outside the project root.
+    - (PathUtils.*): propagated from PathValidateCfs.
+    - (PathUtils.*): propagated from PathGetProjectRoot.
 
 function PathOsToCfs(os_path: PathOs) -> PathCfs
   errors:
-    - (root errors): propagated from PathGetProjectRoot.
-    - resolves outside root: the path is not within the
+    - ResolvesOutsideRoot: the path is not within the
       project root.
+    - (PathUtils.*): propagated from PathGetProjectRoot.
 ```
 
 ### PathCfs

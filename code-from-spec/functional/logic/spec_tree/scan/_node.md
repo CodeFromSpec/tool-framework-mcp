@@ -24,10 +24,11 @@ record SpecTreeNode
 
 function SpecTreeScan() -> list of SpecTreeNode
   errors:
-    - (list errors): propagated from ListFiles.
-    - (name errors): propagated from LogicalNameFromPath.
-    - no nodes found: no _node.md files found under
+    - NoNodesFound: no _node.md files found under
       code-from-spec/.
+    - (ListFiles.*): propagated from ListFiles.
+    - (LogicalNames.*): propagated from
+      LogicalNameFromPath.
 ```
 
 `SpecTreeScan` takes no parameters. It always scans the

@@ -199,21 +199,21 @@ ROOT/b but not ROOT/c.
 Input: ROOT, ROOT/a with depends_on = ["ROOT/missing"].
 Call NodeRankCompute.
 
-Expect error "unresolvable reference".
+Expect error UnresolvableReference.
 
 #### Unresolvable ARTIFACT reference
 
 Input: ROOT, ROOT/a with depends_on =
 ["ARTIFACT/missing(id)"]. Call NodeRankCompute.
 
-Expect error "unresolvable reference".
+Expect error UnresolvableReference.
 
 #### Unresolvable input reference
 
 Input: ROOT, ROOT/a with input =
 "ARTIFACT/missing(id)". Call NodeRankCompute.
 
-Expect error "unresolvable reference".
+Expect error UnresolvableReference.
 
 # Agent
 

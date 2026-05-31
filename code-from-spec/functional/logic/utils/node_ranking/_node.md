@@ -27,7 +27,8 @@ record NodeRankEntry
 
 function NodeRankCompute(entries: list of NodeRankInput) -> (ranked: list of NodeRankEntry, cycles: list of string)
   errors:
-    - unresolvable reference: a depends_on or input target cannot be resolved.
+    - UnresolvableReference: a depends_on or input
+      target cannot be resolved.
 ```
 
 Takes the full set of discovered nodes with their parsed

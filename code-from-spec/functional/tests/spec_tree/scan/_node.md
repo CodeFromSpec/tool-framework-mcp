@@ -62,13 +62,13 @@ Do not create a `code-from-spec/` directory. Call
 #### Empty code-from-spec directory
 
 Create `code-from-spec/` with no files inside. Call
-`SpecTreeScan`. Expect "no nodes found".
+`SpecTreeScan`. Expect error NoNodesFound.
 
 #### Only non-node files in code-from-spec
 
 Create `code-from-spec/README.md` and
 `code-from-spec/x/output.md` but no `_node.md` files.
-Call `SpecTreeScan`. Expect "no nodes found".
+Call `SpecTreeScan`. Expect error NoNodesFound.
 
 # Agent
 

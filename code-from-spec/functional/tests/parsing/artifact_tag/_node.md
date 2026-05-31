@@ -72,25 +72,26 @@ hash = `"abcdefghijklmnopqrstuvwxyza"`.
 #### Empty file
 
 Create an empty file. Call `ArtifactTagExtract`.
-Expect "no tag found".
+Expect error NoTagFound.
 
 ### Failure cases
 
 #### File does not exist
 
 Call `ArtifactTagExtract` with a non-existent path.
-Expect "file unreadable".
+Expect error FileUnreadable.
 
 #### Propagates path errors
 
 Call `ArtifactTagExtract` with an invalid `PathCfs`
-(e.g., `"../../outside"`). Expect error "directory
-traversal" propagated from `FileOpen`.
+(e.g., `"../../outside"`). Expect error
+DirectoryTraversal (propagated from FileReader/PathUtils
+via FileOpen).
 
 #### No tag in file
 
 Create a file with no `code-from-spec:` substring.
-Call `ArtifactTagExtract`. Expect "no tag found".
+Call `ArtifactTagExtract`. Expect error NoTagFound.
 
 #### Malformed tag -- no @ separator
 
@@ -98,7 +99,7 @@ Create a file containing:
 ```
 // code-from-spec: ROOT/foo/bar
 ```
-Call `ArtifactTagExtract`. Expect "malformed tag".
+Call `ArtifactTagExtract`. Expect error MalformedTag.
 
 #### Malformed tag -- empty logical name
 
@@ -106,7 +107,7 @@ Create a file containing:
 ```
 // code-from-spec: @abcdefghijklmnopqrstuvwxyza
 ```
-Call `ArtifactTagExtract`. Expect "malformed tag".
+Call `ArtifactTagExtract`. Expect error MalformedTag.
 
 #### Malformed tag -- wrong hash length
 
@@ -114,7 +115,7 @@ Create a file containing:
 ```
 // code-from-spec: ROOT/foo(bar)@short
 ```
-Call `ArtifactTagExtract`. Expect "malformed tag".
+Call `ArtifactTagExtract`. Expect error MalformedTag.
 
 # Agent
 

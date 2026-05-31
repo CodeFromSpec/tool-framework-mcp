@@ -37,9 +37,10 @@ record Frontmatter
 
 function FrontmatterParse(file_path: PathCfs) -> Frontmatter
   errors:
-    - (path errors): propagated from FileOpen.
-    - file unreadable: the file cannot be opened or read.
-    - malformed YAML: the content between --- delimiters is not valid YAML.
+    - FileUnreadable: the file cannot be opened or read.
+    - MalformedYAML: the content between --- delimiters
+      is not valid YAML.
+    - (FileReader.*): propagated from FileOpen.
 ```
 
 All fields default to empty (empty list, empty string) when

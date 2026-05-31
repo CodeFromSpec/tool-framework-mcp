@@ -26,9 +26,11 @@ all chain positions from disk and hashing their content.
 ```
 function ChainHashCompute(chain: Chain) -> string
   errors:
-    - file unreadable: a file in the chain cannot be
+    - FileUnreadable: a file in the chain cannot be
       read or opened.
-    - parse failure: a node file cannot be parsed.
+    - ParseFailure: a node file cannot be parsed.
+    - (FileReader.*): propagated from FileOpen.
+    - (NodeParsing.*): propagated from NodeParse.
 ```
 
 Receives a `Chain` (as returned by `ChainResolve`) and

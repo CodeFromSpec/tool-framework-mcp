@@ -23,10 +23,12 @@ record ArtifactTag
 
 function ArtifactTagExtract(file_path: PathCfs) -> ArtifactTag
   errors:
-    - (path errors): propagated from FileOpen.
-    - file unreadable: the file cannot be opened or read.
-    - no tag found: the file has no code-from-spec: substring.
-    - malformed tag: the tag exists but cannot be parsed (no @, empty name, wrong hash length).
+    - FileUnreadable: the file cannot be opened or read.
+    - NoTagFound: the file has no code-from-spec:
+      substring.
+    - MalformedTag: the tag exists but cannot be parsed
+      (no @, empty name, wrong hash length).
+    - (FileReader.*): propagated from FileOpen.
 ```
 
 ### Artifact tag format

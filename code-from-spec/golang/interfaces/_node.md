@@ -13,7 +13,13 @@ usage examples.
   if it is returned by a function or used as a parameter
   by callers. Unexported fields are implementation details
   and should not appear in the interface specification.
-- Errors → sentinel variables with `errors.New`.
+- Errors → sentinel variables with `errors.New`. The
+  functional spec lists errors in PascalCase (e.g.
+  `FileUnreadable`, `NoOutputs`). Export a sentinel
+  variable for each: `Err` + the error name (e.g.
+  `ErrFileUnreadable`, `ErrNoOutputs`). Errors marked
+  as `(Module.*): propagated from ...` are owned by
+  another package — do not re-declare them locally.
 - Constructor functions (return a record) → package-level
   functions.
 - Return `error` from methods that can fail, even if the

@@ -17,11 +17,10 @@ Writes content to a file on disk.
 ```
 function FileWrite(cfs_path: PathCfs, content: string)
   errors:
-    - (path errors): propagated from PathCfsToOs if the
-      path is invalid.
-    - cannot create directory: an intermediate directory
+    - CannotCreateDirectory: an intermediate directory
       cannot be created.
-    - cannot write file: the file cannot be written.
+    - CannotWriteFile: the file cannot be written.
+    - (PathUtils.*): propagated from PathCfsToOs.
 ```
 
 `FileWrite` writes `content` to the file at `cfs_path`

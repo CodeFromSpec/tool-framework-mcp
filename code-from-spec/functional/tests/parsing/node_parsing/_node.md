@@ -246,24 +246,24 @@ Call `NodeParse`. Expect no error. Body parsed correctly.
 Create a node file that starts with `---` but has no
 closing `---`. Call `NodeParse`.
 
-Expect "unexpected content before first heading".
+Expect error UnexpectedContentBeforeFirstHeading.
 
 ### Failure cases
 
 #### ARTIFACT reference rejected
 
 Call `NodeParse` with `"ARTIFACT/x(y)"`.
-Expect "not a ROOT reference".
+Expect error NotARootReference.
 
 #### Qualifier rejected
 
 Call `NodeParse` with `"ROOT/x(interface)"`.
-Expect "has qualifier".
+Expect error HasQualifier.
 
 #### File does not exist
 
 Call `NodeParse` with a logical name whose file does
-not exist. Expect "file unreadable".
+not exist. Expect error FileUnreadable.
 
 #### Propagates path errors
 
@@ -274,27 +274,27 @@ with traversal). Expect the path error is propagated.
 #### Content before first heading
 
 Create a node file with text before any heading. Call
-`NodeParse`. Expect "unexpected content before first
-heading".
+`NodeParse`. Expect error
+UnexpectedContentBeforeFirstHeading.
 
 #### Level-2 heading before any level-1 heading
 
 Create a node file with a level-2 heading before any
-level-1 heading. Call `NodeParse`. Expect "unexpected
-content before first heading".
+level-1 heading. Call `NodeParse`. Expect error
+UnexpectedContentBeforeFirstHeading.
 
 #### Empty body
 
 Create a node file with no content (or only frontmatter,
-no body). Call `NodeParse`. Expect "unexpected content
-before first heading".
+no body). Call `NodeParse`. Expect error
+UnexpectedContentBeforeFirstHeading.
 
 #### Node name does not match logical name
 
 Create a node file where the first heading text does
 not match the logical name. Call `NodeParse` with a
-different logical name. Expect "node name does not
-match".
+different logical name. Expect error
+NodeNameDoesNotMatch.
 
 #### Node name case mismatch is not an error
 
@@ -305,23 +305,22 @@ error — normalization makes them equal.
 #### Duplicate public section — same case
 
 Create a node with two Public sections (same case).
-Call `NodeParse`. Expect "duplicate public section".
+Call `NodeParse`. Expect error DuplicatePublicSection.
 
 #### Duplicate public section — different case
 
 Create a node with Public sections in different cases.
-Call `NodeParse`. Expect "duplicate public section".
+Call `NodeParse`. Expect error DuplicatePublicSection.
 
 #### Duplicate agent section
 
 Create a node with two Agent sections. Call `NodeParse`.
-Expect "duplicate agent section".
+Expect error DuplicateAgentSection.
 
 #### Duplicate subsection in public — same case
 
 Create a node with two identical subsection headings
-under public. Call `NodeParse`. Expect "duplicate
-subsection".
+under public. Call `NodeParse`. Expect error DuplicateSubsection.
 
 #### Duplicate subsection in public — different case
 
@@ -333,13 +332,12 @@ only in case under public. Call `NodeParse`. Expect
 
 Create a node with two subsection headings that differ
 only in whitespace under public. Call `NodeParse`.
-Expect "duplicate subsection".
+Expect error DuplicateSubsection.
 
 #### Duplicate subsection in agent
 
 Create a node with two identical subsection headings
-inside Agent. Call `NodeParse`. Expect "duplicate
-subsection".
+inside Agent. Call `NodeParse`. Expect error DuplicateSubsection.
 
 # Agent
 

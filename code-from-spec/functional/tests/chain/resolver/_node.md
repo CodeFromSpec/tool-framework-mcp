@@ -90,7 +90,7 @@ logical_name = "ARTIFACT/b(lib)", file_path =
 Create spec tree: ROOT, ROOT/a (leaf, depends_on =
 ["ARTIFACT/b"]). Call ChainResolve with "ROOT/a".
 
-Expect error "unresolvable artifact".
+Expect error UnresolvableArtifact.
 
 #### ARTIFACT — generating node has no outputs
 
@@ -98,7 +98,7 @@ Create spec tree: ROOT, ROOT/a (leaf, depends_on =
 ["ARTIFACT/b(lib)"]), ROOT/b (with empty frontmatter,
 no outputs). Call ChainResolve with "ROOT/a".
 
-Expect error "unresolvable artifact".
+Expect error UnresolvableArtifact.
 
 #### ARTIFACT — artifact file does not exist on disk
 
@@ -118,7 +118,7 @@ Create spec tree: ROOT, ROOT/a (leaf, depends_on =
 [{id: "lib", path: "out/lib.go"}]). Call ChainResolve
 with "ROOT/a".
 
-Expect error "unresolvable artifact".
+Expect error UnresolvableArtifact.
 
 #### Mixed ROOT/ and ARTIFACT/ dependencies
 
@@ -232,7 +232,7 @@ Expect input is absent.
 Create spec tree: ROOT, ROOT/a (leaf, input =
 "ARTIFACT/b"). Call ChainResolve with "ROOT/a".
 
-Expect error "unresolvable artifact".
+Expect error UnresolvableArtifact.
 
 #### Input with non-existent output id — error
 
@@ -241,7 +241,7 @@ Create spec tree: ROOT, ROOT/a (leaf, input =
 "data", path: "out/data.json"}]). Call ChainResolve
 with "ROOT/a".
 
-Expect error "unresolvable artifact".
+Expect error UnresolvableArtifact.
 
 ### Error cases
 
@@ -250,7 +250,7 @@ Expect error "unresolvable artifact".
 Create spec tree: ROOT, ROOT/a (leaf, depends_on =
 ["UNKNOWN/something"]). Call ChainResolve with "ROOT/a".
 
-Expect error "unresolvable artifact".
+Expect error UnresolvableArtifact.
 
 #### Invalid target logical name
 
@@ -264,7 +264,7 @@ LogicalNameToPath.
 Create spec tree: ROOT, ROOT/a with invalid YAML in
 frontmatter. Call ChainResolve with "ROOT/a".
 
-Expect error "unreadable frontmatter".
+Expect error UnreadableFrontmatter.
 
 # Agent
 

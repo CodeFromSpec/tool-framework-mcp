@@ -34,17 +34,17 @@ Expect: `code-from-spec/x/y/_node.md`.
 #### Rejects ARTIFACT reference
 
 Input: `"ARTIFACT/x(y)"`.
-Expect error "unsupported reference".
+Expect error UnsupportedReference.
 
 #### Rejects unrecognized prefix
 
 Input: `"UNKNOWN/something"`.
-Expect error "unsupported reference".
+Expect error UnsupportedReference.
 
 #### Rejects empty string
 
 Input: `""`.
-Expect error "unsupported reference".
+Expect error UnsupportedReference.
 
 ### LogicalNameFromPath
 
@@ -61,12 +61,12 @@ Expect: `"ROOT/x/y"`.
 #### Rejects non-node path
 
 Input: `internal/config/config.go`.
-Expect error "invalid path".
+Expect error InvalidPath.
 
 #### Rejects path without _node.md
 
 Input: `code-from-spec/x/y/output.md`.
-Expect error "invalid path".
+Expect error InvalidPath.
 
 ### LogicalNameGetParent
 
@@ -88,12 +88,12 @@ Expect: `"ROOT/domain"`.
 #### ROOT has no parent
 
 Input: `"ROOT"`.
-Expect error "no parent".
+Expect error NoParent.
 
 #### Rejects ARTIFACT reference
 
 Input: `"ARTIFACT/x(y)"`.
-Expect error "not a ROOT reference".
+Expect error NotARootReference.
 
 ### LogicalNameGetQualifier
 
@@ -230,7 +230,7 @@ Expect: `"ROOT/x/y/z"`.
 #### Rejects ROOT reference
 
 Input: `"ROOT/x(y)"`.
-Expect error "not an artifact reference".
+Expect error NotAnArtifactReference.
 
 #### Rejects reference without qualifier
 

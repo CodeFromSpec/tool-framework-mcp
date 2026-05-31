@@ -21,9 +21,10 @@ Review status: pending
 ```
 function HashFragment(path: PathCfs, lines: string) -> string
   errors:
-    - file not found: the file does not exist.
-    - invalid line range: the range format is invalid or out of bounds.
-    - path validation failure: the path is unsafe (traversal, absolute, etc.).
+    - FileNotFound: the file does not exist.
+    - InvalidLineRange: the range format is invalid or
+      out of bounds.
+    - (PathUtils.*): propagated from PathValidateCfs.
 ```
 
 ### Input

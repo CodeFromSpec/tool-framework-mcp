@@ -178,20 +178,20 @@ no error.
 #### Unreadable spec node file
 
 Build Chain referencing a spec node whose file does not
-exist on disk. Call ChainHashCompute. Expect "parse
-failure".
+exist on disk. Call ChainHashCompute. Expect error
+ParseFailure.
 
 #### Unreadable artifact file
 
 Build Chain with ARTIFACT dependency pointing to a
-non-existent file. Call ChainHashCompute. Expect "file
-unreadable".
+non-existent file. Call ChainHashCompute. Expect error
+FileUnreadable.
 
 #### Unreadable external file
 
 Build Chain with external entry pointing to a
-non-existent file. Call ChainHashCompute. Expect "file
-unreadable".
+non-existent file. Call ChainHashCompute. Expect error
+FileUnreadable.
 
 # Agent
 

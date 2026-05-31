@@ -32,12 +32,14 @@ record Chain
 
 function ChainResolve(target_logical_name: string) -> Chain
   errors:
-    - (logical name errors): propagated from
-      LogicalNameToPath, LogicalNameGetParent.
-    - unreadable frontmatter: a node's frontmatter
+    - UnreadableFrontmatter: a node's frontmatter
       cannot be parsed.
-    - unresolvable artifact: an ARTIFACT/ reference's
+    - UnresolvableArtifact: an ARTIFACT/ reference's
       output id does not match any declared output.
+    - (LogicalNames.*): propagated from
+      LogicalNameToPath, LogicalNameGetParent.
+    - (Frontmatter.*): propagated from
+      FrontmatterParse.
 ```
 
 `ChainResolve` returns the chain for a target logical

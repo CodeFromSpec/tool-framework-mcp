@@ -1,12 +1,13 @@
 ---
 depends_on:
+  - ROOT/functional/logic/chain/resolver
   - ROOT/functional/logic/chain/hash
-  - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/parsing/frontmatter
-  - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/parsing/node_parsing
-  - ROOT/functional/logic/os/path_utils
+  - ROOT/functional/logic/parsing/frontmatter
+  - ROOT/functional/logic/os/file_reader
+  - ROOT/functional/logic/os/path_utils(interface)
+  - ROOT/functional/logic/utils/logical_names(interface)
+  - ROOT/functional/logic/utils/text_normalization(interface)
 outputs:
   - id: load_chain
     path: code-from-spec/functional/logic/mcp_tools/load_chain/output.md
@@ -14,23 +15,31 @@ outputs:
 
 # ROOT/functional/logic/mcp_tools/load_chain
 
-Loads the complete spec chain for a given node and returns
-the chain hash, context, and input as separate items.
-
-Review status: pending
+Loads the complete spec chain for a given node and
+returns the chain hash, context, and input as a
+structured result.
 
 # Public
 
 ## Interface
 
 ```
-function LoadChain(logical_name: string) -> list of text items
+record MCPLoadChainResult
+  chain_hash: string
+  context: string
+  input: optional string
+
+function MCPLoadChain(logical_name: string) -> MCPLoadChainResult
   errors:
-    - invalid logical name: not a recognized ROOT/ reference.
-    - no outputs: target node has no outputs field.
-    - invalid output path: an output path fails path validation.
-    - chain resolution failure: a dependency cannot be resolved.
-    - unreadable file: a file in the chain cannot be read or parsed.
+    - NoOutputs: target node has no outputs field.
+    - InvalidOutputPath: an output path fails path
+      validation.
+    - (LogicalNames.*): propagated from
+      LogicalNameToPath.
+    - (ChainResolver.*): propagated from ChainResolve.
+    - (ChainHash.*): propagated from ChainHashCompute.
+    - (NodeParsing.*): propagated from NodeParse.
+    - (FileReader.*): propagated from FileOpen.
 ```
 
 ### Input
@@ -41,96 +50,115 @@ function LoadChain(logical_name: string) -> list of text items
 
 ### Output
 
-The result contains separate text items:
-
-| Item | Always present | Content |
+| Field | Always present | Content |
 |---|---|---|
-| Chain hash | yes | The 27-character base64url chain hash. |
-| Context | yes | All chain content concatenated as a single stream. |
-| Input | only if `input` field exists | Content of the input artifact, excluding frontmatter. |
+| `chain_hash` | yes | The 27-character base64url chain hash. |
+| `context` | yes | All chain content concatenated as a single stream. |
+| `input` | only if `input` field exists | Content of the input artifact, excluding frontmatter. |
 
 # Agent
 
 ## Behavior
 
-### Validation
+### Step 1 — Validate and resolve
 
-Before loading the chain:
-1. The logical name must be a valid `ROOT/` reference.
-2. Read the frontmatter of the node identified by
-   `logical_name`. It must have `outputs` declared.
-3. Each output path must pass path validation.
+Resolve the logical name to a file path using
+`LogicalNameToPath`. If it fails, propagate the error.
 
-### Context stream
+Read the target node's frontmatter using
+`FrontmatterParse`. If `frontmatter.outputs` is empty,
+raise NoOutputs. Validate each output path using
+`PathValidateCfs`. If any fails, raise
+InvalidOutputPath.
+
+Call `ChainResolve(logical_name)` to get the resolved
+`Chain`. If it fails, propagate the error.
+
+### Step 2 — Compute chain hash
+
+Call `ChainHashCompute(chain)` with the resolved Chain.
+If it fails, propagate the error. Store the result as
+`chain_hash`.
+
+### Step 3 — Build context stream
 
 The context is a single continuous text block — no
-delimiters, no headers, no file boundaries. All files
-are read using `file_reader` (close each reader after
-reading). Content is concatenated in this exact order:
+delimiters, no file boundaries. Content is concatenated
+in chain assembly order.
 
-**Step 1 — Ancestors** (root to target's parent)
+When reconstructing content from lines (whether from
+`NodeParse` content lists or `FileReadLine`), append
+`\n` after each line, including the last.
 
-For each ancestor, from the root node down to the
-target's direct parent, in tree depth order:
-- Include the `# Public` section — both the direct
-  content and all `##` subsections (with their
-  headings). Omit only the `# Public` heading itself.
-- If `# Public` is absent or has no content and no
-  subsections, skip this ancestor entirely.
+For each position, use `NodeParse` for spec nodes and
+`file_reader` for artifacts and external files.
 
-**Step 2 — Dependencies** (`depends_on`)
+**Ancestors** (from `chain.ancestors`)
 
-For each entry in the target's `depends_on`, in
-alphabetical order by logical name:
-- `ROOT/x/y` — include the `# Public` section content
-  of the referenced node (without the heading).
-- `ROOT/x/y(z)` — include only the `## z` subsection
-  content within `# Public` of the referenced node.
-- `ARTIFACT/x/y(id)` — include the full content of
-  the referenced artifact file, excluding any
-  frontmatter.
+For each ancestor, call `NodeParse` with
+`ancestor.logical_name`. If `node.public` is absent
+or has empty content and no subsections, skip.
+Otherwise, include the public section content and all
+subsections — but omit the `# Public` raw heading
+itself. Include `## subsection` raw headings and their
+content.
 
-**Step 3 — External files** (`external`)
+**Dependencies** (from `chain.dependencies`)
 
-For each entry in the target's `external`, in
-alphabetical order by path:
-- If no `fragments` declared — include the full file
-  content.
-- If `fragments` declared — include only the content
-  at the declared line ranges, concatenated in
-  declaration order.
+For each dependency:
+- If `LogicalNameIsArtifact(dep.logical_name)`: open
+  the file at `dep.file_path` with `FileOpen`, strip
+  frontmatter (if present), include remaining content.
+  Call `FileClose`.
+- Else if `dep.qualifier` is absent: call `NodeParse`
+  with `dep.logical_name`, include `# Public` section
+  content and subsections (omit `# Public` heading).
+- Else: call `NodeParse` with `dep.logical_name`, find
+  the subsection in `node.public` whose `heading`
+  matches `NormalizeText(dep.qualifier)`, include that
+  subsection's content (omit `## ` heading).
 
-**Step 4 — Target `# Public`**
+**External** (from `chain.external`)
 
-Preceded by a reduced frontmatter block containing only
-`outputs`. Then include the target node's `# Public`
-section — both the direct content and all `##`
-subsections (with their headings). Omit only the
-`# Public` heading itself.
+For each external entry, create a `PathCfs` from the
+entry's `path`:
+- If no fragments: open with `FileOpen`, read all
+  content. Call `FileClose`.
+- If fragments: for each fragment, parse `lines` as
+  `start-end`, open with `FileOpen`, skip `start - 1`
+  lines, read `end - start + 1` lines. Call `FileClose`.
+  Append `\n` after each line. Concatenate fragments
+  in declaration order.
 
-**Step 5 — Target `# Agent`**
+**Target Public** (from `chain.target`)
 
-Include the target node's `# Agent` section — both the
-direct content and all `##` subsections (with their
-headings). Omit only the `# Agent` heading itself.
-If the section is absent, skip.
+First, emit a reduced frontmatter block containing only
+the `outputs` field (formatted as YAML between `---`
+delimiters). Then call `NodeParse` with
+`chain.target.logical_name`. Include `# Public` section
+content and subsections (omit `# Public` heading).
 
-### Input separation
+**Target Agent**
 
-If the target node has an `input` field, the referenced
-artifact content is returned as a separate text item,
-not concatenated into the context stream. This allows
-the subagent to distinguish context (what informs) from
-input (what to transform).
+From the same `NodeParse` result, include `# Agent`
+section content and subsections (omit `# Agent`
+heading). If absent, skip.
 
-### Chain hash
+### Step 4 — Extract input
 
-Use `chain_hash.ComputeChainHash(logical_name)` to
-compute the chain hash. Do not reimplement the hash
-computation — use the shared utility.
+If `chain.input` is present, open the file at
+`chain.input.file_path` with `FileOpen`, strip
+frontmatter (if present), read remaining content.
+Call `FileClose`. Store as the `input` field of the
+result.
 
-The chain hash is returned as a separate text item so
-the subagent can embed it in the artifact tag.
+If `chain.input` is absent, `input` is absent in the
+result.
+
+### Step 5 — Return result
+
+Return `MCPLoadChainResult` with `chain_hash`,
+`context` (the concatenated stream), and `input`.
 
 ## Contracts
 
@@ -138,4 +166,8 @@ the subagent can embed it in the artifact tag.
 - If any file in the chain is unreadable, returns an
   error (no partial results).
 - The context stream contains no metadata or structural
-  markers — only spec content.
+  markers — only spec content, except for the target's
+  reduced frontmatter block.
+- Input is separated from context so the subagent can
+  distinguish context (what informs) from input (what
+  to transform).
