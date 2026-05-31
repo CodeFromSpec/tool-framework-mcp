@@ -1,14 +1,14 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/node_ranking
-  - ROOT/functional/logic/spec_tree/validate
-  - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/spec_tree/scan
+  - ROOT/functional/logic/spec_tree/validate
+  - ROOT/functional/logic/utils/node_ranking
+  - ROOT/functional/logic/chain/resolver
+  - ROOT/functional/logic/chain/hash
   - ROOT/functional/logic/parsing/artifact_tag
   - ROOT/functional/logic/parsing/frontmatter
-  - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/parsing/node_parsing
-  - ROOT/functional/logic/os/path_utils
+  - ROOT/functional/logic/os/path_utils(interface)
 outputs:
   - id: validate_specs
     path: code-from-spec/functional/logic/mcp_tools/validate_specs/output.md
@@ -16,10 +16,8 @@ outputs:
 
 # ROOT/functional/logic/mcp_tools/validate_specs
 
-Validates the spec tree for format errors, circular references,
-and artifact staleness.
-
-Review status: pending
+Validates the spec tree for format errors, circular
+references, and artifact staleness.
 
 # Public
 
@@ -28,23 +26,39 @@ Review status: pending
 ```
 record StalenessEntry
   node: string
+  output_id: string
   artifact_path: string
   status: string
+  detail: string
+  rank: integer
 
 record ValidationReport
   format_errors: list of FormatError
-  circular_references: list of list of string
+  cycles: list of string
   staleness: list of StalenessEntry
 
-function ValidateSpecs() -> ValidationReport
-  errors:
-    - UnreadableFile: a spec node file cannot be read.
-    - ParseFailure: a spec node file has invalid
-      structure.
+function MCPValidateSpecs() -> ValidationReport
 ```
 
 No parameters. Scans the entire spec tree starting from
-`code-from-spec/`.
+`code-from-spec/`. Always returns a report — never
+raises an error. Problems are collected in the report.
+
+`StalenessEntry.status` is one of:
+- `"missing"` — file does not exist.
+- `"stale"` — hash mismatch.
+- `"malformed tag"` — file exists but has no artifact
+  tag or the tag cannot be parsed.
+
+Entries where the hash matches are not included.
+
+`StalenessEntry.rank` is the rank from `NodeRankCompute`.
+Entries with equal rank have no dependency between them
+and can be processed in parallel.
+
+`cycles` is a flat list of logical names involved in
+non-convergence during ranking (as returned by
+`NodeRankCompute`).
 
 # Agent
 
@@ -52,34 +66,30 @@ No parameters. Scans the entire spec tree starting from
 
 ### Step 1 — Discover nodes
 
-Use `spec_tree` to find all `_node.md` files in the
-spec tree. Derive each node's logical name using
-`logical_names` reverse resolution.
+Call `SpecTreeScan()` to find all `_node.md` files. If
+it fails, return a report with a single format error
+(node = "", rule = "scan", detail = error message) and
+empty cycles/staleness.
 
 ### Step 2 — Parse all nodes
 
 For each discovered node:
-- Use `frontmatter` to parse the YAML frontmatter.
-- Use `node_parsing` to parse the body into sections.
+- Call `FrontmatterParse` with the node's file path.
+- Call `NodeParse` with the node's logical name.
 
-If parsing fails for a node, record the error as a
-format error and continue with the remaining nodes.
-The failed node is excluded from cached results and
-from subsequent steps that depend on parsed data.
+If parsing fails for a node, record a FormatError
+(node = logical name, rule = "parse", detail = error
+message) and exclude the node from subsequent steps.
 
 Cache the results — each node is parsed once and reused
 by subsequent steps.
 
 ### Step 3 — Format validation
 
-Use `format_validation` to check each node against the
-structural rules. This uses:
-- `logical_names` to verify `depends_on` targets resolve.
-- `text_normalization` to compare headings with logical
-  names derived from filesystem paths.
-- `path_validation` to verify `outputs` paths are safe.
-
-Collect all `FormatError` entries.
+Build a list of `SpecTreeValidateInput` from the
+successfully parsed nodes (logical name + frontmatter +
+node). Call `SpecTreeValidate(entries)`. Collect all
+returned `FormatError` entries.
 
 ### Step 4 — Ranking and cycle detection
 
@@ -87,47 +97,66 @@ Skip this step if Step 2 or Step 3 produced any format
 errors — ranking depends on valid frontmatter, so the
 results would be unreliable.
 
-Use `node_ranking` to rank all nodes and artifacts
-and detect circular references. Pass the full set of
-discovered nodes with their parsed frontmatter.
+Build a list of `NodeRankInput` from the successfully
+parsed nodes (logical name + frontmatter). Call
+`NodeRankCompute(entries)`.
 
-The ranking determines processing order for staleness
-resolution: lower rank first. If cycles are detected,
-report the cycle participants.
+If `NodeRankCompute` returns an UnresolvableReference
+error, record it as a FormatError (node = "", rule =
+"ranking", detail = error message). Staleness entries
+fall back to alphabetical order by node logical name.
 
-If `node_ranking` returns an unresolvable reference
-error, report it as a format error (node = the node
-that contains the bad reference, detail = the error
-message). Ranking and cycle detection are incomplete
-in this case, but validation continues — staleness
-entries fall back to alphabetical order by node logical
-name.
+Otherwise, store the ranked entries and cycle
+participants.
 
 ### Step 5 — Staleness detection
 
-For each node with `outputs`, in rank order (lowest
-rank first):
-1. Compute the chain hash using the same algorithm as
-   `load_chain` (SHA-1 of concatenated position hashes,
-   base64url encoded).
-2. For each output, use `artifact_tag` to extract the
-   hash from the generated file.
-3. Compare:
-   - File does not exist → report `missing`.
-   - File exists but has no artifact tag → report `missing`.
-   - Hash mismatch → report `stale`.
-   - Hash matches → skip (not included in report).
+For each node that has `outputs` in its frontmatter,
+in rank order (lowest rank first; alphabetical if no
+ranking available):
 
-### Output
+1. Call `ChainResolve(logical_name)` to get the
+   resolved Chain. If it fails, record a StalenessEntry
+   with status = "missing" and detail = error message
+   for each output, and continue.
 
-Assemble the `ValidationReport` with all collected
-format errors, cycles, and staleness entries. Staleness
-entries are ordered by rank (lowest first) so that the
-caller can resolve them in dependency order.
+2. Call `ChainHashCompute(chain)` to get the current
+   chain hash. If it fails, record a StalenessEntry
+   with status = "missing" and detail = error message
+   for each output, and continue.
+
+3. For each output in `frontmatter.outputs`:
+   - Construct a `PathCfs` from the output's `path`.
+   - Call `ArtifactTagExtract` with the path.
+   - If FileUnreadable: record StalenessEntry with
+     status = "missing", detail describing the reason.
+   - If NoTagFound or MalformedTag: record
+     StalenessEntry with status = "malformed tag",
+     detail describing the reason.
+   - If the tag's hash does not match the chain hash:
+     record StalenessEntry with status = "stale",
+     detail showing file hash vs expected hash.
+   - If the hash matches: skip (not included).
+
+   Set `output_id` from the output entry's `id` field.
+   Set `rank` from the node's rank (from Step 4, or 0
+   if no ranking available).
+
+### Step 6 — Assemble report
+
+Return `ValidationReport` with:
+- `format_errors`: all FormatErrors from Steps 2, 3, 4
+- `cycles`: cycle participant logical names from Step 4
+  (empty list if no cycles or ranking skipped)
+- `staleness`: all StalenessEntries from Step 5, ordered
+  by rank ascending then node logical name ascending
 
 ## Contracts
 
-- Reports all errors found — does not stop at the first.
-- Staleness check only runs for nodes that have `outputs`.
-- Nodes that fail format validation are still checked for
-  staleness where possible.
+- Always returns a report — never raises an error.
+- Reports all problems found — does not stop at the
+  first.
+- Staleness check runs for all nodes with outputs,
+  even if format errors exist for other nodes.
+- Staleness entries include rank for parallel processing.
+- Each node is parsed at most once.

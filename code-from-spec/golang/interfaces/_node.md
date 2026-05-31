@@ -40,4 +40,9 @@ blocks. Include:
 - Error sentinels
 - Function and method signatures with doc comments
 - Usage examples demonstrating the typical call pattern,
-  using the full import path in import statements
+  using the full import path in import statements.
+  Import all packages whose types or error sentinels
+  appear in the API — not just the package being
+  documented. For example, if a struct field uses a
+  type from another package, the usage example must
+  import that package.
