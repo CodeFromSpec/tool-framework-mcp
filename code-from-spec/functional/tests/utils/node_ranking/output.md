@@ -1,8 +1,8 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/node_ranking@AJarAZGdIIkkxThBLGxZS2GGBeg -->
+<!-- code-from-spec: ROOT/functional/tests/utils/node_ranking@-_XUlutMyUbIwYLtauSyP6d4Ops -->
 
 # Test Specification: NodeRankCompute
 
-## Interface Reference
+## Interface
 
 ```
 record NodeRankInput
@@ -13,11 +13,9 @@ record NodeRankEntry
   logical_name: string
   rank: integer
 
-function NodeRankCompute(entries: list of NodeRankInput)
-  -> (ranked: list of NodeRankEntry, cycles: list of string)
-
-errors:
-  - "unresolvable reference"
+function NodeRankCompute(entries: list of NodeRankInput) -> (ranked: list of NodeRankEntry, cycles: list of string)
+  errors:
+    - UnresolvableReference
 ```
 
 ---
@@ -28,350 +26,309 @@ errors:
 
 ### TC-01: Root only
 
-**Setup**
+**Description:** Single entry with no dependencies or parent yields rank 0.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT", frontmatter: { depends_on: [], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- ranked contains exactly one entry: logical_name = "ROOT", rank = 0
-- cycles is empty
+**Expected outcome:**
+- ranked contains exactly one entry: `{ logical_name: "ROOT", rank: 0 }`.
+- cycles is empty.
 
 ---
 
 ### TC-02: Linear chain — incrementing ranks
 
-**Setup**
+**Description:** A parent chain with no explicit dependencies yields monotonically increasing ranks.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter = (empty)
-- logical_name = "ROOT/a/b", frontmatter = (empty)
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",      frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/a",    frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/a/b",  frontmatter: { depends_on: [], outputs: [] } }`
 
-Parent chain is inferred from logical names (no depends_on).
+**Action:** Call `NodeRankCompute(entries)`.
 
-**Action**
-
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- "ROOT" has rank 0
-- "ROOT/a" has rank 1
-- "ROOT/a/b" has rank 2
-- cycles is empty
+**Expected outcome:**
+- `ROOT` has rank 0.
+- `ROOT/a` has rank 1.
+- `ROOT/a/b` has rank 2.
+- cycles is empty.
 
 ---
 
 ### TC-03: Independent siblings — equal rank
 
-**Setup**
+**Description:** Two sibling nodes with no cross-dependencies share the same rank.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter = (empty)
-- logical_name = "ROOT/b", frontmatter = (empty)
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: [], outputs: [] } }`
 
-No cross-dependencies.
+**Action:** Call `NodeRankCompute(entries)`.
 
-**Action**
-
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- "ROOT/a" and "ROOT/b" have the same rank (1)
-- cycles is empty
+**Expected outcome:**
+- `ROOT/a` and `ROOT/b` have the same rank (1).
+- cycles is empty.
 
 ---
 
 ### TC-04: depends_on increases rank
 
-**Setup**
+**Description:** A node that depends on a sibling is ranked higher than that sibling.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter = (empty)
-- logical_name = "ROOT/b", frontmatter with depends_on = ["ROOT/a"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],         outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [],         outputs: [] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: ["ROOT/a"], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- rank of "ROOT/b" > rank of "ROOT/a"
-- cycles is empty
+**Expected outcome:**
+- rank of `ROOT/b` > rank of `ROOT/a`.
+- cycles is empty.
 
 ---
 
 ### TC-05: depends_on with qualifier — qualifier stripped
 
-**Setup**
+**Description:** A qualified reference such as `"ROOT/a(interface)"` resolves to the bare node `ROOT/a`.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter = (empty)
-- logical_name = "ROOT/b", frontmatter with depends_on = ["ROOT/a(interface)"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],                    outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [],                    outputs: [] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: ["ROOT/a(interface)"], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- No error raised
-- The qualified reference "ROOT/a(interface)" resolves to the bare node "ROOT/a"
-- rank of "ROOT/b" > rank of "ROOT/a"
-- cycles is empty
+**Expected outcome:**
+- No error is raised.
+- rank of `ROOT/b` > rank of `ROOT/a`.
+- The qualified reference resolved to the bare node `ROOT/a`.
+- cycles is empty.
 
 ---
 
 ### TC-06: input artifact adds dependency edge
 
-**Setup**
+**Description:** A node whose frontmatter `input` references an artifact depends on both the artifact and its source node.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with outputs = [{id: "code", path: "out.go"}]
-- logical_name = "ROOT/b", frontmatter with input = "ARTIFACT/a(code)"
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],                outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [],                outputs: [{ id: "code", path: "out.go" }] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { input: "ARTIFACT/a(code)",     depends_on: [], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- ranked includes an artifact entry for "ARTIFACT/a(code)"
-- rank of "ROOT/b" > rank of "ARTIFACT/a(code)"
-- rank of "ARTIFACT/a(code)" > rank of "ROOT/a"
-- cycles is empty
+**Expected outcome:**
+- rank of `ROOT/b` > rank of artifact `ARTIFACT/a(code)`.
+- rank of `ARTIFACT/a(code)` > rank of `ROOT/a`.
+- cycles is empty.
 
 ---
 
 ### TC-07: Artifacts get rank one above their node
 
-**Setup**
+**Description:** Each output artifact is ranked exactly one above the node that declares it.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with outputs = [{id: "foo", path: "foo.go"}]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [], outputs: [{ id: "foo", path: "foo.go" }] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- ranked includes an artifact entry "ARTIFACT/a(foo)"
-- rank of "ARTIFACT/a(foo)" = rank of "ROOT/a" + 1
-- cycles is empty
+**Expected outcome:**
+- ranked contains an entry for `ARTIFACT/a(foo)`.
+- rank of `ARTIFACT/a(foo)` = rank of `ROOT/a` + 1.
+- cycles is empty.
 
 ---
 
 ### TC-08: Multiple outputs — each artifact ranked
 
-**Setup**
+**Description:** Each output artifact declared by a node receives its own ranked entry.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with outputs = [
-    {id: "x", path: "x.go"},
-    {id: "y", path: "y.go"}
-  ]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [], outputs: [{ id: "x", path: "x.go" }, { id: "y", path: "y.go" }] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- ranked includes two artifact entries: "ARTIFACT/a(x)" and "ARTIFACT/a(y)"
-- both have rank = rank of "ROOT/a" + 1
-- cycles is empty
+**Expected outcome:**
+- ranked contains entries for both `ARTIFACT/a(x)` and `ARTIFACT/a(y)`.
+- rank of `ARTIFACT/a(x)` = rank of `ROOT/a` + 1.
+- rank of `ARTIFACT/a(y)` = rank of `ROOT/a` + 1.
+- cycles is empty.
 
 ---
 
 ### TC-09: depends_on ARTIFACT reference — used as-is
 
-**Setup**
+**Description:** A node may declare a direct dependency on an artifact logical name.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with outputs = [{id: "lib", path: "lib.go"}]
-- logical_name = "ROOT/b", frontmatter with depends_on = ["ARTIFACT/a(lib)"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],                  outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [],                  outputs: [{ id: "lib", path: "lib.go" }] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: ["ARTIFACT/a(lib)"], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- rank of "ROOT/b" > rank of "ARTIFACT/a(lib)"
-- rank of "ARTIFACT/a(lib)" > rank of "ROOT/a"
-- cycles is empty
+**Expected outcome:**
+- rank of `ROOT/b` > rank of `ARTIFACT/a(lib)`.
+- rank of `ARTIFACT/a(lib)` > rank of `ROOT/a`.
+- cycles is empty.
 
 ---
 
 ### TC-10: Output sorted by rank then logical name
 
-**Setup**
+**Description:** The returned ranked list is ordered first by ascending rank, then alphabetically by logical name within the same rank.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/z", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter = (empty)
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/z", frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [], outputs: [] } }`
 
-No cross-dependencies.
+**Action:** Call `NodeRankCompute(entries)`.
 
-**Action**
-
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- Output order: "ROOT" (rank 0) appears first, then "ROOT/a" before "ROOT/z" (both rank 1, sorted alphabetically)
-- cycles is empty
+**Expected outcome:**
+- First entry in ranked: `ROOT` (rank 0).
+- Second entry: `ROOT/a` (rank 1).
+- Third entry: `ROOT/z` (rank 1).
+- cycles is empty.
 
 ---
 
 ### TC-11: Parallel entries — equal rank means no dependency
 
-**Setup**
+**Description:** Multiple siblings with no cross-dependencies all receive the same rank.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter = (empty)
-- logical_name = "ROOT/b", frontmatter = (empty)
-- logical_name = "ROOT/c", frontmatter = (empty)
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: [], outputs: [] } }`
+  - `{ logical_name: "ROOT/c", frontmatter: { depends_on: [], outputs: [] } }`
 
-All siblings, no cross-dependencies.
+**Action:** Call `NodeRankCompute(entries)`.
 
-**Action**
-
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- "ROOT/a", "ROOT/b", and "ROOT/c" all have rank 1
-- cycles is empty
+**Expected outcome:**
+- `ROOT/a`, `ROOT/b`, and `ROOT/c` all have rank 1.
+- cycles is empty.
 
 ---
 
 ### TC-12: Diamond dependency — rank uses max not sum
 
-**Setup**
+**Description:** When a node has two paths converging on it, its rank is 1 + max of dependency ranks, not the sum.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/c", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with depends_on = ["ROOT/c"]
-- logical_name = "ROOT/b", frontmatter with depends_on = ["ROOT/c"]
-- logical_name = "ROOT/d", frontmatter with depends_on = ["ROOT/a", "ROOT/b"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],                    outputs: [] } }`
+  - `{ logical_name: "ROOT/c", frontmatter: { depends_on: [],                    outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: ["ROOT/c"],            outputs: [] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: ["ROOT/c"],            outputs: [] } }`
+  - `{ logical_name: "ROOT/d", frontmatter: { depends_on: ["ROOT/a", "ROOT/b"],  outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- rank of "ROOT/c" = 1
-- rank of "ROOT/a" = 2
-- rank of "ROOT/b" = 2
-- rank of "ROOT/d" = 3  (1 + max(2, 2) = 3, not 5)
-- cycles is empty
+**Expected outcome:**
+- rank of `ROOT/c` = 1.
+- rank of `ROOT/a` = 2.
+- rank of `ROOT/b` = 2.
+- rank of `ROOT/d` = 3 (not 5).
+- cycles is empty.
 
 ---
 
 ### TC-13: depends_on outranks parent
 
-**Setup**
+**Description:** When a node's explicit dependency resolves to a higher rank than its structural parent, the dependency rank wins.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter = (empty)
-- logical_name = "ROOT/a/b", frontmatter with depends_on = ["ROOT/c"]
-- logical_name = "ROOT/c", frontmatter = (empty)
-- logical_name = "ROOT/c/d", frontmatter = (empty)
-- logical_name = "ROOT/c/d/e", frontmatter = (empty)
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",       frontmatter: { depends_on: [],          outputs: [] } }`
+  - `{ logical_name: "ROOT/a",     frontmatter: { depends_on: [],          outputs: [] } }`
+  - `{ logical_name: "ROOT/a/b",   frontmatter: { depends_on: ["ROOT/c"],  outputs: [] } }`
+  - `{ logical_name: "ROOT/c",     frontmatter: { depends_on: [],          outputs: [] } }`
+  - `{ logical_name: "ROOT/c/d",   frontmatter: { depends_on: [],          outputs: [] } }`
+  - `{ logical_name: "ROOT/c/d/e", frontmatter: { depends_on: [],          outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- rank of "ROOT/a/b" > rank of "ROOT/a"
-- rank of "ROOT/a/b" = 1 + max(rank of "ROOT/a", rank of "ROOT/c")
-- cycles is empty
+**Expected outcome:**
+- rank of `ROOT/a/b` > rank of `ROOT/a`.
+- rank of `ROOT/a/b` = 1 + max(rank of `ROOT/a`, rank of `ROOT/c`).
+- cycles is empty.
 
 ---
 
 ### TC-14: Multiple depends_on — rank from highest
 
-**Setup**
+**Description:** When multiple depends_on entries exist at different ranks, the node's rank is 1 + max of all dependency ranks.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter = (empty)
-- logical_name = "ROOT/b", frontmatter with depends_on = ["ROOT/a"]
-- logical_name = "ROOT/c", frontmatter with depends_on = ["ROOT/b"]
-- logical_name = "ROOT/d", frontmatter with depends_on = ["ROOT/a", "ROOT/b", "ROOT/c"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],                          outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [],                          outputs: [] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: ["ROOT/a"],                  outputs: [] } }`
+  - `{ logical_name: "ROOT/c", frontmatter: { depends_on: ["ROOT/b"],                  outputs: [] } }`
+  - `{ logical_name: "ROOT/d", frontmatter: { depends_on: ["ROOT/a","ROOT/b","ROOT/c"],outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- rank of "ROOT/a" = 1
-- rank of "ROOT/b" = 2
-- rank of "ROOT/c" = 3
-- rank of "ROOT/d" = 4  (1 + max(1, 2, 3) = 4)
-- cycles is empty
+**Expected outcome:**
+- rank of `ROOT/a` = 1.
+- rank of `ROOT/b` = 2.
+- rank of `ROOT/c` = 3.
+- rank of `ROOT/d` = 4 (1 + max(1, 2, 3) = 4, not based on first or last).
+- cycles is empty.
 
 ---
 
 ### TC-15: Node with both depends_on and input
 
-**Setup**
+**Description:** When a node has both `depends_on` and `input`, its rank is determined by the maximum of all edges: structural parent, depends_on targets, and input artifact.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with outputs = [{id: "out", path: "a.go"}]
-- logical_name = "ROOT/b", frontmatter = (empty)
-- logical_name = "ROOT/c", frontmatter with depends_on = ["ROOT/b"] and input = "ARTIFACT/a(out)"
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],         outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: [],         outputs: [{ id: "out", path: "a.go" }] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: [],         outputs: [] } }`
+  - `{ logical_name: "ROOT/c", frontmatter: { depends_on: ["ROOT/b"], input: "ARTIFACT/a(out)", outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- rank of "ROOT/c" = 1 + max(rank of "ROOT" (parent), rank of "ROOT/b", rank of "ARTIFACT/a(out)")
-- cycles is empty
+**Expected outcome:**
+- rank of `ROOT/c` = 1 + max(rank of `ROOT` (parent), rank of `ROOT/b`, rank of `ARTIFACT/a(out)`).
+- cycles is empty.
 
 ---
 
 ### TC-16: Empty input list
 
-**Setup**
+**Description:** An empty entries list produces an empty result.
 
-Input entries: (empty list)
+**Setup:**
+- entries: (empty list)
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the empty list.
-
-**Expected outcome**
-
-- ranked is an empty list
-- cycles is empty
+**Expected outcome:**
+- ranked is an empty list.
+- cycles is empty.
 
 ---
 
@@ -381,81 +338,72 @@ Call NodeRankCompute with the empty list.
 
 ### TC-17: Self-reference
 
-**Setup**
+**Description:** A node that depends on itself forms a cycle.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with depends_on = ["ROOT/a"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],         outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: ["ROOT/a"], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- cycles is not empty
+**Expected outcome:**
+- cycles is not empty.
 
 ---
 
 ### TC-18: Simple cycle — two nodes
 
-**Setup**
+**Description:** Two nodes each depending on the other form a cycle.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with depends_on = ["ROOT/b"]
-- logical_name = "ROOT/b", frontmatter with depends_on = ["ROOT/a"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],         outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: ["ROOT/b"], outputs: [] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: ["ROOT/a"], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- cycles is not empty
-- cycles contains at least one of "ROOT/a" or "ROOT/b"
+**Expected outcome:**
+- cycles is not empty.
+- cycles contains at least one of `"ROOT/a"` or `"ROOT/b"`.
 
 ---
 
 ### TC-19: Cycle through artifacts
 
-**Setup**
+**Description:** A cycle can be formed through artifact references between two nodes.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with outputs = [{id: "out", path: "a.go"}] and depends_on = ["ARTIFACT/b(out)"]
-- logical_name = "ROOT/b", frontmatter with outputs = [{id: "out", path: "b.go"}] and depends_on = ["ARTIFACT/a(out)"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],                    outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: ["ARTIFACT/b(out)"],   outputs: [{ id: "out", path: "a.go" }] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: ["ARTIFACT/a(out)"],   outputs: [{ id: "out", path: "b.go" }] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- cycles is not empty
+**Expected outcome:**
+- cycles is not empty.
 
 ---
 
 ### TC-20: Cycle does not prevent ranking of unrelated nodes
 
-**Setup**
+**Description:** Nodes not involved in a cycle are still assigned valid ranks even when a cycle exists elsewhere in the graph.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with depends_on = ["ROOT/b"]
-- logical_name = "ROOT/b", frontmatter with depends_on = ["ROOT/a"]
-- logical_name = "ROOT/c", frontmatter = (empty)
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],         outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: ["ROOT/b"], outputs: [] } }`
+  - `{ logical_name: "ROOT/b", frontmatter: { depends_on: ["ROOT/a"], outputs: [] } }`
+  - `{ logical_name: "ROOT/c", frontmatter: { depends_on: [],         outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- "ROOT" has a valid rank (0)
-- "ROOT/c" has a valid rank (1)
-- cycles contains entries related to "ROOT/a" and/or "ROOT/b"
-- "ROOT/c" is not present in cycles
+**Expected outcome:**
+- `ROOT` has rank 0.
+- `ROOT/c` has rank 1.
+- cycles contains entries related to `ROOT/a` and/or `ROOT/b`, but not `ROOT/c`.
 
 ---
 
@@ -465,52 +413,46 @@ Call NodeRankCompute with the input list.
 
 ### TC-21: Unresolvable ROOT reference
 
-**Setup**
+**Description:** A depends_on entry that references a node not present in the input raises an error.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with depends_on = ["ROOT/missing"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],               outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: ["ROOT/missing"], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- Error "unresolvable reference" is raised
+**Expected outcome:**
+- Raises error `UnresolvableReference`.
 
 ---
 
 ### TC-22: Unresolvable ARTIFACT reference
 
-**Setup**
+**Description:** A depends_on entry that references an artifact whose source node does not exist raises an error.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with depends_on = ["ARTIFACT/missing(id)"]
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],                      outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { depends_on: ["ARTIFACT/missing(id)"],outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- Error "unresolvable reference" is raised
+**Expected outcome:**
+- Raises error `UnresolvableReference`.
 
 ---
 
 ### TC-23: Unresolvable input reference
 
-**Setup**
+**Description:** A node whose `input` field references an artifact that does not exist raises an error.
 
-Input entries:
-- logical_name = "ROOT", frontmatter = (empty)
-- logical_name = "ROOT/a", frontmatter with input = "ARTIFACT/missing(id)"
+**Setup:**
+- entries:
+  - `{ logical_name: "ROOT",   frontmatter: { depends_on: [],                    outputs: [] } }`
+  - `{ logical_name: "ROOT/a", frontmatter: { input: "ARTIFACT/missing(id)",     depends_on: [], outputs: [] } }`
 
-**Action**
+**Action:** Call `NodeRankCompute(entries)`.
 
-Call NodeRankCompute with the input list.
-
-**Expected outcome**
-
-- Error "unresolvable reference" is raised
+**Expected outcome:**
+- Raises error `UnresolvableReference`.

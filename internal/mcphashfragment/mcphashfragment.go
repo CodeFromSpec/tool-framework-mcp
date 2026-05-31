@@ -1,5 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/hash_fragment@gEuAiA4DvQvgI14AtMu31JnKI14
-
+// code-from-spec: ROOT/golang/implementation/mcp_tools/hash_fragment@4l7xmNsgD1lLddjwlVZmF9nCMbE
 package mcphashfragment
 
 import (
@@ -14,91 +13,91 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-// ErrInvalidLineRange is returned when the lines parameter does not
-// match the expected format, when start < 1, when start > end, or
-// when end exceeds the total number of lines in the file.
+// ErrInvalidLineRange is returned when the line range format is invalid,
+// the start line is less than 1, start exceeds end, or end exceeds the
+// file's total line count.
 var ErrInvalidLineRange = errors.New("invalid line range")
 
-// MCPHashFragment reads the lines denoted by the range string from the
-// file at path (relative to the project root) and returns a SHA-1
-// digest of that fragment encoded as a 27-character base64url string
-// (RFC 4648 §5, no padding).
+// MCPHashFragment reads lines [start, end] (inclusive, 1-based) from the
+// file at path (relative to the project root, forward slashes), computes
+// a SHA-1 digest of those lines, and returns it as a base64url-encoded
+// string (RFC 4648 §5, no padding, 27 characters).
 //
-// path must be a forward-slash relative path validated by PathValidateCfs.
-// lines must be a range of the form "start-end" (e.g. "150-210") where
-// start >= 1 and end <= the total number of lines in the file.
+// path must pass PathUtils.PathValidateCfs validation.
+// lines must be a range string of the form "start-end" (e.g. "150-210").
 //
 // Errors:
-//   - ErrInvalidLineRange: the range format is invalid, start < 1,
+//   - ErrInvalidLineRange: range format is invalid, start < 1,
 //     start > end, or end exceeds the file's line count.
 //   - PathUtils errors propagated from PathValidateCfs.
 //   - FileReader errors propagated from FileOpen.
 func MCPHashFragment(path string, lines string) (string, error) {
-	// Step 1: Validate path.
+	// Step 1: Validate the CFS path.
 	if err := pathutils.PathValidateCfs(path); err != nil {
-		return "", fmt.Errorf("path validation failed: %w", err)
+		return "", err
 	}
 
-	// Step 2: Parse line range.
+	// Step 2: Parse the line range "start-end".
 	parts := strings.SplitN(lines, "-", 2)
 	if len(parts) != 2 {
-		return "", fmt.Errorf("%w: expected format start-end", ErrInvalidLineRange)
+		return "", fmt.Errorf("%w: invalid line range format", ErrInvalidLineRange)
 	}
-
 	start, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return "", fmt.Errorf("%w: start is not an integer", ErrInvalidLineRange)
+		return "", fmt.Errorf("%w: invalid line range format", ErrInvalidLineRange)
 	}
-
 	end, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return "", fmt.Errorf("%w: end is not an integer", ErrInvalidLineRange)
+		return "", fmt.Errorf("%w: invalid line range format", ErrInvalidLineRange)
 	}
-
 	if start < 1 {
-		return "", fmt.Errorf("%w: start must be >= 1", ErrInvalidLineRange)
+		return "", fmt.Errorf("%w: start line must be >= 1", ErrInvalidLineRange)
 	}
-
 	if start > end {
-		return "", fmt.Errorf("%w: start must be <= end", ErrInvalidLineRange)
+		return "", fmt.Errorf("%w: start line must be <= end line", ErrInvalidLineRange)
 	}
 
-	// Step 3: Read lines.
+	// Step 3: Open the file.
 	cfsPath := &pathutils.PathCfs{Value: path}
-
 	reader, err := filereader.FileOpen(cfsPath)
 	if err != nil {
-		return "", fmt.Errorf("could not open file: %w", err)
+		return "", err
 	}
 
+	// Step 4: Skip lines before the requested range.
 	filereader.FileSkipLines(reader, start-1)
 
+	// Step 5: Read the lines in the range.
 	linesToRead := end - start + 1
 	collectedLines := make([]string, 0, linesToRead)
-
 	for i := 0; i < linesToRead; i++ {
 		line, err := filereader.FileReadLine(reader)
+		if errors.Is(err, filereader.ErrEndOfFile) {
+			filereader.FileClose(reader)
+			return "", fmt.Errorf("%w: end line exceeds file line count", ErrInvalidLineRange)
+		}
 		if err != nil {
 			filereader.FileClose(reader)
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				return "", fmt.Errorf("%w: end exceeds the file's line count", ErrInvalidLineRange)
-			}
-			return "", fmt.Errorf("error reading line: %w", err)
+			return "", err
 		}
 		collectedLines = append(collectedLines, line)
 	}
 
+	// Step 6: Close the reader.
 	filereader.FileClose(reader)
 
-	// Step 4: Compute hash.
+	// Step 7: Build the hash input string, appending "\n" after each line.
 	var sb strings.Builder
 	for _, line := range collectedLines {
 		sb.WriteString(line)
 		sb.WriteByte('\n')
 	}
+	hashInput := sb.String()
 
-	digest := sha1.Sum([]byte(sb.String()))
-	hash := base64.RawURLEncoding.EncodeToString(digest[:])
+	// Step 8: Compute SHA-1 digest and encode as base64url (no padding).
+	digest := sha1.Sum([]byte(hashInput))
+	encoded := base64.RawURLEncoding.EncodeToString(digest[:])
 
-	return hash, nil
+	// Step 9: Return the 27-character base64url-encoded hash string.
+	return encoded, nil
 }

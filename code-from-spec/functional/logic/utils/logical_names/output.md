@@ -1,245 +1,138 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/logical_names@XKPP54rZmTM7o3Qf_mvomxLEcbk -->
+<!-- code-from-spec: ROOT/functional/logic/utils/logical_names@kYPkbgROEUvCmHXG-jOkDax0RCI -->
 
-## LogicalNameToPath(logical_name: string) -> PathCfs
+# Logical Names — Pseudocode
 
-Converts a `ROOT/` logical name to the `PathCfs` of the corresponding `_node.md` file.
+## Data Types
 
-Parameters:
-- logical_name: string — a logical name starting with `ROOT/` or exactly `ROOT`
+record PathCfs
+  value: string   (forward-slash relative path from project root)
 
-Returns: PathCfs
+---
 
-Errors:
-- "unsupported reference": the logical name does not start with `ROOT/` and is not `ROOT`
+## function LogicalNameToPath(logical_name: string) -> PathCfs
 
-Steps:
+  1. If logical_name does not start with "ROOT/", and logical_name is not exactly "ROOT",
+     raise error "UnsupportedReference".
 
-  1. Strip any qualifier from logical_name using LogicalNameStripQualifier.
-     Let stripped = result.
+  2. Strip any parenthetical qualifier from logical_name.
+     (e.g. "ROOT/x/y(z)" becomes "ROOT/x/y")
 
-  2. If stripped is not "ROOT" and does not start with "ROOT/",
-     raise error "unsupported reference".
-
-  3. If stripped is exactly "ROOT",
+  3. If the stripped name is exactly "ROOT",
      return PathCfs with value "code-from-spec/_node.md".
 
-  4. Remove the leading "ROOT/" prefix from stripped.
-     Let relative = remainder.
+  4. Remove the "ROOT/" prefix from the stripped name to get the relative segment.
+     (e.g. "ROOT/x/y" → "x/y")
 
-  5. Replace every "/" in relative with "/".
-     (No-op — separators are already forward slashes.)
+  5. Return PathCfs with value "code-from-spec/<relative segment>/_node.md".
 
-  6. Return PathCfs with value "code-from-spec/<relative>/_node.md".
+---
 
+## function LogicalNameFromPath(cfs_path: PathCfs) -> string
 
-## LogicalNameFromPath(cfs_path: PathCfs) -> string
+  1. Let path be cfs_path.value.
 
-Derives the `ROOT/` logical name from a `_node.md` file path.
+  2. If path does not start with "code-from-spec/", raise error "InvalidPath".
 
-Parameters:
-- cfs_path: PathCfs — path to a `_node.md` file under `code-from-spec/`
-
-Returns: string — a `ROOT/` logical name
-
-Errors:
-- "invalid path": the path does not end with `_node.md` or does not start with `code-from-spec/`
-
-Steps:
-
-  1. Let path = cfs_path.value.
-
-  2. If path does not start with "code-from-spec/",
-     raise error "invalid path".
-
-  3. If path does not end with "_node.md",
-     raise error "invalid path".
+  3. If path does not end with "/_node.md" and path is not exactly "code-from-spec/_node.md",
+     raise error "InvalidPath".
 
   4. If path is exactly "code-from-spec/_node.md",
      return "ROOT".
 
-  5. Remove the leading "code-from-spec/" prefix from path.
-     Let middle = remainder.
+  5. Remove the leading "code-from-spec/" prefix and the trailing "/_node.md" suffix
+     from path to get the middle segment.
+     (e.g. "code-from-spec/x/y/_node.md" → "x/y")
 
-  6. Remove the trailing "/_node.md" suffix from middle.
-     Let relative = remainder.
+  6. Return "ROOT/<middle segment>".
 
-  7. If relative is empty,
-     raise error "invalid path".
+---
 
-  8. Return "ROOT/<relative>".
+## function LogicalNameGetParent(logical_name: string) -> string
 
+  1. If logical_name does not start with "ROOT/",
+     raise error "NotARootReference".
 
-## LogicalNameGetParent(logical_name: string) -> string
+  2. Strip any parenthetical qualifier from logical_name.
 
-Returns the logical name of the parent node.
+  3. If the stripped name is exactly "ROOT",
+     raise error "NoParent".
 
-Parameters:
-- logical_name: string — a `ROOT/` logical name
+  4. Remove the "ROOT/" prefix to get the segment.
+     (e.g. "ROOT/x/y" → "x/y")
 
-Returns: string — the parent logical name
+  5. Find the last "/" in the segment.
+     If no "/" is found, return "ROOT".
+     Otherwise, take everything before the last "/" as the parent segment
+     and return "ROOT/<parent segment>".
 
-Errors:
-- "not a ROOT reference": the logical name does not start with `ROOT/` and is not `ROOT`
-- "no parent": the logical name is exactly `ROOT`
+---
 
-Steps:
-
-  1. Strip any qualifier from logical_name using LogicalNameStripQualifier.
-     Let stripped = result.
-
-  2. If stripped is not "ROOT" and does not start with "ROOT/",
-     raise error "not a ROOT reference".
-
-  3. If stripped is exactly "ROOT",
-     raise error "no parent".
-
-  4. Remove the leading "ROOT/" prefix from stripped.
-     Let relative = remainder.
-
-  5. Find the last "/" in relative.
-     If no "/" is found,
-       return "ROOT".
-     Else
-       let parent_relative = everything before the last "/".
-       return "ROOT/<parent_relative>".
-
-
-## LogicalNameGetQualifier(logical_name: string) -> optional string
-
-Extracts the parenthetical qualifier from a logical name.
-
-Parameters:
-- logical_name: string — any logical name
-
-Returns: optional string — the qualifier text, or absent if none
-
-Steps:
+## function LogicalNameGetQualifier(logical_name: string) -> optional string
 
   1. Search logical_name for an opening "(" character.
      If not found, return absent.
 
-  2. Let open_pos = position of the first "(".
-  3. Let close_pos = position of the last ")" in logical_name.
+  2. Let start be the index immediately after "(".
+     Search for a closing ")" character after start.
+     If not found, return absent.
 
-  4. If close_pos is not found or close_pos is before open_pos,
-     return absent.
+  3. Extract the substring between "(" and ")" (exclusive).
+     If the substring is empty, return absent.
 
-  5. If close_pos is not the last character of logical_name,
-     return absent.
+  4. Return the extracted substring.
 
-  6. Let qualifier = characters between open_pos and close_pos (exclusive).
+---
 
-  7. If qualifier is empty,
-     return absent.
-
-  8. Return qualifier.
-
-
-## LogicalNameStripQualifier(logical_name: string) -> string
-
-Returns the logical name without any parenthetical qualifier.
-
-Parameters:
-- logical_name: string — any logical name
-
-Returns: string — logical name without qualifier
-
-Steps:
+## function LogicalNameStripQualifier(logical_name: string) -> string
 
   1. Search logical_name for an opening "(" character.
      If not found, return logical_name unchanged.
 
-  2. Let open_pos = position of the first "(".
-  3. Let close_pos = position of the last ")" in logical_name.
+  2. Find the matching closing ")" character.
+     If not found, return logical_name unchanged.
 
-  4. If close_pos is not found or close_pos is before open_pos,
-     return logical_name unchanged.
+  3. Return the substring of logical_name before the "(" character,
+     concatenated with the substring after the ")" character.
+     (e.g. "ROOT/x/y(z)" → "ROOT/x/y"; "ARTIFACT/x/y(id)" → "ARTIFACT/x/y")
 
-  5. If close_pos is not the last character of logical_name,
-     return logical_name unchanged.
+---
 
-  6. Return characters from the start of logical_name up to (but not including) open_pos.
+## function LogicalNameHasParent(logical_name: string) -> boolean
 
+  1. If logical_name does not start with "ROOT/", return false.
 
-## LogicalNameHasParent(logical_name: string) -> boolean
+  2. Strip any parenthetical qualifier from logical_name.
 
-Returns true if the logical name is a `ROOT/` reference other than `ROOT` itself.
+  3. If the stripped name is exactly "ROOT", return false.
 
-Parameters:
-- logical_name: string — any logical name
+  4. Return true.
 
-Returns: boolean
+---
 
-Steps:
-
-  1. Strip any qualifier from logical_name using LogicalNameStripQualifier.
-     Let stripped = result.
-
-  2. If stripped is exactly "ROOT",
-     return false.
-
-  3. If stripped starts with "ROOT/",
-     return true.
-
-  4. Return false.
-
-
-## LogicalNameHasQualifier(logical_name: string) -> boolean
-
-Returns true if the logical name contains a parenthetical qualifier.
-
-Parameters:
-- logical_name: string — any logical name
-
-Returns: boolean
-
-Steps:
+## function LogicalNameHasQualifier(logical_name: string) -> boolean
 
   1. Call LogicalNameGetQualifier(logical_name).
+     If the result is absent, return false.
+     Otherwise return true.
 
-  2. If the result is absent, return false.
+---
 
-  3. Return true.
+## function LogicalNameIsArtifact(logical_name: string) -> boolean
 
+  1. If logical_name starts with "ARTIFACT/", return true.
+     Otherwise return false.
 
-## LogicalNameIsArtifact(logical_name: string) -> boolean
+---
 
-Returns true if the logical name starts with `ARTIFACT/`.
-
-Parameters:
-- logical_name: string — any logical name
-
-Returns: boolean
-
-Steps:
-
-  1. If logical_name starts with "ARTIFACT/",
-     return true.
-
-  2. Return false.
-
-
-## LogicalNameGetArtifactGenerator(logical_name: string) -> string
-
-Returns the `ROOT/` logical name of the node that generates the referenced artifact.
-
-Parameters:
-- logical_name: string — a logical name starting with `ARTIFACT/`
-
-Returns: string — a `ROOT/` logical name
-
-Errors:
-- "not an artifact reference": the logical name does not start with `ARTIFACT/`
-
-Steps:
+## function LogicalNameGetArtifactGenerator(logical_name: string) -> string
 
   1. If logical_name does not start with "ARTIFACT/",
-     raise error "not an artifact reference".
+     raise error "NotAnArtifactReference".
 
-  2. Strip any qualifier from logical_name using LogicalNameStripQualifier.
-     Let stripped = result.
+  2. Strip any parenthetical qualifier from logical_name.
 
-  3. Remove the leading "ARTIFACT/" prefix from stripped.
-     Let relative = remainder.
+  3. Remove the "ARTIFACT/" prefix to get the path segment.
+     (e.g. "ARTIFACT/x/y" → "x/y")
 
-  4. Return "ROOT/<relative>".
+  4. Return "ROOT/<path segment>".
+     (e.g. "ARTIFACT/x/y(id)" → "ROOT/x/y")

@@ -1,39 +1,25 @@
-<!-- code-from-spec: ROOT/functional/logic/os/list_files@8EtLi-dEo9vbOFMTP0J0XlEPEQ8 -->
+<!-- code-from-spec: ROOT/functional/logic/os/list_files@xFehnKk2CjUoZgl0ztYRC0ZQI-Q -->
 
-## ListFiles
-
-```
 function ListFiles(cfs_path: PathCfs) -> list of PathCfs
-  errors:
-    - (validation errors): propagated from PathCfsToOs.
-    - (conversion errors): propagated from PathOsToCfs.
-    - directory not found: the directory does not exist.
-    - walk error: a filesystem error occurred while traversing.
-```
 
-### Logic
+  1. Call PathCfsToOs(cfs_path) to get an OS-native absolute path.
+     If PathCfsToOs returns any error, propagate it to the caller.
 
-1. Call PathCfsToOs with cfs_path.
-   If it returns an error, propagate that error to the caller.
-   Store the result as os_path.
+  2. Check that the path refers to an existing directory.
+     If the directory does not exist, raise error "DirectoryNotFound".
 
-2. Check that the directory at os_path exists on the filesystem.
-   If it does not exist, raise error "directory not found".
+  3. Walk the directory tree recursively starting at the OS path from step 1.
+     If the filesystem walk cannot be initiated or encounters a fatal error,
+     raise error "WalkError".
 
-3. Initialize an empty list called results.
-
-4. Walk the directory at os_path recursively.
-   If the walk cannot be started, raise error "walk error".
-
-   For each entry encountered during the walk:
-     If the entry is a directory, skip it (do not add to results).
+  4. For each entry encountered during the walk:
+     If the entry is a directory, skip it (do not include, but continue traversal).
      If the entry is a file:
-       Call PathOsToCfs with the entry's absolute OS path.
-       If it returns an error, raise error "walk error".
-       Append the resulting PathCfs to results.
-     If a filesystem error occurs while reading the entry,
-       raise error "walk error".
+       a. Call PathOsToCfs(entry_os_path) to convert the file's OS path to a PathCfs.
+          If PathOsToCfs returns any error, propagate it to the caller.
+       b. Append the resulting PathCfs to the result list.
 
-5. Sort results alphabetically by their value field.
+  5. Sort the result list alphabetically by the PathCfs value field.
 
-6. Return results.
+  6. Return the sorted list.
+     If no files were found, return an empty list.

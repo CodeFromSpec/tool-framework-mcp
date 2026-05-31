@@ -1,8 +1,7 @@
-// code-from-spec: ROOT/golang/implementation/chain/hash@3MWAvktrv6laaHccoWONrxHop3s
+// code-from-spec: ROOT/golang/implementation/chain/hash@GzAAyYn_3OWm-1WQ_iT-Tox2C3Q
 package chainhash
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"encoding/base64"
 	"errors"
@@ -19,286 +18,285 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 )
 
-// ChainHashCompute receives a Chain (as returned by chainresolver.ChainResolve)
-// and returns a 27-character base64url-encoded SHA-1 hash.
-func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
-	var contentHashes [][]byte
+// ErrFileUnreadable is returned when a file in the chain cannot be read or opened.
+var ErrFileUnreadable = errors.New("file unreadable")
 
-	// 2. Ancestors
+// ErrParseFailure is returned when a node file cannot be parsed.
+var ErrParseFailure = errors.New("parse failure")
+
+// ChainHashCompute receives a Chain (as returned by ChainResolve) and returns
+// a 27-character base64url encoded SHA-1 hash.
+//
+// The function reads each position's content from disk, computes a content
+// hash (SHA-1) for each, concatenates all content hashes as raw bytes in
+// chain assembly order, and computes the final SHA-1 of the concatenation.
+//
+// Errors:
+//   - ErrFileUnreadable: a file in the chain cannot be read or opened.
+//   - ErrParseFailure: a node file cannot be parsed.
+//   - (FileReader.*): propagated from FileOpen.
+//   - (NodeParsing.*): propagated from NodeParse.
+func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
+	var digests [][]byte
+
+	// Step 1a — Ancestors
 	for _, ancestor := range chain.Ancestors {
 		node, err := parsenode.NodeParse(ancestor.LogicalName)
 		if err != nil {
-			return "", fmt.Errorf("parse failure for ancestor %s: %w", ancestor.LogicalName, err)
+			return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
 		}
-		h := hashSection(node.Public)
-		if h != nil {
-			contentHashes = append(contentHashes, h)
+		digest, err := hashFullSection(node.Public)
+		if err != nil {
+			return "", err
+		}
+		if digest != nil {
+			digests = append(digests, digest)
 		}
 	}
 
-	// 3. Dependencies
+	// Step 1b — Dependencies
 	for _, dep := range chain.Dependencies {
 		if logicalnames.LogicalNameIsArtifact(dep.LogicalName) {
-			h, err := hashArtifactFile(dep.FilePath)
+			digest, err := hashArtifactFile(dep.FilePath)
 			if err != nil {
-				return "", fmt.Errorf("file unreadable for dependency artifact %s: %w", dep.LogicalName, err)
+				return "", err
 			}
-			contentHashes = append(contentHashes, h)
+			digests = append(digests, digest)
 		} else if dep.Qualifier == nil {
 			node, err := parsenode.NodeParse(dep.LogicalName)
 			if err != nil {
-				return "", fmt.Errorf("parse failure for dependency %s: %w", dep.LogicalName, err)
+				return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
 			}
-			h := hashSection(node.Public)
-			if h != nil {
-				contentHashes = append(contentHashes, h)
+			digest, err := hashFullSection(node.Public)
+			if err != nil {
+				return "", err
+			}
+			if digest != nil {
+				digests = append(digests, digest)
 			}
 		} else {
 			node, err := parsenode.NodeParse(dep.LogicalName)
 			if err != nil {
-				return "", fmt.Errorf("parse failure for dependency %s: %w", dep.LogicalName, err)
+				return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
 			}
-			h := hashSubsection(node.Public, *dep.Qualifier)
-			if h != nil {
-				contentHashes = append(contentHashes, h)
+			digest, err := hashSubsection(node, *dep.Qualifier)
+			if err != nil {
+				return "", err
+			}
+			if digest != nil {
+				digests = append(digests, digest)
 			}
 		}
 	}
 
-	// 4. External
+	// Step 1c — External entries
 	for _, ext := range chain.External {
-		if len(ext.Fragments) == 0 {
-			h, err := hashExternalFile(ext.Path)
-			if err != nil {
-				return "", fmt.Errorf("file unreadable for external %s: %w", ext.Path, err)
-			}
-			contentHashes = append(contentHashes, h)
-		} else {
-			h, err := hashExternalFileFragments(ext.Path, ext.Fragments)
-			if err != nil {
-				return "", fmt.Errorf("file unreadable for external fragments %s: %w", ext.Path, err)
-			}
-			contentHashes = append(contentHashes, h)
+		digest, err := hashExternalEntry(ext)
+		if err != nil {
+			return "", err
+		}
+		if digest != nil {
+			digests = append(digests, digest)
 		}
 	}
 
-	// 5. Target # Public and 6. Target # Agent
+	// Step 1d — Target # Public section
 	targetNode, err := parsenode.NodeParse(chain.Target.LogicalName)
 	if err != nil {
-		return "", fmt.Errorf("parse failure for target %s: %w", chain.Target.LogicalName, err)
+		return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
+	}
+	publicDigest, err := hashFullSection(targetNode.Public)
+	if err != nil {
+		return "", err
+	}
+	if publicDigest != nil {
+		digests = append(digests, publicDigest)
 	}
 
-	h := hashSection(targetNode.Public)
-	if h != nil {
-		contentHashes = append(contentHashes, h)
+	// Step 1e — Target # Agent section
+	agentDigest, err := hashFullSection(targetNode.Agent)
+	if err != nil {
+		return "", err
+	}
+	if agentDigest != nil {
+		digests = append(digests, agentDigest)
 	}
 
-	h = hashSection(targetNode.Agent)
-	if h != nil {
-		contentHashes = append(contentHashes, h)
-	}
-
-	// 7. Input
+	// Step 1f — Input
 	if chain.Input != nil {
-		h, err := hashArtifactFile(chain.Input.FilePath)
+		inputDigest, err := hashArtifactFile(chain.Input.FilePath)
 		if err != nil {
-			return "", fmt.Errorf("file unreadable for input %s: %w", chain.Input.LogicalName, err)
+			return "", err
 		}
-		contentHashes = append(contentHashes, h)
+		digests = append(digests, inputDigest)
 	}
 
-	// 8. Final hash
-	var combined bytes.Buffer
-	for _, ch := range contentHashes {
-		combined.Write(ch)
+	// Step 2 — Compute final hash
+	var combined []byte
+	for _, d := range digests {
+		combined = append(combined, d...)
 	}
-
-	finalHash := sha1.Sum(combined.Bytes())
-	encoded := base64.RawURLEncoding.EncodeToString(finalHash[:])
-
-	return encoded[:27], nil
+	final := sha1.Sum(combined)
+	return base64.RawURLEncoding.EncodeToString(final[:]), nil
 }
 
-// hashSection computes a SHA-1 content hash for a full section.
-// Returns nil if the section is absent or contributes no content.
-func hashSection(section *parsenode.NodeSection) []byte {
+// hashFullSection hashes a full NodeSection (e.g. # Public or # Agent).
+// Returns nil if the section is absent or has no content and no subsections.
+func hashFullSection(section *parsenode.NodeSection) ([]byte, error) {
 	if section == nil {
-		return nil
+		return nil, nil
 	}
+	// If there is no content and no subsections, skip.
 	if len(section.Content) == 0 && len(section.Subsections) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	var buf bytes.Buffer
-
-	buf.WriteString(section.RawHeading)
-	buf.WriteByte('\n')
-
+	var buf []byte
+	buf = append(buf, []byte(section.RawHeading+"\n")...)
 	for _, line := range section.Content {
-		buf.WriteString(line)
-		buf.WriteByte('\n')
+		buf = append(buf, []byte(line+"\n")...)
 	}
-
 	for _, sub := range section.Subsections {
-		buf.WriteString(sub.RawHeading)
-		buf.WriteByte('\n')
+		buf = append(buf, []byte(sub.RawHeading+"\n")...)
 		for _, line := range sub.Content {
-			buf.WriteString(line)
-			buf.WriteByte('\n')
+			buf = append(buf, []byte(line+"\n")...)
 		}
 	}
 
-	h := sha1.Sum(buf.Bytes())
-	return h[:]
+	digest := sha1.Sum(buf)
+	return digest[:], nil
 }
 
-// hashSubsection computes a SHA-1 content hash for a specific ## subsection.
-// Returns nil if the section is absent or the subsection is not found.
-func hashSubsection(section *parsenode.NodeSection, qualifier string) []byte {
-	if section == nil {
-		return nil
+// hashSubsection hashes a ## <qualifier> subsection within the # Public section.
+// Returns nil if the public section is absent or the subsection is not found.
+func hashSubsection(node *parsenode.Node, qualifier string) ([]byte, error) {
+	if node.Public == nil {
+		return nil, nil
 	}
 
-	targetHeading := textnormalization.NormalizeText(qualifier)
+	normalizedQualifier := textnormalization.NormalizeText(qualifier)
 
 	var found *parsenode.NodeSubsection
-	for _, sub := range section.Subsections {
-		if sub.Heading == targetHeading {
+	for _, sub := range node.Public.Subsections {
+		if sub.Heading == normalizedQualifier {
 			found = sub
 			break
 		}
 	}
 	if found == nil {
-		return nil
+		return nil, nil
 	}
 
-	var buf bytes.Buffer
-
-	buf.WriteString(found.RawHeading)
-	buf.WriteByte('\n')
-
+	var buf []byte
+	buf = append(buf, []byte(found.RawHeading+"\n")...)
 	for _, line := range found.Content {
-		buf.WriteString(line)
-		buf.WriteByte('\n')
+		buf = append(buf, []byte(line+"\n")...)
 	}
 
-	h := sha1.Sum(buf.Bytes())
-	return h[:]
+	digest := sha1.Sum(buf)
+	return digest[:], nil
 }
 
-// hashArtifactFile computes a SHA-1 hash of an artifact file's content,
-// stripping frontmatter if present.
+// hashArtifactFile hashes an artifact file at the given PathCfs,
+// skipping any YAML frontmatter block delimited by "---" at the top.
 func hashArtifactFile(filePath *pathutils.PathCfs) ([]byte, error) {
 	reader, err := filereader.FileOpen(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("file unreadable %s: %w", filePath.Value, err)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	firstLine, err := filereader.FileReadLine(reader)
-	if err != nil {
-		if errors.Is(err, filereader.ErrEndOfFile) {
-			filereader.FileClose(reader)
-			h := sha1.Sum([]byte{})
-			return h[:], nil
-		}
+	if errors.Is(err, filereader.ErrEndOfFile) {
 		filereader.FileClose(reader)
-		return nil, fmt.Errorf("file unreadable %s: %w", filePath.Value, err)
+		empty := sha1.Sum([]byte{})
+		return empty[:], nil
+	}
+	if err != nil {
+		filereader.FileClose(reader)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
-	var buf bytes.Buffer
-	var firstContentLine string
-	hasFrontmatter := firstLine == "---"
+	var buf []byte
 
-	if hasFrontmatter {
-		// Skip until closing "---"
+	if firstLine == "---" {
+		// Skip lines until the closing "---" delimiter.
 		for {
 			line, err := filereader.FileReadLine(reader)
+			if errors.Is(err, filereader.ErrEndOfFile) {
+				break
+			}
 			if err != nil {
-				if errors.Is(err, filereader.ErrEndOfFile) {
-					filereader.FileClose(reader)
-					h := sha1.Sum([]byte{})
-					return h[:], nil
-				}
 				filereader.FileClose(reader)
-				return nil, fmt.Errorf("file unreadable %s: %w", filePath.Value, err)
+				return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 			}
 			if line == "---" {
 				break
 			}
 		}
 	} else {
-		firstContentLine = firstLine
+		// First line is content — include it in the buffer.
+		buf = append(buf, []byte(firstLine+"\n")...)
 	}
 
-	if firstContentLine != "" {
-		buf.WriteString(firstContentLine)
-		buf.WriteByte('\n')
-	}
-
+	// Read all remaining lines.
 	for {
 		line, err := filereader.FileReadLine(reader)
-		if err != nil {
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				break
-			}
-			filereader.FileClose(reader)
-			return nil, fmt.Errorf("file unreadable %s: %w", filePath.Value, err)
+		if errors.Is(err, filereader.ErrEndOfFile) {
+			break
 		}
-		buf.WriteString(line)
-		buf.WriteByte('\n')
+		if err != nil {
+			filereader.FileClose(reader)
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+		}
+		buf = append(buf, []byte(line+"\n")...)
 	}
 
 	filereader.FileClose(reader)
 
-	h := sha1.Sum(buf.Bytes())
-	return h[:], nil
+	digest := sha1.Sum(buf)
+	return digest[:], nil
 }
 
-// hashExternalFile computes a SHA-1 hash of a full external file's content.
-func hashExternalFile(path string) ([]byte, error) {
-	cfsPath := &pathutils.PathCfs{Value: path}
+// hashExternalEntry hashes an external file reference, with or without fragments.
+func hashExternalEntry(ext *frontmatter.FrontmatterExternal) ([]byte, error) {
+	cfsPath := &pathutils.PathCfs{Value: ext.Path}
 
-	reader, err := filereader.FileOpen(cfsPath)
-	if err != nil {
-		return nil, fmt.Errorf("file unreadable %s: %w", path, err)
-	}
-
-	var buf bytes.Buffer
-
-	for {
-		line, err := filereader.FileReadLine(reader)
-		if err != nil {
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				break
-			}
-			filereader.FileClose(reader)
-			return nil, fmt.Errorf("file unreadable %s: %w", path, err)
-		}
-		buf.WriteString(line)
-		buf.WriteByte('\n')
-	}
-
-	filereader.FileClose(reader)
-
-	h := sha1.Sum(buf.Bytes())
-	return h[:], nil
-}
-
-// hashExternalFileFragments computes a SHA-1 hash of selected line ranges
-// from an external file, concatenated in declaration order.
-func hashExternalFileFragments(path string, fragments []*frontmatter.FrontmatterExternalFragment) ([]byte, error) {
-	var buf bytes.Buffer
-
-	for _, fragment := range fragments {
-		start, end, err := parseLineRange(fragment.Lines)
-		if err != nil {
-			return nil, fmt.Errorf("invalid fragment line range %q: %w", fragment.Lines, err)
-		}
-
-		cfsPath := &pathutils.PathCfs{Value: path}
+	if len(ext.Fragments) == 0 {
+		// Hash the entire file.
 		reader, err := filereader.FileOpen(cfsPath)
 		if err != nil {
-			return nil, fmt.Errorf("file unreadable %s: %w", path, err)
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+		}
+
+		var buf []byte
+		for {
+			line, err := filereader.FileReadLine(reader)
+			if errors.Is(err, filereader.ErrEndOfFile) {
+				break
+			}
+			if err != nil {
+				filereader.FileClose(reader)
+				return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+			}
+			buf = append(buf, []byte(line+"\n")...)
+		}
+		filereader.FileClose(reader)
+
+		digest := sha1.Sum(buf)
+		return digest[:], nil
+	}
+
+	// Hash with fragments — concatenate all fragment line ranges into one buffer.
+	var buf []byte
+	for _, frag := range ext.Fragments {
+		start, end, err := parseLineRange(frag.Lines)
+		if err != nil {
+			return nil, fmt.Errorf("invalid fragment line range %q: %w", frag.Lines, err)
+		}
+
+		reader, err := filereader.FileOpen(cfsPath)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
 
 		filereader.FileSkipLines(reader, start-1)
@@ -306,41 +304,35 @@ func hashExternalFileFragments(path string, fragments []*frontmatter.Frontmatter
 		count := end - start + 1
 		for i := 0; i < count; i++ {
 			line, err := filereader.FileReadLine(reader)
-			if err != nil {
-				if errors.Is(err, filereader.ErrEndOfFile) {
-					filereader.FileClose(reader)
-					break
-				}
-				filereader.FileClose(reader)
-				return nil, fmt.Errorf("file unreadable %s: %w", path, err)
+			if errors.Is(err, filereader.ErrEndOfFile) {
+				break
 			}
-			buf.WriteString(line)
-			buf.WriteByte('\n')
+			if err != nil {
+				filereader.FileClose(reader)
+				return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+			}
+			buf = append(buf, []byte(line+"\n")...)
 		}
-
 		filereader.FileClose(reader)
 	}
 
-	h := sha1.Sum(buf.Bytes())
-	return h[:], nil
+	digest := sha1.Sum(buf)
+	return digest[:], nil
 }
 
-// parseLineRange parses a "<start>-<end>" line range string.
+// parseLineRange parses a "start-end" line range string into 1-based inclusive integers.
 func parseLineRange(lines string) (start, end int, err error) {
 	parts := strings.SplitN(lines, "-", 2)
 	if len(parts) != 2 {
 		return 0, 0, fmt.Errorf("expected format <start>-<end>, got %q", lines)
 	}
-
 	start, err = strconv.Atoi(strings.TrimSpace(parts[0]))
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid start line %q: %w", parts[0], err)
 	}
-
 	end, err = strconv.Atoi(strings.TrimSpace(parts[1]))
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid end line %q: %w", parts[1], err)
 	}
-
 	return start, end, nil
 }

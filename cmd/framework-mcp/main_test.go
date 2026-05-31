@@ -1,48 +1,50 @@
-// code-from-spec: ROOT/golang/tests/server@mKB3EKrkCTFNN5c9LeEDdV6z_YY
+// code-from-spec: ROOT/golang/tests/server@y5-Vp3ZTyUaPZKWnE8aHdY_5k-s
 package main_test
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
-	"io"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 )
 
-var testBinaryPath string
+var binaryPath string
 
 func TestMain(m *testing.M) {
 	tmpDir, err := os.MkdirTemp("", "framework-mcp-test-*")
 	if err != nil {
-		panic("failed to create temp dir: " + err.Error())
+		fmt.Fprintf(os.Stderr, "TestMain: failed to create temp dir: %v\n", err)
+		os.Exit(1)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	binaryName := "framework-mcp"
+	binName := "framework-mcp"
 	if runtime.GOOS == "windows" {
-		binaryName += ".exe"
+		binName += ".exe"
 	}
-	testBinaryPath = filepath.Join(tmpDir, binaryName)
+	binaryPath = filepath.Join(tmpDir, binName)
 
-	buildCmd := exec.Command("go", "build", "-o", testBinaryPath, ".")
-	buildCmd.Stdout = os.Stderr
-	buildCmd.Stderr = os.Stderr
-	if err := buildCmd.Run(); err != nil {
-		panic("failed to build binary: " + err.Error())
+	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "TestMain: failed to build binary: %v\n", err)
+		os.Exit(1)
 	}
 
 	os.Exit(m.Run())
 }
 
-// testRunBinary runs the compiled binary with the given arguments and returns
-// stdout, stderr, and the exit code.
-func testRunBinary(args ...string) (stdout, stderr string, exitCode int) {
-	cmd := exec.Command(testBinaryPath, args...)
+// runBinary executes the binary with the given arguments and returns
+// the combined stdout, stderr, and exit code.
+func runBinary(args ...string) (stdout string, stderr string, exitCode int) {
+	cmd := exec.Command(binaryPath, args...)
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -59,246 +61,212 @@ func testRunBinary(args ...string) (stdout, stderr string, exitCode int) {
 	return stdout, stderr, exitCode
 }
 
-// testMCPSession holds the state needed to communicate with a running MCP process.
-type testMCPSession struct {
-	cmd     *exec.Cmd
-	stdin   io.WriteCloser
-	decoder *json.Decoder
+// TestHelpFlag verifies that --help prints usage to stdout and exits 0.
+func TestHelpFlag(t *testing.T) {
+	stdout, _, exitCode := runBinary("--help")
+	if exitCode != 0 {
+		t.Errorf("expected exit 0, got %d", exitCode)
+	}
+	if !strings.Contains(stdout, "Usage:") {
+		t.Errorf("expected stdout to contain usage message, got: %q", stdout)
+	}
 }
 
-// testStartMCPProcess starts the binary as a subprocess for MCP communication.
-func testStartMCPProcess(t *testing.T) *testMCPSession {
-	t.Helper()
-	cmd := exec.Command(testBinaryPath)
-
-	in, err := cmd.StdinPipe()
-	if err != nil {
-		t.Fatalf("testStartMCPProcess: stdin pipe: %v", err)
+// TestHelpWord verifies that the word "help" prints usage to stdout and exits 0.
+func TestHelpWord(t *testing.T) {
+	stdout, _, exitCode := runBinary("help")
+	if exitCode != 0 {
+		t.Errorf("expected exit 0, got %d", exitCode)
 	}
-	out, err := cmd.StdoutPipe()
+	if !strings.Contains(stdout, "Usage:") {
+		t.Errorf("expected stdout to contain usage message, got: %q", stdout)
+	}
+}
+
+// TestShortHelpFlag verifies that -h prints usage to stdout and exits 0.
+func TestShortHelpFlag(t *testing.T) {
+	stdout, _, exitCode := runBinary("-h")
+	if exitCode != 0 {
+		t.Errorf("expected exit 0, got %d", exitCode)
+	}
+	if !strings.Contains(stdout, "Usage:") {
+		t.Errorf("expected stdout to contain usage message, got: %q", stdout)
+	}
+}
+
+// TestUnrecognizedArgument verifies that an unrecognized argument prints usage
+// to stderr and exits 1.
+func TestUnrecognizedArgument(t *testing.T) {
+	_, stderr, exitCode := runBinary("something")
+	if exitCode != 1 {
+		t.Errorf("expected exit 1, got %d", exitCode)
+	}
+	if !strings.Contains(stderr, "Usage:") {
+		t.Errorf("expected stderr to contain usage message, got: %q", stderr)
+	}
+}
+
+// TestMultipleArguments verifies that multiple arguments print usage to stderr
+// and exit 1.
+func TestMultipleArguments(t *testing.T) {
+	_, stderr, exitCode := runBinary("foo", "bar")
+	if exitCode != 1 {
+		t.Errorf("expected exit 1, got %d", exitCode)
+	}
+	if !strings.Contains(stderr, "Usage:") {
+		t.Errorf("expected stderr to contain usage message, got: %q", stderr)
+	}
+}
+
+// sendMCPRequests starts the binary as a subprocess, sends the given JSON-RPC
+// lines over stdin, and reads JSON-RPC response lines from stdout. It returns
+// all response lines read before the process is killed.
+func sendMCPRequests(t *testing.T, requests []string) []string {
+	t.Helper()
+	cmd := exec.Command(binaryPath)
+	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
-		t.Fatalf("testStartMCPProcess: stdout pipe: %v", err)
+		t.Fatalf("sendMCPRequests: StdinPipe: %v", err)
+	}
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("sendMCPRequests: StdoutPipe: %v", err)
 	}
 	if err := cmd.Start(); err != nil {
-		t.Fatalf("testStartMCPProcess: start: %v", err)
+		t.Fatalf("sendMCPRequests: Start: %v", err)
 	}
 	t.Cleanup(func() {
-		in.Close()
-		cmd.Wait() //nolint:errcheck
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
 	})
 
-	return &testMCPSession{
-		cmd:     cmd,
-		stdin:   in,
-		decoder: json.NewDecoder(out),
+	for _, req := range requests {
+		if _, err := fmt.Fprintln(stdinPipe, req); err != nil {
+			t.Fatalf("sendMCPRequests: write request: %v", err)
+		}
 	}
-}
 
-// testSendJSON sends a JSON-encoded value followed by a newline to the session's stdin.
-func testSendJSON(t *testing.T, s *testMCPSession, v any) {
-	t.Helper()
-	data, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("testSendJSON: marshal: %v", err)
-	}
-	data = append(data, '\n')
-	if _, err := s.stdin.Write(data); err != nil {
-		t.Fatalf("testSendJSON: write: %v", err)
-	}
-}
-
-// testDecodeResponse reads one JSON-RPC response from the session with a 10-second timeout.
-func testDecodeResponse(t *testing.T, s *testMCPSession) map[string]any {
-	t.Helper()
-	type decodeResult struct {
-		val map[string]any
-		err error
-	}
-	ch := make(chan decodeResult, 1)
+	lines := make(chan string, 64)
 	go func() {
-		var v map[string]any
-		err := s.decoder.Decode(&v)
-		ch <- decodeResult{v, err}
+		scanner := bufio.NewScanner(stdoutPipe)
+		for scanner.Scan() {
+			lines <- scanner.Text()
+		}
+		close(lines)
 	}()
-	select {
-	case r := <-ch:
-		if r.err != nil {
-			t.Fatalf("testDecodeResponse: %v", r.err)
+
+	// Collect lines until we have enough responses or give up.
+	var result []string
+	for line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
 		}
-		return r.val
-	case <-time.After(10 * time.Second):
-		t.Fatalf("testDecodeResponse: timed out waiting for response")
-		return nil
+		result = append(result, line)
+		if len(result) >= len(requests) {
+			break
+		}
 	}
+	return result
 }
 
-// testMCPInitialize performs the MCP handshake: sends initialize, reads response,
-// then sends the initialized notification.
-func testMCPInitialize(t *testing.T, s *testMCPSession) {
-	t.Helper()
-
-	testSendJSON(t, s, map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "initialize",
-		"params": map[string]any{
-			"protocolVersion": "2024-11-05",
-			"clientInfo": map[string]any{
-				"name":    "test-client",
-				"version": "0.0.1",
-			},
-			"capabilities": map[string]any{},
-		},
-	})
-
-	// Read and discard the initialize response.
-	testDecodeResponse(t, s)
-
-	// Send initialized notification (no response expected).
-	testSendJSON(t, s, map[string]any{
-		"jsonrpc": "2.0",
-		"method":  "notifications/initialized",
-	})
+// buildMCPSession returns the JSON-RPC messages needed to initialize an MCP
+// session and list tools.
+func buildMCPSession() []string {
+	initReq := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}`
+	toolsReq := `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`
+	return []string{initReq, toolsReq}
 }
 
-// testMCPToolsList sends a tools/list request and returns the parsed JSON-RPC response.
-func testMCPToolsList(t *testing.T, s *testMCPSession) map[string]any {
+// parseToolsListResponse finds the tools/list response line among the given
+// JSON-RPC response lines (the one with id=2) and returns the parsed result.
+func parseToolsListResponse(t *testing.T, lines []string) map[string]any {
 	t.Helper()
-	testSendJSON(t, s, map[string]any{
-		"jsonrpc": "2.0",
-		"id":      2,
-		"method":  "tools/list",
-		"params":  map[string]any{},
-	})
-	return testDecodeResponse(t, s)
-}
-
-// testExtractTools extracts the tools slice from a tools/list JSON-RPC response.
-func testExtractTools(t *testing.T, resp map[string]any) []map[string]any {
-	t.Helper()
-	result, ok := resp["result"].(map[string]any)
-	if !ok {
-		t.Fatalf("testExtractTools: response missing 'result' field: %v", resp)
-	}
-	rawTools, ok := result["tools"].([]any)
-	if !ok {
-		t.Fatalf("testExtractTools: result missing 'tools' field: %v", result)
-	}
-	tools := make([]map[string]any, 0, len(rawTools))
-	for i, raw := range rawTools {
-		tool, ok := raw.(map[string]any)
+	for _, line := range lines {
+		var msg map[string]any
+		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			continue
+		}
+		id, ok := msg["id"]
 		if !ok {
-			t.Fatalf("testExtractTools: tool[%d] is not an object: %v", i, raw)
+			continue
 		}
-		tools = append(tools, tool)
+		// JSON numbers unmarshal as float64.
+		idFloat, ok := id.(float64)
+		if !ok || idFloat != 2 {
+			continue
+		}
+		result, ok := msg["result"].(map[string]any)
+		if !ok {
+			t.Fatalf("tools/list response result is not an object: %v", msg)
+		}
+		return result
 	}
-	return tools
+	t.Fatalf("tools/list response (id=2) not found in lines: %v", lines)
+	return nil
 }
 
-// --- Help flag tests ---
+// TestToolsListMaxResultSizeChars verifies that load_chain advertises
+// anthropic/maxResultSizeChars = 500000 in its _meta field.
+func TestToolsListMaxResultSizeChars(t *testing.T) {
+	lines := sendMCPRequests(t, buildMCPSession())
+	result := parseToolsListResponse(t, lines)
 
-func TestHelpFlag_PrintsUsageToStdout(t *testing.T) {
-	stdout, _, exitCode := testRunBinary("--help")
-	if exitCode != 0 {
-		t.Errorf("expected exit 0, got %d", exitCode)
+	tools, ok := result["tools"].([]any)
+	if !ok {
+		t.Fatalf("tools field is not an array: %v", result)
 	}
-	if !strings.Contains(stdout, "Usage:") {
-		t.Errorf("expected stdout to contain usage message, got: %q", stdout)
-	}
-}
 
-func TestHelpWord_PrintsUsageToStdout(t *testing.T) {
-	stdout, _, exitCode := testRunBinary("help")
-	if exitCode != 0 {
-		t.Errorf("expected exit 0, got %d", exitCode)
-	}
-	if !strings.Contains(stdout, "Usage:") {
-		t.Errorf("expected stdout to contain usage message, got: %q", stdout)
-	}
-}
-
-func TestShortHelpFlag_PrintsUsageToStdout(t *testing.T) {
-	stdout, _, exitCode := testRunBinary("-h")
-	if exitCode != 0 {
-		t.Errorf("expected exit 0, got %d", exitCode)
-	}
-	if !strings.Contains(stdout, "Usage:") {
-		t.Errorf("expected stdout to contain usage message, got: %q", stdout)
-	}
-}
-
-// --- Failure cases ---
-
-func TestUnrecognizedArgument_PrintsUsageToStderr(t *testing.T) {
-	_, stderr, exitCode := testRunBinary("something")
-	if exitCode != 1 {
-		t.Errorf("expected exit 1, got %d", exitCode)
-	}
-	if !strings.Contains(stderr, "Usage:") {
-		t.Errorf("expected stderr to contain usage message, got: %q", stderr)
-	}
-}
-
-func TestMultipleArguments_PrintsUsageToStderr(t *testing.T) {
-	_, stderr, exitCode := testRunBinary("foo", "bar")
-	if exitCode != 1 {
-		t.Errorf("expected exit 1, got %d", exitCode)
-	}
-	if !strings.Contains(stderr, "Usage:") {
-		t.Errorf("expected stderr to contain usage message, got: %q", stderr)
-	}
-}
-
-// --- MCP protocol tests ---
-
-func TestMCPToolsList_LoadChainHasMaxResultSizeChars(t *testing.T) {
-	s := testStartMCPProcess(t)
-	testMCPInitialize(t, s)
-	resp := testMCPToolsList(t, s)
-
-	tools := testExtractTools(t, resp)
-	for _, tool := range tools {
-		name, _ := tool["name"].(string)
-		if name != "load_chain" {
+	for _, item := range tools {
+		tool, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if tool["name"] != "load_chain" {
 			continue
 		}
 		meta, ok := tool["_meta"].(map[string]any)
 		if !ok {
-			t.Fatalf("load_chain tool has no _meta field")
+			t.Fatalf("load_chain tool has no _meta field or it is not an object: %v", tool)
 		}
 		val, ok := meta["anthropic/maxResultSizeChars"]
 		if !ok {
-			t.Fatalf("load_chain _meta missing anthropic/maxResultSizeChars")
+			t.Fatalf("load_chain _meta missing anthropic/maxResultSizeChars: %v", meta)
 		}
-		// JSON numbers decode as float64.
-		numVal, ok := val.(float64)
-		if !ok {
-			t.Fatalf("anthropic/maxResultSizeChars is not a number, got %T: %v", val, val)
-		}
-		if int(numVal) != 500000 {
-			t.Errorf("expected anthropic/maxResultSizeChars = 500000, got %v", numVal)
+		// JSON numbers unmarshal as float64.
+		valFloat, ok := val.(float64)
+		if !ok || valFloat != 500000 {
+			t.Errorf("expected anthropic/maxResultSizeChars = 500000, got %v", val)
 		}
 		return
 	}
-	t.Errorf("load_chain tool not found in tools/list response")
+	t.Fatal("load_chain tool not found in tools/list response")
 }
 
-func TestMCPToolsList_AdvertisesAllFourTools(t *testing.T) {
-	s := testStartMCPProcess(t)
-	testMCPInitialize(t, s)
-	resp := testMCPToolsList(t, s)
+// TestToolsListAllFourTools verifies that tools/list returns all four expected
+// tools.
+func TestToolsListAllFourTools(t *testing.T) {
+	lines := sendMCPRequests(t, buildMCPSession())
+	result := parseToolsListResponse(t, lines)
 
-	tools := testExtractTools(t, resp)
+	tools, ok := result["tools"].([]any)
+	if !ok {
+		t.Fatalf("tools field is not an array: %v", result)
+	}
 
-	wantTools := []string{"load_chain", "write_file", "validate_specs", "hash_fragment"}
-	found := make(map[string]bool, len(tools))
-	for _, tool := range tools {
+	want := []string{"load_chain", "write_file", "validate_specs", "hash_fragment"}
+	found := make(map[string]bool)
+	for _, item := range tools {
+		tool, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
 		name, _ := tool["name"].(string)
 		found[name] = true
 	}
-	for _, want := range wantTools {
-		if !found[want] {
-			t.Errorf("expected tool %q to be advertised, but it was not found", want)
+
+	for _, name := range want {
+		if !found[name] {
+			t.Errorf("tool %q not found in tools/list response; found: %v", name, found)
 		}
 	}
 }

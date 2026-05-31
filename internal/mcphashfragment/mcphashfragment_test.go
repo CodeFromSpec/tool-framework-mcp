@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/hash_fragment@8XbuMC9yvzmGbA1bi4D6bmi4Mtg
+// code-from-spec: ROOT/golang/tests/mcp_tools/hash_fragment@19MJY07Im4YlusR5VWFTWKxuYQc
 package mcphashfragment_test
 
 import (
@@ -30,138 +30,123 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-// testHashLines computes the expected SHA-1 base64url hash of lines joined by "\n".
-func testHashLines(lines ...string) string {
-	h := sha1.New()
-	for _, line := range lines {
-		h.Write([]byte(line + "\n"))
-	}
-	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+// testBase64urlSHA1 computes the base64url-encoded (no padding) SHA-1 digest of data.
+func testBase64urlSHA1(data string) string {
+	h := sha1.Sum([]byte(data))
+	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-// testWriteFile creates a file at path (relative to cwd) with the given content.
-func testWriteFile(t *testing.T, path string, content string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-		t.Fatalf("testWriteFile: %v", err)
-	}
-}
-
-// testFiveLineFile creates a temp-dir-based file with 5 known lines and returns
-// the relative path. testChdir must have been called before this helper.
-func testFiveLineFile(t *testing.T, name string) string {
-	t.Helper()
-	content := "alpha\nbravo\ncharlie\ndelta\necho\n"
-	testWriteFile(t, name, content)
-	return name
-}
-
-// ---------------------------------------------------------------------------
-// Happy path tests
-// ---------------------------------------------------------------------------
+// testFiveLineFile is the standard content used in multiple tests.
+const testFiveLineFile = "alpha\nbravo\ncharlie\ndelta\necho\n"
 
 func TestMCPHashFragment_ValidRange(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	path := testFiveLineFile(t, "file.txt")
+	if err := os.WriteFile("file.txt", []byte(testFiveLineFile), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	result, err := mcphashfragment.MCPHashFragment(path, "2-4")
+	got, err := mcphashfragment.MCPHashFragment("file.txt", "2-4")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result) != 27 {
-		t.Errorf("expected 27-char string, got %d chars: %q", len(result), result)
+	if len(got) != 27 {
+		t.Errorf("expected 27-char hash, got %d: %q", len(got), got)
 	}
-	expected := testHashLines("bravo", "charlie", "delta")
-	if result != expected {
-		t.Errorf("hash mismatch: got %q, want %q", result, expected)
+	want := testBase64urlSHA1("bravo\ncharlie\ndelta\n")
+	if got != want {
+		t.Errorf("hash mismatch: got %q, want %q", got, want)
 	}
 }
 
-func TestMCPHashFragment_SingleLine(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPHashFragment_SingleLineRange(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	path := testFiveLineFile(t, "file.txt")
+	if err := os.WriteFile("file.txt", []byte(testFiveLineFile), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	result, err := mcphashfragment.MCPHashFragment(path, "3-3")
+	got, err := mcphashfragment.MCPHashFragment("file.txt", "3-3")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result) != 27 {
-		t.Errorf("expected 27-char string, got %d chars: %q", len(result), result)
+	if len(got) != 27 {
+		t.Errorf("expected 27-char hash, got %d: %q", len(got), got)
 	}
-	expected := testHashLines("charlie")
-	if result != expected {
-		t.Errorf("hash mismatch: got %q, want %q", result, expected)
+	want := testBase64urlSHA1("charlie\n")
+	if got != want {
+		t.Errorf("hash mismatch: got %q, want %q", got, want)
 	}
 }
 
 func TestMCPHashFragment_FirstLine(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	path := testFiveLineFile(t, "file.txt")
+	if err := os.WriteFile("file.txt", []byte(testFiveLineFile), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	result, err := mcphashfragment.MCPHashFragment(path, "1-1")
+	got, err := mcphashfragment.MCPHashFragment("file.txt", "1-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result) != 27 {
-		t.Errorf("expected 27-char string, got %d chars: %q", len(result), result)
+	if len(got) != 27 {
+		t.Errorf("expected 27-char hash, got %d: %q", len(got), got)
 	}
-	expected := testHashLines("alpha")
-	if result != expected {
-		t.Errorf("hash mismatch: got %q, want %q", result, expected)
+	want := testBase64urlSHA1("alpha\n")
+	if got != want {
+		t.Errorf("hash mismatch: got %q, want %q", got, want)
 	}
 }
 
 func TestMCPHashFragment_LastLine(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	path := testFiveLineFile(t, "file.txt")
+	if err := os.WriteFile("file.txt", []byte(testFiveLineFile), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	result, err := mcphashfragment.MCPHashFragment(path, "5-5")
+	got, err := mcphashfragment.MCPHashFragment("file.txt", "5-5")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result) != 27 {
-		t.Errorf("expected 27-char string, got %d chars: %q", len(result), result)
+	if len(got) != 27 {
+		t.Errorf("expected 27-char hash, got %d: %q", len(got), got)
 	}
-	expected := testHashLines("echo")
-	if result != expected {
-		t.Errorf("hash mismatch: got %q, want %q", result, expected)
+	want := testBase64urlSHA1("echo\n")
+	if got != want {
+		t.Errorf("hash mismatch: got %q, want %q", got, want)
 	}
 }
 
 func TestMCPHashFragment_Deterministic(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	path := testFiveLineFile(t, "file.txt")
+	if err := os.WriteFile("file.txt", []byte(testFiveLineFile), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	result1, err := mcphashfragment.MCPHashFragment(path, "1-3")
+	got1, err := mcphashfragment.MCPHashFragment("file.txt", "2-4")
 	if err != nil {
 		t.Fatalf("first call unexpected error: %v", err)
 	}
-	result2, err := mcphashfragment.MCPHashFragment(path, "1-3")
+	got2, err := mcphashfragment.MCPHashFragment("file.txt", "2-4")
 	if err != nil {
 		t.Fatalf("second call unexpected error: %v", err)
 	}
-	if result1 != result2 {
-		t.Errorf("results differ: %q vs %q", result1, result2)
+	if got1 != got2 {
+		t.Errorf("non-deterministic: got %q then %q", got1, got2)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Error case tests
-// ---------------------------------------------------------------------------
-
 func TestMCPHashFragment_FileNotExist(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
 	_, err := mcphashfragment.MCPHashFragment("nonexistent.go", "1-5")
 	if err == nil {
@@ -173,12 +158,14 @@ func TestMCPHashFragment_FileNotExist(t *testing.T) {
 }
 
 func TestMCPHashFragment_InvalidRangeFormat(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	path := testFiveLineFile(t, "file.txt")
+	if err := os.WriteFile("file.txt", []byte(testFiveLineFile), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	_, err := mcphashfragment.MCPHashFragment(path, "abc")
+	_, err := mcphashfragment.MCPHashFragment("file.txt", "abc")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -188,12 +175,14 @@ func TestMCPHashFragment_InvalidRangeFormat(t *testing.T) {
 }
 
 func TestMCPHashFragment_StartGreaterThanEnd(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	path := testFiveLineFile(t, "file.txt")
+	if err := os.WriteFile("file.txt", []byte(testFiveLineFile), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	_, err := mcphashfragment.MCPHashFragment(path, "5-2")
+	_, err := mcphashfragment.MCPHashFragment("file.txt", "5-2")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -203,12 +192,14 @@ func TestMCPHashFragment_StartGreaterThanEnd(t *testing.T) {
 }
 
 func TestMCPHashFragment_StartLessThanOne(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	path := testFiveLineFile(t, "file.txt")
+	if err := os.WriteFile("file.txt", []byte(testFiveLineFile), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	_, err := mcphashfragment.MCPHashFragment(path, "0-5")
+	_, err := mcphashfragment.MCPHashFragment("file.txt", "0-5")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -218,12 +209,15 @@ func TestMCPHashFragment_StartLessThanOne(t *testing.T) {
 }
 
 func TestMCPHashFragment_RangeOutOfBounds(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "small.txt", "line1\nline2\nline3\n")
+	content := "line1\nline2\nline3\n"
+	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
-	_, err := mcphashfragment.MCPHashFragment("small.txt", "1-10")
+	_, err := mcphashfragment.MCPHashFragment("file.txt", "1-10")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -237,8 +231,8 @@ func TestMCPHashFragment_EmptyPath(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, pathutils.ErrPathIsEmpty) {
-		t.Errorf("expected ErrPathIsEmpty, got: %v", err)
+	if !errors.Is(err, pathutils.ErrPathEmpty) {
+		t.Errorf("expected ErrPathEmpty, got: %v", err)
 	}
 }
 

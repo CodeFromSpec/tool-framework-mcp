@@ -1,30 +1,36 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@KGEXuPdpOD_H_aqrR9oZrO6lzsM)
+[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@ReqXVnYDBbG4KdvHzJkzR6yBYp4)
 
-# Interface: `textnormalization`
+# Package `textnormalization`
 
-## Package
-
-```go
-package textnormalization
-```
-
-## Import
+**Import path:**
 
 ```go
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 ```
 
-## Function Signatures
+## Overview
+
+The `textnormalization` package provides utilities for normalizing text strings — trimming whitespace, lowercasing, and expanding Unicode characters such as ligatures and diacritics.
+
+---
+
+## Functions
+
+### `NormalizeText`
 
 ```go
-// NormalizeText trims leading and trailing whitespace from raw_string,
-// collapses internal runs of whitespace to a single space, and converts
-// the result to lowercase. Returns an empty string when raw_string is empty
-// or contains only whitespace.
-func NormalizeText(raw_string string) string
+// NormalizeText trims leading and trailing whitespace from raw,
+// converts it to lowercase, and expands Unicode characters
+// (e.g., "Straße" → "strasse"). Multiple internal spaces are
+// collapsed to a single space. Returns an empty string unchanged.
+func NormalizeText(raw string) string
 ```
 
-## Usage Example
+---
+
+## Examples
+
+### Typical call pattern
 
 ```go
 package main
@@ -49,6 +55,18 @@ func main() {
 	// Output: testes de aceitação
 
 	fmt.Println(textnormalization.NormalizeText(""))
-	// Output: 
+	// Output:
 }
 ```
+
+---
+
+## Input / Output Reference
+
+| Input | Output |
+|---|---|
+| `"  Interface  "` | `"interface"` |
+| `"PUBLIC"` | `"public"` |
+| `"Straße"` | `"strasse"` |
+| `"Testes   de   aceitação"` | `"testes de aceitação"` |
+| `""` | `""` |

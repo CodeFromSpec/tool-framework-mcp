@@ -1,8 +1,9 @@
-// code-from-spec: ROOT/golang/implementation/spec_tree/scan@desNcchrAq_mK5BqNlx04C6ty98
+// code-from-spec: ROOT/golang/implementation/spec_tree/scan@IVvK_w0QFRJiuQzo6KGXLEEhDZ8
 
 package spectree
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -12,68 +13,74 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
+// ErrNoNodesFound is returned when no _node.md files are found under code-from-spec/.
+var ErrNoNodesFound = errors.New("no nodes found")
+
 // SpecTreeNode represents a single node discovered in the spec tree.
-// Each node corresponds to a _node.md file found under code-from-spec/.
 type SpecTreeNode struct {
-	// LogicalName is the logical name derived from the node's file path.
+	// LogicalName is the logical name of the node derived from its path.
 	LogicalName string
 
-	// FilePath is the CFS path to the _node.md file.
+	// FilePath is the path to the node's _node.md file in CFS format.
 	FilePath *pathutils.PathCfs
 }
 
-// SpecTreeScan scans the code-from-spec/ directory for all _node.md
-// files and returns a SpecTreeNode for each one found.
+// SpecTreeScan scans the code-from-spec/ directory relative to the project root
+// and returns a list of all spec tree nodes found.
 //
-// The returned slice is sorted alphabetically by logical name.
+// Each node corresponds to a _node.md file discovered during the scan.
+// The returned list is sorted alphabetically by logical name.
 //
-// Returns an error if:
-//   - listing files fails (errors propagated from ListFiles).
-//   - deriving a logical name from a path fails (errors propagated
-//     from LogicalNameFromPath).
-//   - no _node.md files are found under code-from-spec/.
+// Errors:
+//   - ErrNoNodesFound: no _node.md files were found under code-from-spec/.
+//   - (ListFiles.*): propagated from ListFiles.
+//   - (LogicalNames.*): propagated from LogicalNameFromPath.
 func SpecTreeScan() ([]*SpecTreeNode, error) {
-	dir := &pathutils.PathCfs{Value: "code-from-spec"}
-
-	files, err := listfiles.ListFiles(dir)
+	// Step 1: List all files under code-from-spec/.
+	dir := &pathutils.PathCfs{Value: "code-from-spec/"}
+	allFiles, err := listfiles.ListFiles(dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("SpecTreeScan: %w", err)
 	}
 
-	var nodes []*SpecTreeNode
-
-	for _, file := range files {
-		// Extract the file name: the portion after the last "/".
-		lastSlash := strings.LastIndex(file.Value, "/")
+	// Step 2: Filter to only _node.md files.
+	var nodeFiles []*pathutils.PathCfs
+	for _, filePath := range allFiles {
+		lastSlash := strings.LastIndex(filePath.Value, "/")
 		var fileName string
-		if lastSlash < 0 {
-			fileName = file.Value
+		if lastSlash >= 0 {
+			fileName = filePath.Value[lastSlash+1:]
 		} else {
-			fileName = file.Value[lastSlash+1:]
+			fileName = filePath.Value
 		}
-
-		if fileName != "_node.md" {
-			continue
+		if fileName == "_node.md" {
+			nodeFiles = append(nodeFiles, filePath)
 		}
+	}
 
-		logicalName, err := logicalnames.LogicalNameFromPath(file)
+	// Step 3: Build SpecTreeNode records.
+	var nodes []*SpecTreeNode
+	for _, filePath := range nodeFiles {
+		logicalName, err := logicalnames.LogicalNameFromPath(filePath)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("SpecTreeScan: %w", err)
 		}
-
 		nodes = append(nodes, &SpecTreeNode{
 			LogicalName: logicalName,
-			FilePath:    file,
+			FilePath:    filePath,
 		})
 	}
 
-	if len(nodes) == 0 {
-		return nil, fmt.Errorf("no nodes found")
-	}
-
+	// Step 4: Sort alphabetically by logical name.
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].LogicalName < nodes[j].LogicalName
 	})
 
+	// Step 5: Return error if no nodes were found.
+	if len(nodes) == 0 {
+		return nil, ErrNoNodesFound
+	}
+
+	// Step 6: Return the sorted list.
 	return nodes, nil
 }

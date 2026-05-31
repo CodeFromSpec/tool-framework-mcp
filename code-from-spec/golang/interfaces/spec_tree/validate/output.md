@@ -1,32 +1,43 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/validate@C13zOZdV9QG-aYyAd0BHyG0FtXs)
+[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/validate@FHDzLohZVJV75klbkXJoRnrgbRw)
 
-# Interface: `spectreevalidate`
+# Package `spectreevalidate`
 
-**Package:** `package spectreevalidate`  
-**Import:** `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"`
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
+```
+
+Takes the full set of discovered nodes with their parsed frontmatter and body. Returns a list of format errors (empty if all nodes are valid).
 
 ---
 
 ## Structs
 
 ```go
-// SpecTreeValidateInput holds a single discovered node's logical name along
-// with its parsed frontmatter and parsed node body, as produced by the
-// frontmatter and parsenode packages respectively.
+package spectreevalidate
+
+// SpecTreeValidateInput holds a single discovered node with its parsed
+// frontmatter and parsed node structure, as input to SpecTreeValidate.
 type SpecTreeValidateInput struct {
-    LogicalName string
-    Frontmatter *frontmatter.Frontmatter
-    Node        *parsenode.Node
+	// LogicalName is the logical name of the node (e.g. "ROOT/foo/bar").
+	LogicalName string
+
+	// Frontmatter is the parsed frontmatter of the node file.
+	Frontmatter *frontmatter.Frontmatter
+
+	// Node is the parsed node structure.
+	Node *parsenode.Node
 }
 
-// FormatError describes a single format violation found in a node.
-// Node is the logical name of the offending node. Rule identifies
-// which validation rule was violated. Detail provides a human-readable
-// explanation of the specific violation.
+// FormatError describes a single validation failure for a node.
 type FormatError struct {
-    Node   string
-    Rule   string
-    Detail string
+	// Node is the logical name of the node that failed validation.
+	Node string
+
+	// Rule is the name of the rule that was violated.
+	Rule string
+
+	// Detail provides additional context about the violation.
+	Detail string
 }
 ```
 
@@ -35,18 +46,17 @@ type FormatError struct {
 ## Functions
 
 ```go
-// SpecTreeValidate validates the full set of discovered nodes against the
-// spec tree format rules. It accepts all entries at once so that cross-node
-// rules (such as parent/child/leaf relationships) can be evaluated.
+package spectreevalidate
+
+// SpecTreeValidate validates the full set of discovered nodes.
 //
-// A node is considered to have children if any other entry in the input list
-// has a logical name that starts with the node's logical name followed by "/".
-// For example, given entries "ROOT/a" and "ROOT/a/b", "ROOT/a" has children.
-// A node is a leaf if no entry has a logical name that starts with the node's
-// logical name followed by "/".
+// A node has children if any other entry in the input list has a logical name
+// that starts with the node's logical name followed by "/". For example, given
+// entries "ROOT/a" and "ROOT/a/b", "ROOT/a" has children. "ROOT/a/b" is a leaf
+// if no entry starts with "ROOT/a/b/".
 //
-// Returns a list of FormatError values describing every violation found across
-// all entries. Returns an empty list if all nodes are valid.
+// Returns a list of FormatErrors describing all violations found. Returns an
+// empty slice when all nodes are valid.
 func SpecTreeValidate(entries []*SpecTreeValidateInput) []*FormatError
 ```
 
@@ -58,51 +68,48 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput) []*FormatError
 package main
 
 import (
-    "fmt"
-    "log"
+	"fmt"
 
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
 )
 
 func main() {
-    logicalNames := []string{
-        "ROOT/a",
-        "ROOT/a/b",
-    }
+	// Build the input list from discovered nodes (frontmatter and node already parsed).
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		{
+			LogicalName: "ROOT/foo",
+			Frontmatter: &frontmatter.Frontmatter{
+				DependsOn: []string{},
+				Outputs:   []*frontmatter.FrontmatterOutput{},
+			},
+			Node: &parsenode.Node{
+				NameSection: &parsenode.NodeSection{Heading: "foo"},
+			},
+		},
+		{
+			LogicalName: "ROOT/foo/bar",
+			Frontmatter: &frontmatter.Frontmatter{
+				DependsOn: []string{"ROOT/foo"},
+				Outputs: []*frontmatter.FrontmatterOutput{
+					{ID: "interface", Path: "code-from-spec/golang/interfaces/foo/bar/output.md"},
+				},
+			},
+			Node: &parsenode.Node{
+				NameSection: &parsenode.NodeSection{Heading: "bar"},
+			},
+		},
+	}
 
-    var entries []*spectreevalidate.SpecTreeValidateInput
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	if len(errs) == 0 {
+		fmt.Println("All nodes are valid.")
+		return
+	}
 
-    for _, name := range logicalNames {
-        cfsPath := &pathutils.PathCfs{Value: "code-from-spec/.../_node.md"} // resolved from logical name
-
-        fm, err := frontmatter.FrontmatterParse(cfsPath)
-        if err != nil {
-            log.Fatalf("failed to parse frontmatter for %s: %v", name, err)
-        }
-
-        node, err := parsenode.NodeParse(name)
-        if err != nil {
-            log.Fatalf("failed to parse node %s: %v", name, err)
-        }
-
-        entries = append(entries, &spectreevalidate.SpecTreeValidateInput{
-            LogicalName: name,
-            Frontmatter: fm,
-            Node:        node,
-        })
-    }
-
-    errs := spectreevalidate.SpecTreeValidate(entries)
-    if len(errs) == 0 {
-        fmt.Println("all nodes are valid")
-        return
-    }
-
-    for _, e := range errs {
-        fmt.Printf("node: %s | rule: %s | detail: %s\n", e.Node, e.Rule, e.Detail)
-    }
+	for _, e := range errs {
+		fmt.Printf("node: %s  rule: %s  detail: %s\n", e.Node, e.Rule, e.Detail)
+	}
 }
 ```

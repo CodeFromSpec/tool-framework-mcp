@@ -1,8 +1,8 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/text_normalization@aLvx1bSAlVdgZhC4de-eVqwPx30 -->
+<!-- code-from-spec: ROOT/functional/tests/utils/text_normalization@F8imG1q43CONfOdM_zEVTF8SD48 -->
 
 # Test Specification: NormalizeText
 
-## Function Under Test
+## Function
 
 ```
 NormalizeText(raw_string: string) -> string
@@ -14,177 +14,137 @@ NormalizeText(raw_string: string) -> string
 
 ### Identity
 
----
+#### Already normalized
 
-#### TC-01: Already normalized
+- Setup: none
+- Action: call `NormalizeText("public")`
+- Expected: `"public"`
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"public"`
-- **Expected outcome:** returns `"public"`
+#### Single word
 
----
-
-#### TC-02: Single word
-
-- **Setup:** none
-- **Action:** call NormalizeText with `"Interface"`
-- **Expected outcome:** returns `"interface"`
+- Setup: none
+- Action: call `NormalizeText("Interface")`
+- Expected: `"interface"`
 
 ---
 
 ### Trim
 
----
+#### Leading and trailing spaces
 
-#### TC-03: Leading and trailing spaces
+- Setup: none
+- Action: call `NormalizeText("  Interface  ")`
+- Expected: `"interface"`
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"  Interface  "`
-- **Expected outcome:** returns `"interface"`
+#### Leading and trailing tabs
 
----
+- Setup: none
+- Action: call `NormalizeText("\tInterface\t")`
+- Expected: `"interface"`
 
-#### TC-04: Leading and trailing tabs
+#### Mixed leading whitespace
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"\tInterface\t"`
-- **Expected outcome:** returns `"interface"`
-
----
-
-#### TC-05: Mixed leading whitespace
-
-- **Setup:** none
-- **Action:** call NormalizeText with `" \t Interface \t "`
-- **Expected outcome:** returns `"interface"`
+- Setup: none
+- Action: call `NormalizeText(" \t Interface \t ")`
+- Expected: `"interface"`
 
 ---
 
 ### Collapse
 
----
+#### Multiple spaces between words
 
-#### TC-06: Multiple spaces between words
+- Setup: none
+- Action: call `NormalizeText("Testes   de   aceitacao")`
+- Expected: `"testes de aceitacao"`
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"Testes   de   aceitacao"`
-- **Expected outcome:** returns `"testes de aceitacao"`
+#### Tabs between words
 
----
+- Setup: none
+- Action: call `NormalizeText("Testes\tde\taceitacao")`
+- Expected: `"testes de aceitacao"`
 
-#### TC-07: Tabs between words
+#### Mixed whitespace between words
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"Testes\tde\taceitacao"`
-- **Expected outcome:** returns `"testes de aceitacao"`
-
----
-
-#### TC-08: Mixed whitespace between words
-
-- **Setup:** none
-- **Action:** call NormalizeText with `"Testes \t de \t aceitacao"`
-- **Expected outcome:** returns `"testes de aceitacao"`
+- Setup: none
+- Action: call `NormalizeText("Testes \t de \t aceitacao")`
+- Expected: `"testes de aceitacao"`
 
 ---
 
 ### Case Folding
 
----
+#### All uppercase
 
-#### TC-09: All uppercase
+- Setup: none
+- Action: call `NormalizeText("PUBLIC")`
+- Expected: `"public"`
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"PUBLIC"`
-- **Expected outcome:** returns `"public"`
+#### Mixed case
 
----
+- Setup: none
+- Action: call `NormalizeText("PuBLiC")`
+- Expected: `"public"`
 
-#### TC-10: Mixed case
+#### Unicode case folding
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"PuBLiC"`
-- **Expected outcome:** returns `"public"`
+- Setup: none
+- Action: call `NormalizeText("TESTES DE ACEITACAO")`
+- Expected: `"testes de aceitacao"`
 
----
+#### German sharp s
 
-#### TC-11: Unicode case folding
-
-- **Setup:** none
-- **Action:** call NormalizeText with `"TESTES DE ACEITACAO"`
-- **Expected outcome:** returns `"testes de aceitacao"`
-
----
-
-#### TC-12: German sharp s
-
-- **Setup:** none
-- **Action:** call NormalizeText with `"Strasse"`
-- **Expected outcome:** returns `"strasse"`
-  (Unicode simple case folding maps sharp-s to `"ss"`)
+- Setup: none
+- Action: call `NormalizeText("Strasse")`
+- Expected: `"strasse"`
+- Note: Unicode simple case folding maps sharp-s to `"ss"`
 
 ---
 
 ### Combined
 
----
+#### Trim, collapse, and case fold together
 
-#### TC-13: Trim, collapse, and case fold together
+- Setup: none
+- Action: call `NormalizeText("  TESTES   DE   ACEITACAO  ")`
+- Expected: `"testes de aceitacao"`
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"  TESTES   DE   ACEITACAO  "`
-- **Expected outcome:** returns `"testes de aceitacao"`
+#### Logical name qualifier style
 
----
+- Setup: none
+- Action: call `NormalizeText("testes de ACEITACAO")`
+- Expected: `"testes de aceitacao"`
 
-#### TC-14: Logical name qualifier style
+#### Tabs and mixed case
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"testes de ACEITACAO"`
-- **Expected outcome:** returns `"testes de aceitacao"`
-
----
-
-#### TC-15: Tabs and mixed case
-
-- **Setup:** none
-- **Action:** call NormalizeText with `"\tROOT/payments/fees\t"`
-- **Expected outcome:** returns `"root/payments/fees"`
+- Setup: none
+- Action: call `NormalizeText("\tROOT/payments/fees\t")`
+- Expected: `"root/payments/fees"`
 
 ---
 
 ### Edge Cases
 
----
+#### Empty string
 
-#### TC-16: Empty string
+- Setup: none
+- Action: call `NormalizeText("")`
+- Expected: `""`
 
-- **Setup:** none
-- **Action:** call NormalizeText with `""`
-- **Expected outcome:** returns `""`
+#### Only whitespace
 
----
+- Setup: none
+- Action: call `NormalizeText("   \t  ")`
+- Expected: `""`
 
-#### TC-17: Only whitespace
+#### Non-breaking space is not whitespace
 
-- **Setup:** none
-- **Action:** call NormalizeText with `"   \t  "`
-- **Expected outcome:** returns `""`
+- Setup: none
+- Action: call `NormalizeText("hello world")` (the space between the words is a non-breaking space U+00A0)
+- Expected: `"hello world"` (non-breaking space is treated as text, not collapsed or trimmed)
 
----
+#### Single character
 
-#### TC-18: Non-breaking space is not whitespace
-
-- **Setup:** none
-- **Action:** call NormalizeText with a string containing
-  `"hello"`, a non-breaking space character (U+00A0), and `"world"`
-- **Expected outcome:** returns `"hello world"`
-  (the non-breaking space is treated as text, not collapsed or trimmed)
-
----
-
-#### TC-19: Single character
-
-- **Setup:** none
-- **Action:** call NormalizeText with `"X"`
-- **Expected outcome:** returns `"x"`
+- Setup: none
+- Action: call `NormalizeText("X")`
+- Expected: `"x"`

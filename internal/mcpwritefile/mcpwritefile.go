@@ -1,5 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/write_file@A67MZuzp__jCPH4wMNFqWJ-N4G8
-
+// code-from-spec: ROOT/golang/implementation/mcp_tools/write_file@7cQ6mRVv-9J8kZuRWzoDUdvbylE
 package mcpwritefile
 
 import (
@@ -12,78 +11,79 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-var (
-	// ErrUnreadableFrontmatter is returned when the node's frontmatter
-	// cannot be parsed.
-	ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
+// ErrUnreadableFrontmatter is returned when the node's frontmatter cannot be parsed.
+var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
 
-	// ErrNoOutputs is returned when the target node has no outputs field.
-	ErrNoOutputs = errors.New("no outputs")
+// ErrNoOutputs is returned when the target node has no outputs field.
+var ErrNoOutputs = errors.New("no outputs")
 
-	// ErrPathNotInOutputs is returned when the path is not declared in
-	// the node's outputs.
-	ErrPathNotInOutputs = errors.New("path not in outputs")
-)
+// ErrPathNotInOutputs is returned when the requested path is not declared
+// in the node's outputs.
+var ErrPathNotInOutputs = errors.New("path not in outputs")
 
-// MCPWriteFile is the handler for the write_file MCP tool. It validates
-// that the given path is declared in the outputs of the node identified
-// by logical_name, then writes the content to that path.
+// MCPWriteFile writes content to path after verifying that the path is
+// declared in the outputs of the node identified by logical_name.
 //
-// Parameters:
-//   - logical_name: logical name of the node whose outputs authorize the write.
-//   - path: relative file path from project root (forward slashes).
-//   - content: complete file content (UTF-8 text).
+// Steps:
+//  1. Resolve logical_name to a spec file path via LogicalNameToPath.
+//  2. Parse the frontmatter of that spec file.
+//  3. Confirm the outputs field is present and non-empty.
+//  4. Confirm path appears in the outputs list.
+//  5. Validate path via PathValidateCfs.
+//  6. Write content to path via FileWrite.
 //
-// Returns a success message of the form "wrote <path>" on success.
+// Returns "wrote <path>" on success.
 //
-// Returns an error if:
-//   - the node's frontmatter cannot be parsed (ErrUnreadableFrontmatter).
-//   - the node has no outputs field (ErrNoOutputs).
-//   - path is not declared in the node's outputs (ErrPathNotInOutputs).
-//   - the logical name cannot be resolved (LogicalNames.* errors propagated).
-//   - the path fails CFS validation (PathUtils.* errors propagated).
-//   - the file cannot be written (FileWriter.* errors propagated).
+// Errors:
+//   - ErrUnreadableFrontmatter: the node's frontmatter cannot be parsed.
+//   - ErrNoOutputs: target node has no outputs field.
+//   - ErrPathNotInOutputs: path is not declared in the node's outputs.
+//   - (LogicalNames.*): propagated from LogicalNameToPath.
+//   - (PathUtils.*): propagated from PathValidateCfs.
+//   - (FileWriter.*): propagated from FileWrite.
 func MCPWriteFile(logical_name string, path string, content string) (string, error) {
-	// Step 1: Resolve the logical name to a file path.
+	// Step 1 — Read frontmatter
+
 	nodePath, err := logicalnames.LogicalNameToPath(logical_name)
 	if err != nil {
-		return "", fmt.Errorf("resolving logical name: %w", err)
+		return "", fmt.Errorf("MCPWriteFile: %w", err)
 	}
 
-	// Step 2: Parse the node's frontmatter.
 	fm, err := frontmatter.FrontmatterParse(nodePath)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
+		return "", fmt.Errorf("MCPWriteFile: %w: %w", ErrUnreadableFrontmatter, err)
 	}
 
-	// Step 3: Check that the node declares outputs.
 	if len(fm.Outputs) == 0 {
-		return "", fmt.Errorf("%w", ErrNoOutputs)
+		return "", fmt.Errorf("MCPWriteFile: %w", ErrNoOutputs)
 	}
 
-	// Step 4: Validate the path format.
+	// Step 2 — Validate path
+
+	cfsPath := &pathutils.PathCfs{Value: path}
+
 	if err := pathutils.PathValidateCfs(path); err != nil {
-		return "", fmt.Errorf("validating path: %w", err)
+		return "", fmt.Errorf("MCPWriteFile: %w", err)
 	}
 
-	// Step 5: Check that path is declared in the node's outputs.
+	// Step 3 — Check path against outputs
+
 	found := false
-	for _, output := range fm.Outputs {
-		if output.Path == path {
+	for _, entry := range fm.Outputs {
+		if entry.Path == path {
 			found = true
 			break
 		}
 	}
 	if !found {
-		return "", fmt.Errorf("%w: %s", ErrPathNotInOutputs, path)
+		return "", fmt.Errorf("MCPWriteFile: %w", ErrPathNotInOutputs)
 	}
 
-	// Step 6: Write the file.
-	cfsPath := &pathutils.PathCfs{Value: path}
+	// Step 4 — Write file
+
 	if err := filewriter.FileWrite(cfsPath, content); err != nil {
-		return "", fmt.Errorf("writing file: %w", err)
+		return "", fmt.Errorf("MCPWriteFile: %w", err)
 	}
 
-	// Step 7: Return success message.
 	return fmt.Sprintf("wrote %s", path), nil
 }

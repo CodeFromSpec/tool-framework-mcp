@@ -1,165 +1,223 @@
-<!-- code-from-spec: ROOT/functional/tests/parsing/node_parsing@hVpxjVNPGPq9wkjk5Q1nxJ91jGo -->
+<!-- code-from-spec: ROOT/functional/tests/parsing/node_parsing@UoRNLjTYyMLUKrycB5gsHVCN1Rw -->
 
-# Node Parsing Tests
+# NodeParse Test Specification
 
-Each test case below describes the setup (file contents and function call),
-the action (`NodeParse`), and the expected outcome.
+Each test case is described with: setup (the file content and call arguments),
+actions (which function to call), and expected outcome.
 
 ---
 
 ## Happy Path
 
-### TC-HP-01: Minimal node — name section only
+---
 
-**Setup:** Create a node file for `ROOT/x`. File body:
+### HP-01: Minimal node — name section only
+
+**Setup**
+
+Create a node file for logical name `ROOT/x`.
+File body (no frontmatter):
+
 ```
 # ROOT/x
 A simple node.
 ```
 
-**Action:** Call `NodeParse("ROOT/x")`.
+**Action**
 
-**Expected:**
+Call `NodeParse("ROOT/x")`.
+
+**Expected outcome**
+
+No error.
 - `name_section.heading` = `"root/x"`
 - `name_section.raw_heading` = `"# ROOT/x"`
 - `name_section.content` = `["A simple node."]`
 - `name_section.subsections` = empty list
-- `public` = absent
-- `agent` = absent
+- `public` absent
+- `agent` absent
 - `private` = empty list
 
 ---
 
-### TC-HP-02: Full node — all section types
+### HP-02: Full node — all section types
 
-**Setup:** Create a node file for `ROOT/payments/fees`. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/payments/fees`.
+File body (with frontmatter block at top, any valid YAML between `---` delimiters):
+
 ```
 ---
-(frontmatter)
+(any valid frontmatter)
 ---
 # ROOT/payments/fees
-Description line.
+Fees description.
 # Public
 ## Interface
-Interface content line.
+Interface content.
 ## Constraints
-Constraints content line.
+Constraints content.
 # Agent
-Agent content line.
+Agent content.
 # Decisions
-Decisions content line.
+Decisions content.
 # Rationale
-Rationale content line.
+Rationale content.
 ```
 
-**Action:** Call `NodeParse("ROOT/payments/fees")`.
+**Action**
 
-**Expected:**
+Call `NodeParse("ROOT/payments/fees")`.
+
+**Expected outcome**
+
+No error.
 - `name_section.heading` = `"root/payments/fees"`
-- `name_section.content` = `["Description line."]`
+- `name_section.content` = `["Fees description."]`
 - `public` present
-  - `public.content` = `[]` (empty — no lines before first subsection)
-  - `public.subsections` has two entries:
-    - subsection 0: `heading` = `"interface"`, `content` = `["Interface content line."]`
-    - subsection 1: `heading` = `"constraints"`, `content` = `["Constraints content line."]`
+  - `public.content` = empty list (no lines before first `##`)
+  - `public.subsections` has two entries in order:
+    - entry 0: `heading` = `"interface"`, `content` = `["Interface content."]`
+    - entry 1: `heading` = `"constraints"`, `content` = `["Constraints content."]`
 - `agent` present
-  - `agent.content` = `["Agent content line."]`
+  - `agent.content` = `["Agent content."]`
 - `private` has two sections in order:
-  - section 0: `heading` = `"decisions"`, `content` = `["Decisions content line."]`
-  - section 1: `heading` = `"rationale"`, `content` = `["Rationale content line."]`
+  - section 0: `heading` = `"decisions"`, `content` = `["Decisions content."]`
+  - section 1: `heading` = `"rationale"`, `content` = `["Rationale content."]`
 
 ---
 
-### TC-HP-03: Node with no public section
+### HP-03: Node with no public section
 
-**Setup:** Create a node file for `ROOT/decisions`. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/decisions`.
+File body:
+
 ```
 # ROOT/decisions
-Description line.
+Some decision content.
 # Rationale
-Rationale content line.
+Rationale content.
 ```
 
-**Action:** Call `NodeParse("ROOT/decisions")`.
+**Action**
 
-**Expected:**
-- `public` = absent
-- `agent` = absent
-- `private` has one section: `heading` = `"rationale"`, `content` = `["Rationale content line."]`
+Call `NodeParse("ROOT/decisions")`.
+
+**Expected outcome**
+
+No error.
+- `public` absent
+- `agent` absent
+- `private` has one section:
+  - `heading` = `"rationale"`, `content` = `["Rationale content."]`
 
 ---
 
-### TC-HP-04: Public section with content before first subsection
+### HP-04: Public section with content before first subsection
 
-**Setup:** Create a node file for `ROOT/a`. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
 # ROOT/a
-Name content line.
+Name content.
 # Public
 Preamble line one.
 Preamble line two.
 ## Interface
-Interface content line.
+Interface content.
 ```
 
-**Action:** Call `NodeParse("ROOT/a")`.
+**Action**
 
-**Expected:**
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
 - `public.content` = `["Preamble line one.", "Preamble line two."]`
-- `public.subsections` has one entry: `heading` = `"interface"`, `content` = `["Interface content line."]`
+- `public.subsections` has one entry:
+  - `heading` = `"interface"`, `content` = `["Interface content."]`
 
 ---
 
-### TC-HP-05: Public section with no content or subsections
+### HP-05: Public section with no content or subsections
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/b
+# ROOT/a
 Name content.
 # Public
 # Agent
-Agent content line.
+Agent content.
 ```
 
-**Action:** Call `NodeParse("ROOT/b")`.
+(No lines between `# Public` and `# Agent`.)
 
-**Expected:**
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
 - `public` present
-  - `public.content` = `[]` (empty list)
-  - `public.subsections` = `[]` (empty list)
+- `public.content` = empty list
+- `public.subsections` = empty list
 
 ---
 
-### TC-HP-06: Agent section with subsections
+### HP-06: Agent section with subsections
 
-**Setup:** Create a node file for `ROOT/c`. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/c
+# ROOT/a
 Name content.
 # Agent
-Preamble line.
+Agent preamble.
 ## Implementation guidance
-Guidance content line.
+Implementation guidance content.
 ## Contracts
-Contracts content line.
+Contracts content.
 ```
 
-**Action:** Call `NodeParse("ROOT/c")`.
+**Action**
 
-**Expected:**
-- `agent.content` = `["Preamble line."]`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `agent.content` = `["Agent preamble."]`
 - `agent.raw_heading` = `"# Agent"`
-- `agent.subsections` has two entries:
-  - subsection 0: `heading` = `"implementation guidance"`, `content` = `["Guidance content line."]`
-  - subsection 1: `heading` = `"contracts"`, `content` = `["Contracts content line."]`
+- `agent.subsections` has two entries in order:
+  - entry 0: `heading` = `"implementation guidance"`, `content` = `["Implementation guidance content."]`
+  - entry 1: `heading` = `"contracts"`, `content` = `["Contracts content."]`
 
 ---
 
-### TC-HP-07: Private sections preserve file order
+### HP-07: Private sections preserve file order
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/d
+# ROOT/a
 Name content.
 # TODO
 TODO content.
@@ -169,9 +227,13 @@ Decisions content.
 Rationale content.
 ```
 
-**Action:** Call `NodeParse("ROOT/d")`.
+**Action**
 
-**Expected:**
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
 - `private` has three sections in order:
   - section 0: `heading` = `"todo"`
   - section 1: `heading` = `"decisions"`
@@ -179,88 +241,133 @@ Rationale content.
 
 ---
 
-### TC-HP-08: Content is raw markdown
+### HP-08: Content is raw markdown
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/f
+# ROOT/a
 Name content.
 # Public
-## Overview
-### A level-3 heading
-**Bold text**
+## Interface
+### Level three heading
+**bold text**
 ` `` `go
-fmt.Println("hello")
+some code
 ` `` `
 ```
-(The backtick fence is a real three-backtick fence. No blank lines between the
-subsection heading and the content lines.)
 
-**Action:** Call `NodeParse("ROOT/f")`.
+(Use actual backtick fences without spaces — shown above with spaces only for
+clarity in this document.)
 
-**Expected:**
-- `public.subsections` has one entry with `heading` = `"overview"`
-- That subsection's `content` = `["### A level-3 heading", "**Bold text**", "` ``` `go", "fmt.Println(\"hello\")", "` ``` `"]`
-  (each line as a raw string, including fence lines)
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public.subsections` has one entry with `heading` = `"interface"`
+- `public.subsections[0].content` = `["### Level three heading", "**bold text**", "` `` `go", "some code", "` `` `"]`
+  (each line is the raw string as read from the file)
 
 ---
 
 ## Heading Normalization
 
-### TC-HN-01: Case insensitive public detection
+---
 
-**Setup:** Create a node file. File body:
+### HN-01: Case insensitive public detection
+
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/g
+# ROOT/a
 Name content.
 # PUBLIC
 Public content.
 ```
 
-**Action:** Call `NodeParse("ROOT/g")`.
+**Action**
 
-**Expected:**
-- `public` present, `public.heading` = `"public"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public` present
+- `public.heading` = `"public"`
 
 ---
 
-### TC-HN-02: Public with mixed case and extra whitespace
+### HN-02: Public with mixed case and extra whitespace
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/h
+# ROOT/a
 Name content.
 #   PuBLiC
 Public content.
 ```
 
-**Action:** Call `NodeParse("ROOT/h")`.
+(Extra spaces between `#` and `PuBLiC`.)
 
-**Expected:**
-- `public` present, `public.heading` = `"public"`
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public` present
+- `public.heading` = `"public"`
 
 ---
 
-### TC-HN-03: Node name with varied whitespace
+### HN-03: Node name with varied whitespace
 
-**Setup:** Create a node file for `ROOT/e`. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/e`.
+File body:
+
 ```
 #   ROOT/e
 Name content.
 ```
 
-**Action:** Call `NodeParse("ROOT/e")`.
+(Extra spaces between `#` and `ROOT/e`.)
 
-**Expected:**
+**Action**
+
+Call `NodeParse("ROOT/e")`.
+
+**Expected outcome**
+
+No error.
 - `name_section.heading` = `"root/e"`
 
 ---
 
-### TC-HN-04: Subsection headings are normalized
+### HN-04: Subsection headings are normalized
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/i
+# ROOT/a
 Name content.
 # Public
 ##   Interface
@@ -269,105 +376,153 @@ Interface content.
 Constraints content.
 ```
 
-**Action:** Call `NodeParse("ROOT/i")`.
+**Action**
 
-**Expected:**
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
 - `public.subsections` has two entries:
-  - subsection 0: `heading` = `"interface"`
-  - subsection 1: `heading` = `"constraints"`
+  - entry 0: `heading` = `"interface"`
+  - entry 1: `heading` = `"constraints"`
 
 ---
 
-### TC-HN-05: Closing hashes are stripped
+### HN-05: Closing hashes are stripped
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/j
+# ROOT/a
 Name content.
 # Public
 ## Interface ##
 Interface content.
 ```
 
-**Action:** Call `NodeParse("ROOT/j")`.
+**Action**
 
-**Expected:**
-- Subsection `heading` = `"interface"`
-- Subsection `raw_heading` = `"## Interface ##"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public.subsections[0].heading` = `"interface"`
+- `public.subsections[0].raw_heading` = `"## Interface ##"`
 
 ---
 
 ## Raw Heading Preservation
 
-### TC-RH-01: Raw heading preserves original line
+---
 
-**Setup:** Create a node file. File body:
+### RH-01: Raw heading preserves original line
+
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/k
+# ROOT/a
 Name content.
 # Public
 ## Interface
 Interface content.
 ```
 
-**Action:** Call `NodeParse("ROOT/k")`.
+**Action**
 
-**Expected:**
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
 - `public.raw_heading` = `"# Public"`
-- First subsection `raw_heading` = `"## Interface"`
+- `public.subsections[0].raw_heading` = `"## Interface"`
 
 ---
 
-### TC-RH-02: Raw heading preserves case
+### RH-02: Raw heading preserves case
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/l
+# ROOT/a
 Name content.
 # PUBLIC
 Public content.
 ```
 
-**Action:** Call `NodeParse("ROOT/l")`.
+**Action**
 
-**Expected:**
-- `public.heading` = `"public"` (normalized)
-- `public.raw_heading` = `"# PUBLIC"` (original)
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public.heading` = `"public"`
+- `public.raw_heading` = `"# PUBLIC"`
 
 ---
 
-### TC-RH-03: Raw heading preserves closing hashes
+### RH-03: Raw heading preserves closing hashes
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/m
+# ROOT/a
 Name content.
 # Public
 ## Foo ##
 Foo content.
 ```
 
-**Action:** Call `NodeParse("ROOT/m")`.
+**Action**
 
-**Expected:**
-- Subsection `heading` = `"foo"`
-- Subsection `raw_heading` = `"## Foo ##"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public.subsections[0].heading` = `"foo"`
+- `public.subsections[0].raw_heading` = `"## Foo ##"`
 
 ---
 
-### TC-RH-04: Raw heading preserves extra whitespace
+### RH-04: Raw heading preserves extra whitespace
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/n
+# ROOT/a
 Name content.
 #   Public
 Public content.
 ```
 
-**Action:** Call `NodeParse("ROOT/n")`.
+(Extra spaces between `#` and `Public`.)
 
-**Expected:**
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
 - `public.heading` = `"public"`
 - `public.raw_heading` = `"#   Public"`
 
@@ -375,424 +530,609 @@ Public content.
 
 ## Content Boundaries
 
-### TC-CB-01: Level-3 and deeper headings are content
+---
 
-**Setup:** Create a node file. File body:
+### CB-01: Level-3 and deeper headings are content
+
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/o
+# ROOT/a
 Name content.
 # Public
-## Overview
+## Interface
 ### Sub-sub heading
 #### Even deeper
+Interface content.
 ```
 
-**Action:** Call `NodeParse("ROOT/o")`.
+**Action**
 
-**Expected:**
-- `public.subsections` has one entry: `heading` = `"overview"`
-- That subsection's `content` = `["### Sub-sub heading", "#### Even deeper"]`
-  (those lines are content, not structural headings)
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public.subsections[0].heading` = `"interface"`
+- `public.subsections[0].content` contains `"### Sub-sub heading"` and
+  `"#### Even deeper"` as regular content lines (not treated as structural
+  headings).
 
 ---
 
-### TC-CB-02: Fenced code blocks with heading-like content (backtick fence)
+### CB-02: Fenced code blocks with heading-like content (backtick fence)
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/p
+# ROOT/a
 Name content.
 # Public
-## Overview
-` ``` `
-# this looks like a heading
-## also looks like a heading
-` ``` `
+## Interface
+` `` `
+# Looks like a heading
+## Also looks like a heading
+` `` `
+Real content.
 ```
-(Real three-backtick fences.)
 
-**Action:** Call `NodeParse("ROOT/p")`.
+(Use actual backtick fences.)
 
-**Expected:**
-- `public.subsections` has one entry: `heading` = `"overview"`
-- That subsection's `content` includes the fence lines and the lines starting
-  with `#` and `##` as raw strings — they are NOT treated as structural headings.
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public.subsections` has exactly one entry with `heading` = `"interface"`.
+- The lines `"# Looks like a heading"` and `"## Also looks like a heading"`
+  appear inside `public.subsections[0].content`, not as new sections or
+  subsections.
 
 ---
 
-### TC-CB-03: Fenced code block with tilde fence
+### CB-03: Fenced code block with tilde fence
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/q
+# ROOT/a
 Name content.
 # Public
-## Overview
+## Interface
 ~~~
-# looks like a level-1 heading
+# Inside tilde fence
 ~~~
+Real content.
 ```
 
-**Action:** Call `NodeParse("ROOT/q")`.
+**Action**
 
-**Expected:**
-- The line `"# looks like a level-1 heading"` is in the subsection content,
-  not treated as a structural heading.
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `"# Inside tilde fence"` appears in `public.subsections[0].content` as a
+  raw content line, not treated as a structural heading.
 
 ---
 
-### TC-CB-04: Fenced code block with language tag
+### CB-04: Fenced code block with language tag
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/r
+# ROOT/a
 Name content.
 # Public
-## Overview
-` ``` `python
-# looks like a level-1 heading
-` ``` `
+## Interface
+` `` `python
+# Inside fenced block
+` `` `
+Real content.
 ```
-(Real three-backtick fences with `python` language tag.)
 
-**Action:** Call `NodeParse("ROOT/r")`.
+(Use actual backtick fences with `python` language tag.)
 
-**Expected:**
-- The line `"# looks like a level-1 heading"` is in the subsection content,
-  not treated as a structural heading.
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `"# Inside fenced block"` appears in `public.subsections[0].content` as a
+  raw content line, not treated as a structural heading.
 
 ---
 
-### TC-CB-05: Blank lines between heading and content are preserved
+### CB-05: Blank lines between heading and content are preserved
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/s
+# ROOT/a
 Name content.
 # Public
 
-Content line.
+Public content line.
 ```
-(One blank line between `# Public` and `Content line.`)
 
-**Action:** Call `NodeParse("ROOT/s")`.
+(There is one blank line between `# Public` and `Public content line.`)
 
-**Expected:**
-- `public.content` = `["", "Content line."]`
-  (the blank line appears as an empty string at index 0)
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `public.content` = `["", "Public content line."]`
+  (the blank line is preserved as an empty string at index 0)
 
 ---
 
 ## Frontmatter Handling
 
-### TC-FM-01: Frontmatter is skipped
+---
 
-**Setup:** Create a node file. File:
+### FM-01: Frontmatter is skipped
+
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File content:
+
 ```
 ---
 depends_on: []
 ---
-# ROOT/t
+# ROOT/a
 Name content.
 ```
 
-**Action:** Call `NodeParse("ROOT/t")`.
+**Action**
 
-**Expected:**
-- No error.
-- Frontmatter is ignored; body is parsed correctly.
-- `name_section.heading` = `"root/t"`, `name_section.content` = `["Name content."]`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `name_section.heading` = `"root/a"`
+- `name_section.content` = `["Name content."]`
+- Frontmatter content does not appear in any section content.
 
 ---
 
-### TC-FM-02: No frontmatter delimiters
+### FM-02: No frontmatter delimiters
 
-**Setup:** Create a node file with no `---` delimiters at all. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a` with no `---` delimiters at all.
+File body:
+
 ```
-# ROOT/u
+# ROOT/a
 Name content.
 ```
 
-**Action:** Call `NodeParse("ROOT/u")`.
+**Action**
 
-**Expected:**
-- No error.
-- Body parsed correctly: `name_section.heading` = `"root/u"`,
-  `name_section.content` = `["Name content."]`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+No error.
+- `name_section.heading` = `"root/a"`
+- `name_section.content` = `["Name content."]`
 
 ---
 
-### TC-FM-03: Unclosed frontmatter
+### FM-03: Unclosed frontmatter
 
-**Setup:** Create a node file that starts with `---` but has no closing `---`. File:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File content:
+
 ```
 ---
 depends_on: []
-# ROOT/v
+# ROOT/a
 Name content.
 ```
 
-**Action:** Call `NodeParse("ROOT/v")`.
+(Opening `---` present but no closing `---`.)
 
-**Expected:**
-- Error: `"unexpected content before first heading"`
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `UnexpectedContentBeforeFirstHeading`.
 
 ---
 
 ## Failure Cases
 
-### TC-FC-01: ARTIFACT reference rejected
+---
 
-**Setup:** No file setup needed.
+### FC-01: ARTIFACT reference rejected
 
-**Action:** Call `NodeParse("ARTIFACT/x(y)")`.
+**Setup**
 
-**Expected:**
-- Error: `"not a ROOT reference"`
+No file needed.
+
+**Action**
+
+Call `NodeParse("ARTIFACT/x(y)")`.
+
+**Expected outcome**
+
+Error `NotARootReference`.
 
 ---
 
-### TC-FC-02: Qualifier rejected
+### FC-02: Qualifier rejected
 
-**Setup:** No file setup needed.
+**Setup**
 
-**Action:** Call `NodeParse("ROOT/x(interface)")`.
+No file needed.
 
-**Expected:**
-- Error: `"has qualifier"`
+**Action**
 
----
+Call `NodeParse("ROOT/x(interface)")`.
 
-### TC-FC-03: File does not exist
+**Expected outcome**
 
-**Setup:** Use a logical name whose corresponding file does not exist on disk.
-
-**Action:** Call `NodeParse` with that logical name.
-
-**Expected:**
-- Error: `"file unreadable"`
+Error `HasQualifier`.
 
 ---
 
-### TC-FC-04: Propagates path errors
+### FC-03: File does not exist
 
-**Setup:** Use a logical name that resolves to a path containing traversal
-(e.g., a name that after path resolution produces an invalid or out-of-bounds path).
+**Setup**
 
-**Action:** Call `NodeParse` with that logical name.
+Use a logical name whose corresponding file does not exist on disk.
 
-**Expected:**
-- The path error from `FileOpen` is propagated as-is (not wrapped as
-  `"file unreadable"`).
+**Action**
+
+Call `NodeParse` with that logical name (e.g., `"ROOT/does/not/exist"`).
+
+**Expected outcome**
+
+Error `FileUnreadable`.
 
 ---
 
-### TC-FC-05: Content before first heading
+### FC-04: Propagates path errors
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Use a logical name that, when resolved to a file path, produces a path
+error (for example, a name that results in path traversal after resolution).
+
+**Action**
+
+Call `NodeParse` with that logical name.
+
+**Expected outcome**
+
+The path error from the path resolution layer is propagated as-is.
+
+---
+
+### FC-05: Content before first heading
+
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-Some text before any heading.
-# ROOT/w
+This line appears before any heading.
+# ROOT/a
 Name content.
 ```
 
-**Action:** Call `NodeParse("ROOT/w")`.
+**Action**
 
-**Expected:**
-- Error: `"unexpected content before first heading"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `UnexpectedContentBeforeFirstHeading`.
 
 ---
 
-### TC-FC-06: Level-2 heading before any level-1 heading
+### FC-06: Level-2 heading before any level-1 heading
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-## Subsection before level-1
-# ROOT/aa
+## Early subsection
+# ROOT/a
 Name content.
 ```
 
-**Action:** Call `NodeParse("ROOT/aa")`.
+**Action**
 
-**Expected:**
-- Error: `"unexpected content before first heading"`
+Call `NodeParse("ROOT/a")`.
 
----
+**Expected outcome**
 
-### TC-FC-07: Empty body
-
-**Setup:** Create a node file with no body content (empty file, or only
-frontmatter with an empty body after the closing `---`).
-
-**Action:** Call `NodeParse` with the corresponding logical name.
-
-**Expected:**
-- Error: `"unexpected content before first heading"`
+Error `UnexpectedContentBeforeFirstHeading`.
 
 ---
 
-### TC-FC-08: Node name does not match logical name
+### FC-07: Empty body
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a` with an empty body (no content,
+or only a frontmatter block and nothing after it).
+
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `UnexpectedContentBeforeFirstHeading`.
+
+---
+
+### FC-08: Node name does not match logical name
+
+**Setup**
+
+Create a node file whose first heading text is `ROOT/other`.
+Call `NodeParse` with `"ROOT/a"`.
+
+File body:
+
 ```
-# ROOT/something-else
+# ROOT/other
+Some content.
+```
+
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `NodeNameDoesNotMatch`.
+
+---
+
+### FC-09: Node name case mismatch is not an error
+
+**Setup**
+
+Create a node file for logical name `ROOT/A` (uppercase in the call),
+but the heading uses lowercase `root/a`.
+
+File body:
+
+```
+# root/a
 Name content.
 ```
 
-**Action:** Call `NodeParse("ROOT/different")`.
+**Action**
 
-**Expected:**
-- Error: `"node name does not match"`
+Call `NodeParse("ROOT/A")`.
 
----
+**Expected outcome**
 
-### TC-FC-09: Node name case mismatch is not an error
-
-**Setup:** Create a node file. File body:
-```
-# root/ab
-Name content.
-```
-
-**Action:** Call `NodeParse("ROOT/ab")`.
-
-**Expected:**
-- No error.
-- `name_section.heading` = `"root/ab"` (normalization makes both equal).
+No error. Normalization makes both sides equal (`"root/a"`).
 
 ---
 
-### TC-FC-10: Duplicate public section — same case
+### FC-10: Duplicate public section — same case
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/ac
+# ROOT/a
 Name content.
 # Public
-Public content 1.
+First public content.
 # Public
-Public content 2.
+Second public content.
 ```
 
-**Action:** Call `NodeParse("ROOT/ac")`.
+**Action**
 
-**Expected:**
-- Error: `"duplicate public section"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `DuplicatePublicSection`.
 
 ---
 
-### TC-FC-11: Duplicate public section — different case
+### FC-11: Duplicate public section — different case
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/ad
+# ROOT/a
 Name content.
 # Public
-Public content 1.
+First public content.
 # PUBLIC
-Public content 2.
+Second public content.
 ```
 
-**Action:** Call `NodeParse("ROOT/ad")`.
+**Action**
 
-**Expected:**
-- Error: `"duplicate public section"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `DuplicatePublicSection`.
 
 ---
 
-### TC-FC-12: Duplicate agent section
+### FC-12: Duplicate agent section
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/ae
+# ROOT/a
 Name content.
 # Agent
-Agent content 1.
+First agent content.
 # Agent
-Agent content 2.
+Second agent content.
 ```
 
-**Action:** Call `NodeParse("ROOT/ae")`.
+**Action**
 
-**Expected:**
-- Error: `"duplicate agent section"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `DuplicateAgentSection`.
 
 ---
 
-### TC-FC-13: Duplicate subsection in public — same case
+### FC-13: Duplicate subsection in public — same case
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/af
+# ROOT/a
 Name content.
 # Public
 ## Interface
-Interface content 1.
+First interface content.
 ## Interface
-Interface content 2.
+Second interface content.
 ```
 
-**Action:** Call `NodeParse("ROOT/af")`.
+**Action**
 
-**Expected:**
-- Error: `"duplicate subsection"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `DuplicateSubsection`.
 
 ---
 
-### TC-FC-14: Duplicate subsection in public — different case
+### FC-14: Duplicate subsection in public — different case
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/ag
+# ROOT/a
 Name content.
 # Public
 ## Interface
-Interface content 1.
+First.
 ## INTERFACE
-Interface content 2.
+Second.
 ```
 
-**Action:** Call `NodeParse("ROOT/ag")`.
+**Action**
 
-**Expected:**
-- Error: `"duplicate subsection"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `DuplicateSubsection`.
 
 ---
 
-### TC-FC-15: Duplicate subsection in public — whitespace variation
+### FC-15: Duplicate subsection in public — whitespace variation
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/ah
+# ROOT/a
 Name content.
 # Public
 ## Interface
-Interface content 1.
+First.
 ##   Interface
-Interface content 2.
+Second.
 ```
 
-**Action:** Call `NodeParse("ROOT/ah")`.
+(Extra spaces in the second heading.)
 
-**Expected:**
-- Error: `"duplicate subsection"`
+**Action**
+
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `DuplicateSubsection`.
 
 ---
 
-### TC-FC-16: Duplicate subsection in agent
+### FC-16: Duplicate subsection in agent
 
-**Setup:** Create a node file. File body:
+**Setup**
+
+Create a node file for logical name `ROOT/a`.
+File body:
+
 ```
-# ROOT/ai
+# ROOT/a
 Name content.
 # Agent
 ## Guidance
-Guidance content 1.
+First guidance.
 ## Guidance
-Guidance content 2.
+Second guidance.
 ```
 
-**Action:** Call `NodeParse("ROOT/ai")`.
+**Action**
 
-**Expected:**
-- Error: `"duplicate subsection"`
+Call `NodeParse("ROOT/a")`.
+
+**Expected outcome**
+
+Error `DuplicateSubsection`.

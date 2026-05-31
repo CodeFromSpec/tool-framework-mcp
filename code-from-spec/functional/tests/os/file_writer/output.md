@@ -1,143 +1,143 @@
-<!-- code-from-spec: ROOT/functional/tests/os/file_writer@0nJhGWugLvOX7gEXetCTCyxWETM -->
+<!-- code-from-spec: ROOT/functional/tests/os/file_writer@L9y78mBRM-PVFWj38FzTADuEXaw -->
 
-# Test Specification: FileWrite
-
----
+# FileWrite Test Specification
 
 ## Happy Path
 
----
+### Writes content to a new file
 
-### Test: Writes content to a new file
+Setup:
+- A path that points to a file that does not exist.
 
-**Setup**
-- Ensure the target file does not exist.
+Actions:
+1. Call `FileWrite` with the path and content `"hello world"`.
 
-**Actions**
-1. Call `FileWrite` with a valid `cfs_path` pointing to a non-existent file and content `"hello world"`.
-
-**Expected outcome**
+Expected outcome:
 - No error is returned.
-- The file exists at the resolved path.
+- The file exists at the given path.
 - The file content is exactly `"hello world"`.
 
 ---
 
-### Test: Overwrites an existing file
+### Overwrites an existing file
 
-**Setup**
-- Create a file at the target path with content `"old"`.
+Setup:
+- A file already exists at the target path with content `"old"`.
 
-**Actions**
-1. Call `FileWrite` with the same `cfs_path` and content `"new"`.
+Actions:
+1. Call `FileWrite` with the same path and content `"new"`.
 
-**Expected outcome**
+Expected outcome:
 - No error is returned.
 - The file content is exactly `"new"`.
-- No trace of `"old"` remains in the file.
+- The old content `"old"` is gone entirely.
 
 ---
 
-### Test: Creates intermediate directories
+### Creates intermediate directories
 
-**Setup**
-- Ensure none of the intermediate directories (e.g., `"a/b/c/"`) exist.
+Setup:
+- A path whose parent directories do not exist
+  (e.g., `"a/b/c/file.txt"` where `a`, `b`, and `c` are absent).
 
-**Actions**
-1. Call `FileWrite` with a `cfs_path` whose parent directories do not exist (e.g., `"a/b/c/file.txt"`) and content `"hello"`.
+Actions:
+1. Call `FileWrite` with that path and any non-empty content.
 
-**Expected outcome**
+Expected outcome:
 - No error is returned.
-- All intermediate directories are created.
-- The file exists at the resolved path with content `"hello"`.
+- All intermediate directories (`a`, `a/b`, `a/b/c`) are created.
+- The file exists at the full path with the given content.
 
 ---
 
-### Test: Preserves UTF-8 content
+### Preserves UTF-8 content
 
-**Setup**
-- No prior state required.
+Setup:
+- A path to a file that does not exist.
 
-**Actions**
-1. Call `FileWrite` with a valid `cfs_path` and content `"café 日本語 🎉"`.
-2. Read the file back from the resolved path.
+Actions:
+1. Call `FileWrite` with content `"café 日本語 🎉"`.
+2. Read the file back as raw bytes.
 
-**Expected outcome**
+Expected outcome:
 - No error is returned.
-- The file content matches `"café 日本語 🎉"` byte-for-byte.
+- The raw bytes of the file match the UTF-8 encoding of `"café 日本語 🎉"` byte-for-byte.
 
 ---
 
-### Test: Preserves line endings as received
+### Preserves line endings as received
 
-**Setup**
-- No prior state required.
+Setup:
+- A path to a file that does not exist.
 
-**Actions**
-1. Call `FileWrite` with a valid `cfs_path` and content `"alpha\r\nbeta\r\n"` (CRLF line endings).
-2. Read the file back from the resolved path in binary mode.
+Actions:
+1. Call `FileWrite` with content `"alpha\r\nbeta\r\n"` (CRLF line endings).
+2. Read the file back as raw bytes.
 
-**Expected outcome**
+Expected outcome:
 - No error is returned.
-- The file content contains CRLF (`\r\n`) line endings — not normalized to LF.
-- The content matches `"alpha\r\nbeta\r\n"` byte-for-byte.
+- The raw bytes of the file contain CRLF sequences — no normalization has occurred.
 
 ---
 
-### Test: Writes empty content
+### Writes empty content
 
-**Setup**
-- No prior state required.
+Setup:
+- A path to a file that does not exist.
 
-**Actions**
-1. Call `FileWrite` with a valid `cfs_path` and an empty string as content.
+Actions:
+1. Call `FileWrite` with an empty string as content.
 
-**Expected outcome**
+Expected outcome:
 - No error is returned.
-- The file exists at the resolved path.
-- The file contains zero bytes.
+- The file exists at the given path.
+- The file size is zero bytes.
 
 ---
 
 ## Failure Cases
 
----
+### Propagates validation errors from PathCfsToOs
 
-### Test: Propagates validation errors from PathCfsToOs
+Setup:
+- An invalid `PathCfs` value that would escape the base directory,
+  e.g., `"../../outside"`.
 
-**Setup**
-- No prior state required.
+Actions:
+1. Call `FileWrite` with the invalid path and any content.
 
-**Actions**
-1. Call `FileWrite` with an invalid `cfs_path` that attempts directory traversal (e.g., `"../../outside"`).
-
-**Expected outcome**
-- An error `"directory traversal"` is returned, propagated from `PathCfsToOs`.
+Expected outcome:
+- Error `DirectoryTraversal` is returned (propagated from PathUtils).
 - No file is created.
 - No directory is created.
 
 ---
 
-### Test: Cannot create directory
+### Cannot create directory
 
-**Setup**
-- Create a regular file at a path that will conflict with a required intermediate directory (e.g., create a file named `"a"`, then attempt to write to `"a/b/file.txt"`).
+Setup:
+- A path where an intermediate path component conflicts with
+  an existing file (e.g., `"a/b/file.txt"` where `"a/b"` already
+  exists as a regular file, not a directory).
 
-**Actions**
-1. Call `FileWrite` with a `cfs_path` where an intermediate directory component conflicts with an existing file.
+Actions:
+1. Call `FileWrite` with that path and any content.
 
-**Expected outcome**
-- An error `"cannot create directory"` is returned.
+Expected outcome:
+- Error `CannotCreateDirectory` is returned.
+- No new file is created at the target path.
 
 ---
 
-### Test: Cannot write file
+### Cannot write file
 
-**Setup**
-- Create a directory at the target path (e.g., a directory named `"target"` where `"target"` is the intended file path).
+Setup:
+- A path that resolves to an existing directory
+  (not a file).
 
-**Actions**
-1. Call `FileWrite` with a `cfs_path` that resolves to an existing directory (not a file).
+Actions:
+1. Call `FileWrite` with that path and any content.
 
-**Expected outcome**
-- An error `"cannot write file"` is returned.
+Expected outcome:
+- Error `CannotWriteFile` is returned.
+- The directory is not modified.

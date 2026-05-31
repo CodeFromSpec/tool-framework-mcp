@@ -1,349 +1,449 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/logical_names@JTj8knDgfRpOusK77S61liPkfTo -->
+<!-- code-from-spec: ROOT/functional/tests/utils/logical_names@gUBif-oqEp65B7IO508Jof4kuig -->
 
-# Test Specification: logical_names utilities
+# Test Specification: Logical Names Utilities
 
 ---
 
 ## LogicalNameToPath
 
-### Test: ROOT alone
+---
 
-- Setup: none
-- Action: call `LogicalNameToPath` with `"ROOT"`
-- Expected outcome: returns `code-from-spec/_node.md`
+### TC-01: ROOT alone
+
+**Setup:** none
+
+**Action:** Call `LogicalNameToPath` with input `"ROOT"`.
+
+**Expected outcome:** Returns `code-from-spec/_node.md`.
 
 ---
 
-### Test: ROOT with path
+### TC-02: ROOT with path
 
-- Setup: none
-- Action: call `LogicalNameToPath` with `"ROOT/payments/processor"`
-- Expected outcome: returns `code-from-spec/payments/processor/_node.md`
+**Setup:** none
 
----
+**Action:** Call `LogicalNameToPath` with input `"ROOT/payments/processor"`.
 
-### Test: Strips qualifier before resolving
-
-- Setup: none
-- Action: call `LogicalNameToPath` with `"ROOT/x/y(interface)"`
-- Expected outcome: returns `code-from-spec/x/y/_node.md`
+**Expected outcome:** Returns `code-from-spec/payments/processor/_node.md`.
 
 ---
 
-### Test: Rejects ARTIFACT reference
+### TC-03: Strips qualifier before resolving
 
-- Setup: none
-- Action: call `LogicalNameToPath` with `"ARTIFACT/x(y)"`
-- Expected outcome: raises error `"unsupported reference"`
+**Setup:** none
 
----
+**Action:** Call `LogicalNameToPath` with input `"ROOT/x/y(interface)"`.
 
-### Test: Rejects unrecognized prefix
-
-- Setup: none
-- Action: call `LogicalNameToPath` with `"UNKNOWN/something"`
-- Expected outcome: raises error `"unsupported reference"`
+**Expected outcome:** Returns `code-from-spec/x/y/_node.md`.
 
 ---
 
-### Test: Rejects empty string
+### TC-04: Rejects ARTIFACT reference
 
-- Setup: none
-- Action: call `LogicalNameToPath` with `""`
-- Expected outcome: raises error `"unsupported reference"`
+**Setup:** none
+
+**Action:** Call `LogicalNameToPath` with input `"ARTIFACT/x(y)"`.
+
+**Expected outcome:** Raises error `UnsupportedReference`.
+
+---
+
+### TC-05: Rejects unrecognized prefix
+
+**Setup:** none
+
+**Action:** Call `LogicalNameToPath` with input `"UNKNOWN/something"`.
+
+**Expected outcome:** Raises error `UnsupportedReference`.
+
+---
+
+### TC-06: Rejects empty string
+
+**Setup:** none
+
+**Action:** Call `LogicalNameToPath` with input `""`.
+
+**Expected outcome:** Raises error `UnsupportedReference`.
 
 ---
 
 ## LogicalNameFromPath
 
-### Test: Root node
+---
 
-- Setup: none
-- Action: call `LogicalNameFromPath` with `code-from-spec/_node.md`
-- Expected outcome: returns `"ROOT"`
+### TC-07: Root node
+
+**Setup:** none
+
+**Action:** Call `LogicalNameFromPath` with input `code-from-spec/_node.md`.
+
+**Expected outcome:** Returns `"ROOT"`.
 
 ---
 
-### Test: Nested node
+### TC-08: Nested node
 
-- Setup: none
-- Action: call `LogicalNameFromPath` with `code-from-spec/x/y/_node.md`
-- Expected outcome: returns `"ROOT/x/y"`
+**Setup:** none
 
----
+**Action:** Call `LogicalNameFromPath` with input `code-from-spec/x/y/_node.md`.
 
-### Test: Rejects non-node path
-
-- Setup: none
-- Action: call `LogicalNameFromPath` with `internal/config/config.go`
-- Expected outcome: raises error `"invalid path"`
+**Expected outcome:** Returns `"ROOT/x/y"`.
 
 ---
 
-### Test: Rejects path without _node.md
+### TC-09: Rejects non-node path
 
-- Setup: none
-- Action: call `LogicalNameFromPath` with `code-from-spec/x/y/output.md`
-- Expected outcome: raises error `"invalid path"`
+**Setup:** none
+
+**Action:** Call `LogicalNameFromPath` with input `internal/config/config.go`.
+
+**Expected outcome:** Raises error `InvalidPath`.
+
+---
+
+### TC-10: Rejects path without _node.md
+
+**Setup:** none
+
+**Action:** Call `LogicalNameFromPath` with input `code-from-spec/x/y/output.md`.
+
+**Expected outcome:** Raises error `InvalidPath`.
 
 ---
 
 ## LogicalNameGetParent
 
-### Test: ROOT/x parent is ROOT
+---
 
-- Setup: none
-- Action: call `LogicalNameGetParent` with `"ROOT/domain"`
-- Expected outcome: returns `"ROOT"`
+### TC-11: ROOT/x parent is ROOT
+
+**Setup:** none
+
+**Action:** Call `LogicalNameGetParent` with input `"ROOT/domain"`.
+
+**Expected outcome:** Returns `"ROOT"`.
 
 ---
 
-### Test: ROOT/x/y parent is ROOT/x
+### TC-12: ROOT/x/y parent is ROOT/x
 
-- Setup: none
-- Action: call `LogicalNameGetParent` with `"ROOT/domain/config"`
-- Expected outcome: returns `"ROOT/domain"`
+**Setup:** none
 
----
+**Action:** Call `LogicalNameGetParent` with input `"ROOT/domain/config"`.
 
-### Test: Strips qualifier before computing parent
-
-- Setup: none
-- Action: call `LogicalNameGetParent` with `"ROOT/domain/config(interface)"`
-- Expected outcome: returns `"ROOT/domain"`
+**Expected outcome:** Returns `"ROOT/domain"`.
 
 ---
 
-### Test: ROOT has no parent
+### TC-13: Strips qualifier before computing parent
 
-- Setup: none
-- Action: call `LogicalNameGetParent` with `"ROOT"`
-- Expected outcome: raises error `"no parent"`
+**Setup:** none
+
+**Action:** Call `LogicalNameGetParent` with input `"ROOT/domain/config(interface)"`.
+
+**Expected outcome:** Returns `"ROOT/domain"`.
 
 ---
 
-### Test: Rejects ARTIFACT reference
+### TC-14: ROOT has no parent
 
-- Setup: none
-- Action: call `LogicalNameGetParent` with `"ARTIFACT/x(y)"`
-- Expected outcome: raises error `"not a ROOT reference"`
+**Setup:** none
+
+**Action:** Call `LogicalNameGetParent` with input `"ROOT"`.
+
+**Expected outcome:** Raises error `NoParent`.
+
+---
+
+### TC-15: Rejects ARTIFACT reference
+
+**Setup:** none
+
+**Action:** Call `LogicalNameGetParent` with input `"ARTIFACT/x(y)"`.
+
+**Expected outcome:** Raises error `NotARootReference`.
 
 ---
 
 ## LogicalNameGetQualifier
 
-### Test: Extracts qualifier from ROOT reference
+---
 
-- Setup: none
-- Action: call `LogicalNameGetQualifier` with `"ROOT/x/y(interface)"`
-- Expected outcome: returns `"interface"`
+### TC-16: Extracts qualifier from ROOT reference
+
+**Setup:** none
+
+**Action:** Call `LogicalNameGetQualifier` with input `"ROOT/x/y(interface)"`.
+
+**Expected outcome:** Returns `"interface"`.
 
 ---
 
-### Test: Extracts qualifier from ARTIFACT reference
+### TC-17: Extracts qualifier from ARTIFACT reference
 
-- Setup: none
-- Action: call `LogicalNameGetQualifier` with `"ARTIFACT/x/y(id)"`
-- Expected outcome: returns `"id"`
+**Setup:** none
 
----
+**Action:** Call `LogicalNameGetQualifier` with input `"ARTIFACT/x/y(id)"`.
 
-### Test: Returns absent when no qualifier
-
-- Setup: none
-- Action: call `LogicalNameGetQualifier` with `"ROOT/x/y"`
-- Expected outcome: returns absent
+**Expected outcome:** Returns `"id"`.
 
 ---
 
-### Test: Returns absent for ROOT alone
+### TC-18: Returns absent when no qualifier
 
-- Setup: none
-- Action: call `LogicalNameGetQualifier` with `"ROOT"`
-- Expected outcome: returns absent
+**Setup:** none
+
+**Action:** Call `LogicalNameGetQualifier` with input `"ROOT/x/y"`.
+
+**Expected outcome:** Returns absent.
+
+---
+
+### TC-19: Returns absent for ROOT alone
+
+**Setup:** none
+
+**Action:** Call `LogicalNameGetQualifier` with input `"ROOT"`.
+
+**Expected outcome:** Returns absent.
 
 ---
 
 ## LogicalNameStripQualifier
 
-### Test: Strips qualifier from ROOT reference
+---
 
-- Setup: none
-- Action: call `LogicalNameStripQualifier` with `"ROOT/x/y(interface)"`
-- Expected outcome: returns `"ROOT/x/y"`
+### TC-20: Strips qualifier from ROOT reference
+
+**Setup:** none
+
+**Action:** Call `LogicalNameStripQualifier` with input `"ROOT/x/y(interface)"`.
+
+**Expected outcome:** Returns `"ROOT/x/y"`.
 
 ---
 
-### Test: Strips qualifier from ARTIFACT reference
+### TC-21: Strips qualifier from ARTIFACT reference
 
-- Setup: none
-- Action: call `LogicalNameStripQualifier` with `"ARTIFACT/x/y(id)"`
-- Expected outcome: returns `"ARTIFACT/x/y"`
+**Setup:** none
 
----
+**Action:** Call `LogicalNameStripQualifier` with input `"ARTIFACT/x/y(id)"`.
 
-### Test: No qualifier — returns unchanged
-
-- Setup: none
-- Action: call `LogicalNameStripQualifier` with `"ROOT/x/y"`
-- Expected outcome: returns `"ROOT/x/y"`
+**Expected outcome:** Returns `"ARTIFACT/x/y"`.
 
 ---
 
-### Test: ROOT alone — returns unchanged
+### TC-22: No qualifier — returns unchanged
 
-- Setup: none
-- Action: call `LogicalNameStripQualifier` with `"ROOT"`
-- Expected outcome: returns `"ROOT"`
+**Setup:** none
+
+**Action:** Call `LogicalNameStripQualifier` with input `"ROOT/x/y"`.
+
+**Expected outcome:** Returns `"ROOT/x/y"`.
 
 ---
 
-### Test: Empty string — returns unchanged
+### TC-23: ROOT alone — returns unchanged
 
-- Setup: none
-- Action: call `LogicalNameStripQualifier` with `""`
-- Expected outcome: returns `""`
+**Setup:** none
+
+**Action:** Call `LogicalNameStripQualifier` with input `"ROOT"`.
+
+**Expected outcome:** Returns `"ROOT"`.
+
+---
+
+### TC-24: Empty string — returns unchanged
+
+**Setup:** none
+
+**Action:** Call `LogicalNameStripQualifier` with input `""`.
+
+**Expected outcome:** Returns `""`.
 
 ---
 
 ## LogicalNameHasParent
 
-### Test: ROOT alone
+---
 
-- Setup: none
-- Action: call `LogicalNameHasParent` with `"ROOT"`
-- Expected outcome: returns false
+### TC-25: ROOT alone
+
+**Setup:** none
+
+**Action:** Call `LogicalNameHasParent` with input `"ROOT"`.
+
+**Expected outcome:** Returns false.
 
 ---
 
-### Test: ROOT with path
+### TC-26: ROOT with path
 
-- Setup: none
-- Action: call `LogicalNameHasParent` with `"ROOT/domain/config"`
-- Expected outcome: returns true
+**Setup:** none
 
----
+**Action:** Call `LogicalNameHasParent` with input `"ROOT/domain/config"`.
 
-### Test: ROOT with qualifier
-
-- Setup: none
-- Action: call `LogicalNameHasParent` with `"ROOT/domain/config(interface)"`
-- Expected outcome: returns true
+**Expected outcome:** Returns true.
 
 ---
 
-### Test: ARTIFACT reference
+### TC-27: ROOT with qualifier
 
-- Setup: none
-- Action: call `LogicalNameHasParent` with `"ARTIFACT/x(y)"`
-- Expected outcome: returns false
+**Setup:** none
+
+**Action:** Call `LogicalNameHasParent` with input `"ROOT/domain/config(interface)"`.
+
+**Expected outcome:** Returns true.
 
 ---
 
-### Test: Empty string
+### TC-28: ARTIFACT reference
 
-- Setup: none
-- Action: call `LogicalNameHasParent` with `""`
-- Expected outcome: returns false
+**Setup:** none
+
+**Action:** Call `LogicalNameHasParent` with input `"ARTIFACT/x(y)"`.
+
+**Expected outcome:** Returns false.
+
+---
+
+### TC-29: Empty string
+
+**Setup:** none
+
+**Action:** Call `LogicalNameHasParent` with input `""`.
+
+**Expected outcome:** Returns false.
 
 ---
 
 ## LogicalNameHasQualifier
 
-### Test: Without qualifier
+---
 
-- Setup: none
-- Action: call `LogicalNameHasQualifier` with `"ROOT/x"`
-- Expected outcome: returns false
+### TC-30: Without qualifier
+
+**Setup:** none
+
+**Action:** Call `LogicalNameHasQualifier` with input `"ROOT/x"`.
+
+**Expected outcome:** Returns false.
 
 ---
 
-### Test: With qualifier
+### TC-31: With qualifier
 
-- Setup: none
-- Action: call `LogicalNameHasQualifier` with `"ROOT/x(y)"`
-- Expected outcome: returns true
+**Setup:** none
 
----
+**Action:** Call `LogicalNameHasQualifier` with input `"ROOT/x(y)"`.
 
-### Test: ARTIFACT with qualifier
-
-- Setup: none
-- Action: call `LogicalNameHasQualifier` with `"ARTIFACT/x(y)"`
-- Expected outcome: returns true
+**Expected outcome:** Returns true.
 
 ---
 
-### Test: ROOT alone
+### TC-32: ARTIFACT with qualifier
 
-- Setup: none
-- Action: call `LogicalNameHasQualifier` with `"ROOT"`
-- Expected outcome: returns false
+**Setup:** none
+
+**Action:** Call `LogicalNameHasQualifier` with input `"ARTIFACT/x(y)"`.
+
+**Expected outcome:** Returns true.
 
 ---
 
-### Test: Empty string
+### TC-33: ROOT alone
 
-- Setup: none
-- Action: call `LogicalNameHasQualifier` with `""`
-- Expected outcome: returns false
+**Setup:** none
+
+**Action:** Call `LogicalNameHasQualifier` with input `"ROOT"`.
+
+**Expected outcome:** Returns false.
+
+---
+
+### TC-34: Empty string
+
+**Setup:** none
+
+**Action:** Call `LogicalNameHasQualifier` with input `""`.
+
+**Expected outcome:** Returns false.
 
 ---
 
 ## LogicalNameIsArtifact
 
-### Test: ARTIFACT reference
+---
 
-- Setup: none
-- Action: call `LogicalNameIsArtifact` with `"ARTIFACT/x(y)"`
-- Expected outcome: returns true
+### TC-35: ARTIFACT reference
+
+**Setup:** none
+
+**Action:** Call `LogicalNameIsArtifact` with input `"ARTIFACT/x(y)"`.
+
+**Expected outcome:** Returns true.
 
 ---
 
-### Test: ROOT reference
+### TC-36: ROOT reference
 
-- Setup: none
-- Action: call `LogicalNameIsArtifact` with `"ROOT/x(y)"`
-- Expected outcome: returns false
+**Setup:** none
+
+**Action:** Call `LogicalNameIsArtifact` with input `"ROOT/x(y)"`.
+
+**Expected outcome:** Returns false.
 
 ---
 
-### Test: Empty string
+### TC-37: Empty string
 
-- Setup: none
-- Action: call `LogicalNameIsArtifact` with `""`
-- Expected outcome: returns false
+**Setup:** none
+
+**Action:** Call `LogicalNameIsArtifact` with input `""`.
+
+**Expected outcome:** Returns false.
 
 ---
 
 ## LogicalNameGetArtifactGenerator
 
-### Test: Simple artifact
+---
 
-- Setup: none
-- Action: call `LogicalNameGetArtifactGenerator` with `"ARTIFACT/x(y)"`
-- Expected outcome: returns `"ROOT/x"`
+### TC-38: Simple artifact
+
+**Setup:** none
+
+**Action:** Call `LogicalNameGetArtifactGenerator` with input `"ARTIFACT/x(y)"`.
+
+**Expected outcome:** Returns `"ROOT/x"`.
 
 ---
 
-### Test: Nested artifact
+### TC-39: Nested artifact
 
-- Setup: none
-- Action: call `LogicalNameGetArtifactGenerator` with `"ARTIFACT/x/y/z(id)"`
-- Expected outcome: returns `"ROOT/x/y/z"`
+**Setup:** none
 
----
+**Action:** Call `LogicalNameGetArtifactGenerator` with input `"ARTIFACT/x/y/z(id)"`.
 
-### Test: Rejects ROOT reference
-
-- Setup: none
-- Action: call `LogicalNameGetArtifactGenerator` with `"ROOT/x(y)"`
-- Expected outcome: raises error `"not an artifact reference"`
+**Expected outcome:** Returns `"ROOT/x/y/z"`.
 
 ---
 
-### Test: Artifact reference without qualifier
+### TC-40: Rejects ROOT reference
 
-- Setup: none
-- Action: call `LogicalNameGetArtifactGenerator` with `"ARTIFACT/x"`
-- Expected outcome: returns `"ROOT/x"`
+**Setup:** none
+
+**Action:** Call `LogicalNameGetArtifactGenerator` with input `"ROOT/x(y)"`.
+
+**Expected outcome:** Raises error `NotAnArtifactReference`.
+
+---
+
+### TC-41: Artifact reference without qualifier
+
+**Setup:** none
+
+**Action:** Call `LogicalNameGetArtifactGenerator` with input `"ARTIFACT/x"`.
+
+**Expected outcome:** Returns `"ROOT/x"`.

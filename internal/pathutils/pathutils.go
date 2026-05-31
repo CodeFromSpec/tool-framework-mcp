@@ -1,5 +1,8 @@
-// code-from-spec: ROOT/golang/implementation/os/path_utils@ufGrf2QahZC6yHfmweJ_Z3Spwy4
+// code-from-spec: ROOT/golang/implementation/os/path_utils@dVC1IZHgjZvB6VDrCRpvAMjGMBo
 
+// Package pathutils provides path conversion and validation utilities for the
+// Code from Spec framework. All framework-facing paths use the PathCfs format;
+// OS-level operations use PathOs.
 package pathutils
 
 import (
@@ -10,58 +13,58 @@ import (
 	"strings"
 )
 
-// PathCfs represents a path in the Code from Spec standard format.
-// It uses forward slashes as separators, is relative to the project
-// root, and contains no ".." components, drive letters, leading
-// slashes, or backslashes.
+// PathCfs is a path in the Code from Spec standard format:
+//   - Forward slash (/) as separator, always.
+//   - Relative to the project root.
+//   - No .. components, no drive letters, no leading /, no backslashes.
+//
+// This is the only path format used in the framework's public API —
+// in frontmatter fields (outputs, external, input), in logical names,
+// and in tool parameters.
 //
 // Examples:
-//   - "internal/filereader/filereader.go"
-//   - "code-from-spec/functional/logic/os/file_reader/_node.md"
+//   - internal/filereader/filereader.go
+//   - code-from-spec/functional/logic/os/file_reader/_node.md
 type PathCfs struct {
 	Value string
 }
 
-// PathOs represents an absolute path in the operating system's
-// native format. It uses the OS-specific separator and is always
-// absolute.
+// PathOs is an absolute path in the operating system's native format:
+//   - OS-specific separator (/ on Unix, \ on Windows).
+//   - Always absolute.
 //
-// Examples (Unix):
-//   - "/home/user/myproject/internal/filereader/filereader.go"
+// This type is never exposed in the framework's public API.
+// It exists only inside the os/ layer for interacting with the filesystem.
 //
-// Examples (Windows):
-//   - `C:\Users\user\myproject\internal\filereader\filereader.go`
+// Examples:
+//   - /home/user/myproject/internal/filereader/filereader.go  (Unix)
+//   - C:\Users\user\myproject\internal\filereader\filereader.go  (Windows)
 type PathOs struct {
 	Value string
 }
 
-var (
-	// ErrCannotDetermineRoot is returned when the working directory
-	// cannot be read to determine the project root.
-	ErrCannotDetermineRoot = errors.New("cannot determine root")
+// ErrCannotDetermineRoot is returned when the working directory cannot be read.
+var ErrCannotDetermineRoot = errors.New("cannot determine project root")
 
-	// ErrPathIsEmpty is returned when a CFS path value is empty.
-	ErrPathIsEmpty = errors.New("path is empty")
+// ErrPathEmpty is returned when a PathCfs value is empty.
+var ErrPathEmpty = errors.New("path is empty")
 
-	// ErrPathIsAbsolute is returned when a CFS path starts with "/"
-	// or a drive letter (e.g. "C:").
-	ErrPathIsAbsolute = errors.New("path is absolute")
+// ErrPathAbsolute is returned when a PathCfs value starts with / or a drive letter like C:.
+var ErrPathAbsolute = errors.New("path must be relative, not absolute")
 
-	// ErrPathContainsBackslash is returned when a CFS path contains
-	// backslash characters.
-	ErrPathContainsBackslash = errors.New("path contains backslash")
+// ErrPathContainsBackslash is returned when a PathCfs value contains \ characters.
+var ErrPathContainsBackslash = errors.New("path contains backslash")
 
-	// ErrDirectoryTraversal is returned when a CFS path contains ".."
-	// components after normalization.
-	ErrDirectoryTraversal = errors.New("directory traversal")
+// ErrDirectoryTraversal is returned when a PathCfs value contains .. components
+// after normalization.
+var ErrDirectoryTraversal = errors.New("path contains directory traversal")
 
-	// ErrResolvesOutsideRoot is returned when a resolved path falls
-	// outside the project root.
-	ErrResolvesOutsideRoot = errors.New("resolves outside root")
-)
+// ErrResolvesOutsideRoot is returned when a path resolves to a location outside
+// the project root.
+var ErrResolvesOutsideRoot = errors.New("path resolves outside project root")
 
-// PathGetProjectRoot returns the project root as a PathOs, determined
-// from the working directory of the process.
+// PathGetProjectRoot returns the project root as a PathOs.
+// The root is determined from the working directory of the process.
 //
 // Returns ErrCannotDetermineRoot if the working directory cannot be read.
 func PathGetProjectRoot() (*PathOs, error) {
@@ -72,32 +75,35 @@ func PathGetProjectRoot() (*PathOs, error) {
 	return &PathOs{Value: wd}, nil
 }
 
-// PathValidateCfs validates that a string value conforms to the PathCfs
-// format rules. It does not verify that the file exists or resolve
-// symlinks. Follows OWASP guidance for path traversal prevention.
+// PathValidateCfs validates that a value conforms to the PathCfs format rules.
+// Raises an error describing the first violation found.
+// Follows OWASP guidance for path traversal prevention.
 //
-// Returns one of the following errors if validation fails:
-//   - ErrPathIsEmpty: the value is empty.
-//   - ErrPathIsAbsolute: the value starts with "/" or a drive letter.
-//   - ErrPathContainsBackslash: the value contains "\" characters.
-//   - ErrDirectoryTraversal: the value contains ".." after normalization.
+// Use this for sanity checks on parameters received from callers.
+// Does not verify that the file exists or resolve symlinks — use PathCfsToOs for that.
+//
+// Errors:
+//   - ErrPathEmpty: the path value is empty.
+//   - ErrPathAbsolute: the path starts with / or a drive letter like C:.
+//   - ErrPathContainsBackslash: the path contains \ characters.
+//   - ErrDirectoryTraversal: the path contains .. components after normalization.
 func PathValidateCfs(value string) error {
 	if value == "" {
-		return ErrPathIsEmpty
+		return ErrPathEmpty
 	}
 
+	// Reject Unix-style absolute paths and Windows drive letters.
 	if strings.HasPrefix(value, "/") || strings.Contains(value, ":") {
-		return ErrPathIsAbsolute
+		return ErrPathAbsolute
 	}
 
+	// Reject backslashes — not allowed in CFS paths.
 	if strings.Contains(value, `\`) {
 		return ErrPathContainsBackslash
 	}
 
-	// Normalize by cleaning the path (resolves "." and ".." components).
+	// Normalize to resolve . and .. components, then check for traversal.
 	normalized := filepath.ToSlash(filepath.Clean(value))
-
-	// After normalization, check each component for "..".
 	for _, component := range strings.Split(normalized, "/") {
 		if component == ".." {
 			return ErrDirectoryTraversal
@@ -109,100 +115,83 @@ func PathValidateCfs(value string) error {
 
 // PathCfsToOs validates a PathCfs and converts it to an absolute PathOs.
 // This is the single entry point for going from framework paths to OS paths.
+// If validation fails, no conversion happens — an error is returned.
 //
-// The target file or directory does not need to exist. The conversion is
-// purely path-based: it validates format, converts separators, and checks
-// containment, but does not require the path to resolve to an actual
-// filesystem entry.
+// The target file or directory does not need to exist.
+// The conversion is purely path-based: it validates the format, converts
+// separators, and checks containment, but does not require the path to
+// resolve to an actual filesystem entry.
 //
-// Returns an error if:
-//   - validation fails (errors from PathValidateCfs are propagated).
-//   - the project root cannot be determined (ErrCannotDetermineRoot).
-//   - after resolving symlinks, the path is outside the project root
-//     (ErrResolvesOutsideRoot).
+// Errors:
+//   - ErrResolvesOutsideRoot: after resolving symlinks, the path is outside the project root.
+//   - (PathUtils.*): propagated from PathValidateCfs.
+//   - (PathUtils.*): propagated from PathGetProjectRoot.
 func PathCfsToOs(cfsPath *PathCfs) (*PathOs, error) {
 	if err := PathValidateCfs(cfsPath.Value); err != nil {
 		return nil, err
 	}
-
-	// Convert forward slashes to the OS path separator.
-	nativePath := filepath.FromSlash(cfsPath.Value)
 
 	root, err := PathGetProjectRoot()
 	if err != nil {
 		return nil, err
 	}
 
+	// Convert forward slashes to the OS separator and join with root.
+	nativePath := filepath.FromSlash(cfsPath.Value)
 	absPath := filepath.Join(root.Value, nativePath)
 
 	// If the path exists on disk, resolve symlinks and verify containment.
-	if _, err := os.Lstat(absPath); err == nil {
+	if _, statErr := os.Lstat(absPath); statErr == nil {
 		resolved, err := filepath.EvalSymlinks(absPath)
 		if err != nil {
 			return nil, fmt.Errorf("resolving symlinks: %w", err)
 		}
-
-		// Ensure the resolved path starts with the project root.
-		rootWithSep := ensureTrailingSeparator(root.Value)
-		if resolved != root.Value && !strings.HasPrefix(resolved, rootWithSep) {
+		if !strings.HasPrefix(resolved, root.Value) {
 			return nil, fmt.Errorf("%w: %s", ErrResolvesOutsideRoot, resolved)
 		}
-
-		return &PathOs{Value: resolved}, nil
 	}
 
 	return &PathOs{Value: absPath}, nil
 }
 
-// PathOsToCfs converts an absolute PathOs to a PathCfs relative to the
-// project root. Used internally by components that receive paths from the
-// OS (e.g. directory listing).
+// PathOsToCfs converts an absolute PathOs to a PathCfs relative to the project root.
+// Used internally by components that receive paths from the OS (e.g. directory listing).
 //
-// The target file or directory does not need to exist. The conversion is
-// purely path-based.
+// The target file or directory does not need to exist.
+// The conversion is purely path-based.
 //
-// Returns an error if:
-//   - the project root cannot be determined (ErrCannotDetermineRoot).
-//   - the path is not within the project root (ErrResolvesOutsideRoot).
+// Errors:
+//   - ErrResolvesOutsideRoot: the path is not within the project root.
+//   - (PathUtils.*): propagated from PathGetProjectRoot.
 func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
 	root, err := PathGetProjectRoot()
 	if err != nil {
 		return nil, err
 	}
 
-	candidate := osPath.Value
+	workingValue := osPath.Value
 
-	// If the path exists on disk, resolve symlinks before checking containment.
-	if _, err := os.Lstat(candidate); err == nil {
-		resolved, err := filepath.EvalSymlinks(candidate)
+	// If the path exists on disk, resolve symlinks first.
+	if _, statErr := os.Lstat(workingValue); statErr == nil {
+		resolved, err := filepath.EvalSymlinks(workingValue)
 		if err != nil {
 			return nil, fmt.Errorf("resolving symlinks: %w", err)
 		}
-		candidate = resolved
+		workingValue = resolved
 	}
 
-	// Verify that the path is within the project root.
-	rootWithSep := ensureTrailingSeparator(root.Value)
-	if candidate != root.Value && !strings.HasPrefix(candidate, rootWithSep) {
-		return nil, fmt.Errorf("%w: %s", ErrResolvesOutsideRoot, candidate)
+	// Verify the path is within the project root.
+	rootWithSep := root.Value + string(filepath.Separator)
+	if workingValue != root.Value && !strings.HasPrefix(workingValue, rootWithSep) {
+		return nil, fmt.Errorf("%w: %s", ErrResolvesOutsideRoot, workingValue)
 	}
 
-	// Compute the relative path by stripping the root prefix.
-	rel := strings.TrimPrefix(candidate, root.Value)
-	rel = strings.TrimPrefix(rel, string(filepath.Separator))
+	// Strip the root prefix (and trailing separator) to get the relative path.
+	relative := strings.TrimPrefix(workingValue, root.Value)
+	relative = strings.TrimPrefix(relative, string(filepath.Separator))
 
-	// Convert OS separators to forward slashes.
-	cfsValue := filepath.ToSlash(rel)
+	// Convert OS separators to forward slashes for CFS format.
+	cfsValue := filepath.ToSlash(relative)
 
 	return &PathCfs{Value: cfsValue}, nil
-}
-
-// ensureTrailingSeparator appends a filepath separator to the given path
-// if it does not already end with one. This is used for reliable prefix
-// checking to avoid false matches (e.g., "/foo/bar" matching "/foo/barbaz").
-func ensureTrailingSeparator(path string) string {
-	if strings.HasSuffix(path, string(filepath.Separator)) {
-		return path
-	}
-	return path + string(filepath.Separator)
 }

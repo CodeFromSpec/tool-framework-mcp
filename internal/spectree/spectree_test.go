@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/spec_tree/scan@wwQUONMzUfUOr25pEUu_FieYSPI
+// code-from-spec: ROOT/golang/tests/spec_tree/scan@gleLK9Ncw2T7lnJ7Gvs6mBEbvWU
 package spectree_test
 
 import (
@@ -11,7 +11,6 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"
 )
 
-// testChdir changes the working directory to dir for the duration of the test.
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
@@ -28,28 +27,17 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-// testWriteFile creates a file (and any necessary parent directories) at
-// path relative to the current working directory with empty content.
 func testWriteFile(t *testing.T, path string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("testWriteFile mkdir: %v", err)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatalf("testWriteFile MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(path, []byte{}, 0o644); err != nil {
-		t.Fatalf("testWriteFile write: %v", err)
-	}
-}
-
-// testMkdir creates an empty directory (and any necessary parents) relative
-// to the current working directory.
-func testMkdir(t *testing.T, path string) {
-	t.Helper()
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		t.Fatalf("testMkdir: %v", err)
+	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+		t.Fatalf("testWriteFile WriteFile: %v", err)
 	}
 }
 
-// TC-01: Root node only — a single _node.md at the top level.
+// TC-1: Root node only
 func TestSpecTreeScan_RootNodeOnly(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
@@ -60,20 +48,18 @@ func TestSpecTreeScan_RootNodeOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
-
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("expected logical name %q, got %q", "ROOT", nodes[0].LogicalName)
+		t.Errorf("expected LogicalName %q, got %q", "ROOT", nodes[0].LogicalName)
 	}
 	if nodes[0].FilePath.Value != "code-from-spec/_node.md" {
-		t.Errorf("expected file path %q, got %q", "code-from-spec/_node.md", nodes[0].FilePath.Value)
+		t.Errorf("expected FilePath %q, got %q", "code-from-spec/_node.md", nodes[0].FilePath.Value)
 	}
 }
 
-// TC-02: Root and nested nodes.
+// TC-2: Root and nested nodes
 func TestSpecTreeScan_RootAndNestedNodes(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
@@ -86,7 +72,6 @@ func TestSpecTreeScan_RootAndNestedNodes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 3 {
 		t.Fatalf("expected 3 nodes, got %d", len(nodes))
 	}
@@ -95,22 +80,22 @@ func TestSpecTreeScan_RootAndNestedNodes(t *testing.T) {
 		logicalName string
 		filePath    string
 	}
-	wants := []want{
+	expected := []want{
 		{"ROOT", "code-from-spec/_node.md"},
 		{"ROOT/a", "code-from-spec/a/_node.md"},
 		{"ROOT/a/b", "code-from-spec/a/b/_node.md"},
 	}
-	for i, w := range wants {
+	for i, w := range expected {
 		if nodes[i].LogicalName != w.logicalName {
-			t.Errorf("node[%d]: expected logical name %q, got %q", i, w.logicalName, nodes[i].LogicalName)
+			t.Errorf("node[%d]: expected LogicalName %q, got %q", i, w.logicalName, nodes[i].LogicalName)
 		}
 		if nodes[i].FilePath.Value != w.filePath {
-			t.Errorf("node[%d]: expected file path %q, got %q", i, w.filePath, nodes[i].FilePath.Value)
+			t.Errorf("node[%d]: expected FilePath %q, got %q", i, w.filePath, nodes[i].FilePath.Value)
 		}
 	}
 }
 
-// TC-03: Non-_node.md files are ignored.
+// TC-3: Ignores non-node files
 func TestSpecTreeScan_IgnoresNonNodeFiles(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
@@ -122,40 +107,44 @@ func TestSpecTreeScan_IgnoresNonNodeFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("expected logical name %q, got %q", "ROOT", nodes[0].LogicalName)
+		t.Errorf("expected LogicalName %q, got %q", "ROOT", nodes[0].LogicalName)
 	}
 	if nodes[0].FilePath.Value != "code-from-spec/_node.md" {
-		t.Errorf("expected file path %q, got %q", "code-from-spec/_node.md", nodes[0].FilePath.Value)
+		t.Errorf("expected FilePath %q, got %q", "code-from-spec/_node.md", nodes[0].FilePath.Value)
 	}
 }
 
-// TC-04: Directories without _node.md are ignored.
-func TestSpecTreeScan_IgnoresDirectoriesWithoutNodeFile(t *testing.T) {
+// TC-4: Ignores directories without _node.md
+func TestSpecTreeScan_IgnoresDirectoriesWithoutNodeMd(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
 	testWriteFile(t, "code-from-spec/_node.md")
-	testMkdir(t, "code-from-spec/x/y")
+	// Create an empty subdirectory with no files inside.
+	if err := os.MkdirAll("code-from-spec/x/y", 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("expected logical name %q, got %q", "ROOT", nodes[0].LogicalName)
+		t.Errorf("expected LogicalName %q, got %q", "ROOT", nodes[0].LogicalName)
+	}
+	if nodes[0].FilePath.Value != "code-from-spec/_node.md" {
+		t.Errorf("expected FilePath %q, got %q", "code-from-spec/_node.md", nodes[0].FilePath.Value)
 	}
 }
 
-// TC-05: Results are sorted alphabetically by logical name.
+// TC-5: Result is sorted by logical name
 func TestSpecTreeScan_SortedByLogicalName(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
@@ -168,7 +157,6 @@ func TestSpecTreeScan_SortedByLogicalName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 3 {
 		t.Fatalf("expected 3 nodes, got %d", len(nodes))
 	}
@@ -177,53 +165,56 @@ func TestSpecTreeScan_SortedByLogicalName(t *testing.T) {
 		logicalName string
 		filePath    string
 	}
-	wants := []want{
+	expected := []want{
 		{"ROOT", "code-from-spec/_node.md"},
 		{"ROOT/a/b", "code-from-spec/a/b/_node.md"},
 		{"ROOT/z", "code-from-spec/z/_node.md"},
 	}
-	for i, w := range wants {
+	for i, w := range expected {
 		if nodes[i].LogicalName != w.logicalName {
-			t.Errorf("node[%d]: expected logical name %q, got %q", i, w.logicalName, nodes[i].LogicalName)
+			t.Errorf("node[%d]: expected LogicalName %q, got %q", i, w.logicalName, nodes[i].LogicalName)
 		}
 		if nodes[i].FilePath.Value != w.filePath {
-			t.Errorf("node[%d]: expected file path %q, got %q", i, w.filePath, nodes[i].FilePath.Value)
+			t.Errorf("node[%d]: expected FilePath %q, got %q", i, w.filePath, nodes[i].FilePath.Value)
 		}
 	}
 }
 
-// TC-06: No code-from-spec directory — error propagated from ListFiles.
+// TC-6: No code-from-spec directory
 func TestSpecTreeScan_NoCodeFromSpecDirectory(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
 	// Do not create code-from-spec/ at all.
-	nodes, err := spectree.SpecTreeScan()
+
+	_, err := spectree.SpecTreeScan()
 	if err == nil {
-		t.Fatalf("expected an error, got nodes: %v", nodes)
+		t.Fatal("expected an error, got nil")
 	}
 	if !errors.Is(err, listfiles.ErrDirectoryNotFound) {
-		t.Errorf("expected errors.Is(err, listfiles.ErrDirectoryNotFound), got: %v", err)
+		t.Errorf("expected ErrDirectoryNotFound in error chain, got: %v", err)
 	}
 }
 
-// TC-07: Empty code-from-spec directory — no nodes found error.
+// TC-7: Empty code-from-spec directory
 func TestSpecTreeScan_EmptyCodeFromSpecDirectory(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	testMkdir(t, "code-from-spec")
-
-	nodes, err := spectree.SpecTreeScan()
-	if err == nil {
-		t.Fatalf("expected an error, got nodes: %v", nodes)
+	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
 	}
-	if err.Error() != "no nodes found" {
-		t.Errorf("expected error %q, got %q", "no nodes found", err.Error())
+
+	_, err := spectree.SpecTreeScan()
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !errors.Is(err, spectree.ErrNoNodesFound) {
+		t.Errorf("expected ErrNoNodesFound in error chain, got: %v", err)
 	}
 }
 
-// TC-08: Only non-_node.md files in code-from-spec — no nodes found error.
+// TC-8: Only non-node files in code-from-spec
 func TestSpecTreeScan_OnlyNonNodeFiles(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
@@ -231,11 +222,11 @@ func TestSpecTreeScan_OnlyNonNodeFiles(t *testing.T) {
 	testWriteFile(t, "code-from-spec/README.md")
 	testWriteFile(t, "code-from-spec/x/output.md")
 
-	nodes, err := spectree.SpecTreeScan()
+	_, err := spectree.SpecTreeScan()
 	if err == nil {
-		t.Fatalf("expected an error, got nodes: %v", nodes)
+		t.Fatal("expected an error, got nil")
 	}
-	if err.Error() != "no nodes found" {
-		t.Errorf("expected error %q, got %q", "no nodes found", err.Error())
+	if !errors.Is(err, spectree.ErrNoNodesFound) {
+		t.Errorf("expected ErrNoNodesFound in error chain, got: %v", err)
 	}
 }

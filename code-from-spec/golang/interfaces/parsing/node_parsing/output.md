@@ -1,46 +1,52 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/node_parsing@4qCfd_gcEx__c0Fo1x4zDyIfmvU)
+[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/node_parsing@eJOD9TTiTKO0FgJRlThBLDK6GVo)
 
-# Interface: `parsenode`
+# Package `parsenode`
 
-**Package:** `package parsenode`  
-**Import:** `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"`
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
+```
+
+Parses a node file identified by its logical name into a structured `Node` representation, including its sections and subsections.
 
 ---
 
 ## Structs
 
 ```go
-// NodeSubsection represents a level-2 (##) heading section within a Node section.
-// Heading is the normalized form of the heading text, used for comparisons and
-// lookups. RawHeading is the original heading line as read from the file, preserved
-// for hashing. Content holds each line of the subsection body exactly as read.
+package parsenode
+
+// NodeSubsection represents a level-2 heading section (##) within a node file.
+// heading is the normalized form (after NormalizeText), used for comparisons and lookups.
+// raw_heading is the original line as read from the file (e.g. "## Interface ##"), preserved for hashing.
+// Content holds the lines of the subsection as read from the file.
 type NodeSubsection struct {
-    Heading    string
-    RawHeading string
-    Content    []string
+	Heading    string
+	RawHeading string
+	Content    []string
 }
 
-// NodeSection represents a level-1 (#) heading section within a Node.
-// Heading is the normalized form of the heading text, used for comparisons and
-// lookups. RawHeading is the original heading line as read from the file, preserved
-// for hashing. Content holds each line of the section body before the first ##
-// heading, exactly as read. Subsections holds the ordered list of ## subsections.
+// NodeSection represents a level-1 heading section (#) within a node file.
+// heading is the normalized form (after NormalizeText), used for comparisons and lookups.
+// raw_heading is the original line as read from the file (e.g. "# Public"), preserved for hashing.
+// Content holds the lines before the first level-2 heading.
+// Subsections holds the ordered list of level-2 sections within this section.
 type NodeSection struct {
-    Heading     string
-    RawHeading  string
-    Content     []string
-    Subsections []*NodeSubsection
+	Heading     string
+	RawHeading  string
+	Content     []string
+	Subsections []*NodeSubsection
 }
 
-// Node represents a parsed spec node file. NameSection is the first level-1
-// heading section, whose heading matches the logical name. Public is the optional
-// "# Public" section. Agent is the optional "# Agent" section. Private holds all
-// other sections in the order they appear in the file.
+// Node represents the parsed structure of a node file.
+// NameSection is the mandatory first level-1 section matching the logical name.
+// Public is the optional "Public" section.
+// Agent is the optional "Agent" section.
+// Private is the ordered list of all other level-1 sections.
 type Node struct {
-    NameSection *NodeSection
-    Public      *NodeSection
-    Agent       *NodeSection
-    Private     []*NodeSection
+	NameSection *NodeSection
+	Public      *NodeSection
+	Agent       *NodeSection
+	Private     []*NodeSection
 }
 ```
 
@@ -49,34 +55,37 @@ type Node struct {
 ## Error Sentinels
 
 ```go
-var (
-    // ErrNotARootReference is returned when the logical name does not start with "ROOT/".
-    ErrNotARootReference = errors.New("not a ROOT reference")
+package parsenode
 
-    // ErrHasQualifier is returned when the logical name contains a parenthetical qualifier.
-    ErrHasQualifier = errors.New("has qualifier")
+import "errors"
 
-    // ErrFileUnreadable is returned when the file cannot be opened or read.
-    ErrFileUnreadable = errors.New("file unreadable")
+// ErrNotARootReference is returned when the logical name does not start with ROOT/.
+var ErrNotARootReference = errors.New("logical name does not start with ROOT/")
 
-    // ErrUnexpectedContentBeforeFirstHeading is returned when the file body has
-    // non-blank content before the first level-1 heading, or has no level-1 heading at all.
-    ErrUnexpectedContentBeforeFirstHeading = errors.New("unexpected content before first heading")
+// ErrHasQualifier is returned when the logical name contains a parenthetical qualifier.
+var ErrHasQualifier = errors.New("logical name contains a parenthetical qualifier")
 
-    // ErrNodeNameDoesNotMatch is returned when the first heading does not match
-    // the logical name after normalization.
-    ErrNodeNameDoesNotMatch = errors.New("node name does not match")
+// ErrFileUnreadable is returned when the file cannot be opened or read.
+var ErrFileUnreadable = errors.New("file cannot be opened or read")
 
-    // ErrDuplicatePublicSection is returned when more than one "# Public" section exists.
-    ErrDuplicatePublicSection = errors.New("duplicate public section")
+// ErrUnexpectedContentBeforeFirstHeading is returned when the file body has
+// non-blank content before the first level-1 heading, or has no level-1 heading at all.
+// Blank lines before the first heading are not an error.
+var ErrUnexpectedContentBeforeFirstHeading = errors.New("unexpected content before first heading")
 
-    // ErrDuplicateAgentSection is returned when more than one "# Agent" section exists.
-    ErrDuplicateAgentSection = errors.New("duplicate agent section")
+// ErrNodeNameDoesNotMatch is returned when the first heading does not match
+// the logical name after normalization.
+var ErrNodeNameDoesNotMatch = errors.New("node name does not match first heading")
 
-    // ErrDuplicateSubsection is returned when two ## headings within the same section
-    // normalize to the same text.
-    ErrDuplicateSubsection = errors.New("duplicate subsection")
-)
+// ErrDuplicatePublicSection is returned when more than one Public section exists.
+var ErrDuplicatePublicSection = errors.New("duplicate Public section")
+
+// ErrDuplicateAgentSection is returned when more than one Agent section exists.
+var ErrDuplicateAgentSection = errors.New("duplicate Agent section")
+
+// ErrDuplicateSubsection is returned when two level-2 headings within the same
+// section normalize to the same text.
+var ErrDuplicateSubsection = errors.New("duplicate subsection")
 ```
 
 ---
@@ -84,26 +93,32 @@ var (
 ## Functions
 
 ```go
-// NodeParse parses the spec file for the given logical name and returns a Node.
+package parsenode
+
+// NodeParse parses the node file identified by logical_name and returns a Node.
 //
-// The logical name must start with "ROOT/" and must not contain a parenthetical
-// qualifier. The corresponding file is located via FileOpen. The file is parsed
-// into sections and subsections according to level-1 (#) and level-2 (##) headings.
+// The logical name is resolved to a file path (e.g. ROOT/foo/bar -> foo/bar/_node.md),
+// read line by line, and parsed into sections and subsections.
 //
-// Returns one of the following errors if parsing fails:
-//   - ErrNotARootReference: the logical name does not start with "ROOT/".
+// Blank lines before the first level-1 heading are tolerated.
+// A section that exists in the file but has no content is present with empty
+// Content and Subsections — it is not absent.
+// Private sections preserve the order they appear in the file.
+//
+// Errors:
+//   - ErrNotARootReference: the logical name does not start with ROOT/.
 //   - ErrHasQualifier: the logical name contains a parenthetical qualifier.
-//   - path errors propagated from FileOpen.
 //   - ErrFileUnreadable: the file cannot be opened or read.
-//   - ErrUnexpectedContentBeforeFirstHeading: non-blank content appears before the
-//     first level-1 heading, or no level-1 heading exists at all.
+//   - ErrUnexpectedContentBeforeFirstHeading: non-blank content before the first
+//     level-1 heading, or no level-1 heading present.
 //   - ErrNodeNameDoesNotMatch: the first heading does not match the logical name
 //     after normalization.
-//   - ErrDuplicatePublicSection: more than one "# Public" section exists.
-//   - ErrDuplicateAgentSection: more than one "# Agent" section exists.
-//   - ErrDuplicateSubsection: two ## headings within the same section normalize
+//   - ErrDuplicatePublicSection: more than one Public section found.
+//   - ErrDuplicateAgentSection: more than one Agent section found.
+//   - ErrDuplicateSubsection: two level-2 headings in the same section normalize
 //     to the same text.
-func NodeParse(logical_name string) (*Node, error)
+//   - (FileReader.*): propagated from FileOpen.
+func NodeParse(logicalName string) (*Node, error)
 ```
 
 ---
@@ -114,38 +129,34 @@ func NodeParse(logical_name string) (*Node, error)
 package main
 
 import (
-    "fmt"
-    "log"
+	"fmt"
+	"log"
 
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
 )
 
 func main() {
-    // Parse a spec node by its logical name.
-    node, err := parsenode.NodeParse("ROOT/golang/interfaces/parsing/node_parsing")
-    if err != nil {
-        log.Fatalf("could not parse node: %v", err)
-    }
+	node, err := parsenode.NodeParse("ROOT/golang/interfaces/parsing/node_parsing")
+	if err != nil {
+		log.Fatalf("NodeParse: %v", err)
+	}
 
-    // Access the name section heading.
-    fmt.Println("Node name:", node.NameSection.Heading)
+	fmt.Println("Node name section heading:", node.NameSection.Heading)
 
-    // Check whether a Public section is present.
-    if node.Public != nil {
-        fmt.Println("Public section content lines:", len(node.Public.Content))
-        for _, sub := range node.Public.Subsections {
-            fmt.Println("  Subsection:", sub.Heading)
-        }
-    }
+	if node.Public != nil {
+		fmt.Println("Public section found, subsections:", len(node.Public.Subsections))
+		for _, sub := range node.Public.Subsections {
+			fmt.Println("  Subsection:", sub.Heading)
+		}
+	}
 
-    // Check whether an Agent section is present.
-    if node.Agent != nil {
-        fmt.Println("Agent section found")
-    }
+	if node.Agent != nil {
+		fmt.Println("Agent section raw heading:", node.Agent.RawHeading)
+	}
 
-    // Iterate over private sections in file order.
-    for _, section := range node.Private {
-        fmt.Println("Private section:", section.Heading)
-    }
+	fmt.Println("Private sections:", len(node.Private))
+	for _, priv := range node.Private {
+		fmt.Println("  Private section:", priv.Heading)
+	}
 }
 ```

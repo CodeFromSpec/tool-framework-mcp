@@ -1,159 +1,171 @@
-// code-from-spec: ROOT/golang/implementation/utils/node_ranking@3uaGDxgoOElAMkt0fub5og5Y15Q
+// code-from-spec: ROOT/golang/implementation/utils/node_ranking@pDW5r3J6IqfCrR8ybNfWD7OulNw
+
 package noderanking
 
 import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
 )
 
-// NodeRankInput represents a discovered node with its logical name and
-// parsed frontmatter, used as input to the ranking computation.
+// ErrUnresolvableReference is returned when a depends_on or input target
+// cannot be resolved to a known node.
+var ErrUnresolvableReference = errors.New("unresolvable reference")
+
+// NodeRankInput holds a discovered node's logical name and its parsed frontmatter,
+// used as input to NodeRankCompute.
 type NodeRankInput struct {
+	// LogicalName is the ROOT/ logical name of the node.
 	LogicalName string
+
+	// Frontmatter is the parsed frontmatter of the node's spec file.
 	Frontmatter *frontmatter.Frontmatter
 }
 
-// NodeRankEntry represents a node or artifact with its computed
-// topological rank.
+// NodeRankEntry holds a node or artifact's logical name and its computed rank.
 type NodeRankEntry struct {
+	// LogicalName is the ROOT/ or ARTIFACT/ logical name.
 	LogicalName string
-	Rank        int
+
+	// Rank is the computed topological rank (lower rank = fewer dependencies).
+	Rank int
 }
 
-// ErrUnresolvableReference is returned when a depends_on or input
-// target cannot be resolved to a known node.
-var ErrUnresolvableReference = errors.New("unresolvable reference")
-
-// internalEntry is used internally during rank computation.
-type internalEntry struct {
+// rankMapEntry is the internal tracking structure used during rank computation.
+type rankMapEntry struct {
 	logicalName  string
-	dependencies []string
 	rank         int
+	dependencies []string
 }
 
-// NodeRankCompute takes the full set of discovered nodes with their
-// parsed frontmatter and computes a topological rank for each node
-// and artifact. It returns the ranked entries and a list of logical
-// names involved in dependency cycles (empty if no cycles exist).
+// NodeRankCompute takes the full set of discovered nodes with their parsed
+// frontmatter and computes a topological ranking for all nodes and artifacts.
 //
-// Returns ErrUnresolvableReference if a depends_on or input target
-// cannot be resolved to any entry in the provided set.
+// It returns:
+//   - ranked: a list of NodeRankEntry values, one per node and artifact,
+//     ordered by ascending rank.
+//   - cycles: a list of logical names that are part of dependency cycles.
+//     Empty if no cycles are detected.
+//
+// Errors:
+//   - ErrUnresolvableReference: a depends_on or input target cannot be resolved.
 func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles []string, err error) {
-	// Step 1: Build entry map
-	entryMap := make(map[string]*internalEntry)
+	// Step 1 — Build entry map.
+	entryMap := make(map[string]*rankMapEntry)
 
-	for _, input := range entries {
-		// Add the spec node entry
-		entryMap[input.LogicalName] = &internalEntry{
-			logicalName:  input.LogicalName,
-			dependencies: []string{},
+	for _, item := range entries {
+		// Add spec node entry.
+		entryMap[item.LogicalName] = &rankMapEntry{
+			logicalName:  item.LogicalName,
 			rank:         0,
+			dependencies: []string{},
 		}
 
-		// Add artifact entries for each output
-		if input.Frontmatter != nil {
-			for _, output := range input.Frontmatter.Outputs {
-				// Derive artifact logical name: strip "ROOT/" prefix, prepend "ARTIFACT/", append "(<id>)"
-				suffix := input.LogicalName[len("ROOT/"):]
-				artifactName := fmt.Sprintf("ARTIFACT/%s(%s)", suffix, output.ID)
-
-				entryMap[artifactName] = &internalEntry{
-					logicalName:  artifactName,
-					dependencies: []string{},
-					rank:         0,
-				}
+		// Add artifact entries for each output.
+		for _, output := range item.Frontmatter.Outputs {
+			// Derive artifact logical name: strip "ROOT/" prefix, prepend "ARTIFACT/",
+			// append "(<id>)".
+			bare := strings.TrimPrefix(item.LogicalName, "ROOT/")
+			artifactName := "ARTIFACT/" + bare + "(" + output.ID + ")"
+			entryMap[artifactName] = &rankMapEntry{
+				logicalName:  artifactName,
+				rank:         0,
+				dependencies: []string{},
 			}
 		}
 	}
 
-	// Step 2: Build dependency edges
+	// Step 2 — Build dependency edges.
 
-	// For each spec node entry
-	for _, input := range entries {
-		entry := entryMap[input.LogicalName]
+	// Build a lookup map from LogicalName to Frontmatter for spec nodes.
+	fmMap := make(map[string]*frontmatter.Frontmatter, len(entries))
+	for _, item := range entries {
+		fmMap[item.LogicalName] = item.Frontmatter
+	}
 
-		// a. Parent dependency
-		if input.LogicalName != "ROOT" {
-			parent, parentErr := logicalnames.LogicalNameGetParent(input.LogicalName)
-			if parentErr != nil {
-				return nil, nil, fmt.Errorf("%w: parent of %s: %v", ErrUnresolvableReference, input.LogicalName, parentErr)
-			}
-			if _, found := entryMap[parent]; !found {
-				return nil, nil, fmt.Errorf("%w: parent %q of node %q not found", ErrUnresolvableReference, parent, input.LogicalName)
-			}
-			entry.dependencies = append(entry.dependencies, parent)
-		}
+	// Process spec node entries.
+	for _, item := range entries {
+		mapEntry := entryMap[item.LogicalName]
 
-		if input.Frontmatter == nil {
+		// Skip ROOT — it has no parent and no automatic dependencies.
+		if item.LogicalName == "ROOT" {
 			continue
 		}
 
-		// b. depends_on dependencies
-		for _, ref := range input.Frontmatter.DependsOn {
-			var lookupKey string
-			if len(ref) >= 9 && ref[:9] == "ARTIFACT/" {
-				lookupKey = ref
+		// Add parent as a dependency.
+		parent, err := logicalnames.LogicalNameGetParent(item.LogicalName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("LogicalNameGetParent(%q): %w", item.LogicalName, err)
+		}
+		mapEntry.dependencies = append(mapEntry.dependencies, parent)
+
+		// Add depends_on references.
+		for _, ref := range item.Frontmatter.DependsOn {
+			var depKey string
+			if strings.HasPrefix(ref, "ARTIFACT/") {
+				depKey = ref
+			} else if strings.HasPrefix(ref, "ROOT/") {
+				depKey = logicalnames.LogicalNameStripQualifier(ref)
 			} else {
-				lookupKey = logicalnames.LogicalNameStripQualifier(ref)
+				depKey = ref
 			}
-			if _, found := entryMap[lookupKey]; !found {
-				return nil, nil, fmt.Errorf("%w: depends_on reference %q from node %q not found", ErrUnresolvableReference, lookupKey, input.LogicalName)
-			}
-			entry.dependencies = append(entry.dependencies, lookupKey)
+			mapEntry.dependencies = append(mapEntry.dependencies, depKey)
 		}
 
-		// c. input dependency
-		if input.Frontmatter.Input != "" {
-			inputRef := input.Frontmatter.Input
-			if _, found := entryMap[inputRef]; !found {
-				return nil, nil, fmt.Errorf("%w: input reference %q from node %q not found", ErrUnresolvableReference, inputRef, input.LogicalName)
-			}
-			entry.dependencies = append(entry.dependencies, inputRef)
+		// Add input reference if non-empty.
+		if item.Frontmatter.Input != "" {
+			mapEntry.dependencies = append(mapEntry.dependencies, item.Frontmatter.Input)
 		}
 	}
 
-	// For each artifact entry, add the generating node as a dependency
-	for key, entry := range entryMap {
-		if len(key) < 9 || key[:9] != "ARTIFACT/" {
+	// Process artifact entries.
+	for logicalName, mapEntry := range entryMap {
+		if !logicalnames.LogicalNameIsArtifact(logicalName) {
 			continue
 		}
-		generator, genErr := logicalnames.LogicalNameGetArtifactGenerator(key)
-		if genErr != nil {
-			return nil, nil, fmt.Errorf("%w: cannot get generator for artifact %q: %v", ErrUnresolvableReference, key, genErr)
+		generator, err := logicalnames.LogicalNameGetArtifactGenerator(logicalName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("LogicalNameGetArtifactGenerator(%q): %w", logicalName, err)
 		}
-		if _, found := entryMap[generator]; !found {
-			return nil, nil, fmt.Errorf("%w: generator node %q for artifact %q not found", ErrUnresolvableReference, generator, key)
-		}
-		entry.dependencies = append(entry.dependencies, generator)
+		mapEntry.dependencies = append(mapEntry.dependencies, generator)
 	}
 
-	// Step 3: Initialize ranks — all entries start at 0 (already set above)
+	// Step 5 — Validate that all dependencies exist in the map.
+	for _, mapEntry := range entryMap {
+		for _, dep := range mapEntry.dependencies {
+			if _, ok := entryMap[dep]; !ok {
+				return nil, nil, fmt.Errorf("%w: %q referenced by %q not found",
+					ErrUnresolvableReference, dep, mapEntry.logicalName)
+			}
+		}
+	}
 
-	// Step 4: Iterate and detect cycles
+	// Step 3 — Initialize ranks.
+	// ROOT is already 0; all others are already 0 from initialization.
+	// (Nothing extra needed — map entries are initialized with rank 0.)
+
+	// Step 4 — Iterate and detect cycles.
 	n := len(entryMap)
-	cycleCandidates := []string{}
+	var lastChangedNames []string
+	converged := false
 
 	for pass := 1; pass <= n; pass++ {
 		changed := false
-		currentPassCandidates := []string{}
+		changedNames := []string{}
 
-		for key, entry := range entryMap {
-			if key == "ROOT" {
+		for logicalName, mapEntry := range entryMap {
+			if logicalName == "ROOT" {
 				continue
 			}
 
-			// Compute candidate_rank = 1 + max(rank of dependencies)
+			// Compute candidate rank = 1 + max(rank of dependencies).
 			maxDepRank := -1
-			for _, dep := range entry.dependencies {
-				depEntry, found := entryMap[dep]
-				if !found {
-					// Should not happen since we validated above, but guard anyway
-					return nil, nil, fmt.Errorf("%w: dependency %q not found during rank computation", ErrUnresolvableReference, dep)
-				}
+			for _, dep := range mapEntry.dependencies {
+				depEntry := entryMap[dep]
 				if depEntry.rank > maxDepRank {
 					maxDepRank = depEntry.rank
 				}
@@ -164,40 +176,44 @@ func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles 
 				candidateRank = 1 + maxDepRank
 			}
 
-			if candidateRank > entry.rank {
-				entry.rank = candidateRank
+			if candidateRank > mapEntry.rank {
+				mapEntry.rank = candidateRank
 				changed = true
-				currentPassCandidates = append(currentPassCandidates, entry.logicalName)
+				changedNames = append(changedNames, logicalName)
 			}
 		}
 
-		if !changed {
-			// Converged — no cycles
-			cycleCandidates = []string{}
-			break
-		}
+		lastChangedNames = changedNames
 
-		if pass == n {
-			// Did not converge — cycles detected
-			cycleCandidates = currentPassCandidates
+		if !changed {
+			converged = true
+			break
 		}
 	}
 
-	// Step 5: Collect, sort, and return
-	result := make([]*NodeRankEntry, 0, len(entryMap))
-	for _, entry := range entryMap {
-		result = append(result, &NodeRankEntry{
-			LogicalName: entry.logicalName,
-			Rank:        entry.rank,
+	// Step 10 — Collect cycle participants if not converged.
+	if !converged {
+		cycles = lastChangedNames
+	} else {
+		cycles = []string{}
+	}
+
+	// Step 5 — Output.
+	ranked = make([]*NodeRankEntry, 0, len(entryMap))
+	for _, mapEntry := range entryMap {
+		ranked = append(ranked, &NodeRankEntry{
+			LogicalName: mapEntry.logicalName,
+			Rank:        mapEntry.rank,
 		})
 	}
 
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Rank != result[j].Rank {
-			return result[i].Rank < result[j].Rank
+	// Sort: primary by rank ascending, secondary by logical name ascending.
+	sort.Slice(ranked, func(i, j int) bool {
+		if ranked[i].Rank != ranked[j].Rank {
+			return ranked[i].Rank < ranked[j].Rank
 		}
-		return result[i].LogicalName < result[j].LogicalName
+		return ranked[i].LogicalName < ranked[j].LogicalName
 	})
 
-	return result, cycleCandidates, nil
+	return ranked, cycles, nil
 }

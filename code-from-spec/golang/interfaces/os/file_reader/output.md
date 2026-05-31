@@ -1,20 +1,26 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_reader@wy2TfsxiAOJCNurMggXpdh7PCS8)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_reader@LRZ1XwyGk1TtV72siaN9XCNQKn8)
 
-# Interface: `filereader`
+# Package `filereader`
 
-**Package:** `package filereader`  
-**Import:** `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"`
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
+```
+
+Provides sequential line-by-line reading of files addressed by CFS-format paths.
 
 ---
 
 ## Structs
 
 ```go
-// FileReader holds the state for sequential line-by-line reading of a file.
-// It is created by FileOpen and must be closed with FileClose when done.
+package filereader
+
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+
+// FileReader holds the state for reading a file line by line.
+// Obtain a FileReader via FileOpen. The caller must call FileClose when done.
 type FileReader struct {
-    // CfsPath is the CFS path of the file being read.
-    CfsPath pathutils.PathCfs
+	CfsPath *pathutils.PathCfs
 }
 ```
 
@@ -23,16 +29,17 @@ type FileReader struct {
 ## Error Sentinels
 
 ```go
-var (
-    // ErrEndOfFile is returned by FileReadLine when there are no more
-    // lines to read, or after FileClose has been called.
-    ErrEndOfFile = errors.New("end of file")
+package filereader
 
-    // ErrFileUnreadable is returned by FileOpen when the path is valid
-    // but the file cannot be opened (does not exist, permission denied,
-    // or other OS error).
-    ErrFileUnreadable = errors.New("file unreadable")
-)
+import "errors"
+
+// ErrFileUnreadable is returned by FileOpen when the path is valid but the file
+// cannot be opened (does not exist, permission denied, or other OS error).
+var ErrFileUnreadable = errors.New("file unreadable")
+
+// ErrEndOfFile is returned by FileReadLine when there are no more lines to read,
+// or when called after FileClose.
+var ErrEndOfFile = errors.New("end of file")
 ```
 
 ---
@@ -40,35 +47,33 @@ var (
 ## Functions
 
 ```go
-// FileOpen opens the file at cfs_path and prepares it for sequential
-// line-by-line reading from the beginning of the file.
+package filereader
+
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+
+// FileOpen opens the file at cfsPath and prepares it for sequential
+// line-by-line reading, starting from the beginning of the file.
+// The caller must call FileClose when done — failing to do so leaks the file handle.
 //
-// The caller must call FileClose when done — failing to do so leaks
-// the file handle.
-//
-// Returns an error if:
-//   - path validation or conversion fails (errors propagated from
-//     pathutils.PathCfsToOs, e.g. ErrPathIsEmpty, ErrDirectoryTraversal).
-//   - the file cannot be opened (ErrFileUnreadable).
-func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error)
+// Errors:
+//   - ErrFileUnreadable: the path is valid but the file cannot be opened
+//     (does not exist, permission denied, or other OS error).
+//   - (PathUtils.*): propagated from PathCfsToOs.
+func FileOpen(cfsPath *pathutils.PathCfs) (*FileReader, error)
 
 // FileReadLine reads the next line from the file, normalizes CRLF to LF,
-// and returns the line without the line terminator.
+// and returns the line without the terminator.
 //
-// Returns ErrEndOfFile when there are no more lines to read, or after
-// FileClose has been called on the reader.
+// Errors:
+//   - ErrEndOfFile: no more lines to read, or the reader has been closed.
 func FileReadLine(reader *FileReader) (string, error)
 
-// FileSkipLines reads and discards count lines from the file without
-// returning their content.
-//
-// Does nothing if FileClose has already been called on the reader.
+// FileSkipLines reads and discards count lines without returning their content.
+// Does nothing if the reader has been closed.
 func FileSkipLines(reader *FileReader, count int)
 
-// FileClose releases the file resource associated with reader.
-//
-// After FileClose is called, FileReadLine returns ErrEndOfFile and
-// FileSkipLines does nothing.
+// FileClose releases the file resource held by reader.
+// After FileClose, FileReadLine returns ErrEndOfFile and FileSkipLines does nothing.
 func FileClose(reader *FileReader)
 ```
 
@@ -80,32 +85,36 @@ func FileClose(reader *FileReader)
 package main
 
 import (
-    "errors"
-    "fmt"
-    "log"
+	"errors"
+	"fmt"
+	"log"
 
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
 func main() {
-    cfsPath := &pathutils.PathCfs{Value: "code-from-spec/functional/logic/os/file_reader/_node.md"}
+	cfs := &pathutils.PathCfs{Value: "internal/filereader/filereader.go"}
 
-    reader, err := filereader.FileOpen(cfsPath)
-    if err != nil {
-        log.Fatalf("could not open file: %v", err)
-    }
-    defer filereader.FileClose(reader)
+	r, err := filereader.FileOpen(cfs)
+	if err != nil {
+		log.Fatalf("FileOpen: %v", err)
+	}
+	defer filereader.FileClose(r)
 
-    for {
-        line, err := filereader.FileReadLine(reader)
-        if errors.Is(err, filereader.ErrEndOfFile) {
-            break
-        }
-        if err != nil {
-            log.Fatalf("unexpected read error: %v", err)
-        }
-        fmt.Println(line)
-    }
+	// Skip the first two lines.
+	filereader.FileSkipLines(r, 2)
+
+	// Read remaining lines until end of file.
+	for {
+		line, err := filereader.FileReadLine(r)
+		if errors.Is(err, filereader.ErrEndOfFile) {
+			break
+		}
+		if err != nil {
+			log.Fatalf("FileReadLine: %v", err)
+		}
+		fmt.Println(line)
+	}
 }
 ```

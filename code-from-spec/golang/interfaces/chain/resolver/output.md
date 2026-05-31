@@ -1,44 +1,55 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/resolver@i9BWV_qvwUbEMHETkB2qfak1Qeo)
+[//]: # (code-from-spec: ROOT/golang/interfaces/chain/resolver@cmDJkI3yJkxYXdz3v5EtYfP7MlY)
 
-# Interface: `chainresolver`
+# Package `chainresolver`
 
-**Package:** `package chainresolver`  
-**Import:** `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"`
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+```
+
+Resolves the ordered chain of spec nodes required to assemble context for artifact generation or to compute the chain hash.
 
 ---
 
 ## Structs
 
 ```go
-// ChainItem represents a single node entry within a resolved chain.
-// It holds the logical name, the CFS file path to the node's spec
-// file, and an optional qualifier (used when the item originates
-// from an ARTIFACT/ reference that targets a specific output id).
+package chainresolver
+
+import (
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+)
+
+// ChainItem represents a single node position within a resolved chain.
 type ChainItem struct {
-    LogicalName string
-    FilePath    *pathutils.PathCfs
-    Qualifier   *string
+	// LogicalName is the logical name of the node.
+	LogicalName string
+
+	// FilePath is the CFS-format path to the node's spec file.
+	FilePath *pathutils.PathCfs
+
+	// Qualifier is an optional qualifier string, used for dependency entries.
+	Qualifier *string
 }
 
-// Chain holds the fully resolved chain for a target logical name.
-// It contains the ordered lists of ancestors, dependencies, external
-// files, the target itself, and an optional input artifact.
-//
-// Assembly order mirrors the order in which a downstream tool should
-// concatenate context:
-//  1. Ancestors — root down to (but not including) the target.
-//  2. Dependencies — target's depends_on, sorted alphabetically by
-//     file path then qualifier.
-//  3. External — target's external files, sorted alphabetically by
-//     path.
-//  4. Target — the target node itself.
-//  5. Input — the target's input artifact, if present.
+// Chain is the fully resolved chain for a target node, in assembly order.
 type Chain struct {
-    Ancestors    []*ChainItem
-    Dependencies []*ChainItem
-    External     []*frontmatter.FrontmatterExternal
-    Target       *ChainItem
-    Input        *ChainItem
+	// Ancestors holds the nodes from root down to (but not including) the target.
+	Ancestors []*ChainItem
+
+	// Dependencies holds entries from the target's depends_on, sorted
+	// alphabetically by file path then by qualifier.
+	Dependencies []*ChainItem
+
+	// External holds external file references from the target's frontmatter,
+	// sorted alphabetically by path, including any fragment declarations.
+	External []*frontmatter.FrontmatterExternal
+
+	// Target is the target node itself.
+	Target *ChainItem
+
+	// Input is the target's input artifact, if present.
+	Input *ChainItem
 }
 ```
 
@@ -47,12 +58,16 @@ type Chain struct {
 ## Error Sentinels
 
 ```go
-var (
-    // ErrUnresolvableArtifact is returned when an ARTIFACT/ reference's
-    // output id does not match any output declared in the referenced
-    // node's frontmatter.
-    ErrUnresolvableArtifact = errors.New("unresolvable artifact")
-)
+package chainresolver
+
+import "errors"
+
+// ErrUnreadableFrontmatter is returned when a node's frontmatter cannot be parsed.
+var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
+
+// ErrUnresolvableArtifact is returned when an ARTIFACT/ reference's output id
+// does not match any declared output in the referenced node.
+var ErrUnresolvableArtifact = errors.New("unresolvable artifact")
 ```
 
 ---
@@ -60,23 +75,26 @@ var (
 ## Functions
 
 ```go
-// ChainResolve builds and returns the full chain for the given target
-// logical name. It walks the ancestor hierarchy, collects depends_on
-// entries, gathers external file references, and resolves the optional
-// input artifact.
+package chainresolver
+
+// ChainResolve returns the chain for the given target logical name.
 //
-// The returned Chain fields are ordered as described in the Chain struct
-// documentation.
+// The chain is assembled in the following order:
+//  1. Ancestors — from root down to (but not including) the target node.
+//  2. Dependencies — entries from the target's depends_on, sorted
+//     alphabetically by file path then by qualifier.
+//  3. External — files from the target's external field, sorted
+//     alphabetically by path, including fragment declarations when present.
+//  4. Target — the target node itself.
+//  5. Input — the target's input artifact, if present.
 //
-// Returns an error if:
-//   - the target logical name is invalid or cannot be converted to a
-//     path (errors propagated from LogicalNameToPath / LogicalNameGetParent).
-//   - any node's frontmatter cannot be parsed (frontmatter parse errors
-//     are propagated).
-//   - an ARTIFACT/ reference in depends_on specifies an output id that
-//     does not match any declared output in the referenced node's
-//     frontmatter (ErrUnresolvableArtifact).
-func ChainResolve(target_logical_name string) (*Chain, error)
+// Errors:
+//   - ErrUnreadableFrontmatter: a node's frontmatter cannot be parsed.
+//   - ErrUnresolvableArtifact: an ARTIFACT/ reference's output id does not
+//     match any declared output.
+//   - (LogicalNames.*): propagated from LogicalNameToPath, LogicalNameGetParent.
+//   - (Frontmatter.*): propagated from FrontmatterParse.
+func ChainResolve(targetLogicalName string) (*Chain, error)
 ```
 
 ---
@@ -87,42 +105,58 @@ func ChainResolve(target_logical_name string) (*Chain, error)
 package main
 
 import (
-    "fmt"
-    "log"
+	"fmt"
+	"log"
 
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
 )
 
 func main() {
-    chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/resolver")
-    if err != nil {
-        log.Fatalf("failed to resolve chain: %v", err)
-    }
+	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/resolver")
+	if err != nil {
+		log.Fatalf("ChainResolve: %v", err)
+	}
 
-    fmt.Println("Target:", chain.Target.LogicalName)
-    fmt.Println("Target path:", chain.Target.FilePath.Value)
+	fmt.Println("=== Ancestors ===")
+	for _, item := range chain.Ancestors {
+		fmt.Printf("  %s -> %s\n", item.LogicalName, item.FilePath.Value)
+	}
 
-    fmt.Println("Ancestors:")
-    for _, a := range chain.Ancestors {
-        fmt.Printf("  %s (%s)\n", a.LogicalName, a.FilePath.Value)
-    }
+	fmt.Println("=== Dependencies ===")
+	for _, item := range chain.Dependencies {
+		qualifier := "<none>"
+		if item.Qualifier != nil {
+			qualifier = *item.Qualifier
+		}
+		fmt.Printf("  %s -> %s (qualifier: %s)\n", item.LogicalName, item.FilePath.Value, qualifier)
+	}
 
-    fmt.Println("Dependencies:")
-    for _, d := range chain.Dependencies {
-        qualifier := "<none>"
-        if d.Qualifier != nil {
-            qualifier = *d.Qualifier
-        }
-        fmt.Printf("  %s (%s) qualifier=%s\n", d.LogicalName, d.FilePath.Value, qualifier)
-    }
+	fmt.Println("=== External ===")
+	for _, ext := range chain.External {
+		fmt.Printf("  %s (%d fragments)\n", ext.Path, len(ext.Fragments))
+		for _, frag := range ext.Fragments {
+			fmt.Printf("    fragment — description: %q, lines: %s, hash: %s\n",
+				frag.Description, frag.Lines, frag.Hash)
+		}
+	}
 
-    fmt.Println("External files:")
-    for _, e := range chain.External {
-        fmt.Printf("  %s (%d fragments)\n", e.Path, len(e.Fragments))
-    }
+	fmt.Println("=== Target ===")
+	fmt.Printf("  %s -> %s\n", chain.Target.LogicalName, chain.Target.FilePath.Value)
 
-    if chain.Input != nil {
-        fmt.Println("Input:", chain.Input.LogicalName, chain.Input.FilePath.Value)
-    }
+	fmt.Println("=== Input ===")
+	if chain.Input != nil {
+		fmt.Printf("  %s -> %s\n", chain.Input.LogicalName, chain.Input.FilePath.Value)
+	} else {
+		fmt.Println("  <none>")
+	}
+
+	// Sentinel errors can be checked with errors.Is:
+	//
+	//   _, err := chainresolver.ChainResolve("ROOT/nonexistent")
+	//   if errors.Is(err, chainresolver.ErrUnreadableFrontmatter) { ... }
+	//   if errors.Is(err, chainresolver.ErrUnresolvableArtifact) { ... }
+	//   if errors.Is(err, frontmatter.ErrMalformedYAML) { ... }
+	_ = frontmatter.ErrMalformedYAML // imported for documentation purposes
 }
 ```

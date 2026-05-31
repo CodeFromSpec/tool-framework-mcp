@@ -1,234 +1,286 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/write_file@8Gyw58j9E8dn9yr1VUBzI819cBM -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/write_file@e4Zm-W2SxHLTBjuGJS2NNaekQMg -->
 
 # Test Specification: MCPWriteFile
 
-## Function under test
+## Function Under Test
 
 ```
-MCPWriteFile(logical_name, path, content) -> string
+MCPWriteFile(logical_name: string, path: string, content: string) -> string
 ```
 
 ---
 
-## Happy path
+## Happy Path
 
-### Test: Writes file successfully
+### TC-01: Writes file successfully
 
-Setup:
-  Create a spec tree with a node at ROOT/a.
-  The node's _node.md frontmatter contains:
-    outputs:
-      - id: "code"
-        path: "output/file.go"
+**Setup**
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a"
-    path         = "output/file.go"
-    content      = "package main"
+Create a spec tree on disk with a `_node.md` file at node `ROOT/a`.
+The file's frontmatter contains:
 
-Expected outcome:
-  Return value equals "wrote output/file.go".
-  A file exists on disk at <project_root>/output/file.go
-  with content "package main".
+```
+outputs:
+  - id: "code"
+    path: "output/file.go"
+```
 
----
+**Action**
 
-### Test: Creates intermediate directories
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a"`
+- `path` = `"output/file.go"`
+- `content` = `"package main"`
 
-Setup:
-  Create a spec tree with a node at ROOT/a.
-  The node's _node.md frontmatter contains:
-    outputs:
-      - id: "code"
-        path: "deep/nested/dir/file.go"
+**Expected outcome**
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a"
-    path         = "deep/nested/dir/file.go"
-    content      = "package main"
-
-Expected outcome:
-  Call succeeds (no error).
-  All intermediate directories are created automatically.
-  A file exists on disk at <project_root>/deep/nested/dir/file.go
-  with content "package main".
+- Return value equals `"wrote output/file.go"`.
+- File exists on disk at `<cfs_root>/output/file.go`.
+- File content equals `"package main"`.
 
 ---
 
-### Test: Overwrites existing file
+### TC-02: Creates intermediate directories
 
-Setup:
-  Create a spec tree with a node at ROOT/a.
-  The node's _node.md frontmatter contains:
-    outputs:
-      - id: "code"
-        path: "output/file.go"
-  Create the file <project_root>/output/file.go on disk
-  with content "old".
+**Setup**
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a"
-    path         = "output/file.go"
-    content      = "new"
+Create a spec tree on disk with a `_node.md` file at node `ROOT/a`.
+The file's frontmatter contains:
 
-Expected outcome:
-  Call succeeds (no error).
-  The file at <project_root>/output/file.go contains "new".
-  The previous content "old" is gone.
+```
+outputs:
+  - id: "code"
+    path: "deep/nested/dir/file.go"
+```
 
----
+**Action**
 
-## Error cases
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a"`
+- `path` = `"deep/nested/dir/file.go"`
+- `content` = `"package main"`
 
-### Test: Invalid logical name — ARTIFACT reference
+**Expected outcome**
 
-Setup:
-  No spec tree required.
-
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ARTIFACT/x(y)"
-    path         = "out.go"
-    content      = ""
-
-Expected outcome:
-  Returns error UnsupportedReference.
-  (Propagated from LogicalNames via LogicalNameToPath.)
+- Return value equals `"wrote deep/nested/dir/file.go"`.
+- All intermediate directories are created automatically.
+- File exists on disk at `<cfs_root>/deep/nested/dir/file.go`.
+- File content equals `"package main"`.
 
 ---
 
-### Test: Invalid logical name — with qualifier
+### TC-03: Overwrites existing file
 
-Setup:
-  No spec tree required.
+**Setup**
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a(interface)"
-    path         = "out.go"
-    content      = ""
+Create a spec tree on disk with a `_node.md` file at node `ROOT/a`.
+The file's frontmatter contains:
 
-Expected outcome:
-  Returns error UnsupportedReference.
-  (LogicalNameToPath strips qualifiers; the resulting node
-  path does not exist, so the frontmatter cannot be read.)
+```
+outputs:
+  - id: "code"
+    path: "output/file.go"
+```
 
----
+Create the file `<cfs_root>/output/file.go` on disk with content `"old"`.
 
-### Test: Nonexistent node file
+**Action**
 
-Setup:
-  No _node.md file exists for the path that corresponds
-  to "ROOT/missing".
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a"`
+- `path` = `"output/file.go"`
+- `content` = `"new"`
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/missing"
-    path         = "out.go"
-    content      = ""
+**Expected outcome**
 
-Expected outcome:
-  Returns error UnreadableFrontmatter.
+- Return value equals `"wrote output/file.go"`.
+- File content on disk equals `"new"`.
 
 ---
 
-### Test: No outputs declared
+## Error Cases
 
-Setup:
-  Create a spec tree with a node at ROOT/a.
-  The node's _node.md frontmatter is empty (no outputs field).
+### TC-04: Invalid logical name — ARTIFACT reference
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a"
-    path         = "out.go"
-    content      = ""
+**Setup**
 
-Expected outcome:
-  Returns error NoOutputs.
+No spec tree required.
 
----
+**Action**
 
-### Test: Path not in outputs
+Call `MCPWriteFile` with:
+- `logical_name` = `"ARTIFACT/x(y)"`
+- `path` = `"out.go"`
+- `content` = `""`
 
-Setup:
-  Create a spec tree with a node at ROOT/a.
-  The node's _node.md frontmatter contains:
-    outputs:
-      - id: "code"
-        path: "allowed/file.go"
+**Expected outcome**
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a"
-    path         = "other/file.go"
-    content      = ""
-
-Expected outcome:
-  Returns error PathNotInOutputs.
+- Error `UnsupportedReference` is returned.
+- Propagated from `LogicalNames` via `LogicalNameToPath`.
 
 ---
 
-### Test: Path validation — empty path
+### TC-05: Invalid logical name — with qualifier
 
-Setup:
-  Create a spec tree with a node at ROOT/a.
-  The node's _node.md frontmatter contains:
-    outputs:
-      - id: "code"
-        path: "out.go"
+**Setup**
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a"
-    path         = ""
-    content      = ""
+No spec tree required.
 
-Expected outcome:
-  Returns error PathEmpty.
-  (Propagated from PathUtils via PathValidateCfs.)
+**Action**
 
----
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a(interface)"`
+- `path` = `"out.go"`
+- `content` = `""`
 
-### Test: Path validation — directory traversal
+**Expected outcome**
 
-Setup:
-  Create a spec tree with a node at ROOT/a.
-  The node's _node.md frontmatter contains:
-    outputs:
-      - id: "code"
-        path: "out.go"
-
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a"
-    path         = "../../etc/passwd"
-    content      = ""
-
-Expected outcome:
-  Returns error DirectoryTraversal.
-  (Propagated from PathUtils via PathValidateCfs.)
+- Error `UnsupportedReference` is returned.
+- Propagated from `LogicalNames` via `LogicalNameToPath`.
+  (Qualifiers are stripped before path resolution; the resulting node file does not exist.)
 
 ---
 
-### Test: Path validation — backslash in path
+### TC-06: Nonexistent node file
 
-Setup:
-  Create a spec tree with a node at ROOT/a.
-  The node's _node.md frontmatter contains:
-    outputs:
-      - id: "code"
-        path: "out.go"
+**Setup**
 
-Actions:
-  Call MCPWriteFile with:
-    logical_name = "ROOT/a"
-    path         = "output\file.go"
-    content      = ""
+No `_node.md` file exists at the path corresponding to `ROOT/missing`.
 
-Expected outcome:
-  Returns error PathContainsBackslash.
-  (Propagated from PathUtils via PathValidateCfs.)
+**Action**
+
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/missing"`
+- `path` = `"out.go"`
+- `content` = `""`
+
+**Expected outcome**
+
+- Error `UnreadableFrontmatter` is returned.
+
+---
+
+### TC-07: No outputs declared
+
+**Setup**
+
+Create a spec tree on disk with a `_node.md` file at node `ROOT/a`.
+The file's frontmatter is empty (no `outputs` field).
+
+**Action**
+
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a"`
+- `path` = `"out.go"`
+- `content` = `""`
+
+**Expected outcome**
+
+- Error `NoOutputs` is returned.
+
+---
+
+### TC-08: Path not in outputs
+
+**Setup**
+
+Create a spec tree on disk with a `_node.md` file at node `ROOT/a`.
+The file's frontmatter contains:
+
+```
+outputs:
+  - id: "code"
+    path: "allowed/file.go"
+```
+
+**Action**
+
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a"`
+- `path` = `"other/file.go"`
+- `content` = `""`
+
+**Expected outcome**
+
+- Error `PathNotInOutputs` is returned.
+
+---
+
+### TC-09: Path validation — empty path
+
+**Setup**
+
+Create a spec tree on disk with a `_node.md` file at node `ROOT/a`.
+The file's frontmatter contains:
+
+```
+outputs:
+  - id: "code"
+    path: "out.go"
+```
+
+**Action**
+
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a"`
+- `path` = `""`
+- `content` = `""`
+
+**Expected outcome**
+
+- Error `PathEmpty` is returned.
+- Propagated from `PathUtils` via `PathValidateCfs`.
+
+---
+
+### TC-10: Path validation — directory traversal
+
+**Setup**
+
+Create a spec tree on disk with a `_node.md` file at node `ROOT/a`.
+The file's frontmatter contains:
+
+```
+outputs:
+  - id: "code"
+    path: "out.go"
+```
+
+**Action**
+
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a"`
+- `path` = `"../../etc/passwd"`
+- `content` = `""`
+
+**Expected outcome**
+
+- Error `DirectoryTraversal` is returned.
+- Propagated from `PathUtils` via `PathValidateCfs`.
+
+---
+
+### TC-11: Path validation — backslash
+
+**Setup**
+
+Create a spec tree on disk with a `_node.md` file at node `ROOT/a`.
+The file's frontmatter contains:
+
+```
+outputs:
+  - id: "code"
+    path: "out.go"
+```
+
+**Action**
+
+Call `MCPWriteFile` with:
+- `logical_name` = `"ROOT/a"`
+- `path` = `"output\\file.go"`
+- `content` = `""`
+
+**Expected outcome**
+
+- Error `PathContainsBackslash` is returned.
+- Propagated from `PathUtils` via `PathValidateCfs`.

@@ -1,239 +1,175 @@
-<!-- code-from-spec: ROOT/functional/tests/os/file_reader@RCzuMJy4O8dQJzKcwD2SLXY0FkA -->
+<!-- code-from-spec: ROOT/functional/tests/os/file_reader@cZx6V8X4VKJaJpAze78a-0Cy09o -->
 
 # FileReader Test Specification
 
----
-
 ## Happy Path
 
----
+### Opens and reads all lines
 
-### Test: Opens and reads all lines
+Setup: Create a file containing three lines — `"alpha"`, `"beta"`, `"gamma"` — with LF endings.
 
-**Setup**
-Create a file containing three lines with LF endings:
-- Line 1: `"alpha"`
-- Line 2: `"beta"`
-- Line 3: `"gamma"`
-
-**Actions**
-1. Call `FileOpen` with the file path. Expect success — receive a FileReader.
-2. Call `FileReadLine`. Expect `"alpha"`.
-3. Call `FileReadLine`. Expect `"beta"`.
-4. Call `FileReadLine`. Expect `"gamma"`.
-5. Call `FileReadLine`. Expect "end of file".
-6. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"alpha"`.
+3. Call `FileReadLine` — expect `"beta"`.
+4. Call `FileReadLine` — expect `"gamma"`.
+5. Call `FileReadLine` — expect EndOfFile.
 
 ---
 
-### Test: Normalizes CRLF to LF
+### Normalizes CRLF to LF
 
-**Setup**
-Create a file containing two lines with CRLF endings:
-- Line 1: `"alpha"` followed by CRLF
-- Line 2: `"beta"` followed by CRLF
+Setup: Create a file containing `"alpha"` and `"beta"` with CRLF line endings.
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect `"alpha"` — no CR or LF characters in the returned string.
-3. Call `FileReadLine`. Expect `"beta"` — no CR or LF characters in the returned string.
-4. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"alpha"` (no CR or LF in the returned string).
+3. Call `FileReadLine` — expect `"beta"` (no CR or LF in the returned string).
 
 ---
 
-### Test: Reads file with no trailing newline
+### Reads file with no trailing newline
 
-**Setup**
-Create a file where:
-- Line 1: `"alpha"` followed by LF
-- Line 2: `"beta"` with no trailing newline
+Setup: Create a file containing `"alpha"` (with LF) followed by `"beta"` (no trailing newline).
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect `"alpha"`.
-3. Call `FileReadLine`. Expect `"beta"`.
-4. Call `FileReadLine`. Expect "end of file".
-5. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"alpha"`.
+3. Call `FileReadLine` — expect `"beta"`.
+4. Call `FileReadLine` — expect EndOfFile.
 
 ---
 
-### Test: FileSkipLines advances the reader
+### FileSkipLines advances the reader
 
-**Setup**
-Create a file containing five lines with LF endings:
-- Line 1: `"one"`
-- Line 2: `"two"`
-- Line 3: `"three"`
-- Line 4: `"four"`
-- Line 5: `"five"`
+Setup: Create a file containing five lines — `"one"`, `"two"`, `"three"`, `"four"`, `"five"`.
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileSkipLines` with count `2`. Expect no error.
-3. Call `FileReadLine`. Expect `"three"`.
-4. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileSkipLines` with count `2`.
+3. Call `FileReadLine` — expect `"three"`.
 
 ---
 
-### Test: FileSkipLines past end of file
+### FileSkipLines past end of file
 
-**Setup**
-Create a file containing two lines with LF endings:
-- Line 1: `"one"`
-- Line 2: `"two"`
+Setup: Create a file containing two lines — `"one"`, `"two"`.
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileSkipLines` with count `10`. Expect no error.
-3. Call `FileReadLine`. Expect "end of file".
-4. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileSkipLines` with count `10` — expect no error.
+3. Call `FileReadLine` — expect EndOfFile.
 
 ---
 
-### Test: Preserves leading whitespace
+### Preserves leading whitespace
 
-**Setup**
-Create a file containing two lines with LF endings:
-- Line 1: `"  alpha"` (two leading spaces)
-- Line 2: `"    beta"` (four leading spaces)
+Setup: Create a file containing `"  alpha"` and `"    beta"` (with leading spaces).
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect `"  alpha"` — leading spaces preserved.
-3. Call `FileReadLine`. Expect `"    beta"` — leading spaces preserved.
-4. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"  alpha"` (two leading spaces preserved).
+3. Call `FileReadLine` — expect `"    beta"` (four leading spaces preserved).
 
 ---
 
-### Test: Preserves trailing whitespace
+### Preserves trailing whitespace
 
-**Setup**
-Create a file containing two lines with LF endings:
-- Line 1: `"alpha  "` (two trailing spaces)
-- Line 2: `"beta   "` (three trailing spaces)
+Setup: Create a file containing `"alpha  "` and `"beta   "` (with trailing spaces).
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect `"alpha  "` — trailing spaces preserved.
-3. Call `FileReadLine`. Expect `"beta   "` — trailing spaces preserved.
-4. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"alpha  "` (two trailing spaces preserved).
+3. Call `FileReadLine` — expect `"beta   "` (three trailing spaces preserved).
 
 ---
 
-### Test: Preserves internal whitespace
+### Preserves internal whitespace
 
-**Setup**
-Create a file containing two lines with LF endings:
-- Line 1: `"alpha   beta"` (three internal spaces)
-- Line 2: `"one\ttwo"` (internal tab character)
+Setup: Create a file containing `"alpha   beta"` (internal spaces) and `"one\ttwo"` (tab character).
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect `"alpha   beta"` — internal spaces preserved.
-3. Call `FileReadLine`. Expect `"one\ttwo"` — internal tab preserved.
-4. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"alpha   beta"` (internal spaces preserved).
+3. Call `FileReadLine` — expect `"one\ttwo"` (tab preserved).
 
 ---
 
-### Test: Preserves empty lines
+### Preserves empty lines
 
-**Setup**
-Create a file containing four lines with LF endings:
-- Line 1: `"alpha"`
-- Line 2: `""` (empty)
-- Line 3: `""` (empty)
-- Line 4: `"beta"`
+Setup: Create a file containing four lines — `"alpha"`, `""`, `""`, `"beta"`.
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect `"alpha"`.
-3. Call `FileReadLine`. Expect `""` — empty string, not skipped.
-4. Call `FileReadLine`. Expect `""` — empty string, not skipped.
-5. Call `FileReadLine`. Expect `"beta"`.
-6. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"alpha"`.
+3. Call `FileReadLine` — expect `""` (empty string, not skipped).
+4. Call `FileReadLine` — expect `""` (empty string, not skipped).
+5. Call `FileReadLine` — expect `"beta"`.
 
 ---
 
-### Test: Preserves non-ASCII characters
+### Preserves non-ASCII characters
 
-**Setup**
-Create a UTF-8 encoded file containing three lines with LF endings:
-- Line 1: `"café"` (accented character)
-- Line 2: `"日本語"` (CJK characters)
-- Line 3: `"🎉🚀"` (emoji characters)
+Setup: Create a file containing `"café"`, `"日本語"`, `"🎉🚀"`.
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect `"café"` — accented character preserved.
-3. Call `FileReadLine`. Expect `"日本語"` — CJK characters preserved.
-4. Call `FileReadLine`. Expect `"🎉🚀"` — emoji characters preserved.
-5. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"café"` (accented characters unchanged).
+3. Call `FileReadLine` — expect `"日本語"` (CJK characters unchanged).
+4. Call `FileReadLine` — expect `"🎉🚀"` (emoji unchanged).
 
 ---
 
 ## Edge Cases
 
----
+### Empty file
 
-### Test: Empty file
+Setup: Create an empty file (zero bytes).
 
-**Setup**
-Create an empty file (zero bytes).
-
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect "end of file" immediately.
-3. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect EndOfFile immediately.
 
 ---
 
-### Test: Single line without newline
+### Single line without newline
 
-**Setup**
-Create a file containing only `"hello"` with no newline character.
+Setup: Create a file containing only `"hello"` with no newline character.
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
-2. Call `FileReadLine`. Expect `"hello"`.
-3. Call `FileReadLine`. Expect "end of file".
-4. Call `FileClose`.
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` — expect `"hello"`.
+3. Call `FileReadLine` — expect EndOfFile.
 
 ---
 
 ## Failure Cases
 
----
+### File does not exist
 
-### Test: File does not exist
+Setup: No file is created; use a path that does not exist on the filesystem.
 
-**Setup**
-No file setup required. Use a path that does not exist on the filesystem.
-
-**Actions**
-1. Call `FileOpen` with the non-existent path. Expect "file unreadable".
+Actions:
+1. Call `FileOpen` with the non-existent path — expect FileUnreadable.
 
 ---
 
-### Test: Read after close
+### Read after close
 
-**Setup**
-Create a file containing one line with LF ending:
-- Line 1: `"alpha"`
+Setup: Create a file containing `"alpha"`.
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
+Actions:
+1. Call `FileOpen` with the file path.
 2. Call `FileClose`.
-3. Call `FileReadLine`. Expect "end of file".
+3. Call `FileReadLine` — expect EndOfFile.
 
 ---
 
-### Test: Skip after close
+### Skip after close
 
-**Setup**
-Create a file containing one line with LF ending:
-- Line 1: `"alpha"`
+Setup: Create a file containing `"alpha"`.
 
-**Actions**
-1. Call `FileOpen` with the file path. Expect success.
+Actions:
+1. Call `FileOpen` with the file path.
 2. Call `FileClose`.
-3. Call `FileSkipLines` with count `1`. Expect no error — the call does nothing.
+3. Call `FileSkipLines` with count `1` — expect no error (call does nothing).

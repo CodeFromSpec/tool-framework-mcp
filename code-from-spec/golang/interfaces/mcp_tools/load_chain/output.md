@@ -1,26 +1,31 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@WaNbNSkjwVfgs_MFHD7rUQFT7do)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@8g5WFebw3KHbBxTV4CvH4EmdVm4)
 
-# Interface: `mcploadchain`
+# Package `mcploadchain`
 
-**Package:** `package mcploadchain`  
-**Import:** `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"`
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
+```
+
+Implements the `load_chain` MCP tool. Given a logical name, it resolves the full spec chain, computes the chain hash, and returns the assembled context and optional input artifact.
 
 ---
 
 ## Structs
 
 ```go
-// MCPLoadChainResult holds the result returned by MCPLoadChain.
+package mcploadchain
+
+// MCPLoadChainResult holds the output of a successful MCPLoadChain call.
 type MCPLoadChainResult struct {
-    // ChainHash is the 27-character base64url chain hash for the target node.
-    ChainHash string
+	// ChainHash is the 27-character base64url chain hash.
+	ChainHash string
 
-    // Context is all chain content concatenated as a single stream.
-    Context string
+	// Context contains all chain content concatenated as a single stream.
+	Context string
 
-    // Input is the content of the input artifact (excluding frontmatter),
-    // present only when the target node declares an input field.
-    Input *string
+	// Input contains the content of the input artifact (excluding frontmatter),
+	// if one exists. Nil when no input artifact is present.
+	Input *string
 }
 ```
 
@@ -29,48 +34,39 @@ type MCPLoadChainResult struct {
 ## Error Sentinels
 
 ```go
-var (
-    // ErrNoOutputs is returned when the target node has no outputs field.
-    ErrNoOutputs = errors.New("no outputs")
+package mcploadchain
 
-    // ErrInvalidOutputPath is returned when an output path fails path validation.
-    ErrInvalidOutputPath = errors.New("invalid output path")
-)
+import "errors"
+
+// ErrNoOutputs is returned when the target node has no outputs field.
+var ErrNoOutputs = errors.New("no outputs")
+
+// ErrInvalidOutputPath is returned when an output path fails path validation.
+var ErrInvalidOutputPath = errors.New("invalid output path")
 ```
-
-> Errors from `LogicalNames`, `ChainResolver`, `ChainHash`, `NodeParsing`, and
-> `FileReader` are propagated directly from their respective packages and are not
-> re-declared here.
 
 ---
 
 ## Functions
 
 ```go
-// MCPLoadChain builds the full chain context for the given logical name and
-// returns a result containing the chain hash, concatenated context, and
-// optional input content.
+package mcploadchain
+
+// MCPLoadChain resolves the spec chain for the given logical name, computes
+// the chain hash, and returns the assembled context along with an optional
+// input artifact.
 //
-// The function:
-//  1. Converts logical_name to a file path via LogicalNameToPath.
-//  2. Resolves the full chain via ChainResolve.
-//  3. Computes the chain hash via ChainHashCompute.
-//  4. Reads and concatenates all chain files in assembly order to form Context.
-//  5. If the target node declares an input field, reads and returns its content
-//     (excluding frontmatter) in the Input field.
-//  6. Validates that the target node has an outputs field; returns ErrNoOutputs
-//     if absent.
-//  7. Validates each output path; returns ErrInvalidOutputPath if any path fails
-//     validation.
+// The target node must declare an outputs field. Each output path is validated
+// before the result is returned.
 //
-// Returns an error if:
-//   - logical_name is invalid (LogicalNames errors propagated).
-//   - chain resolution fails (ChainResolver errors propagated).
-//   - chain hash computation fails (ChainHash errors propagated).
-//   - node parsing fails (NodeParsing errors propagated).
-//   - any file cannot be opened or read (FileReader errors propagated).
-//   - the target node has no outputs field (ErrNoOutputs).
-//   - an output path fails validation (ErrInvalidOutputPath).
+// Errors:
+//   - ErrNoOutputs: target node has no outputs field.
+//   - ErrInvalidOutputPath: an output path fails path validation.
+//   - (LogicalNames.*): propagated from LogicalNameToPath.
+//   - (ChainResolver.*): propagated from ChainResolve.
+//   - (ChainHash.*): propagated from ChainHashCompute.
+//   - (NodeParsing.*): propagated from NodeParse.
+//   - (FileReader.*): propagated from FileOpen.
 func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error)
 ```
 
@@ -82,23 +78,44 @@ func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error)
 package main
 
 import (
-    "fmt"
-    "log"
+	"errors"
+	"fmt"
+	"log"
 
-    "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
 )
 
 func main() {
-    result, err := mcploadchain.MCPLoadChain("ROOT/golang/interfaces/mcp_tools/load_chain")
-    if err != nil {
-        log.Fatalf("MCPLoadChain failed: %v", err)
-    }
+	result, err := mcploadchain.MCPLoadChain("ROOT/golang/interfaces/mcp_tools/load_chain")
+	if err != nil {
+		// Check for sentinel errors specific to this package.
+		if errors.Is(err, mcploadchain.ErrNoOutputs) {
+			log.Fatalf("target node has no outputs: %v", err)
+		}
+		if errors.Is(err, mcploadchain.ErrInvalidOutputPath) {
+			log.Fatalf("invalid output path: %v", err)
+		}
 
-    fmt.Println("Chain hash:", result.ChainHash)
-    fmt.Println("Context length:", len(result.Context))
+		// Propagated errors from dependency packages can also be inspected.
+		if errors.Is(err, chainresolver.ErrUnreadableFrontmatter) {
+			log.Fatalf("frontmatter unreadable: %v", err)
+		}
+		if errors.Is(err, chainhash.ErrFileUnreadable) {
+			log.Fatalf("file unreadable: %v", err)
+		}
 
-    if result.Input != nil {
-        fmt.Println("Input content length:", len(*result.Input))
-    }
+		log.Fatalf("MCPLoadChain: %v", err)
+	}
+
+	fmt.Printf("chain hash: %s\n", result.ChainHash)
+	fmt.Printf("context length: %d bytes\n", len(result.Context))
+
+	if result.Input != nil {
+		fmt.Printf("input length: %d bytes\n", len(*result.Input))
+	} else {
+		fmt.Println("no input artifact")
+	}
 }
 ```

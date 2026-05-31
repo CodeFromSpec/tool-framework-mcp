@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_writer@RYq5m1T1IbcIFo4W3Vis-MXVmXY
+// code-from-spec: ROOT/golang/implementation/os/file_writer@k5qjSPk4qgOH2lu7F6wLjeKvLv4
 
 package filewriter
 
@@ -11,37 +11,35 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-var (
-	// ErrCannotCreateDirectory is returned when an intermediate directory
-	// cannot be created during a write operation.
-	ErrCannotCreateDirectory = errors.New("cannot create directory")
+// ErrCannotCreateDirectory is returned when an intermediate directory cannot be created.
+var ErrCannotCreateDirectory = errors.New("cannot create directory")
 
-	// ErrCannotWriteFile is returned when the file cannot be written.
-	ErrCannotWriteFile = errors.New("cannot write file")
-)
+// ErrCannotWriteFile is returned when the file cannot be written.
+var ErrCannotWriteFile = errors.New("cannot write file")
 
-// FileWrite writes content to the file at cfs_path as UTF-8 encoded text.
+// FileWrite writes content to the file at cfsPath as UTF-8 encoded text.
 // If the file exists, it is overwritten. If it does not exist, it is created.
 // Intermediate directories are created as needed.
 //
 // Content is written exactly as received — no normalization of line endings
-// or other transformations is applied.
+// or other transformations.
 //
-// The path is validated before writing. If validation fails, no file or
+// The path is validated before writing — if validation fails, no file or
 // directory is created.
 //
-// Returns an error if:
-//   - path validation fails (errors from PathCfsToOs are propagated).
-//   - an intermediate directory cannot be created (ErrCannotCreateDirectory).
-//   - the file cannot be written (ErrCannotWriteFile).
-func FileWrite(cfs_path *pathutils.PathCfs, content string) error {
-	osPath, err := pathutils.PathCfsToOs(cfs_path)
+// Errors:
+//   - ErrCannotCreateDirectory: an intermediate directory cannot be created.
+//   - ErrCannotWriteFile: the file cannot be written.
+//   - (PathUtils.*): propagated from PathCfsToOs.
+func FileWrite(cfsPath *pathutils.PathCfs, content string) error {
+	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
 		return err
 	}
 
-	dir := filepath.Dir(osPath.Value)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	parentDir := filepath.Dir(osPath.Value)
+
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
 		return fmt.Errorf("%w: %w", ErrCannotCreateDirectory, err)
 	}
 

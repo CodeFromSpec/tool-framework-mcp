@@ -1,21 +1,16 @@
-<!-- code-from-spec: ROOT/functional/logic/os/file_writer@q-3YkwzF852pRRy5itHEhAj2UrA -->
-
-# FileWrite
+<!-- code-from-spec: ROOT/functional/logic/os/file_writer@IewsWrHBC7h76zYZS2jFrqp87pI -->
 
 function FileWrite(cfs_path: PathCfs, content: string)
 
-  1. Convert cfs_path to an OS path by calling PathCfsToOs(cfs_path).
-     If PathCfsToOs raises an error, propagate it unchanged.
-     Assign the result to os_path.
+  1. Call PathCfsToOs(cfs_path) to obtain an OS-native absolute path.
+     If PathCfsToOs raises any error, propagate it to the caller.
 
-  2. Determine the parent directory of os_path.
-     If the parent directory does not exist, create it along
-     with all intermediate directories.
-     If any directory cannot be created, raise error
-     "cannot create directory".
+  2. Determine the parent directory of the resolved OS path.
 
-  3. Write content to the file at os_path, encoded as UTF-8.
+  3. If the parent directory does not exist, create it and all
+     intermediate directories recursively.
+     If creation fails, raise error "CannotCreateDirectory".
+
+  4. Write content to the file at the resolved OS path, encoded as UTF-8.
      If the file already exists, overwrite it without warning.
-     If the file cannot be written, raise error "cannot write file".
-
-  4. Return with no value (write succeeded).
+     If writing fails, raise error "CannotWriteFile".

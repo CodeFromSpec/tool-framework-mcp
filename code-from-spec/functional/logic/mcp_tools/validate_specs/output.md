@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/validate_specs@oXnoZBtPgby3_SDCXrccUwD2EDw -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/validate_specs@jNJiLPGSDiDr_RxnQ3oLokFJvm4 -->
 
 # MCPValidateSpecs
 
@@ -6,17 +6,17 @@
 
 ```
 record StalenessEntry
-  node:          string
-  output_id:     string
+  node: string
+  output_id: string
   artifact_path: string
-  status:        string    -- "missing" | "stale" | "malformed tag"
-  detail:        string
-  rank:          integer
+  status: string        -- "missing", "stale", or "malformed tag"
+  detail: string
+  rank: integer
 
 record ValidationReport
   format_errors: list of FormatError
-  cycles:        list of string
-  staleness:     list of StalenessEntry
+  cycles: list of string
+  staleness: list of StalenessEntry
 ```
 
 ## Function
@@ -26,7 +26,7 @@ function MCPValidateSpecs() -> ValidationReport
 ```
 
 No parameters. Scans the entire spec tree starting from `code-from-spec/`.
-Always returns a report — never raises an error. All problems are collected
+Always returns a report — never raises an error. Problems are collected
 in the report.
 
 ---
@@ -34,217 +34,197 @@ in the report.
 ### Step 1 — Discover nodes
 
 1. Call `SpecTreeScan()`.
-2. If `SpecTreeScan` fails:
-   - Construct a single FormatError:
-     - node   = ""
-     - rule   = "scan"
-     - detail = error message from the failure
-   - Return a ValidationReport with:
-     - format_errors = [that FormatError]
-     - cycles        = []
-     - staleness     = []
+   If it fails:
+     - Return a `ValidationReport` with:
+         format_errors = [ FormatError(node = "", rule = "scan", detail = <error message>) ]
+         cycles = []
+         staleness = []
+
+2. Store the returned list of `SpecTreeNode` entries as <all_nodes>.
 
 ---
 
 ### Step 2 — Parse all nodes
 
 Initialize:
-- `parsed_nodes`  = empty list of records { logical_name, file_path, frontmatter, node }
-- `format_errors` = empty list of FormatError
+- <parsed_nodes>    = empty map from logical_name to (frontmatter, node)
+- <format_errors>   = empty list of FormatError
 
-For each entry in the list returned by `SpecTreeScan`:
+For each entry in <all_nodes>:
 
-1. Call `FrontmatterParse(entry.file_path)`.
-   If it fails:
-   - Append a FormatError:
-     - node   = entry.logical_name
-     - rule   = "parse"
-     - detail = error message
-   - Skip this node (do not add to `parsed_nodes`).
-   - Continue to next entry.
+  1. Call `FrontmatterParse(entry.file_path)`.
+     If it fails:
+       - Append FormatError(node = entry.logical_name, rule = "parse", detail = <error message>)
+         to <format_errors>.
+       - Skip this entry (do not add to <parsed_nodes>).
+       - Continue to next entry.
+     Store result as <frontmatter>.
 
-2. Call `NodeParse(entry.logical_name)`.
-   If it fails:
-   - Append a FormatError:
-     - node   = entry.logical_name
-     - rule   = "parse"
-     - detail = error message
-   - Skip this node (do not add to `parsed_nodes`).
-   - Continue to next entry.
+  2. Call `NodeParse(entry.logical_name)`.
+     If it fails:
+       - Append FormatError(node = entry.logical_name, rule = "parse", detail = <error message>)
+         to <format_errors>.
+       - Skip this entry (do not add to <parsed_nodes>).
+       - Continue to next entry.
+     Store result as <node>.
 
-3. Append a record to `parsed_nodes`:
-   - logical_name = entry.logical_name
-   - file_path    = entry.file_path
-   - frontmatter  = result of FrontmatterParse
-   - node         = result of NodeParse
+  3. Add entry to <parsed_nodes>:
+       key = entry.logical_name
+       value = (frontmatter = <frontmatter>, node = <node>)
 
 ---
 
 ### Step 3 — Format validation
 
-1. Build a list of `SpecTreeValidateInput` from `parsed_nodes`:
-   - For each record in `parsed_nodes`:
-     - logical_name = record.logical_name
-     - frontmatter  = record.frontmatter
-     - node         = record.node
+1. Build a list of `SpecTreeValidateInput` from all entries in <parsed_nodes>:
+     For each (logical_name, (frontmatter, node)) in <parsed_nodes>:
+       - Create SpecTreeValidateInput(logical_name = logical_name, frontmatter = frontmatter, node = node)
 
 2. Call `SpecTreeValidate(entries)`.
-
-3. Append every FormatError returned by `SpecTreeValidate` to `format_errors`.
+   Append all returned FormatError entries to <format_errors>.
 
 ---
 
 ### Step 4 — Ranking and cycle detection
 
 Initialize:
-- `ranked_entries` = empty list   -- will hold NodeRankEntry records
-- `cycles`         = []
-- `ranking_failed` = false
+- <rank_map>        = empty map from logical_name to integer
+- <cycles>          = empty list of string
 
-If `format_errors` is non-empty (from Steps 2 or 3):
-- Skip this step entirely.
-- Leave `ranked_entries` empty and `cycles` empty.
+If <format_errors> is non-empty:
+  - Skip this step entirely.
+  - (Ranking results would be unreliable — leave <rank_map> empty and <cycles> empty.)
 
 Otherwise:
 
-1. Build a list of `NodeRankInput` from `parsed_nodes`:
-   - For each record in `parsed_nodes`:
-     - logical_name = record.logical_name
-     - frontmatter  = record.frontmatter
+  1. Build a list of `NodeRankInput` from all entries in <parsed_nodes>:
+       For each (logical_name, (frontmatter, _)) in <parsed_nodes>:
+         - Create NodeRankInput(logical_name = logical_name, frontmatter = frontmatter)
 
-2. Call `NodeRankCompute(entries)`.
+  2. Call `NodeRankCompute(entries)`.
 
-3. If `NodeRankCompute` returns an UnresolvableReference error:
-   - Append a FormatError:
-     - node   = ""
-     - rule   = "ranking"
-     - detail = error message
-   - Set `ranking_failed` = true
-   - Leave `ranked_entries` empty, `cycles` empty.
+     If it returns an UnresolvableReference error:
+       - Append FormatError(node = "", rule = "ranking", detail = <error message>)
+         to <format_errors>.
+       - Leave <rank_map> empty and <cycles> empty.
+       - (Staleness entries will fall back to alphabetical order by node logical name.)
 
-4. Otherwise:
-   - Store the returned `ranked` list in `ranked_entries`.
-   - Store the returned `cycles` list in `cycles`.
+     Otherwise:
+       - For each entry in the returned <ranked> list:
+           Store <rank_map>[entry.logical_name] = entry.rank
+       - Set <cycles> = the returned <cycles> list.
 
 ---
 
 ### Step 5 — Staleness detection
 
 Initialize:
-- `staleness_entries` = empty list of StalenessEntry
+- <staleness_entries> = empty list of StalenessEntry
+
+Identify nodes to check: all entries in <parsed_nodes> where
+`frontmatter.outputs` is non-empty.
 
 Determine processing order:
+  - If <rank_map> is non-empty:
+      Sort by rank ascending, then by logical_name ascending for ties.
+  - Otherwise:
+      Sort alphabetically by logical_name ascending.
 
-- If `ranked_entries` is non-empty:
-  - Filter `parsed_nodes` to only those nodes that have at least one
-    entry in `frontmatter.outputs`.
-  - Sort this subset by rank ascending (using the rank from
-    `ranked_entries` keyed on logical_name), then by logical_name
-    ascending as a tiebreaker.
-  - For each node not found in `ranked_entries`, use rank = 0.
+For each such node in the determined order:
 
-- Else (ranking skipped or failed):
-  - Filter `parsed_nodes` to only those nodes that have at least one
-    entry in `frontmatter.outputs`.
-  - Sort this subset alphabetically by logical_name ascending.
+  Let <logical_name> = the node's logical name.
+  Let <outputs>      = frontmatter.outputs for this node.
+  Let <node_rank>    = <rank_map>[<logical_name>] if present, else 0.
 
-For each node record in the ordered subset:
-
-  a. Determine `node_rank`:
-     - Look up the node's logical_name in `ranked_entries`.
-     - If found, use that entry's rank.
-     - If not found, use 0.
-
-  b. Call `ChainResolve(record.logical_name)`.
+  1. Call `ChainResolve(<logical_name>)`.
      If it fails:
-     - For each output in `record.frontmatter.outputs`:
-       - Append a StalenessEntry:
-         - node          = record.logical_name
-         - output_id     = output.id
-         - artifact_path = output.path
-         - status        = "missing"
-         - detail        = error message from ChainResolve failure
-         - rank          = node_rank
-     - Continue to next node.
+       - For each output in <outputs>:
+           Append StalenessEntry(
+             node          = <logical_name>,
+             output_id     = output.id,
+             artifact_path = output.path,
+             status        = "missing",
+             detail        = <error message>,
+             rank          = <node_rank>
+           ) to <staleness_entries>.
+       - Continue to next node.
+     Store result as <chain>.
 
-  c. Call `ChainHashCompute(chain)` with the resolved chain.
+  2. Call `ChainHashCompute(<chain>)`.
      If it fails:
-     - For each output in `record.frontmatter.outputs`:
-       - Append a StalenessEntry:
-         - node          = record.logical_name
-         - output_id     = output.id
-         - artifact_path = output.path
-         - status        = "missing"
-         - detail        = error message from ChainHashCompute failure
-         - rank          = node_rank
-     - Continue to next node.
+       - For each output in <outputs>:
+           Append StalenessEntry(
+             node          = <logical_name>,
+             output_id     = output.id,
+             artifact_path = output.path,
+             status        = "missing",
+             detail        = <error message>,
+             rank          = <node_rank>
+           ) to <staleness_entries>.
+       - Continue to next node.
+     Store result as <expected_hash>.
 
-  d. Store `expected_hash` = result of ChainHashCompute.
+  3. For each output in <outputs>:
 
-  e. For each output in `record.frontmatter.outputs`:
+     a. Construct a PathCfs from output.path.
 
-     1. Construct a PathCfs from output.path.
+     b. Call `ArtifactTagExtract(<path_cfs>)`.
 
-     2. Call `ArtifactTagExtract(path)`.
+        If error is FileUnreadable:
+          - Append StalenessEntry(
+              node          = <logical_name>,
+              output_id     = output.id,
+              artifact_path = output.path,
+              status        = "missing",
+              detail        = <error message>,
+              rank          = <node_rank>
+            ) to <staleness_entries>.
+          - Continue to next output.
 
-     3. If `ArtifactTagExtract` returns a FileUnreadable error:
-        - Append a StalenessEntry:
-          - node          = record.logical_name
-          - output_id     = output.id
-          - artifact_path = output.path
-          - status        = "missing"
-          - detail        = error message
-          - rank          = node_rank
-        - Continue to next output.
+        If error is NoTagFound or MalformedTag:
+          - Append StalenessEntry(
+              node          = <logical_name>,
+              output_id     = output.id,
+              artifact_path = output.path,
+              status        = "malformed tag",
+              detail        = <error message>,
+              rank          = <node_rank>
+            ) to <staleness_entries>.
+          - Continue to next output.
 
-     4. If `ArtifactTagExtract` returns a NoTagFound or MalformedTag error:
-        - Append a StalenessEntry:
-          - node          = record.logical_name
-          - output_id     = output.id
-          - artifact_path = output.path
-          - status        = "malformed tag"
-          - detail        = error message
-          - rank          = node_rank
-        - Continue to next output.
-
-     5. Compare the extracted tag's hash to `expected_hash`.
-        - If they differ:
-          - Append a StalenessEntry:
-            - node          = record.logical_name
-            - output_id     = output.id
-            - artifact_path = output.path
-            - status        = "stale"
-            - detail        = "file hash <extracted hash>, expected <expected_hash>"
-            - rank          = node_rank
-        - If they match:
-          - Do not add any StalenessEntry (skip this output).
+        Otherwise (tag extracted successfully):
+          - Let <file_hash> = tag.hash.
+          - If <file_hash> does not equal <expected_hash>:
+              Append StalenessEntry(
+                node          = <logical_name>,
+                output_id     = output.id,
+                artifact_path = output.path,
+                status        = "stale",
+                detail        = "file hash <file_hash> does not match expected hash <expected_hash>",
+                rank          = <node_rank>
+              ) to <staleness_entries>.
+          - If <file_hash> equals <expected_hash>:
+              Skip — do not add an entry.
 
 ---
 
-### Step 6 — Assemble report
+### Step 6 — Assemble and return report
 
-Sort `staleness_entries` by rank ascending, then by node logical_name
-ascending as a tiebreaker.
+Sort <staleness_entries> by rank ascending, then by node logical name ascending.
 
-Return ValidationReport:
-- format_errors = `format_errors` (all FormatErrors from Steps 2, 3, 4)
-- cycles        = `cycles` (empty list if ranking was skipped or failed)
-- staleness     = sorted `staleness_entries`
+Return ValidationReport(
+  format_errors = <format_errors>,
+  cycles        = <cycles>,
+  staleness     = <staleness_entries>
+)
 
 ---
 
-## Contracts and invariants
+## Contracts
 
-- Always returns a ValidationReport — never raises an error to the caller.
-- Collects all problems; does not stop at the first error.
-- Staleness checking runs for all nodes with outputs, even when format
-  errors exist for other nodes. Nodes that failed to parse are excluded
-  from staleness checking (their parse errors are already reported).
-- Each node file is parsed at most once (results are cached in `parsed_nodes`
-  and reused across Steps 3, 4, and 5).
-- `StalenessEntry.status` is always one of: `"missing"`, `"stale"`,
-  `"malformed tag"`.
-- Entries where the artifact hash matches the chain hash are not included
-  in the staleness list.
-- `StalenessEntry.rank` reflects the node's computed rank, enabling the
-  caller to identify which staleness entries can be regenerated in parallel.
+- Always returns a report — never raises an error to the caller.
+- Reports all problems found — does not stop at the first.
+- Staleness check runs for all nodes with outputs, even if format
+  errors exist for other nodes.
+- Staleness entries include rank for parallel processing.
+- Each node is parsed at most once (results cached from Step 2).

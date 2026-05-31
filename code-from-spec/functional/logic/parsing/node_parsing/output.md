@@ -1,18 +1,18 @@
-<!-- code-from-spec: ROOT/functional/logic/parsing/node_parsing@WR6sFtqVI0Vmu8PElvEi_xj9us4 -->
+<!-- code-from-spec: ROOT/functional/logic/parsing/node_parsing@_Dn_gWFWBQEuUMEUCNntkUxpLY0 -->
 
 # NodeParse
 
-## Records
+## Data Structures
 
 record NodeSubsection
-  heading: string       -- normalized heading text (via NormalizeText)
-  raw_heading: string   -- original line as read from file
-  content: list of string
+  heading: string          (normalized via NormalizeText)
+  raw_heading: string      (original line as read from file)
+  content: list of string  (lines as returned by FileReadLine)
 
 record NodeSection
-  heading: string       -- normalized heading text (via NormalizeText)
-  raw_heading: string   -- original line as read from file
-  content: list of string
+  heading: string          (normalized via NormalizeText)
+  raw_heading: string      (original line as read from file)
+  content: list of string  (lines before the first ## heading)
   subsections: list of NodeSubsection
 
 record Node
@@ -21,23 +21,27 @@ record Node
   agent: optional NodeSection
   private: list of NodeSection
 
+
+## Functions
+
 ---
 
-## function NodeParse(logical_name: string) -> Node
+function NodeParse(logical_name: string) -> Node
 
-  Errors:
-    - "not a ROOT reference": logical name does not start with ROOT/.
-    - "has qualifier": logical name contains a parenthetical qualifier.
-    - (path errors): propagated from LogicalNameToPath or FileOpen.
-    - "file unreadable": file cannot be opened or read.
-    - "unexpected content before first heading": non-blank content
-      before the first level-1 heading, or no level-1 heading at all.
-    - "node name does not match": first heading text does not match
-      logical name after normalization.
-    - "duplicate public section": more than one `# Public` heading found.
-    - "duplicate agent section": more than one `# Agent` heading found.
-    - "duplicate subsection": two `##` headings within the same section
-      normalize to the same text.
+  errors:
+    - NotARootReference: logical_name does not start with ROOT/
+    - HasQualifier: logical_name contains a parenthetical qualifier
+    - FileUnreadable: the file cannot be opened or read
+    - UnexpectedContentBeforeFirstHeading: non-blank content before the
+      first level-1 heading, or no level-1 heading found, or frontmatter
+      is malformed (no closing ---)
+    - NodeNameDoesNotMatch: first heading text does not match logical_name
+      after normalization
+    - DuplicatePublicSection: more than one # Public heading found
+    - DuplicateAgentSection: more than one # Agent heading found
+    - DuplicateSubsection: two ## headings within the same section
+      normalize to the same text
+    - (FileReader.*): propagated from FileOpen
 
   Steps:
 
@@ -47,194 +51,199 @@ record Node
   2. If LogicalNameHasQualifier(logical_name) is true,
        raise error "has qualifier".
 
-  3. Let cfs_path = LogicalNameToPath(logical_name).
-     If LogicalNameToPath raises an error, propagate it.
+  3. Call LogicalNameToPath(logical_name) to get file_path.
+     Propagate any errors from LogicalNameToPath.
 
-  4. Let reader = FileOpen(cfs_path).
-     If FileOpen raises an error, propagate it.
+  4. Call FileOpen(file_path) to get reader.
+     If FileUnreadable is raised, propagate it.
+     Propagate any other FileReader errors.
 
-  5. Let close_and_raise be a helper that calls FileClose(reader)
-     then raises the given error. Use this in all error paths below.
+  5. Skip frontmatter:
+     a. Read the first line using FileReadLine.
+        If EndOfFile is raised, close reader and
+        raise "unexpected content before first heading".
+     b. If the first line is exactly "---":
+          Read lines one by one using FileReadLine.
+          For each line:
+            If it is exactly "---", stop — frontmatter skipped.
+            If EndOfFile is raised, close reader and
+            raise "unexpected content before first heading".
+        Else:
+          The first line is the first body line; hold it for step 6.
 
-  6. Skip frontmatter:
-     a. Read the first line from reader using FileReadLine.
-        If "end of file" is raised, call close_and_raise
-        "unexpected content before first heading".
-     b. If the first line equals exactly "---":
-          i. Read lines using FileReadLine until a line equals
-             exactly "---". Discard all lines read.
-         ii. If "end of file" is raised before finding the
-             closing "---", call close_and_raise
-             "unexpected content before first heading".
-     c. Else (first line is not "---"):
-          If the first line is blank, store it as the pending
-          first non-frontmatter line. Otherwise store it as the
-          pending first non-frontmatter line for use in step 7.
+  6. Parse the body into sections.
+     Maintain the following state:
+       - sections_seen: record tracking whether name_section,
+         public, and agent have been encountered (all start false)
+       - current_section: optional — the NodeSection being built
+         (absent until the first # heading is encountered)
+       - current_subsection: optional — the NodeSubsection being
+         built (absent until the first ## heading within a section)
+       - private_sections: ordered list of NodeSections
+       - in_fence: boolean, false initially
+       - fence_char: string ("`" or "~"), set when in_fence becomes true
+       - fence_length: integer, the number of fence characters on the
+         opening line
 
-  7. Parse the body into sections:
+     Process lines one at a time (starting from the held line in step 5,
+     if any, then reading subsequent lines via FileReadLine until
+     EndOfFile):
 
-     Initialize:
-       - current_section: absent
-       - current_subsection: absent
-       - sections: empty list of NodeSection
-         (each entry tagged with its role: name, public, agent, or private)
-       - has_public: false
-       - has_agent: false
-       - found_first_heading: false
-       - in_fence: false
-       - fence_char: absent
-       - fence_length: 0
-       - pending_line: the line saved in step 6c, or absent
+     For each line:
 
-     Define a helper IsBlank(line):
-       Returns true if the line contains only whitespace characters.
-
-     Define a helper ParseHeading(line) -> record or absent:
-       a. Count leading "#" characters; call this level.
-          If level is 0, return absent.
-       b. If the character immediately after the leading "#" sequence
-          is not a space character, return absent (e.g. "#Foo" is not
-          a heading).
-       c. Let text = everything after the leading "<level># " prefix.
-          Trim leading and trailing whitespace from text.
-       d. If text ends with one or more "#" characters preceded by
-          at least one space, strip that trailing sequence and trim again.
-       e. Let normalized = NormalizeText(text).
-       f. Return record with fields: level, text (raw extracted text),
-          normalized, raw_line (the original line unchanged).
-
-     Define a helper AppendContent(line):
-       If current_subsection is present,
-         append line to current_subsection.content.
-       Else if current_section is present,
-         append line to current_section.content.
-       -- Lines before any heading are handled separately (see below).
-
-     Define a helper OpenSubsection(raw_line, normalized):
-       a. If current_subsection is present, finalize it:
-            append current_subsection to current_section.subsections.
-       b. Check current_section.subsections for any existing subsection
-          whose heading equals normalized.
-          If found, call close_and_raise "duplicate subsection".
-       c. Set current_subsection = new NodeSubsection with
-            heading = normalized,
-            raw_heading = raw_line,
-            content = empty list.
-
-     Define a helper FinalizeSubsection:
-       If current_subsection is present,
-         append current_subsection to current_section.subsections.
-       Set current_subsection = absent.
-
-     Define a helper FinalizeSection:
-       Call FinalizeSubsection.
-       If current_section is present,
-         append current_section to sections.
-       Set current_section = absent.
-
-     Define a helper OpenSection(raw_line, normalized):
-       a. Call FinalizeSection to close any open section.
-       b. Let new_section = NodeSection with
-            heading = normalized,
-            raw_heading = raw_line,
-            content = empty list,
-            subsections = empty list.
-       c. Set current_section = new_section.
-
-     Now process lines:
-       Let pre_heading_lines = empty list.
-         (Accumulates blank lines seen before the first level-1 heading.)
-
-     Loop:
-       a. If pending_line is present, let line = pending_line,
-            clear pending_line. Otherwise let line = FileReadLine.
-          If FileReadLine raises "end of file", go to step 8.
-
-       b. Fence tracking (fenced code block detection):
+       a. Fence tracking (check before heading recognition):
           If in_fence is false:
-            i.  Count leading backtick characters in line; call it bt.
-                If bt >= 3 and the rest of the line (after the backticks)
-                contains no backtick characters (allowing a language tag
-                with no embedded backticks), set in_fence = true,
-                fence_char = "`", fence_length = bt. Treat line as content.
-            ii. Else count leading tilde characters; call it ti.
-                If ti >= 3, set in_fence = true, fence_char = "~",
-                fence_length = ti. Treat line as content.
-            iii. If neither, continue to heading detection below.
-          If in_fence is true:
-            i.  Count leading characters equal to fence_char; call it cl.
-                If cl >= fence_length and the remainder of the line
-                (after those characters) contains no fence_char characters,
-                set in_fence = false. Treat line as content.
-            ii. Else treat line as content.
-          For content lines (in_fence path), call AppendContent(line)
-          and go to next iteration.
-
-       c. If in_fence is false, attempt heading detection:
-          Let h = ParseHeading(line).
-          If h is absent, treat line as content:
-            If found_first_heading is false,
-              if IsBlank(line), append line to pre_heading_lines and continue.
-              else call close_and_raise
-                "unexpected content before first heading".
-            Else call AppendContent(line) and continue.
-
-       d. h is a valid heading. Process by level:
-
-          If h.level == 1:
-            If found_first_heading is false:
-              -- This is the name section heading.
-              Let expected = NormalizeText(logical_name).
-              If h.normalized does not equal expected,
-                call close_and_raise "node name does not match".
-              Set found_first_heading = true.
-              Call OpenSection(h.raw_line, h.normalized).
-              -- Discard pre_heading_lines (blank lines before first heading
-                 are not added to any section content).
+            Count the number of leading backtick characters (`) in line.
+            If count >= 3 and the rest of the line (after those backticks)
+            has no backtick characters:
+              Set in_fence = true, fence_char = "`", fence_length = count.
+              Treat line as content (do not interpret as heading).
             Else:
-              -- Subsequent level-1 heading.
-              Call OpenSection(h.raw_line, h.normalized).
-              -- Classify the section:
-              If h.normalized equals "public":
-                If has_public is true,
-                  call close_and_raise "duplicate public section".
-                Set has_public = true.
-              Else if h.normalized equals "agent":
-                If has_agent is true,
-                  call close_and_raise "duplicate agent section".
-                Set has_agent = true.
+              Count the number of leading tilde characters (~) in line.
+              If count >= 3 and the rest of the line (after those tildes)
+              has no tilde characters:
+                Set in_fence = true, fence_char = "~", fence_length = count.
+                Treat line as content (do not interpret as heading).
+          Else (in_fence is true):
+            Count the number of leading fence_char characters in line.
+            If count >= fence_length and the rest of the line contains
+            only whitespace (or is empty):
+              Set in_fence = false.
+            Treat line as content regardless.
 
-          If h.level == 2:
-            If found_first_heading is false,
-              call close_and_raise "unexpected content before first heading".
-            If current_section is absent,
-              call close_and_raise "unexpected content before first heading".
-            Call OpenSubsection(h.raw_line, h.normalized).
+       b. If in_fence is true (set in step a or already true before step a),
+          treat line as content — go to step f (append to current content).
 
-          If h.level >= 3:
-            -- Deep headings are always content.
-            If found_first_heading is false,
-              call close_and_raise "unexpected content before first heading".
-            Call AppendContent(line).
+       c. Attempt to parse line as an ATX heading:
+          - Count leading "#" characters; call this level.
+          - If level == 0, line is not a heading — go to step f.
+          - If the character after the leading "#" characters is not a space,
+            line is not a heading — go to step f.
+          - Extract heading_text: everything after the "# " prefix (level
+            hashes + one space), trimmed of leading and trailing whitespace.
+          - Strip optional closing "#" sequence: if heading_text ends with
+            one or more "#" characters preceded by at least one space,
+            remove those trailing "#" characters and trim again.
+          - heading_text is now the extracted heading text.
 
-       Go to next iteration.
+       d. If level == 1 (a new section begins):
+          - Finalize current state:
+            If current_subsection is not absent:
+              Append current_subsection to current_section.subsections.
+              Set current_subsection to absent.
+            If current_section is not absent:
+              Store current_section in its appropriate place
+              (see "storing a section" below).
+          - Normalize heading_text with NormalizeText to get norm.
+          - Compute expected_norm = NormalizeText(logical_name).
+          - If name_section has not yet been seen:
+              If norm != expected_norm, raise "node name does not match".
+              Create a new NodeSection with heading = norm,
+              raw_heading = line, content = [], subsections = [].
+              Set current_section to this new section.
+              Mark name_section as seen.
+          - Else if norm == "public":
+              If public has already been seen, raise "duplicate public section".
+              Create a new NodeSection with heading = norm,
+              raw_heading = line, content = [], subsections = [].
+              Set current_section to this new section.
+              Mark public as seen.
+          - Else if norm == "agent":
+              If agent has already been seen, raise "duplicate agent section".
+              Create a new NodeSection with heading = norm,
+              raw_heading = line, content = [], subsections = [].
+              Set current_section to this new section.
+              Mark agent as seen.
+          - Else (private section):
+              Create a new NodeSection with heading = norm,
+              raw_heading = line, content = [], subsections = [].
+              Set current_section to this new section.
+          - Set current_subsection to absent.
+          - Do not append line to any content list.
 
-  8. End of file reached. Call FinalizeSection.
+       e. If level == 2 (a new subsection begins within the current section):
+          - If current_section is absent:
+              Treat line as content that appears before any section;
+              check if it is non-blank — if so, raise
+              "unexpected content before first heading".
+              If blank, discard.
+              (In practice level-2 headings before any # heading are treated
+              as non-blank content and trigger the error.)
+          - Normalize heading_text with NormalizeText to get sub_norm.
+          - Check if any existing subsection in current_section.subsections
+            already has heading == sub_norm. If so, raise "duplicate subsection".
+          - Also check if current_subsection (if not absent) has
+            heading == sub_norm. If so, raise "duplicate subsection".
+          - Finalize current_subsection:
+            If current_subsection is not absent:
+              Append current_subsection to current_section.subsections.
+          - Create a new NodeSubsection with heading = sub_norm,
+            raw_heading = line, content = [].
+          - Set current_subsection to this new subsection.
+          - Do not append line to any content list.
 
-     If found_first_heading is false,
-       raise error "unexpected content before first heading".
-       (FileClose was already called via FinalizeSection path — but since
-        we never opened a section, call FileClose(reader) first.)
+       f. Content line (level == 0, or level >= 3, or inside fence):
+          - If current_section is absent:
+              If line is blank, discard it.
+              Else raise "unexpected content before first heading".
+          - Else if current_subsection is not absent:
+              Append line to current_subsection.content.
+          - Else:
+              Append line to current_section.content.
 
-  9. Call FileClose(reader).
+  7. After all lines are processed (EndOfFile reached):
+     Finalize remaining state:
+     - If current_subsection is not absent:
+         Append current_subsection to current_section.subsections.
+     - If current_section is not absent:
+         Store current_section (see "storing a section" below).
+     - If name_section was never seen (file had no level-1 heading,
+       or only blank lines):
+         Close reader and raise "unexpected content before first heading".
 
-  10. Assemble the Node record:
-      a. The first entry in sections is the name_section.
-      b. For each remaining entry in sections:
-           If its heading equals "public", assign it to public.
-           Else if its heading equals "agent", assign it to agent.
-           Else append it to private.
-      c. If no public section was found, public = absent.
-         If no agent section was found, agent = absent.
-      d. Return Node with name_section, public, agent, private
-         (private preserves file order).
+  8. Call FileClose(reader).
+     (FileClose must be called in all cases — see error handling note.)
+
+  9. Return Node with:
+       name_section: the collected name section
+       public: the collected public section (absent if none seen)
+       agent: the collected agent section (absent if none seen)
+       private: private_sections list in order of appearance
+
+
+  ### Storing a section
+
+  When finalizing current_section before starting a new section or at EOF:
+
+  - If current_section.heading matches the name_section heading
+    (i.e., this is the name section):
+      Store it as name_section.
+  - Else if current_section.heading == "public":
+      Store it as the public section.
+  - Else if current_section.heading == "agent":
+      Store it as the agent section.
+  - Else:
+      Append it to private_sections.
+
+
+  ### Error handling
+
+  If any error is raised during steps 5–7, call FileClose(reader)
+  before propagating the error. FileClose must be called in all
+  exit paths — success or failure.
+
+
+  ### Fence opening rule (detail)
+
+  A fence opener is a line consisting of three or more consecutive
+  backtick (`) characters or three or more consecutive tilde (~)
+  characters, optionally followed by a language tag (any non-fence
+  characters). The opening delimiter character must not appear in
+  the language tag portion. The closer must use the same character
+  as the opener and be at least as long as the opener.
+
+  For the purposes of this function, the check is:
+  - For backtick fences: line starts with 3 or more "`" and the
+    remainder of the line contains no "`".
+  - For tilde fences: line starts with 3 or more "~" and the
+    remainder of the line contains no "~".

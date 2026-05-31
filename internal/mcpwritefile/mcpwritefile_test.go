@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/write_file@M3flOA1tN3Sedg0zmtwzqDvQsBY
+// code-from-spec: ROOT/golang/tests/mcp_tools/write_file@z8q241i_rxNflq1ECT0Pe6oSH9Y
 package mcpwritefile_test
 
 import (
@@ -7,14 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-// testChdir changes the working directory to dir and registers a cleanup
-// that restores the original directory.
+// testChdir changes the working directory to dir and restores it on cleanup.
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
@@ -31,33 +29,35 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-// testCreateNodeMd creates a _node.md file at the path corresponding to the
-// given ROOT/ logical name, writing the given YAML frontmatter body.
-// The file is placed under code-from-spec/<...>/_node.md relative to the cwd.
-func testCreateNodeMd(t *testing.T, logicalName string, frontmatterYAML string) {
+// testWriteNodeMd creates the _node.md file for the given node logical name
+// (must start with ROOT/) inside the temp dir, writing the provided frontmatter
+// content. Intermediate directories are created as needed.
+func testWriteNodeMd(t *testing.T, logicalName string, frontmatter string) {
 	t.Helper()
 	cfsPath, err := logicalnames.LogicalNameToPath(logicalName)
 	if err != nil {
-		t.Fatalf("testCreateNodeMd: LogicalNameToPath(%q): %v", logicalName, err)
+		t.Fatalf("testWriteNodeMd LogicalNameToPath: %v", err)
 	}
-	// Create directories
-	dir := filepath.Dir(cfsPath.Value)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatalf("testCreateNodeMd: MkdirAll(%q): %v", dir, err)
+	osPath, err := pathutils.PathCfsToOs(cfsPath)
+	if err != nil {
+		t.Fatalf("testWriteNodeMd PathCfsToOs: %v", err)
 	}
-	content := "---\n" + frontmatterYAML + "---\n"
-	if err := os.WriteFile(cfsPath.Value, []byte(content), 0644); err != nil {
-		t.Fatalf("testCreateNodeMd: WriteFile(%q): %v", cfsPath.Value, err)
+	dir := filepath.Dir(osPath.Value)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("testWriteNodeMd MkdirAll: %v", err)
+	}
+	content := "---\n" + frontmatter + "---\n"
+	if err := os.WriteFile(osPath.Value, []byte(content), 0o644); err != nil {
+		t.Fatalf("testWriteNodeMd WriteFile: %v", err)
 	}
 }
 
-// TestMCPWriteFile_WritesFileSuccessfully verifies that MCPWriteFile writes
-// a file and returns "wrote <path>" when the path is declared in outputs.
+// TC-01: Writes file successfully.
 func TestMCPWriteFile_WritesFileSuccessfully(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testCreateNodeMd(t, "ROOT/a", "outputs:\n  - id: code\n    path: output/file.go\n")
+	testWriteNodeMd(t, "ROOT/a", "outputs:\n  - id: \"code\"\n    path: \"output/file.go\"\n")
 
 	result, err := mcpwritefile.MCPWriteFile("ROOT/a", "output/file.go", "package main")
 	if err != nil {
@@ -67,199 +67,193 @@ func TestMCPWriteFile_WritesFileSuccessfully(t *testing.T) {
 		t.Errorf("result = %q, want %q", result, "wrote output/file.go")
 	}
 
-	got, err := os.ReadFile(filepath.Join(tempDir, "output", "file.go"))
+	osPath, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "output/file.go"})
+	if err != nil {
+		t.Fatalf("PathCfsToOs: %v", err)
+	}
+	data, err := os.ReadFile(osPath.Value)
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	if string(got) != "package main" {
-		t.Errorf("file content = %q, want %q", string(got), "package main")
+	if string(data) != "package main" {
+		t.Errorf("file content = %q, want %q", string(data), "package main")
 	}
 }
 
-// TestMCPWriteFile_CreatesIntermediateDirectories verifies that MCPWriteFile
-// creates any missing intermediate directories.
+// TC-02: Creates intermediate directories.
 func TestMCPWriteFile_CreatesIntermediateDirectories(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testCreateNodeMd(t, "ROOT/a", "outputs:\n  - id: code\n    path: deep/nested/dir/file.go\n")
+	testWriteNodeMd(t, "ROOT/a", "outputs:\n  - id: \"code\"\n    path: \"deep/nested/dir/file.go\"\n")
 
-	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "deep/nested/dir/file.go", "package main")
+	result, err := mcpwritefile.MCPWriteFile("ROOT/a", "deep/nested/dir/file.go", "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if result != "wrote deep/nested/dir/file.go" {
+		t.Errorf("result = %q, want %q", result, "wrote deep/nested/dir/file.go")
+	}
 
-	got, err := os.ReadFile(filepath.Join(tempDir, "deep", "nested", "dir", "file.go"))
+	osPath, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "deep/nested/dir/file.go"})
+	if err != nil {
+		t.Fatalf("PathCfsToOs: %v", err)
+	}
+	data, err := os.ReadFile(osPath.Value)
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	if string(got) != "package main" {
-		t.Errorf("file content = %q, want %q", string(got), "package main")
+	if string(data) != "package main" {
+		t.Errorf("file content = %q, want %q", string(data), "package main")
 	}
 }
 
-// TestMCPWriteFile_OverwritesExistingFile verifies that MCPWriteFile overwrites
-// a file that already exists on disk.
+// TC-03: Overwrites existing file.
 func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testCreateNodeMd(t, "ROOT/a", "outputs:\n  - id: code\n    path: output/file.go\n")
+	testWriteNodeMd(t, "ROOT/a", "outputs:\n  - id: \"code\"\n    path: \"output/file.go\"\n")
 
 	// Pre-create the file with old content.
-	if err := os.MkdirAll(filepath.Join(tempDir, "output"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmp, "output"), 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tempDir, "output", "file.go"), []byte("old"), 0644); err != nil {
-		t.Fatalf("WriteFile (old): %v", err)
+	if err := os.WriteFile(filepath.Join(tmp, "output", "file.go"), []byte("old"), 0o644); err != nil {
+		t.Fatalf("WriteFile (setup): %v", err)
 	}
 
-	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "output/file.go", "new")
+	result, err := mcpwritefile.MCPWriteFile("ROOT/a", "output/file.go", "new")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if result != "wrote output/file.go" {
+		t.Errorf("result = %q, want %q", result, "wrote output/file.go")
+	}
 
-	got, err := os.ReadFile(filepath.Join(tempDir, "output", "file.go"))
+	data, err := os.ReadFile(filepath.Join(tmp, "output", "file.go"))
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	if string(got) != "new" {
-		t.Errorf("file content = %q, want %q", string(got), "new")
+	if string(data) != "new" {
+		t.Errorf("file content = %q, want %q", string(data), "new")
 	}
 }
 
-// TestMCPWriteFile_InvalidLogicalName_ArtifactReference verifies that an
-// ARTIFACT/ logical name returns an ErrUnsupportedReference error.
-func TestMCPWriteFile_InvalidLogicalName_ArtifactReference(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
+// TC-04: Invalid logical name — ARTIFACT reference.
+func TestMCPWriteFile_ArtifactReference(t *testing.T) {
 	_, err := mcpwritefile.MCPWriteFile("ARTIFACT/x(y)", "out.go", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
-		t.Errorf("error = %v, want errors.Is ErrUnsupportedReference", err)
+		t.Errorf("error = %v, want ErrUnsupportedReference", err)
 	}
 }
 
-// TestMCPWriteFile_InvalidLogicalName_WithQualifier verifies that a ROOT/
-// logical name with a qualifier that doesn't resolve to an existing node
-// returns an ErrUnreadableFrontmatter error.
-func TestMCPWriteFile_InvalidLogicalName_WithQualifier(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
+// TC-05: Invalid logical name — with qualifier.
+func TestMCPWriteFile_QualifiedLogicalName(t *testing.T) {
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a(interface)", "out.go", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
+	// Qualifiers are stripped before path resolution; the node file won't
+	// exist, so frontmatter parsing fails with ErrUnreadableFrontmatter.
 	if !errors.Is(err, mcpwritefile.ErrUnreadableFrontmatter) {
-		t.Errorf("error = %v, want errors.Is ErrUnreadableFrontmatter", err)
+		t.Errorf("error = %v, want ErrUnreadableFrontmatter", err)
 	}
 }
 
-// TestMCPWriteFile_NonexistentNodeFile verifies that a missing _node.md
-// returns ErrUnreadableFrontmatter.
+// TC-06: Nonexistent node file.
 func TestMCPWriteFile_NonexistentNodeFile(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/missing", "out.go", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, mcpwritefile.ErrUnreadableFrontmatter) {
-		t.Errorf("error = %v, want errors.Is ErrUnreadableFrontmatter", err)
+		t.Errorf("error = %v, want ErrUnreadableFrontmatter", err)
 	}
 }
 
-// TestMCPWriteFile_NoOutputsDeclared verifies that a node with no outputs
-// field returns ErrNoOutputs.
+// TC-07: No outputs declared.
 func TestMCPWriteFile_NoOutputsDeclared(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	// Empty frontmatter — no outputs field.
-	testCreateNodeMd(t, "ROOT/a", "")
+	testWriteNodeMd(t, "ROOT/a", "")
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "out.go", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, mcpwritefile.ErrNoOutputs) {
-		t.Errorf("error = %v, want errors.Is ErrNoOutputs", err)
+		t.Errorf("error = %v, want ErrNoOutputs", err)
 	}
 }
 
-// TestMCPWriteFile_PathNotInOutputs verifies that a path not listed in
-// the node's outputs returns ErrPathNotInOutputs.
+// TC-08: Path not in outputs.
 func TestMCPWriteFile_PathNotInOutputs(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testCreateNodeMd(t, "ROOT/a", "outputs:\n  - id: code\n    path: allowed/file.go\n")
+	testWriteNodeMd(t, "ROOT/a", "outputs:\n  - id: \"code\"\n    path: \"allowed/file.go\"\n")
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "other/file.go", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, mcpwritefile.ErrPathNotInOutputs) {
-		t.Errorf("error = %v, want errors.Is ErrPathNotInOutputs", err)
+		t.Errorf("error = %v, want ErrPathNotInOutputs", err)
 	}
 }
 
-// TestMCPWriteFile_PathValidation_EmptyPath verifies that an empty path
-// returns ErrPathIsEmpty (from pathutils).
-func TestMCPWriteFile_PathValidation_EmptyPath(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// TC-09: Path validation — empty path.
+func TestMCPWriteFile_EmptyPath(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testCreateNodeMd(t, "ROOT/a", "outputs:\n  - id: code\n    path: out.go\n")
+	testWriteNodeMd(t, "ROOT/a", "outputs:\n  - id: \"code\"\n    path: \"out.go\"\n")
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, pathutils.ErrPathIsEmpty) {
-		t.Errorf("error = %v, want errors.Is ErrPathIsEmpty", err)
+	if !errors.Is(err, pathutils.ErrPathEmpty) {
+		t.Errorf("error = %v, want ErrPathEmpty", err)
 	}
 }
 
-// TestMCPWriteFile_PathValidation_DirectoryTraversal verifies that a path
-// containing ".." returns ErrDirectoryTraversal (from pathutils).
-func TestMCPWriteFile_PathValidation_DirectoryTraversal(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// TC-10: Path validation — directory traversal.
+func TestMCPWriteFile_DirectoryTraversal(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testCreateNodeMd(t, "ROOT/a", "outputs:\n  - id: code\n    path: out.go\n")
+	testWriteNodeMd(t, "ROOT/a", "outputs:\n  - id: \"code\"\n    path: \"out.go\"\n")
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "../../etc/passwd", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
-		t.Errorf("error = %v, want errors.Is ErrDirectoryTraversal", err)
+		t.Errorf("error = %v, want ErrDirectoryTraversal", err)
 	}
 }
 
-// TestMCPWriteFile_PathValidation_BackslashInPath verifies that a path
-// with backslashes returns ErrPathContainsBackslash (from pathutils).
-func TestMCPWriteFile_PathValidation_BackslashInPath(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+// TC-11: Path validation — backslash.
+func TestMCPWriteFile_Backslash(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testCreateNodeMd(t, "ROOT/a", "outputs:\n  - id: code\n    path: out.go\n")
+	testWriteNodeMd(t, "ROOT/a", "outputs:\n  - id: \"code\"\n    path: \"out.go\"\n")
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", `output\file.go`, "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, pathutils.ErrPathContainsBackslash) {
-		t.Errorf("error = %v, want errors.Is ErrPathContainsBackslash", err)
+		t.Errorf("error = %v, want ErrPathContainsBackslash", err)
 	}
 }
-
-// Ensure the frontmatter package import is used (it may be referenced
-// transitively; this declaration keeps the compiler satisfied).
-var _ = frontmatter.ErrFileUnreadable
