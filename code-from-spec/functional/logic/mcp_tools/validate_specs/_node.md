@@ -21,6 +21,10 @@ references, and artifact staleness.
 
 # Public
 
+## Namespace
+
+    namespace: mcpvalidatespecs
+
 ## Interface
 
 ```
@@ -33,7 +37,7 @@ record StalenessEntry
   rank: integer
 
 record ValidationReport
-  format_errors: list of FormatError
+  format_errors: list of spectreevalidate.FormatError
   cycles: list of string
   staleness: list of StalenessEntry
 

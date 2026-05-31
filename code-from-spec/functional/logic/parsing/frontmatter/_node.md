@@ -13,6 +13,10 @@ Parses structured metadata from the top of spec node files.
 
 # Public
 
+## Namespace
+
+    namespace: frontmatter
+
 ## Interface
 
 ```
@@ -35,7 +39,7 @@ record Frontmatter
   input: string
   outputs: list of FrontmatterOutput
 
-function FrontmatterParse(file_path: PathCfs) -> Frontmatter
+function FrontmatterParse(file_path: pathutils.PathCfs) -> Frontmatter
   errors:
     - FileUnreadable: the file cannot be opened or read.
     - MalformedYAML: the content between --- delimiters

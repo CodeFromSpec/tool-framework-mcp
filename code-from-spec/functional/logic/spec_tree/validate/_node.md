@@ -21,13 +21,17 @@ defined by the framework, and reports all violations found.
 
 # Public
 
+## Namespace
+
+    namespace: spectreevalidate
+
 ## Interface
 
 ```
 record SpecTreeValidateInput
   logical_name: string
-  frontmatter: Frontmatter
-  node: Node
+  frontmatter: frontmatter.Frontmatter
+  node: parsenode.Node
 
 record FormatError
   node: string

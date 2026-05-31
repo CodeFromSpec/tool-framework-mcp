@@ -12,6 +12,10 @@ Path types and safe path conversion for the framework.
 
 # Public
 
+## Namespace
+
+    namespace: pathutils
+
 ## Interface
 
 ```

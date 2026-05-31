@@ -28,10 +28,11 @@ Call MCPLoadChain with logical_name = "ROOT/a".
 
 Expect result has:
 - `chain_hash`: a 27-character string
-- `context`: contains ROOT's public content (without
-  the `# Public` heading), the reduced frontmatter
-  (outputs only, between `---` delimiters), ROOT/a's
-  public content, and ROOT/a's agent content
+- `context`: contains ROOT's `# Public` heading and
+  public content, the reduced frontmatter (outputs
+  only, between `---` delimiters), ROOT/a's `# Public`
+  heading and public content, and ROOT/a's `# Agent`
+  heading and agent content
 - `input`: absent
 
 #### Ancestor public content included
@@ -40,9 +41,9 @@ Create a spec tree: ROOT (with public section), ROOT/a
 (with public section), ROOT/a/b (leaf with outputs).
 Call MCPLoadChain with "ROOT/a/b".
 
-Expect context contains ROOT's public content followed
-by ROOT/a's public content, both without `# Public`
-heading.
+Expect context contains ROOT's `# Public` heading and
+public content followed by ROOT/a's `# Public` heading
+and public content.
 
 #### Ancestor without public section skipped
 
@@ -79,8 +80,9 @@ depends_on = ["ROOT/b(interface)"]), ROOT/b (with
 public section containing Interface and Constraints
 subsections). Call MCPLoadChain with "ROOT/a".
 
-Expect context contains only the Interface subsection
-content from ROOT/b, not Constraints.
+Expect context contains the `## Interface` heading and
+its content from ROOT/b, but not the `## Constraints`
+heading or its content.
 
 #### ARTIFACT dependency — content minus frontmatter
 
@@ -129,9 +131,9 @@ Create a spec tree: ROOT, ROOT/a (leaf with outputs,
 public section, agent section with content). Call
 MCPLoadChain with "ROOT/a".
 
-Expect context contains both the public and agent
-content of ROOT/a (without `# Public` and `# Agent`
-headings).
+Expect context contains ROOT/a's `# Public` heading
+and public content, and ROOT/a's `# Agent` heading
+and agent content.
 
 #### Target without agent section — skipped
 

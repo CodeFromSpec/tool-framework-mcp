@@ -21,7 +21,7 @@ record ArtifactTag
   logical_name: string
   hash: string
 
-function ArtifactTagExtract(file_path: PathCfs) -> ArtifactTag
+function ArtifactTagExtract(file_path: pathutils.PathCfs) -> ArtifactTag
   errors:
     - FileUnreadable: the file cannot be opened or read.
     - NoTagFound: the file has no code-from-spec:

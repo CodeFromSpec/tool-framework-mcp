@@ -16,9 +16,9 @@ Sequential line reader for text files.
 
 ```
 record FileReader
-  cfs_path: PathCfs
+  cfs_path: pathutils.PathCfs
 
-function FileOpen(cfs_path: PathCfs) -> FileReader
+function FileOpen(cfs_path: pathutils.PathCfs) -> FileReader
   errors:
     - FileUnreadable: the path is valid but the file
       cannot be opened (does not exist, permission

@@ -1,138 +1,279 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/logical_names@kYPkbgROEUvCmHXG-jOkDax0RCI -->
+<!-- code-from-spec: ROOT/functional/logic/utils/logical_names@eB8htIL5nYO2MkzggiLgi72X6kY -->
 
-# Logical Names — Pseudocode
+# Logical Names
 
-## Data Types
-
-record PathCfs
-  value: string   (forward-slash relative path from project root)
+All functions are pure — no I/O, no filesystem access.
 
 ---
 
-## function LogicalNameToPath(logical_name: string) -> PathCfs
+## Records
 
-  1. If logical_name does not start with "ROOT/", and logical_name is not exactly "ROOT",
-     raise error "UnsupportedReference".
-
-  2. Strip any parenthetical qualifier from logical_name.
-     (e.g. "ROOT/x/y(z)" becomes "ROOT/x/y")
-
-  3. If the stripped name is exactly "ROOT",
-     return PathCfs with value "code-from-spec/_node.md".
-
-  4. Remove the "ROOT/" prefix from the stripped name to get the relative segment.
-     (e.g. "ROOT/x/y" → "x/y")
-
-  5. Return PathCfs with value "code-from-spec/<relative segment>/_node.md".
+```
+record pathutils.PathCfs
+  value: string
+```
 
 ---
 
-## function LogicalNameFromPath(cfs_path: PathCfs) -> string
+## Functions
 
-  1. Let path be cfs_path.value.
+### LogicalNameToPath
 
-  2. If path does not start with "code-from-spec/", raise error "InvalidPath".
+```
+function LogicalNameToPath(logical_name: string) -> pathutils.PathCfs
+```
 
-  3. If path does not end with "/_node.md" and path is not exactly "code-from-spec/_node.md",
-     raise error "InvalidPath".
+Converts a `ROOT/` logical name to the `PathCfs` of the corresponding
+`_node.md` file. Strips any qualifier before resolving.
 
-  4. If path is exactly "code-from-spec/_node.md",
-     return "ROOT".
+Steps:
 
-  5. Remove the leading "code-from-spec/" prefix and the trailing "/_node.md" suffix
-     from path to get the middle segment.
-     (e.g. "code-from-spec/x/y/_node.md" → "x/y")
+  1. If logical_name does not start with "ROOT" (i.e., neither "ROOT"
+     nor "ROOT/..."), raise error UnsupportedReference:
+     "logical name must be a ROOT/ reference".
+
+  2. Call LogicalNameStripQualifier(logical_name) to get the bare name.
+
+  3. If the bare name is exactly "ROOT":
+     Return pathutils.PathCfs with value "code-from-spec/_node.md".
+
+  4. Verify the bare name starts with "ROOT/".
+     If not, raise error UnsupportedReference:
+     "logical name must be a ROOT/ reference".
+
+  5. Strip the "ROOT/" prefix from the bare name to get the relative segment.
+     For example, "ROOT/x/y" → "x/y".
+
+  6. Return pathutils.PathCfs with value
+     "code-from-spec/<relative segment>/_node.md".
+
+Errors:
+  - UnsupportedReference: the logical name is not a ROOT/ reference
+    (neither "ROOT" nor "ROOT/...").
+```
+
+---
+
+### LogicalNameFromPath
+
+```
+function LogicalNameFromPath(cfs_path: pathutils.PathCfs) -> string
+```
+
+Derives the `ROOT/` logical name from a `_node.md` file path.
+The inverse of `LogicalNameToPath`. Always returns a `ROOT/` reference.
+
+Steps:
+
+  1. Let path_value be cfs_path.value.
+
+  2. If path_value does not start with "code-from-spec/", raise error
+     InvalidPath: "path is not under code-from-spec/".
+
+  3. If path_value does not end with "/_node.md" and is not exactly
+     "code-from-spec/_node.md", raise error InvalidPath:
+     "path is not a _node.md file".
+
+  4. If path_value is exactly "code-from-spec/_node.md":
+     Return "ROOT".
+
+  5. Strip the leading "code-from-spec/" prefix and trailing "/_node.md"
+     suffix from path_value to get the middle segment.
+     For example, "code-from-spec/x/y/_node.md" → "x/y".
 
   6. Return "ROOT/<middle segment>".
 
----
-
-## function LogicalNameGetParent(logical_name: string) -> string
-
-  1. If logical_name does not start with "ROOT/",
-     raise error "NotARootReference".
-
-  2. Strip any parenthetical qualifier from logical_name.
-
-  3. If the stripped name is exactly "ROOT",
-     raise error "NoParent".
-
-  4. Remove the "ROOT/" prefix to get the segment.
-     (e.g. "ROOT/x/y" → "x/y")
-
-  5. Find the last "/" in the segment.
-     If no "/" is found, return "ROOT".
-     Otherwise, take everything before the last "/" as the parent segment
-     and return "ROOT/<parent segment>".
+Errors:
+  - InvalidPath: the path is not a _node.md file under code-from-spec/.
+```
 
 ---
 
-## function LogicalNameGetQualifier(logical_name: string) -> optional string
+### LogicalNameGetParent
 
-  1. Search logical_name for an opening "(" character.
-     If not found, return absent.
+```
+function LogicalNameGetParent(logical_name: string) -> string
+```
 
-  2. Let start be the index immediately after "(".
-     Search for a closing ")" character after start.
-     If not found, return absent.
+Returns the logical name of the parent node.
+Strips any qualifier before computing the parent.
 
-  3. Extract the substring between "(" and ")" (exclusive).
-     If the substring is empty, return absent.
+Steps:
 
-  4. Return the extracted substring.
+  1. If logical_name does not start with "ROOT" (i.e., neither "ROOT"
+     nor "ROOT/..."), raise error NotARootReference:
+     "logical name must be a ROOT/ reference".
 
----
+  2. Call LogicalNameStripQualifier(logical_name) to get the bare name.
 
-## function LogicalNameStripQualifier(logical_name: string) -> string
+  3. If the bare name is exactly "ROOT":
+     Raise error NoParent: "ROOT has no parent".
 
-  1. Search logical_name for an opening "(" character.
-     If not found, return logical_name unchanged.
+  4. If the bare name does not contain "/" after "ROOT":
+     Raise error NotARootReference:
+     "logical name must be a ROOT/ reference".
 
-  2. Find the matching closing ")" character.
-     If not found, return logical_name unchanged.
+  5. Find the last "/" in the bare name.
+     Let parent be the substring before that last "/".
 
-  3. Return the substring of logical_name before the "(" character,
-     concatenated with the substring after the ")" character.
-     (e.g. "ROOT/x/y(z)" → "ROOT/x/y"; "ARTIFACT/x/y(id)" → "ARTIFACT/x/y")
+  6. If parent is "ROOT":
+     Return "ROOT".
 
----
+  7. Return parent.
 
-## function LogicalNameHasParent(logical_name: string) -> boolean
-
-  1. If logical_name does not start with "ROOT/", return false.
-
-  2. Strip any parenthetical qualifier from logical_name.
-
-  3. If the stripped name is exactly "ROOT", return false.
-
-  4. Return true.
+Errors:
+  - NoParent: the logical name is ROOT itself.
+  - NotARootReference: the logical name is not a ROOT/ reference
+    (neither "ROOT" nor "ROOT/...").
+```
 
 ---
 
-## function LogicalNameHasQualifier(logical_name: string) -> boolean
+### LogicalNameGetQualifier
+
+```
+function LogicalNameGetQualifier(logical_name: string) -> optional string
+```
+
+Extracts the parenthetical qualifier from a logical name.
+Returns absent if no qualifier is present.
+Works with both `ROOT/` and `ARTIFACT/` references.
+
+Steps:
+
+  1. Search logical_name for the pattern "(<qualifier>)" at the end,
+     where <qualifier> is one or more characters inside parentheses
+     and the closing ")" is the last character of logical_name.
+
+  2. If such a pattern is found:
+     Return the content between the parentheses (not including "(" or ")").
+
+  3. Otherwise:
+     Return absent.
+
+Errors: none.
+```
+
+---
+
+### LogicalNameStripQualifier
+
+```
+function LogicalNameStripQualifier(logical_name: string) -> string
+```
+
+Returns the logical name without the parenthetical qualifier.
+If no qualifier is present, returns the input unchanged.
+Works with both `ROOT/` and `ARTIFACT/` references.
+
+Steps:
+
+  1. Search logical_name for the pattern "(<qualifier>)" at the end,
+     where ")" is the last character.
+
+  2. If such a pattern is found:
+     Return the substring of logical_name before the opening "(".
+
+  3. Otherwise:
+     Return logical_name unchanged.
+
+Errors: none.
+```
+
+---
+
+### LogicalNameHasParent
+
+```
+function LogicalNameHasParent(logical_name: string) -> boolean
+```
+
+Returns true if the logical name is a `ROOT/` reference other than
+`ROOT` itself. Returns false for `ROOT`, `ARTIFACT/` references,
+and unrecognized prefixes.
+
+Steps:
+
+  1. Call LogicalNameStripQualifier(logical_name) to get the bare name.
+
+  2. If bare name is exactly "ROOT":
+     Return false.
+
+  3. If bare name starts with "ROOT/":
+     Return true.
+
+  4. Return false.
+
+Errors: none.
+```
+
+---
+
+### LogicalNameHasQualifier
+
+```
+function LogicalNameHasQualifier(logical_name: string) -> boolean
+```
+
+Returns true if the logical name contains a parenthetical qualifier.
+Works with both `ROOT/` and `ARTIFACT/` references.
+
+Steps:
 
   1. Call LogicalNameGetQualifier(logical_name).
-     If the result is absent, return false.
-     Otherwise return true.
+
+  2. If the result is not absent:
+     Return true.
+
+  3. Return false.
+
+Errors: none.
+```
 
 ---
 
-## function LogicalNameIsArtifact(logical_name: string) -> boolean
+### LogicalNameIsArtifact
 
-  1. If logical_name starts with "ARTIFACT/", return true.
-     Otherwise return false.
+```
+function LogicalNameIsArtifact(logical_name: string) -> boolean
+```
+
+Returns true if the logical name starts with "ARTIFACT/".
+
+Steps:
+
+  1. If logical_name starts with "ARTIFACT/":
+     Return true.
+
+  2. Return false.
+
+Errors: none.
+```
 
 ---
 
-## function LogicalNameGetArtifactGenerator(logical_name: string) -> string
+### LogicalNameGetArtifactGenerator
 
-  1. If logical_name does not start with "ARTIFACT/",
-     raise error "NotAnArtifactReference".
+```
+function LogicalNameGetArtifactGenerator(logical_name: string) -> string
+```
 
-  2. Strip any parenthetical qualifier from logical_name.
+Returns the `ROOT/` logical name of the node that generates the
+referenced artifact. Strips the `ARTIFACT/` prefix and any qualifier.
 
-  3. Remove the "ARTIFACT/" prefix to get the path segment.
-     (e.g. "ARTIFACT/x/y" → "x/y")
+Steps:
 
-  4. Return "ROOT/<path segment>".
-     (e.g. "ARTIFACT/x/y(id)" → "ROOT/x/y")
+  1. If logical_name does not start with "ARTIFACT/":
+     Raise error NotAnArtifactReference:
+     "logical name does not start with ARTIFACT/".
+
+  2. Call LogicalNameStripQualifier(logical_name) to get the bare name.
+
+  3. Strip the "ARTIFACT/" prefix from the bare name to get the segment.
+     For example, "ARTIFACT/x/y" → "x/y".
+
+  4. Return "ROOT/<segment>".
+
+Errors:
+  - NotAnArtifactReference: the logical name does not start with ARTIFACT/.
+```

@@ -15,6 +15,10 @@ representation of its sections and subsections.
 
 # Public
 
+## Namespace
+
+    namespace: parsenode
+
 ## Interface
 
 ```

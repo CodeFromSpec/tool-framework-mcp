@@ -16,18 +16,19 @@ navigating the spec tree hierarchy.
 ## Interface
 
 ```
-function LogicalNameToPath(logical_name: string) -> PathCfs
+function LogicalNameToPath(logical_name: string) -> pathutils.PathCfs
   errors:
-    - UnsupportedReference: the logical name does not
-      start with ROOT/.
+    - UnsupportedReference: the logical name is not a
+      ROOT/ reference (neither ROOT nor ROOT/...).
 ```
 
 Converts a `ROOT/` logical name to the `PathCfs` of the
 corresponding `_node.md` file. Strips any qualifier before
-resolving. Only accepts `ROOT/` references.
+resolving. Only accepts `ROOT/` references (including
+`ROOT` itself).
 
 ```
-function LogicalNameFromPath(cfs_path: PathCfs) -> string
+function LogicalNameFromPath(cfs_path: pathutils.PathCfs) -> string
   errors:
     - InvalidPath: the path is not a _node.md file
       under code-from-spec/.
@@ -41,13 +42,14 @@ a `ROOT/` reference.
 function LogicalNameGetParent(logical_name: string) -> string
   errors:
     - NoParent: the logical name is ROOT itself.
-    - NotARootReference: the logical name does not
-      start with ROOT/.
+    - NotARootReference: the logical name is not a
+      ROOT/ reference (neither ROOT nor ROOT/...).
 ```
 
 Returns the logical name of the parent node. Strips any
 qualifier before computing the parent. Only accepts
-`ROOT/` references.
+`ROOT/` references (including `ROOT` itself, which
+returns NoParent).
 
 ```
 function LogicalNameGetQualifier(logical_name: string) -> optional string
@@ -108,7 +110,9 @@ example, `ARTIFACT/x/y(id)` → `ROOT/x/y`;
 
 Logical names use two prefixes:
 
-- `ROOT/` — references a spec node.
+- `ROOT/` — references a spec node. The bare string `ROOT`
+  (without a trailing slash) is a valid `ROOT/` reference —
+  it refers to the root node.
 - `ARTIFACT/` — references a generated artifact by node and id.
 
 An optional parenthetical qualifier targets a specific part:

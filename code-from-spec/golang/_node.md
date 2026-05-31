@@ -37,6 +37,8 @@ resolved against it.
 ## Constraints
 
 - Every error return value must be checked.
+- Always compare errors with `errors.Is` or `errors.As`,
+  never with `==`. Sentinel errors may be wrapped.
 - No test framework beyond the standard `testing` package.
 - No configuration files.
 - All test helper functions and types must be prefixed with `test`

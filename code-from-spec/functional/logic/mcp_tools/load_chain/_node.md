@@ -21,6 +21,10 @@ structured result.
 
 # Public
 
+## Namespace
+
+    namespace: mcploadchain
+
 ## Interface
 
 ```
@@ -98,10 +102,9 @@ For each position, use `NodeParse` for spec nodes and
 For each ancestor, call `NodeParse` with
 `ancestor.logical_name`. If `node.public` is absent
 or has empty content and no subsections, skip.
-Otherwise, include the public section content and all
-subsections — but omit the `# Public` raw heading
-itself. Include `## subsection` raw headings and their
-content.
+Otherwise, include the `# Public` raw heading, the
+public section content, all `## subsection` raw
+headings, and their content.
 
 **Dependencies** (from `chain.dependencies`)
 
@@ -111,12 +114,13 @@ For each dependency:
   frontmatter (if present), include remaining content.
   Call `FileClose`.
 - Else if `dep.qualifier` is absent: call `NodeParse`
-  with `dep.logical_name`, include `# Public` section
-  content and subsections (omit `# Public` heading).
+  with `dep.logical_name`, include `# Public` raw
+  heading, section content, all `## subsection` raw
+  headings, and their content.
 - Else: call `NodeParse` with `dep.logical_name`, find
   the subsection in `node.public` whose `heading`
-  matches `NormalizeText(dep.qualifier)`, include that
-  subsection's content (omit `## ` heading).
+  matches `NormalizeText(dep.qualifier)`, include the
+  `## subsection` raw heading and its content.
 
 **External** (from `chain.external`)
 
@@ -135,14 +139,15 @@ entry's `path`:
 First, emit a reduced frontmatter block containing only
 the `outputs` field (formatted as YAML between `---`
 delimiters). Then call `NodeParse` with
-`chain.target.logical_name`. Include `# Public` section
-content and subsections (omit `# Public` heading).
+`chain.target.logical_name`. Include `# Public` raw
+heading, section content, all `## subsection` raw
+headings, and their content.
 
 **Target Agent**
 
 From the same `NodeParse` result, include `# Agent`
-section content and subsections (omit `# Agent`
-heading). If absent, skip.
+raw heading, section content, all `## subsection` raw
+headings, and their content. If absent, skip.
 
 ### Step 4 — Extract input
 

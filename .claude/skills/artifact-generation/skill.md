@@ -28,7 +28,13 @@ artifacts, or when stale artifacts exist.
 1. Run `validate_specs` and collect all stale/missing artifacts.
 2. If no stale artifacts, report that everything is up to date
    and stop.
-3. For each stale artifact (in the order reported), dispatch a
+3. Group stale artifacts by rank. The rank (returned by
+   `validate_specs`) reflects dependency depth — artifacts
+   with lower rank must be generated before artifacts with
+   higher rank, because higher-rank artifacts may depend on
+   them. Process ranks in ascending order. Within the same
+   rank, artifacts are independent and should be dispatched
+   in parallel. For each artifact, dispatch a
    `code-from-spec-artifact-generation` subagent with the following
    prompt:
 
@@ -67,8 +73,10 @@ artifacts, or when stale artifacts exist.
 ## Rules
 
 - Dispatch one subagent per artifact.
-- Independent artifacts may be dispatched in parallel (single
-  message with multiple Agent tool calls).
+- Artifacts with the same rank are independent — dispatch them
+  in parallel (single message with multiple Agent tool calls).
+  Wait for all artifacts in a rank to complete before starting
+  the next rank.
 - Never edit generated files manually — always regenerate via
   a subagent.
 - After each subagent completes, check its output for an

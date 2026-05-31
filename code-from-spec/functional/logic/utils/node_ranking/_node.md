@@ -19,7 +19,7 @@ with cycle detection as a side effect.
 ```
 record NodeRankInput
   logical_name: string
-  frontmatter: Frontmatter
+  frontmatter: frontmatter.Frontmatter
 
 record NodeRankEntry
   logical_name: string

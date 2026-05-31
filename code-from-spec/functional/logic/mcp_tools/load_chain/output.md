@@ -1,146 +1,177 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@Zg_keutwekoDE3A9bagZzVyfRts -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@wFQ-I-5jYXxBtNjsCjCydFWBSNM -->
 
-# MCPLoadChain
+## Namespace
+
+    namespace: mcploadchain
 
 ## Records
 
+```
 record MCPLoadChainResult
   chain_hash: string
   context: string
   input: optional string
+```
 
 ## Functions
 
 ---
 
-function MCPLoadChain(logical_name: string) -> MCPLoadChainResult
+### MCPLoadChain
 
+```
+function MCPLoadChain(logical_name: string) -> MCPLoadChainResult
   errors:
-    - NoOutputs: target node declares no outputs.
+    - NoOutputs: target node has no outputs field.
     - InvalidOutputPath: an output path fails path validation.
     - (LogicalNames.*): propagated from LogicalNameToPath.
     - (ChainResolver.*): propagated from ChainResolve.
     - (ChainHash.*): propagated from ChainHashCompute.
     - (NodeParsing.*): propagated from NodeParse.
     - (FileReader.*): propagated from FileOpen.
+```
 
-  ### Step 1 — Validate and resolve
+**Step 1 — Validate and resolve**
 
-  1. Call LogicalNameToPath(logical_name) to get the target node's file path.
-     If it fails, propagate the error.
+1. Call `LogicalNameToPath(logical_name)` to get the target node's file path.
+   If it fails, propagate the error.
 
-  2. Call FrontmatterParse(target_file_path).
-     If frontmatter.outputs is empty, raise error "NoOutputs".
-     For each output entry in frontmatter.outputs:
-       Call PathValidateCfs(output.path).
-       If it fails, raise error "InvalidOutputPath".
+2. Call `FrontmatterParse(file_path)` on the resolved path.
+   If `frontmatter.outputs` is empty, raise error "NoOutputs".
 
-  3. Call ChainResolve(logical_name) to get the resolved Chain.
-     If it fails, propagate the error.
+3. For each output in `frontmatter.outputs`:
+   Call `PathValidateCfs(output.path)`.
+   If it fails, raise error "InvalidOutputPath".
 
-  ### Step 2 — Compute chain hash
+4. Call `ChainResolve(logical_name)` to get the resolved `Chain`.
+   If it fails, propagate the error.
 
-  4. Call ChainHashCompute(chain).
-     If it fails, propagate the error.
-     Store the returned 27-character string as chain_hash.
+**Step 2 — Compute chain hash**
 
-  ### Step 3 — Build context stream
+5. Call `ChainHashCompute(chain)` with the resolved `Chain`.
+   If it fails, propagate the error.
+   Store the result as `chain_hash`.
 
-  5. Initialize context as an empty string.
+**Step 3 — Build context stream**
 
-  6. For each ancestor in chain.ancestors (from root down, excluding target):
-       Call NodeParse(ancestor.logical_name).
-       If node.public is absent, skip this ancestor.
-       If node.public has empty content and no subsections, skip this ancestor.
-       Otherwise:
-         For each line in node.public.content:
-           Append the line followed by "\n" to context.
-         For each subsection in node.public.subsections:
-           Append subsection.raw_heading followed by "\n" to context.
-           For each line in subsection.content:
-             Append the line followed by "\n" to context.
+6. Initialize `context` as an empty string.
 
-  7. For each dependency in chain.dependencies:
-       If LogicalNameIsArtifact(dep.logical_name) is true:
-         Call FileOpen(dep.file_path) to get a reader.
-         Strip frontmatter:
-           Read lines until a line that is exactly "---" is found; discard it.
-           Read and discard lines until a second line that is exactly "---" is found; discard it.
-           If no opening "---" is found on the first non-blank line, do not skip any lines
-             (treat file as having no frontmatter — start from the beginning).
-         Read all remaining lines from the reader, appending each line followed by "\n" to context.
-         Call FileClose(reader).
-       Else if dep.qualifier is absent:
-         Call NodeParse(dep.logical_name).
-         If node.public is absent, skip.
-         For each line in node.public.content:
-           Append the line followed by "\n" to context.
-         For each subsection in node.public.subsections:
-           Append subsection.raw_heading followed by "\n" to context.
-           For each line in subsection.content:
-             Append the line followed by "\n" to context.
-       Else (dep.qualifier is present):
-         Call NodeParse(dep.logical_name).
-         Compute normalized_qualifier = NormalizeText(dep.qualifier).
-         Find the subsection in node.public.subsections whose heading equals normalized_qualifier.
-         If not found, skip.
-         For each line in that subsection's content:
-           Append the line followed by "\n" to context.
+7. **Ancestors** — for each item in `chain.ancestors` (in order):
 
-  8. For each external entry in chain.external:
-       Create a PathCfs from external_entry.path.
-       If external_entry.fragments is absent or empty:
-         Call FileOpen(path) to get a reader.
-         Read all lines from the reader, appending each line followed by "\n" to context.
-         Call FileClose(reader).
-       Else (fragments are present):
-         For each fragment in external_entry.fragments (in declaration order):
-           Parse fragment.lines as "start-end" to get integer start and integer end.
-           Call FileOpen(path) to get a reader.
-           Call FileSkipLines(reader, start - 1).
-           Read (end - start + 1) lines from the reader, appending each followed by "\n" to context.
-           Call FileClose(reader).
+   a. Call `NodeParse(ancestor.logical_name)`.
 
-  9. For the target (chain.target):
-       Read the target node's frontmatter outputs using FrontmatterParse(target_file_path).
-       Emit a reduced frontmatter block containing only the outputs field:
-         Append "---\n" to context.
-         Append "outputs:\n" to context.
-         For each output entry in frontmatter.outputs:
-           Append "  - id: <output.id>\n" to context.
-           Append "    path: <output.path>\n" to context.
-         Append "---\n" to context.
-       Call NodeParse(chain.target.logical_name).
-       If node.public is present:
-         For each line in node.public.content:
-           Append the line followed by "\n" to context.
-         For each subsection in node.public.subsections:
-           Append subsection.raw_heading followed by "\n" to context.
-           For each line in subsection.content:
-             Append the line followed by "\n" to context.
-       If node.agent is present:
-         For each line in node.agent.content:
-           Append the line followed by "\n" to context.
-         For each subsection in node.agent.subsections:
-           Append subsection.raw_heading followed by "\n" to context.
-           For each line in subsection.content:
-             Append the line followed by "\n" to context.
+   b. If `node.public` is absent, skip this ancestor.
+      If `node.public` has empty `content` and an empty `subsections` list, skip.
 
-  ### Step 4 — Extract input
+   c. Otherwise, append the `node.public.raw_heading` followed by `\n`.
+      For each line in `node.public.content`, append the line followed by `\n`.
+      For each subsection in `node.public.subsections` (in order):
+        Append the subsection's `raw_heading` followed by `\n`.
+        For each line in the subsection's `content`, append the line followed by `\n`.
 
-  10. If chain.input is present:
-        Call FileOpen(chain.input.file_path) to get a reader.
-        Strip frontmatter using the same logic as step 7.
-        Read all remaining lines, collecting them into a single string,
-          appending each line followed by "\n".
-        Call FileClose(reader).
-        Store the collected string as input.
-      Else:
-        input is absent.
+8. **Dependencies** — for each item in `chain.dependencies` (in order):
 
-  ### Step 5 — Return result
+   a. If `LogicalNameIsArtifact(dep.logical_name)` is true:
+      Open the file at `dep.file_path` with `FileOpen`.
+      Strip frontmatter from the file (see "Frontmatter stripping" below).
+      Read all remaining lines; for each line append the line followed by `\n`.
+      Call `FileClose`.
 
-  11. Return MCPLoadChainResult with:
-        chain_hash = chain_hash
-        context = context
-        input = input (absent if chain.input was absent)
+   b. Else if `dep.qualifier` is absent:
+      Call `NodeParse(dep.logical_name)`.
+      Append `node.public.raw_heading` followed by `\n`.
+      For each line in `node.public.content`, append the line followed by `\n`.
+      For each subsection in `node.public.subsections` (in order):
+        Append the subsection's `raw_heading` followed by `\n`.
+        For each line in the subsection's `content`, append the line followed by `\n`.
+
+   c. Else (`dep.qualifier` is present):
+      Call `NodeParse(dep.logical_name)`.
+      Compute `normalized_qualifier` = `NormalizeText(dep.qualifier)`.
+      Find the subsection in `node.public.subsections` whose `heading` equals `normalized_qualifier`.
+      Append that subsection's `raw_heading` followed by `\n`.
+      For each line in the subsection's `content`, append the line followed by `\n`.
+
+9. **External** — for each item in `chain.external` (in order):
+
+   a. Create a `PathCfs` from `external.path`.
+
+   b. If `external.fragments` is absent or empty:
+      Open the file with `FileOpen`.
+      Read all lines; for each line append the line followed by `\n`.
+      Call `FileClose`.
+
+   c. Else (fragments present):
+      For each fragment in `external.fragments` (in declaration order):
+        Parse `fragment.lines` as "start-end" to get integer `start` and `end`.
+        Open the file at the external path with `FileOpen`.
+        Call `FileSkipLines(reader, start - 1)` to skip preceding lines.
+        Read `end - start + 1` lines; for each line append the line followed by `\n`.
+        Call `FileClose`.
+
+10. **Target Public** — using `chain.target`:
+
+    a. Emit a reduced frontmatter block for the target.
+       Append `"---\n"`.
+       Append `"outputs:\n"`.
+       For each output in `frontmatter.outputs`:
+         Append `"  - id: "` + `output.id` + `"\n"`.
+         Append `"    path: "` + `output.path` + `"\n"`.
+       Append `"---\n"`.
+
+    b. Call `NodeParse(chain.target.logical_name)`.
+
+    c. If `node.public` is not absent:
+       Append `node.public.raw_heading` followed by `\n`.
+       For each line in `node.public.content`, append the line followed by `\n`.
+       For each subsection in `node.public.subsections` (in order):
+         Append the subsection's `raw_heading` followed by `\n`.
+         For each line in the subsection's `content`, append the line followed by `\n`.
+
+11. **Target Agent** — from the same `NodeParse` result:
+
+    a. If `node.agent` is absent, skip.
+
+    b. Otherwise, append `node.agent.raw_heading` followed by `\n`.
+       For each line in `node.agent.content`, append the line followed by `\n`.
+       For each subsection in `node.agent.subsections` (in order):
+         Append the subsection's `raw_heading` followed by `\n`.
+         For each line in the subsection's `content`, append the line followed by `\n`.
+
+**Step 4 — Extract input**
+
+12. If `chain.input` is present:
+    Open the file at `chain.input.file_path` with `FileOpen`.
+    Strip frontmatter from the file (see "Frontmatter stripping" below).
+    Read all remaining lines; for each line append the line followed by `\n`.
+    Store the result as `input`.
+    Call `FileClose`.
+
+    If `chain.input` is absent, `input` is absent in the result.
+
+**Step 5 — Return result**
+
+13. Return `MCPLoadChainResult` with:
+    - `chain_hash`: the value computed in step 5.
+    - `context`: the concatenated stream built in steps 7–11.
+    - `input`: the value from step 12, or absent if `chain.input` was absent.
+
+---
+
+### Frontmatter stripping (helper procedure)
+
+Used when reading artifact files and the input file.
+
+```
+procedure StripFrontmatter(reader: FileReader)
+```
+
+1. Read the first line from `reader`.
+   If it equals `"---"`, frontmatter is present — continue to step 2.
+   Otherwise, the file has no frontmatter.
+   The line already read is content — include it in the output.
+   Continue reading the remaining lines normally.
+
+2. Read lines until a line equal to `"---"` is encountered (the closing delimiter).
+   Discard all lines including the closing `"---"`.
+   All subsequent lines are content.

@@ -15,18 +15,22 @@ chain for a given target logical name.
 
 # Public
 
+## Namespace
+
+    namespace: chainresolver
+
 ## Interface
 
 ```
 record ChainItem
   logical_name: string
-  file_path: PathCfs
+  file_path: pathutils.PathCfs
   qualifier: optional string
 
 record Chain
   ancestors: list of ChainItem
   dependencies: list of ChainItem
-  external: list of FrontmatterExternal
+  external: list of frontmatter.FrontmatterExternal
   target: ChainItem
   input: optional ChainItem
 

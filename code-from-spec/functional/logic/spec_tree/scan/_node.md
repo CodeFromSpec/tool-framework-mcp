@@ -15,12 +15,16 @@ spec nodes found.
 
 # Public
 
+## Namespace
+
+    namespace: spectreescan
+
 ## Interface
 
 ```
 record SpecTreeNode
   logical_name: string
-  file_path: PathCfs
+  file_path: pathutils.PathCfs
 
 function SpecTreeScan() -> list of SpecTreeNode
   errors:

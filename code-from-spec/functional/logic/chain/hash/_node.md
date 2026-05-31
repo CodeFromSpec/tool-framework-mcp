@@ -24,7 +24,7 @@ all chain positions from disk and hashing their content.
 ## Interface
 
 ```
-function ChainHashCompute(chain: Chain) -> string
+function ChainHashCompute(chain: chainresolver.Chain) -> string
   errors:
     - FileUnreadable: a file in the chain cannot be
       read or opened.

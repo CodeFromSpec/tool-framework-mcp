@@ -15,7 +15,7 @@ Writes content to a file on disk.
 ## Interface
 
 ```
-function FileWrite(cfs_path: PathCfs, content: string)
+function FileWrite(cfs_path: pathutils.PathCfs, content: string)
   errors:
     - CannotCreateDirectory: an intermediate directory
       cannot be created.
