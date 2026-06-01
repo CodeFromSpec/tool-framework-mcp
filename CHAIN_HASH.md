@@ -18,7 +18,8 @@ The output is 27 characters.
 ## Normalization
 
 All text content is normalized before hashing: CRLF line endings
-are converted to LF. No other normalization is applied.
+are converted to LF. If the file does not end with LF, a
+trailing LF is added. No other normalization is applied.
 
 This applies to spec node content, external file content, and
 artifact file content (referenced via `depends_on` or `input`).
@@ -61,9 +62,13 @@ hashes (as raw bytes, not encoded) in chain assembly order:
    of `# Agent`.
 5. `input` entry (if present) — content hash of the artifact file.
 
-Redundant `depends_on` entries (e.g., the same path listed twice,
-or both `ROOT/x/y` and `ROOT/x/y(z)`) are not deduplicated — each
-entry contributes its content hash in alphabetical order by path.
+Redundant `depends_on` entries are deduplicated before hashing.
+When an entry without a qualifier exists for a given path, entries
+with qualifiers for the same path are removed (the full
+`# Public` section already includes every subsection). Exact
+duplicates (same path, same qualifier) are also removed. Each
+remaining entry contributes its content hash in alphabetical
+order by path.
 
 The resulting SHA-1 is encoded as base64url to produce the 27
 character string that appears in the artifact tag:

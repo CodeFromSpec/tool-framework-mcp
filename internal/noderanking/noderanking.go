@@ -1,243 +1,228 @@
-// code-from-spec: ROOT/golang/internal/node_ranking/code@EJSjeOloABdRJoJXkrONS5KgztY
+// code-from-spec: ROOT/golang/implementation/utils/node_ranking@9BM2xJl1j-0FUiL5V4wuoSx5wK8
 
-// Package noderanking implements a topological ranking algorithm for spec nodes
-// and their artifacts. It detects dependency cycles as a by-product of the
-// ranking iteration — no separate graph traversal is performed.
-//
-// The algorithm works as follows:
-//  1. Build an entry_map from all spec nodes and their artifacts.
-//  2. Iteratively propagate ranks: each entry's rank = max(dependency ranks) + 1.
-//  3. Convergence is reached when a full pass makes no changes.
-//  4. If N passes complete without convergence, the extra changed entries in one
-//     more pass are the cycle participants.
 package noderanking
 
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/nodediscovery"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
 )
 
-// ErrUnresolvableRef is returned when a depends_on or input target cannot be
-// resolved to a known entry in the entry map.
-var ErrUnresolvableRef = errors.New("unresolvable reference")
+// ErrUnresolvableReference is returned when a depends_on or input
+// target in the frontmatter cannot be resolved to a known node.
+var ErrUnresolvableReference = errors.New("unresolvable reference")
 
-// RankedEntry holds the final ranking for one spec node or one artifact.
-type RankedEntry struct {
+// NodeRankInput represents a discovered node with its parsed
+// frontmatter, used as input to the ranking computation.
+type NodeRankInput struct {
+	// LogicalName is the ROOT/ logical name of the node.
 	LogicalName string
-	Rank        int
+
+	// Frontmatter holds the parsed frontmatter for the node,
+	// including its dependency declarations.
+	Frontmatter *frontmatter.Frontmatter
 }
 
-// rankEntry is the internal working record used while building and iterating.
-type rankEntry struct {
+// NodeRankEntry represents a node or artifact in the ranked output.
+type NodeRankEntry struct {
+	// LogicalName is the ROOT/ or ARTIFACT/ logical name.
+	LogicalName string
+
+	// Rank is the computed topological rank of this entry.
+	// Lower values come earlier in the dependency order.
+	Rank int
+}
+
+// entryState holds the internal state for each node/artifact during ranking.
+type entryState struct {
 	logicalName  string
+	dependencies []string
 	rank         int
-	dependencies []string // logical names this entry depends on
 }
 
-// DetectCycles takes the full set of discovered nodes with their parsed
-// frontmatter, assigns ranks via iterative propagation, and detects cycles.
+// NodeRankCompute takes the full set of discovered nodes with their
+// parsed frontmatter and returns a topologically ranked list of entries
+// (nodes and artifacts) along with the logical names of any nodes
+// involved in dependency cycles.
 //
-// Returns:
-//   - rankedEntries: one RankedEntry per spec node and one per artifact output.
-//   - cycleParticipants: logical names involved in cycles (empty when none).
-//   - error: wraps ErrUnresolvableRef when a depends_on or input ref is unknown.
-func DetectCycles(nodes []nodediscovery.DiscoveredNode) ([]RankedEntry, []string, error) {
-	// -----------------------------------------------------------------------
-	// Step 1 — Discovery: collect all entries and build dependency lists.
-	// -----------------------------------------------------------------------
+// The returned ranked slice contains one entry per node/artifact in
+// dependency order (lowest rank first). The cycles slice contains the
+// logical names of all nodes that participate in a cycle; it is empty
+// when no cycles are detected.
+//
+// Errors:
+//   - ErrUnresolvableReference: a depends_on or input target in the
+//     frontmatter cannot be resolved to a known node.
+func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles []string, err error) {
+	// Step 1 — Build entry map.
+	entryMap := make(map[string]*entryState)
 
-	// entry_map holds one working record per logical name (spec node + artifacts).
-	entryMap := make(map[string]*rankEntry)
+	// Track which logical names belong to spec nodes (vs artifacts).
+	specNodes := make(map[string]*NodeRankInput)
 
-	// Parse frontmatter for each node.
-	fmCache := make(map[string]*frontmatter.Frontmatter, len(nodes))
-	for _, node := range nodes {
-		fm, err := frontmatter.ParseFrontmatter(node.FilePath)
-		if err != nil {
-			fm = &frontmatter.Frontmatter{}
-		}
-		fmCache[node.LogicalName] = fm
-	}
-
-	// Pass A: add every spec node and each of its artifact outputs to entryMap.
-	for _, node := range nodes {
-		lname := node.LogicalName
-		fm := fmCache[lname]
-
-		entryMap[lname] = &rankEntry{
-			logicalName:  lname,
+	for _, input := range entries {
+		// Add the spec node entry.
+		entryMap[input.LogicalName] = &entryState{
+			logicalName:  input.LogicalName,
+			dependencies: []string{},
 			rank:         0,
-			dependencies: nil,
 		}
+		specNodes[input.LogicalName] = input
 
-		for _, out := range fm.Outputs {
-			nodePathWithoutRoot := strings.TrimPrefix(lname, "ROOT/")
-			artifactKey := "ARTIFACT/" + nodePathWithoutRoot + "(" + out.ID + ")"
-
-			entryMap[artifactKey] = &rankEntry{
-				logicalName:  artifactKey,
+		// Add artifact entries for each output.
+		for _, output := range input.Frontmatter.Outputs {
+			artifactLogicalName := buildArtifactLogicalName(input.LogicalName, output.ID)
+			entryMap[artifactLogicalName] = &entryState{
+				logicalName:  artifactLogicalName,
+				dependencies: []string{},
 				rank:         0,
-				dependencies: []string{lname},
 			}
 		}
 	}
 
-	// Pass B: populate each spec-node entry's dependency list.
-	for _, node := range nodes {
-		lname := node.LogicalName
-		fm := fmCache[lname]
-		entry := entryMap[lname]
+	// Step 2 — Build dependency edges.
 
-		var deps []string
+	// Step 2, part 3: for each spec node entry.
+	for logicalName, input := range specNodes {
+		entry := entryMap[logicalName]
 
-		if lname != "ROOT" {
-			parent, ok := logicalnames.ParentLogicalName(lname)
-			if ok {
-				deps = append(deps, parent)
-			}
+		// Skip ROOT (no dependencies).
+		if logicalName == "ROOT" {
+			continue
 		}
 
-		for _, ref := range fm.DependsOn {
-			if _, found := entryMap[ref]; !found {
-				return nil, nil, fmt.Errorf("depends_on %q in node %q: %w", ref, lname, ErrUnresolvableRef)
+		// Derive and add parent dependency.
+		parent, err := logicalnames.LogicalNameGetParent(logicalName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%w: %s (getting parent of %s)", ErrUnresolvableReference, logicalName, logicalName)
+		}
+		if _, ok := entryMap[parent]; !ok {
+			return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, parent)
+		}
+		entry.dependencies = append(entry.dependencies, parent)
+
+		// Add depends_on edges.
+		for _, dep := range input.Frontmatter.DependsOn {
+			var lookupKey string
+			if strings.HasPrefix(dep, "ARTIFACT/") {
+				lookupKey = dep
+			} else {
+				lookupKey = logicalnames.LogicalNameStripQualifier(dep)
 			}
-			deps = append(deps, ref)
+			if _, ok := entryMap[lookupKey]; !ok {
+				return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, lookupKey)
+			}
+			entry.dependencies = append(entry.dependencies, lookupKey)
 		}
 
-		if fm.Input != "" {
-			ref := fm.Input
-			if _, found := entryMap[ref]; !found {
-				return nil, nil, fmt.Errorf("input %q in node %q: %w", ref, lname, ErrUnresolvableRef)
+		// Add input dependency.
+		if input.Frontmatter.Input != "" {
+			lookupKey := input.Frontmatter.Input
+			if _, ok := entryMap[lookupKey]; !ok {
+				return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, lookupKey)
 			}
-			deps = append(deps, ref)
+			entry.dependencies = append(entry.dependencies, lookupKey)
 		}
-
-		entry.dependencies = deps
 	}
 
-	// -----------------------------------------------------------------------
-	// Step 2 — Initialization: all ranks are already 0 from construction.
-	// -----------------------------------------------------------------------
+	// Step 2, part 4: for each artifact entry.
+	for logicalName, entry := range entryMap {
+		if !strings.HasPrefix(logicalName, "ARTIFACT/") {
+			continue
+		}
+		generatorLogicalName, err := logicalnames.LogicalNameGetArtifactGenerator(logicalName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%w: %s (getting generator for %s)", ErrUnresolvableReference, logicalName, logicalName)
+		}
+		if _, ok := entryMap[generatorLogicalName]; !ok {
+			return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, generatorLogicalName)
+		}
+		entry.dependencies = append(entry.dependencies, generatorLogicalName)
+	}
 
-	// -----------------------------------------------------------------------
-	// Steps 3–4 — Iterative propagation until convergence or N passes.
-	// -----------------------------------------------------------------------
+	// Step 3 — Initialize ranks.
+	// ROOT rank is 0 (fixed). All others start at 0 (already set during construction).
 
-	// N is the total number of entries (spec nodes + artifacts).
+	// Step 4 — Iterate and detect cycles.
 	n := len(entryMap)
+	var changedInLastPass []string
 
-	passCount := 0
-	for {
-		changed := runOnePass(entryMap)
-		passCount++
+	for pass := 0; pass < n; pass++ {
+		var changedThisPass []string
 
-		if !changed {
-			// Convergence: no rank changed this pass — graph is acyclic.
-			break
+		for logicalName, entry := range entryMap {
+			if logicalName == "ROOT" {
+				continue
+			}
+
+			// Compute new rank as 1 + max(rank of dependencies).
+			newRank := 1
+			for _, dep := range entry.dependencies {
+				depEntry := entryMap[dep]
+				candidate := depEntry.rank + 1
+				if candidate > newRank {
+					newRank = candidate
+				}
+			}
+
+			if newRank > entry.rank {
+				entry.rank = newRank
+				changedThisPass = append(changedThisPass, logicalName)
+			}
 		}
-		if passCount == n {
-			// N passes completed without convergence — cycles exist.
+
+		changedInLastPass = changedThisPass
+
+		if len(changedThisPass) == 0 {
+			// Converged — no cycles.
 			break
 		}
 	}
 
-	// -----------------------------------------------------------------------
-	// Step 5 — Cycle detection.
-	// -----------------------------------------------------------------------
-
-	var cycleParticipants []string
-
-	if passCount == n {
-		// Run one additional pass; entries whose rank still changes are in a cycle.
-		cycleParticipants = collectCycleParticipants(entryMap)
+	// Determine cycle participants.
+	if len(changedInLastPass) > 0 {
+		cycles = changedInLastPass
+	} else {
+		cycles = []string{}
 	}
-	// If passCount < n, cycleParticipants stays nil (treated as empty).
 
-	// -----------------------------------------------------------------------
-	// Step 6 — Build result.
-	// -----------------------------------------------------------------------
-
-	rankedEntries := make([]RankedEntry, 0, len(entryMap))
-	for _, e := range entryMap {
-		rankedEntries = append(rankedEntries, RankedEntry{
-			LogicalName: e.logicalName,
-			Rank:        e.rank,
+	// Step 5 — Output.
+	ranked = make([]*NodeRankEntry, 0, len(entryMap))
+	for _, entry := range entryMap {
+		ranked = append(ranked, &NodeRankEntry{
+			LogicalName: entry.logicalName,
+			Rank:        entry.rank,
 		})
 	}
 
-	return rankedEntries, cycleParticipants, nil
+	// Sort: primary by rank ascending, secondary by logical name ascending.
+	sort.Slice(ranked, func(i, j int) bool {
+		if ranked[i].Rank != ranked[j].Rank {
+			return ranked[i].Rank < ranked[j].Rank
+		}
+		return ranked[i].LogicalName < ranked[j].LogicalName
+	})
+
+	return ranked, cycles, nil
 }
 
-// runOnePass executes a single propagation pass over all entries in entryMap.
-// For each entry with dependencies, it sets the entry's rank to
-// max(dependency ranks) + 1 if that is larger than the current rank.
-// Returns true if any rank changed during this pass.
-func runOnePass(entryMap map[string]*rankEntry) bool {
-	changed := false
-
-	for _, entry := range entryMap {
-		// Entries with no dependencies (e.g., ROOT) always stay at rank 0.
-		if len(entry.dependencies) == 0 {
-			continue
-		}
-
-		// Find the maximum rank among all dependencies.
-		maxDepRank := 0
-		for _, depName := range entry.dependencies {
-			dep := entryMap[depName]
-			if dep == nil {
-				continue
-			}
-			if dep.rank > maxDepRank {
-				maxDepRank = dep.rank
-			}
-		}
-
-		// New rank must exceed the maximum dependency rank.
-		newRank := maxDepRank + 1
-
-		if newRank > entry.rank {
-			entry.rank = newRank
-			changed = true
-		}
+// buildArtifactLogicalName derives the ARTIFACT/ logical name for a
+// given node logical name and output id.
+//
+// Examples:
+//   - "ROOT/a/b" + "foo" → "ARTIFACT/a/b(foo)"
+//   - "ROOT"     + "bar" → "ARTIFACT/(bar)"
+func buildArtifactLogicalName(nodeLogicalName string, outputID string) string {
+	var pathSegment string
+	if nodeLogicalName == "ROOT" {
+		pathSegment = ""
+	} else {
+		// Strip the "ROOT/" prefix.
+		pathSegment = strings.TrimPrefix(nodeLogicalName, "ROOT/")
 	}
-
-	return changed
-}
-
-// collectCycleParticipants runs one more pass and collects the logical names of
-// every entry whose rank changes. Those entries are participants in a cycle
-// because a DAG would have already converged.
-func collectCycleParticipants(entryMap map[string]*rankEntry) []string {
-	var participants []string
-
-	for _, entry := range entryMap {
-		if len(entry.dependencies) == 0 {
-			continue
-		}
-
-		maxDepRank := 0
-		for _, depName := range entry.dependencies {
-			dep := entryMap[depName]
-			if dep == nil {
-				continue
-			}
-			if dep.rank > maxDepRank {
-				maxDepRank = dep.rank
-			}
-		}
-
-		newRank := maxDepRank + 1
-		if newRank > entry.rank {
-			entry.rank = newRank
-			participants = append(participants, entry.logicalName)
-		}
-	}
-
-	return participants
+	return "ARTIFACT/" + pathSegment + "(" + outputID + ")"
 }

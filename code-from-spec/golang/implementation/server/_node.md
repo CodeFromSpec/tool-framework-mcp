@@ -1,0 +1,104 @@
+---
+depends_on:
+  - ROOT/golang/dependencies/mcp-go-sdk
+  - ARTIFACT/golang/interfaces/mcp_tools/load_chain(interface)
+  - ARTIFACT/golang/interfaces/mcp_tools/write_file(interface)
+  - ARTIFACT/golang/interfaces/mcp_tools/validate_specs(interface)
+  - ARTIFACT/golang/interfaces/mcp_tools/hash_fragment(interface)
+outputs:
+  - id: main
+    path: cmd/framework-mcp/main.go
+---
+
+# ROOT/golang/implementation/server
+
+Entry point: handles argument validation, creates and
+configures the MCP server, registers tools, and runs
+the server.
+
+# Public
+
+## Package
+
+`package main`
+
+## Startup sequence
+
+1. If `len(os.Args) > 1` and `os.Args[1]` is `--help`,
+   `-h`, or `help`, print the usage message to stdout
+   and exit 0.
+2. If `len(os.Args) > 1` (any other argument), print
+   the usage message to stderr and exit 1.
+3. Create the MCP server via `mcp.NewServer` with
+   `Implementation.Name` = `"framework-mcp"`.
+4. Register tools using `mcp.AddTool`. For each tool,
+   construct the `mcp.Tool` inline with the name and
+   description, and call the exported function from the
+   corresponding package:
+   - `mcploadchain.MCPLoadChain` — tool name
+     `load_chain`. Set `Meta:
+     mcp.Meta{"anthropic/maxResultSizeChars": 500000}`
+     so that `tools/list` advertises the maximum result
+     size to the client.
+   - `mcpwritefile.MCPWriteFile` — tool name
+     `write_file`.
+   - `mcpvalidatespecs.MCPValidateSpecs` — tool name
+     `validate_specs`.
+   - `mcphashfragment.MCPHashFragment` — tool name
+     `hash_fragment`.
+5. Call `s.Run(context.Background(), &mcp.StdioTransport{})`.
+6. If `Run` returns an error, print it to stderr and
+   exit 1.
+7. Otherwise exit 0.
+
+## Usage message
+
+```
+Usage: framework-mcp
+
+Starts an MCP server over stdin/stdout for Code from Spec
+projects.
+
+Tools:
+  load_chain       Load the spec chain for a node.
+  write_file       Write a generated file to disk.
+  validate_specs   Validate specs and check artifact staleness.
+  hash_fragment    Calculate hash of a file line range.
+
+MCP configuration example:
+  {
+    "mcpServers": {
+      "framework-mcp": {
+        "type": "stdio",
+        "command": "<path-to-binary>"
+      }
+    }
+  }
+```
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Clean shutdown. |
+| 1 | Startup error or server error. |
+
+# Agent
+
+## Go-specific guidance
+
+- Import the four MCP tool packages:
+  `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`,
+  `mcphashfragment`.
+- Each tool handler receives MCP request parameters and
+  calls the corresponding package function.
+- The handler wraps the function result into an MCP
+  tool response (text content).
+- For `MCPLoadChain`, the result is `MCPLoadChainResult`
+  — emit `chain_hash` as the first content item,
+  `context` as the second, and `input` as the third
+  (if present).
+- For `MCPValidateSpecs`, the result is
+  `ValidationReport` — format as human-readable text.
+- For `MCPWriteFile` and `MCPHashFragment`, the result
+  is a string — return directly as text content.

@@ -1,546 +1,908 @@
-// code-from-spec: ROOT/golang/internal/chain_hash/tests@oH8u-KeJcsWbDgzA38Q1cW1Neaw
-
-// Package chainhash_test verifies ComputeChainHash behaviour.
-//
-// Test strategy (from spec):
-//   - The hash must be deterministic across calls.
-//   - The hash must always be exactly 27 characters.
-//   - The hash must change when any file in the chain changes.
-//
-// Every test builds its own isolated spec tree under t.TempDir() so tests
-// are fully independent and do not touch real project files.
-//
-// Helper naming: all helpers are prefixed with "test" to avoid collisions
-// with unexported symbols in the implementation package.
-package chainhash
+// code-from-spec: ROOT/golang/tests/chain/hash@L3-hz1QNB4Y0inQPTXfULE5zXR4
+package chainhash_test
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-// ----------------------------------------------------------------
-// Helpers
-// ----------------------------------------------------------------
-
-// testWriteFile creates the file at path (and any missing parent directories)
-// with the given content. It calls t.Fatal on any error.
-func testWriteFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("testWriteFile: MkdirAll(%s): %v", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("testWriteFile: WriteFile(%s): %v", path, err)
-	}
-}
-
-// testNodePath returns the _node.md path for a logical name under the given
-// root directory. It mirrors the PathFromLogicalName resolution:
-//
-//	ROOT                → <root>/code-from-spec/_node.md
-//	ROOT/<path>         → <root>/code-from-spec/<path>/_node.md
-func testNodePath(root, logicalName string) string {
-	const prefix = "ROOT"
-	if logicalName == prefix {
-		return filepath.Join(root, "code-from-spec", "_node.md")
-	}
-	rel := strings.TrimPrefix(logicalName, prefix+"/")
-	// Replace forward slashes with the OS path separator.
-	rel = filepath.FromSlash(rel)
-	return filepath.Join(root, "code-from-spec", rel, "_node.md")
-}
-
-// testChdir changes the working directory to dir for the duration of the test.
-// ComputeChainHash uses the working directory as the project root (all paths
-// it constructs are relative to it), so each test must chdir into its temp tree.
+// testChdir changes the working directory to dir for the duration of the test,
+// restoring it via t.Cleanup.
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("testChdir: Getwd: %v", err)
+		t.Fatalf("testChdir: %v", err)
 	}
 	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("testChdir: Chdir(%s): %v", dir, err)
+		t.Fatalf("testChdir: %v", err)
 	}
 	t.Cleanup(func() {
 		if err := os.Chdir(orig); err != nil {
-			t.Fatalf("testChdir cleanup: Chdir(%s): %v", orig, err)
+			t.Errorf("testChdir cleanup: %v", err)
 		}
 	})
 }
 
-// testMakeMinimalTree creates the minimal spec tree required for the logical
-// name and returns the path to the target node file. The tree contains only
-// the target node and its ancestors, each with an empty frontmatter.
-//
-// "Minimal" means no depends_on, no external, no input. Each node file
-// contains a single # Public section so there is content to hash.
-func testMakeMinimalTree(t *testing.T, root, logicalName string) string {
+// testWriteNodeFile creates a _node.md file at the given CFS path (relative to cwd).
+// heading is the first-level heading (e.g. "ROOT/a"), sections is optional additional content.
+func testWriteNodeFile(t *testing.T, cfsPath string, heading string, extraContent string) {
 	t.Helper()
-
-	// Build the ancestor chain manually (root-first, not including target).
-	// e.g. ROOT/a/b → ["ROOT", "ROOT/a"]
-	var ancestors []string
-	parts := strings.Split(logicalName, "/")
-	for i := 1; i < len(parts); i++ {
-		ancestors = append(ancestors, strings.Join(parts[:i], "/"))
+	content := fmt.Sprintf("# %s\n%s", heading, extraContent)
+	dir := filepath.Dir(cfsPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("testWriteNodeFile mkdir: %v", err)
 	}
-
-	// Write each ancestor with a simple # Public section.
-	for _, anc := range ancestors {
-		content := "# Public\n\nAncestor: " + anc + "\n"
-		testWriteFile(t, testNodePath(root, anc), content)
-	}
-
-	// Write the target node.
-	targetContent := "# Public\n\nTarget: " + logicalName + "\n"
-	targetPath := testNodePath(root, logicalName)
-	testWriteFile(t, targetPath, targetContent)
-
-	return targetPath
-}
-
-// ----------------------------------------------------------------
-// Tests
-// ----------------------------------------------------------------
-
-// TestComputeChainHash_Length verifies that the hash is always exactly 27
-// characters long (the spec mandates this for base64url-encoded SHA-1 without
-// padding).
-func TestComputeChainHash_Length(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	testMakeMinimalTree(t, root, "ROOT/a/b")
-
-	hash, err := ComputeChainHash("ROOT/a/b")
-	if err != nil {
-		t.Fatalf("ComputeChainHash returned unexpected error: %v", err)
-	}
-	if len(hash) != 27 {
-		t.Errorf("expected hash length 27, got %d (hash=%q)", len(hash), hash)
+	if err := os.WriteFile(cfsPath, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteNodeFile write: %v", err)
 	}
 }
 
-// TestComputeChainHash_Deterministic verifies that calling ComputeChainHash
-// twice on the same unchanged tree returns identical hashes.
-func TestComputeChainHash_Deterministic(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	testMakeMinimalTree(t, root, "ROOT/x/y")
-
-	hash1, err := ComputeChainHash("ROOT/x/y")
-	if err != nil {
-		t.Fatalf("first call: %v", err)
+// testWriteFile writes arbitrary content to a file at the given path relative to cwd.
+func testWriteFile(t *testing.T, path string, content string) {
+	t.Helper()
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("testWriteFile mkdir: %v", err)
 	}
-	hash2, err := ComputeChainHash("ROOT/x/y")
-	if err != nil {
-		t.Fatalf("second call: %v", err)
-	}
-	if hash1 != hash2 {
-		t.Errorf("hash is not deterministic: first=%q, second=%q", hash1, hash2)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteFile write: %v", err)
 	}
 }
 
-// TestComputeChainHash_ChangesWhenTargetChanges verifies that the hash changes
-// when the target node file is modified.
-func TestComputeChainHash_ChangesWhenTargetChanges(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	targetPath := testMakeMinimalTree(t, root, "ROOT/mynode")
-
-	before, err := ComputeChainHash("ROOT/mynode")
-	if err != nil {
-		t.Fatalf("before modification: %v", err)
-	}
-
-	// Modify the target file.
-	testWriteFile(t, targetPath, "# Public\n\nTarget: modified content\n")
-
-	after, err := ComputeChainHash("ROOT/mynode")
-	if err != nil {
-		t.Fatalf("after modification: %v", err)
-	}
-
-	if before == after {
-		t.Errorf("hash did not change after target file modification (hash=%q)", before)
+// testChainItem creates a ChainItem from a logical name and cfs path string.
+func testChainItem(logicalName, cfsPath string, qualifier string) *chainresolver.ChainItem {
+	return &chainresolver.ChainItem{
+		LogicalName: logicalName,
+		FilePath:    pathutils.PathCfs{Value: cfsPath},
+		Qualifier:   qualifier,
 	}
 }
 
-// TestComputeChainHash_ChangesWhenAncestorChanges verifies that the hash
-// changes when an ancestor's # Public section is modified.
-func TestComputeChainHash_ChangesWhenAncestorChanges(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	testMakeMinimalTree(t, root, "ROOT/parent/child")
-	// The parent is ROOT/parent.
-	parentPath := testNodePath(root, "ROOT/parent")
-
-	before, err := ComputeChainHash("ROOT/parent/child")
-	if err != nil {
-		t.Fatalf("before modification: %v", err)
-	}
-
-	// Modify the parent's # Public section.
-	testWriteFile(t, parentPath, "# Public\n\nParent: modified ancestor content\n")
-
-	after, err := ComputeChainHash("ROOT/parent/child")
-	if err != nil {
-		t.Fatalf("after modification: %v", err)
-	}
-
-	if before == after {
-		t.Errorf("hash did not change after ancestor modification (hash=%q)", before)
+// testMinimalChain builds a Chain with only a target and all other fields empty/nil.
+func testMinimalChain(target *chainresolver.ChainItem) *chainresolver.Chain {
+	return &chainresolver.Chain{
+		Ancestors:    nil,
+		Dependencies: nil,
+		External:     nil,
+		Target:       target,
+		Input:        nil,
 	}
 }
 
-// TestComputeChainHash_ROOTNode verifies that ComputeChainHash works for ROOT
-// itself (no ancestors, no parent chain).
-func TestComputeChainHash_ROOTNode(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+// --- Properties ---
 
-	// Write ROOT node.
-	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot content\n")
+func TestChainHashCompute_Deterministic(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	hash, err := ComputeChainHash("ROOT")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nSome public content\n")
+
+	chain := testMinimalChain(testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""))
+
+	hash1, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(hash) != 27 {
-		t.Errorf("expected hash length 27, got %d (hash=%q)", len(hash), hash)
-	}
-}
 
-// TestComputeChainHash_DependsOnROOTRef verifies that a depends_on entry
-// pointing to a ROOT/ node contributes to the hash via its # Public section.
-// Changing the depended-upon node's # Public section must change the hash.
-func TestComputeChainHash_DependsOnROOTRef(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	// Write the dependency node.
-	depPath := testNodePath(root, "ROOT/dep")
-	testWriteFile(t, depPath, "# Public\n\nDep content v1\n")
-
-	// Write the target with a depends_on frontmatter block.
-	targetPath := testNodePath(root, "ROOT/target")
-	targetContent := "---\ndepends_on:\n  - ROOT/dep\n---\n# Public\n\nTarget content\n"
-	testWriteFile(t, targetPath, targetContent)
-
-	// Write ROOT ancestor.
-	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
-
-	before, err := ComputeChainHash("ROOT/target")
+	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		t.Fatalf("before: %v", err)
+		t.Fatalf("unexpected error on second call: %v", err)
 	}
 
-	// Change the dependency.
-	testWriteFile(t, depPath, "# Public\n\nDep content v2 (changed)\n")
-
-	after, err := ComputeChainHash("ROOT/target")
-	if err != nil {
-		t.Fatalf("after: %v", err)
-	}
-
-	if before == after {
-		t.Errorf("hash did not change after depends_on node modification")
-	}
-}
-
-// TestComputeChainHash_DependsOnQualifier verifies that a ROOT/x(qualifier)
-// depends_on entry hashes only the ## qualifier subsection within # Public.
-// Changing only the subsection must change the hash; changing other content
-// outside that subsection must also not affect it (the subsection drives it).
-func TestComputeChainHash_DependsOnQualifier(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	// Write ROOT ancestor.
-	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
-
-	// Write the dependency node with a named subsection.
-	depPath := testNodePath(root, "ROOT/dep")
-	depContent := "# Public\n\n## mysection\n\nSection content v1\n\n## other\n\nOther content\n"
-	testWriteFile(t, depPath, depContent)
-
-	// Target depends on only the "mysection" subsection.
-	targetPath := testNodePath(root, "ROOT/target")
-	testWriteFile(t, targetPath, "---\ndepends_on:\n  - ROOT/dep(mysection)\n---\n# Public\n\nTarget\n")
-
-	hash1, err := ComputeChainHash("ROOT/target")
-	if err != nil {
-		t.Fatalf("hash1: %v", err)
-	}
-
-	// Change only the "other" subsection — hash must NOT change.
-	depContent2 := "# Public\n\n## mysection\n\nSection content v1\n\n## other\n\nOther content CHANGED\n"
-	testWriteFile(t, depPath, depContent2)
-
-	hash2, err := ComputeChainHash("ROOT/target")
-	if err != nil {
-		t.Fatalf("hash2: %v", err)
-	}
 	if hash1 != hash2 {
-		t.Errorf("hash changed when only unrelated subsection changed (expected stable)")
-	}
-
-	// Change the "mysection" subsection — hash must change.
-	depContent3 := "# Public\n\n## mysection\n\nSection content v2 CHANGED\n\n## other\n\nOther content CHANGED\n"
-	testWriteFile(t, depPath, depContent3)
-
-	hash3, err := ComputeChainHash("ROOT/target")
-	if err != nil {
-		t.Fatalf("hash3: %v", err)
-	}
-	if hash1 == hash3 {
-		t.Errorf("hash did not change when depends_on qualified subsection changed")
+		t.Errorf("hash not deterministic: %q != %q", hash1, hash2)
 	}
 }
 
-// TestComputeChainHash_ExternalFile verifies that a node with an external
-// file dependency has a hash that changes when the external file changes.
-func TestComputeChainHash_ExternalFile(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+func TestChainHashCompute_Is27Characters(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	// Write ROOT.
-	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nSome content\n")
 
-	// Write an external file at a known path (relative to project root).
-	extPath := filepath.Join(root, "somefile.txt")
-	testWriteFile(t, extPath, "external content v1\n")
+	chain := testMinimalChain(testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""))
 
-	// Write the target with an external frontmatter entry.
-	// The path in the frontmatter must be relative to the project root (which
-	// is root after testChdir).
-	targetPath := testNodePath(root, "ROOT/target")
-	targetContent := "---\nexternal:\n  - path: somefile.txt\n---\n# Public\n\nTarget\n"
-	testWriteFile(t, targetPath, targetContent)
-
-	before, err := ComputeChainHash("ROOT/target")
-	if err != nil {
-		t.Fatalf("before: %v", err)
-	}
-
-	// Change the external file.
-	testWriteFile(t, extPath, "external content v2 (changed)\n")
-
-	after, err := ComputeChainHash("ROOT/target")
-	if err != nil {
-		t.Fatalf("after: %v", err)
-	}
-
-	if before == after {
-		t.Errorf("hash did not change after external file modification")
-	}
-}
-
-// TestComputeChainHash_InputArtifact verifies that a node with an input
-// artifact has a hash that changes when the artifact content changes.
-//
-// The input frontmatter field points to an ARTIFACT/ reference. The artifact
-// is resolved via the node's outputs list, then hashed (with frontmatter stripped).
-func TestComputeChainHash_InputArtifact(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	// Write ROOT.
-	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
-
-	// Write the producer node — declares an output artifact.
-	producerPath := testNodePath(root, "ROOT/producer")
-	producerContent := "---\noutputs:\n  - id: code\n    path: some/output.go\n---\n# Public\n\nProducer\n"
-	testWriteFile(t, producerPath, producerContent)
-
-	// Write the artifact file itself.
-	artifactPath := filepath.Join(root, "some", "output.go")
-	testWriteFile(t, artifactPath, "// artifact content v1\npackage foo\n")
-
-	// Write the consumer node — has input pointing to the artifact.
-	targetPath := testNodePath(root, "ROOT/consumer")
-	targetContent := "---\ninput: ARTIFACT/producer(code)\n---\n# Public\n\nConsumer\n"
-	testWriteFile(t, targetPath, targetContent)
-
-	before, err := ComputeChainHash("ROOT/consumer")
-	if err != nil {
-		t.Fatalf("before: %v", err)
-	}
-
-	// Modify the artifact (no frontmatter in this file, so stripped == original).
-	testWriteFile(t, artifactPath, "// artifact content v2 (changed)\npackage foo\n")
-
-	after, err := ComputeChainHash("ROOT/consumer")
-	if err != nil {
-		t.Fatalf("after: %v", err)
-	}
-
-	if before == after {
-		t.Errorf("hash did not change after input artifact modification")
-	}
-}
-
-// TestComputeChainHash_CRLFNormalization verifies that CRLF and LF line endings
-// produce the same hash (normalization happens before hashing).
-func TestComputeChainHash_CRLFNormalization(t *testing.T) {
-	root1 := t.TempDir()
-	root2 := t.TempDir()
-
-	// LF version.
-	testChdir(t, root1)
-	testWriteFile(t, testNodePath(root1, "ROOT"), "# Public\n\nRoot\n")
-	testWriteFile(t, testNodePath(root1, "ROOT/node"), "# Public\n\nContent\n")
-	hashLF, err := ComputeChainHash("ROOT/node")
-	if err != nil {
-		t.Fatalf("LF version: %v", err)
-	}
-
-	// CRLF version — same logical content, different line endings.
-	testChdir(t, root2)
-	testWriteFile(t, testNodePath(root2, "ROOT"), "# Public\r\n\r\nRoot\r\n")
-	testWriteFile(t, testNodePath(root2, "ROOT/node"), "# Public\r\n\r\nContent\r\n")
-	hashCRLF, err := ComputeChainHash("ROOT/node")
-	if err != nil {
-		t.Fatalf("CRLF version: %v", err)
-	}
-
-	if hashLF != hashCRLF {
-		t.Errorf("CRLF and LF produced different hashes: LF=%q, CRLF=%q", hashLF, hashCRLF)
-	}
-}
-
-// TestComputeChainHash_NoPublicSection verifies that an ancestor with no
-// # Public section is silently skipped (contributes nothing to the hash).
-// The hash should still be 27 characters and not an error.
-func TestComputeChainHash_NoPublicSection(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
-
-	// Write ROOT with no # Public section.
-	testWriteFile(t, testNodePath(root, "ROOT"), "No public section here\n")
-
-	// Write target with a # Public section.
-	testWriteFile(t, testNodePath(root, "ROOT/child"), "# Public\n\nChild content\n")
-
-	hash, err := ComputeChainHash("ROOT/child")
+	hash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(hash) != 27 {
-		t.Errorf("expected hash length 27, got %d", len(hash))
+		t.Errorf("expected 27 characters, got %d: %q", len(hash), hash)
 	}
 }
 
-// TestComputeChainHash_AgentSection verifies that the # Agent section of the
-// target also contributes to the hash. Changing it must change the hash.
-func TestComputeChainHash_AgentSection(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+func TestChainHashCompute_ChangesWhenAncestorContentChanges(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
+	testWriteNodeFile(t, "code-from-spec/_node.md", "ROOT", "\n# Public\nRoot public content\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
 
-	targetPath := testNodePath(root, "ROOT/node")
-	testWriteFile(t, targetPath, "# Public\n\nPublic content\n\n# Agent\n\nAgent content v1\n")
-
-	before, err := ComputeChainHash("ROOT/node")
-	if err != nil {
-		t.Fatalf("before: %v", err)
+	chain := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT", "code-from-spec/_node.md", ""),
+		},
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:        nil,
 	}
 
-	// Modify only the # Agent section.
-	testWriteFile(t, targetPath, "# Public\n\nPublic content\n\n# Agent\n\nAgent content v2 (changed)\n")
-
-	after, err := ComputeChainHash("ROOT/node")
+	hash1, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		t.Fatalf("after: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if before == after {
-		t.Errorf("hash did not change after # Agent section modification")
+	testWriteNodeFile(t, "code-from-spec/_node.md", "ROOT", "\n# Public\nModified root public content\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after ancestor content change")
 	}
 }
 
-// TestComputeChainHash_InvalidLogicalName verifies that an error is returned
-// for unsupported logical name formats.
-func TestComputeChainHash_InvalidLogicalName(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+func TestChainHashCompute_ChangesWhenDependencyContentChanges(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	invalidNames := []string{
-		"",
-		"ARTIFACT/something(id)",
-		"notROOT/foo",
-		"random string",
+	testWriteNodeFile(t, "code-from-spec/_node.md", "ROOT", "")
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", "ROOT/b", "\n# Public\nDependency content\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nTarget public\n")
+
+	chain := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT", "code-from-spec/_node.md", ""),
+		},
+		Dependencies: []*chainresolver.ChainItem{
+			testChainItem("ROOT/b", "code-from-spec/b/_node.md", ""),
+		},
+		External: nil,
+		Target:   testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:    nil,
 	}
 
-	for _, name := range invalidNames {
-		_, err := ComputeChainHash(name)
-		if err == nil {
-			t.Errorf("expected error for logical name %q, got nil", name)
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", "ROOT/b", "\n# Public\nModified dependency content\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after dependency content change")
+	}
+}
+
+func TestChainHashCompute_ChangesWhenTargetPublicChanges(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/_node.md", "ROOT", "")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nTarget public\n")
+
+	chain := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT", "code-from-spec/_node.md", ""),
+		},
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:        nil,
+	}
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nModified target public\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after target Public change")
+	}
+}
+
+func TestChainHashCompute_ChangesWhenTargetAgentChanges(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/_node.md", "ROOT", "")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nPublic content\n\n# Agent\nAgent content\n")
+
+	chain := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT", "code-from-spec/_node.md", ""),
+		},
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:        nil,
+	}
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nPublic content\n\n# Agent\nDifferent agent content\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after target Agent change")
+	}
+}
+
+// --- Ancestors ---
+
+func TestChainHashCompute_AncestorWithPublicContributesHash(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/_node.md", "ROOT", "\n# Public\nAncestor public content\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT", "code-from-spec/_node.md", ""),
+		},
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:        nil,
+	}
+
+	hash, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if hash == "" {
+		t.Error("expected non-empty hash")
+	}
+	if len(hash) != 27 {
+		t.Errorf("expected 27 characters, got %d: %q", len(hash), hash)
+	}
+}
+
+func TestChainHashCompute_AncestorWithoutPublicDifferentFromAncestorWithPublic(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	// ROOT has no Public section
+	testWriteNodeFile(t, "code-from-spec/_node.md", "ROOT", "")
+	// ROOT/a is the target with a Public section
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nTarget public\n")
+	// ROOT/c has a Public section
+	testWriteNodeFile(t, "code-from-spec/c/_node.md", "ROOT/c", "\n# Public\nC public content\n")
+
+	chainA := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT", "code-from-spec/_node.md", ""),
+		},
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:        nil,
+	}
+
+	chainB := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT/c", "code-from-spec/c/_node.md", ""),
+		},
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:        nil,
+	}
+
+	hashA, err := chainhash.ChainHashCompute(chainA)
+	if err != nil {
+		t.Fatalf("unexpected error for chain A: %v", err)
+	}
+
+	hashB, err := chainhash.ChainHashCompute(chainB)
+	if err != nil {
+		t.Fatalf("unexpected error for chain B: %v", err)
+	}
+
+	if hashA == hashB {
+		t.Error("expected hashes to differ: ancestor without Public vs ancestor with Public")
+	}
+}
+
+func TestChainHashCompute_MultipleAncestorsOrderMatters(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/_node.md", "ROOT", "\n# Public\nRoot public\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nA public\n")
+	testWriteNodeFile(t, "code-from-spec/a/b/_node.md", "ROOT/a/b", "")
+
+	chainA := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT", "code-from-spec/_node.md", ""),
+			testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		},
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a/b", "code-from-spec/a/b/_node.md", ""),
+		Input:        nil,
+	}
+
+	chainB := &chainresolver.Chain{
+		Ancestors: []*chainresolver.ChainItem{
+			testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+			testChainItem("ROOT", "code-from-spec/_node.md", ""),
+		},
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a/b", "code-from-spec/a/b/_node.md", ""),
+		Input:        nil,
+	}
+
+	hashA, err := chainhash.ChainHashCompute(chainA)
+	if err != nil {
+		t.Fatalf("unexpected error for chain A: %v", err)
+	}
+
+	hashB, err := chainhash.ChainHashCompute(chainB)
+	if err != nil {
+		t.Fatalf("unexpected error for chain B: %v", err)
+	}
+
+	if hashA == hashB {
+		t.Error("expected hashes to differ when ancestor order is reversed")
+	}
+}
+
+// --- Dependencies ---
+
+func TestChainHashCompute_RootDepWithoutQualifierHashesPublic(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", "ROOT/b", "\n# Public\nDep public\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors: nil,
+		Dependencies: []*chainresolver.ChainItem{
+			testChainItem("ROOT/b", "code-from-spec/b/_node.md", ""),
+		},
+		External: nil,
+		Target:   testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:    nil,
+	}
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", "ROOT/b", "\n# Public\nModified dep public\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after dependency Public change")
+	}
+}
+
+func TestChainHashCompute_RootDepWithQualifierHashesSubsection(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", "ROOT/b", "\n# Public\n\n## Interface\nInterface content\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors: nil,
+		Dependencies: []*chainresolver.ChainItem{
+			testChainItem("ROOT/b", "code-from-spec/b/_node.md", "interface"),
+		},
+		External: nil,
+		Target:   testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:    nil,
+	}
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", "ROOT/b", "\n# Public\n\n## Interface\nModified interface\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after qualified subsection change")
+	}
+}
+
+func TestChainHashCompute_QualifierCaseNormalization(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", "ROOT/b", "\n# Public\n\n## Interface\nInterface content\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors: nil,
+		Dependencies: []*chainresolver.ChainItem{
+			testChainItem("ROOT/b", "code-from-spec/b/_node.md", "INTERFACE"),
+		},
+		External: nil,
+		Target:   testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:    nil,
+	}
+
+	hash, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(hash) != 27 {
+		t.Errorf("expected 27-character hash, got %d: %q", len(hash), hash)
+	}
+}
+
+func TestChainHashCompute_ArtifactDepHashesBodyMinusFrontmatter(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteFile(t, "artifacts/dep.md", "---\noutputs:\n  - id: foo\n    path: foo.go\n---\nArtifact body\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors: nil,
+		Dependencies: []*chainresolver.ChainItem{
+			testChainItem("ARTIFACT/dep", "artifacts/dep.md", ""),
+		},
+		External: nil,
+		Target:   testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:    nil,
+	}
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	testWriteFile(t, "artifacts/dep.md", "---\noutputs:\n  - id: foo\n    path: foo.go\n---\nModified artifact body\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after artifact body change")
+	}
+}
+
+func TestChainHashCompute_ArtifactDepFrontmatterChangeIgnored(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteFile(t, "artifacts/dep.md", "---\noutputs:\n  - id: foo\n    path: foo.go\n---\nStable body\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors: nil,
+		Dependencies: []*chainresolver.ChainItem{
+			testChainItem("ARTIFACT/dep", "artifacts/dep.md", ""),
+		},
+		External: nil,
+		Target:   testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:    nil,
+	}
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Modify only frontmatter, leave body unchanged
+	testWriteFile(t, "artifacts/dep.md", "---\noutputs:\n  - id: foo\n    path: foo.go\nextra: field\n---\nStable body\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after frontmatter modify: %v", err)
+	}
+
+	if hash1 != hash2 {
+		t.Error("expected hashes to be equal after frontmatter-only change")
+	}
+}
+
+// --- External files ---
+
+func TestChainHashCompute_ExternalWholeFileHashesAllContent(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteFile(t, "external/file.txt", "External file content\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors:    nil,
+		Dependencies: nil,
+		External: []*frontmatter.FrontmatterExternal{
+			{Path: "external/file.txt", Fragments: nil},
+		},
+		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:  nil,
+	}
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	testWriteFile(t, "external/file.txt", "Modified external content\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after external file change")
+	}
+}
+
+// testMakeLines creates a string with n lines, each containing "line N".
+func testMakeLines(n int) string {
+	var sb strings.Builder
+	for i := 1; i <= n; i++ {
+		sb.WriteString(fmt.Sprintf("line %d\n", i))
+	}
+	return sb.String()
+}
+
+// testMakeLinesWithModifiedLine creates a string with n lines, overriding one line.
+func testMakeLinesWithModifiedLine(n, modLine int, modContent string) string {
+	var sb strings.Builder
+	for i := 1; i <= n; i++ {
+		if i == modLine {
+			sb.WriteString(modContent + "\n")
+		} else {
+			sb.WriteString(fmt.Sprintf("line %d\n", i))
 		}
 	}
+	return sb.String()
 }
 
-// TestComputeChainHash_MissingNodeFile verifies that an error is returned when
-// the target node file does not exist on disk.
-func TestComputeChainHash_MissingNodeFile(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+func TestChainHashCompute_ExternalWithFragmentsHashesDeclaredRange(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	// Do NOT write the node file — just chdir.
-	_, err := ComputeChainHash("ROOT/missing")
-	if err == nil {
-		t.Fatal("expected error for missing node file, got nil")
+	testWriteFile(t, "external/file.txt", testMakeLines(10))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors:    nil,
+		Dependencies: nil,
+		External: []*frontmatter.FrontmatterExternal{
+			{
+				Path: "external/file.txt",
+				Fragments: []*frontmatter.FrontmatterExternalFragment{
+					{Lines: "3-5"},
+				},
+			},
+		},
+		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:  nil,
 	}
-	// The error message should mention the file or "unreadable".
-	if !strings.Contains(err.Error(), "unreadable") {
-		t.Errorf("expected error to contain %q, got: %v", "unreadable", err)
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Modify line 4 (within range 3-5)
+	testWriteFile(t, "external/file.txt", testMakeLinesWithModifiedLine(10, 4, "modified line 4"))
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after modifying line within fragment range")
 	}
 }
 
-// TestComputeChainHash_DependsOnSortOrder verifies that the order of
-// depends_on entries in the frontmatter does not affect the hash (they are
-// sorted alphabetically before hashing).
-func TestComputeChainHash_DependsOnSortOrder(t *testing.T) {
-	// Build two trees that are identical except the depends_on list order.
+func TestChainHashCompute_ExternalWithFragmentsChangeOutsideRangeIgnored(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	buildTree := func(t *testing.T, root, order1, order2 string) {
-		t.Helper()
-		testWriteFile(t, testNodePath(root, "ROOT"), "# Public\n\nRoot\n")
-		testWriteFile(t, testNodePath(root, "ROOT/aaaa"), "# Public\n\nDep aaaa\n")
-		testWriteFile(t, testNodePath(root, "ROOT/zzzz"), "# Public\n\nDep zzzz\n")
+	testWriteFile(t, "external/file.txt", testMakeLines(10))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
 
-		targetContent := "---\ndepends_on:\n  - " + order1 + "\n  - " + order2 + "\n---\n# Public\n\nTarget\n"
-		testWriteFile(t, testNodePath(root, "ROOT/target"), targetContent)
+	chain := &chainresolver.Chain{
+		Ancestors:    nil,
+		Dependencies: nil,
+		External: []*frontmatter.FrontmatterExternal{
+			{
+				Path: "external/file.txt",
+				Fragments: []*frontmatter.FrontmatterExternalFragment{
+					{Lines: "3-5"},
+				},
+			},
+		},
+		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:  nil,
 	}
 
-	root1 := t.TempDir()
-	root2 := t.TempDir()
-
-	// Tree 1: aaaa first.
-	testChdir(t, root1)
-	buildTree(t, root1, "ROOT/aaaa", "ROOT/zzzz")
-	hash1, err := ComputeChainHash("ROOT/target")
+	hash1, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		t.Fatalf("tree1: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Tree 2: zzzz first.
-	testChdir(t, root2)
-	buildTree(t, root2, "ROOT/zzzz", "ROOT/aaaa")
-	hash2, err := ComputeChainHash("ROOT/target")
+	// Modify line 8 (outside range 3-5)
+	testWriteFile(t, "external/file.txt", testMakeLinesWithModifiedLine(10, 8, "modified line 8"))
+
+	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		t.Fatalf("tree2: %v", err)
+		t.Fatalf("unexpected error after modify: %v", err)
 	}
 
 	if hash1 != hash2 {
-		t.Errorf("hash differs based on depends_on list order: %q vs %q", hash1, hash2)
+		t.Error("expected hashes to be equal after modifying line outside fragment range")
+	}
+}
+
+func TestChainHashCompute_ExternalMultipleFragmentsOrderMatters(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteFile(t, "external/file.txt", testMakeLines(10))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chainA := &chainresolver.Chain{
+		Ancestors:    nil,
+		Dependencies: nil,
+		External: []*frontmatter.FrontmatterExternal{
+			{
+				Path: "external/file.txt",
+				Fragments: []*frontmatter.FrontmatterExternalFragment{
+					{Lines: "6-8"},
+					{Lines: "1-3"},
+				},
+			},
+		},
+		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:  nil,
+	}
+
+	chainB := &chainresolver.Chain{
+		Ancestors:    nil,
+		Dependencies: nil,
+		External: []*frontmatter.FrontmatterExternal{
+			{
+				Path: "external/file.txt",
+				Fragments: []*frontmatter.FrontmatterExternalFragment{
+					{Lines: "1-3"},
+					{Lines: "6-8"},
+				},
+			},
+		},
+		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:  nil,
+	}
+
+	hashA, err := chainhash.ChainHashCompute(chainA)
+	if err != nil {
+		t.Fatalf("unexpected error for chain A: %v", err)
+	}
+
+	hashB, err := chainhash.ChainHashCompute(chainB)
+	if err != nil {
+		t.Fatalf("unexpected error for chain B: %v", err)
+	}
+
+	if hashA == hashB {
+		t.Error("expected hashes to differ when fragment order changes")
+	}
+}
+
+// --- Target ---
+
+func TestChainHashCompute_TargetPublicAndAgentBothContribute(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nPublic content\n\n# Agent\nAgent content\n")
+
+	chain := testMinimalChain(testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""))
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Remove Agent section
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nPublic content\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after removing Agent: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ when Agent section is removed")
+	}
+}
+
+func TestChainHashCompute_TargetWithoutAgentIsValid(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "\n# Public\nPublic only content\n")
+
+	chain := testMinimalChain(testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""))
+
+	hash, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(hash) != 27 {
+		t.Errorf("expected 27-character hash, got %d: %q", len(hash), hash)
+	}
+}
+
+// --- Input ---
+
+func TestChainHashCompute_InputHashesBodyMinusFrontmatter(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteFile(t, "artifacts/input.md", "---\noutputs:\n  - id: in\n    path: in.go\n---\nInput body content\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors:    nil,
+		Dependencies: nil,
+		External:     nil,
+		Target:       testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:        testChainItem("ARTIFACT/input", "artifacts/input.md", ""),
+	}
+
+	hash1, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	testWriteFile(t, "artifacts/input.md", "---\noutputs:\n  - id: in\n    path: in.go\n---\nModified input body\n")
+
+	hash2, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error after modify: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected hashes to differ after input body change")
+	}
+}
+
+func TestChainHashCompute_NoInputSkipped(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := testMinimalChain(testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""))
+
+	hash, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(hash) != 27 {
+		t.Errorf("expected 27-character hash, got %d: %q", len(hash), hash)
+	}
+}
+
+// --- Error cases ---
+
+func TestChainHashCompute_UnreadableSpecNodeFile(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	chain := testMinimalChain(testChainItem("ROOT/nonexistent", "code-from-spec/nonexistent/_node.md", ""))
+
+	_, err := chainhash.ChainHashCompute(chain)
+	if err == nil {
+		t.Fatal("expected error for missing spec node file, got nil")
+	}
+	if !errors.Is(err, chainhash.ErrParseFailure) {
+		t.Errorf("expected ErrParseFailure, got: %v", err)
+	}
+}
+
+func TestChainHashCompute_UnreadableArtifactFile(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors: nil,
+		Dependencies: []*chainresolver.ChainItem{
+			testChainItem("ARTIFACT/missing", "artifacts/missing.md", ""),
+		},
+		External: nil,
+		Target:   testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:    nil,
+	}
+
+	_, err := chainhash.ChainHashCompute(chain)
+	if err == nil {
+		t.Fatal("expected error for missing artifact file, got nil")
+	}
+	if !errors.Is(err, chainhash.ErrFileUnreadable) {
+		t.Errorf("expected ErrFileUnreadable, got: %v", err)
+	}
+}
+
+func TestChainHashCompute_UnreadableExternalFile(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "ROOT/a", "")
+
+	chain := &chainresolver.Chain{
+		Ancestors:    nil,
+		Dependencies: nil,
+		External: []*frontmatter.FrontmatterExternal{
+			{Path: "external/missing.txt", Fragments: nil},
+		},
+		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md", ""),
+		Input:  nil,
+	}
+
+	_, err := chainhash.ChainHashCompute(chain)
+	if err == nil {
+		t.Fatal("expected error for missing external file, got nil")
+	}
+	if !errors.Is(err, chainhash.ErrFileUnreadable) {
+		t.Errorf("expected ErrFileUnreadable, got: %v", err)
 	}
 }

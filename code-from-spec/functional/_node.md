@@ -112,6 +112,15 @@ framework-mcp
 Any argument causes the tool to print a usage message and exit.
 `--help`, `-h`, and `help` exit 0; any other argument exits 1.
 
+### Project root
+
+The working directory of the MCP server process is the
+project root. All relative paths — `outputs`, `external`,
+artifact file paths — are resolved relative to this
+directory. The server does not search for the project root;
+it is the caller's responsibility to start the server from
+the correct location.
+
 ### Distribution
 
 The binary may be placed inside the host project repository at a

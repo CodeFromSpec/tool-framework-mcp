@@ -1,236 +1,255 @@
-// code-from-spec: ROOT/golang/internal/frontmatter/code@5V-WApXyqicZtOc9hb6qPUO5xqA
+// code-from-spec: ROOT/golang/implementation/parsing/frontmatter@0TsuUXXV2SlJwckixpG7FegxhFE
 
-// Package frontmatter parses the optional YAML frontmatter block at the top
-// of a spec node file (_node.md). The parser stops as soon as the closing
-// "---" delimiter is found and never reads the file body, keeping memory use
-// proportional to the frontmatter block only.
 package frontmatter
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 	"github.com/goccy/go-yaml"
 )
 
-// ---------------------------------------------------------------------------
-// Sentinel errors
-// ---------------------------------------------------------------------------
+// ErrFileUnreadable is returned when the file at the given path cannot
+// be opened or read.
+var ErrFileUnreadable = errors.New("file unreadable")
 
-// ErrRead is returned (wrapped) when the target file cannot be read.
-var ErrRead = errors.New("error reading file")
+// ErrMalformedYAML is returned when the content between the --- delimiters
+// is not valid YAML.
+var ErrMalformedYAML = errors.New("malformed YAML in frontmatter")
 
-// ErrFrontmatterParse is returned (wrapped) when the YAML between the "---"
-// delimiters is malformed.
-var ErrFrontmatterParse = errors.New("error parsing frontmatter")
+// FrontmatterExternalFragment represents a single fragment entry
+// within an external dependency declaration.
+type FrontmatterExternalFragment struct {
+	// Description is an optional human-readable description of
+	// the fragment. Empty string when absent.
+	Description string
 
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
+	// Lines holds the content lines of the fragment.
+	Lines string
 
-// Output represents one artifact that a spec leaf node produces.
-type Output struct {
-	ID   string
+	// Hash is a content hash for the fragment.
+	Hash string
+}
+
+// FrontmatterExternal represents an external file referenced in the
+// frontmatter, along with its optional fragment list.
+type FrontmatterExternal struct {
+	// Path is the CFS path to the external file.
+	Path string
+
+	// Fragments is the list of fragments within the external file.
+	// Empty slice when absent.
+	Fragments []*FrontmatterExternalFragment
+}
+
+// FrontmatterOutput represents a single entry in the outputs list of
+// the frontmatter.
+type FrontmatterOutput struct {
+	// ID is the identifier for this output artifact.
+	ID string
+
+	// Path is the CFS path where the output file should be written.
 	Path string
 }
 
-// ExternalFragment identifies a sub-range of an external file that the spec
-// node depends on.
-type ExternalFragment struct {
-	Description string
-	Lines       string
-	Hash        string
-}
-
-// External describes an external file dependency, optionally restricted to
-// specific fragments.
-type External struct {
-	Path      string
-	Fragments []ExternalFragment
-}
-
-// Frontmatter holds all structured metadata extracted from a spec node file.
-// Fields absent in the YAML default to their zero values (empty slice / empty
-// string).
+// Frontmatter holds all parsed fields from a spec node's YAML
+// frontmatter block. All fields default to their zero value (empty
+// slice or empty string) when absent from the YAML.
 type Frontmatter struct {
+	// DependsOn is the list of logical names this node depends on.
 	DependsOn []string
-	External  []External
-	Input     string
-	Outputs   []Output
+
+	// External is the list of external file references.
+	External []*FrontmatterExternal
+
+	// Input is the CFS path to the input material for transformation.
+	// Empty string when absent.
+	Input string
+
+	// Outputs is the list of output descriptors declared by this node.
+	Outputs []*FrontmatterOutput
 }
 
-// ---------------------------------------------------------------------------
-// Unexported YAML mirror types
-// ---------------------------------------------------------------------------
-// We unmarshal into these private structs (with yaml tags) and then convert to
-// the exported types. This keeps the public API clean.
-
-type yamlExternalFragment struct {
+// rawFragment is the unexported struct used to unmarshal a fragment
+// from YAML.
+type rawFragment struct {
 	Description string `yaml:"description"`
 	Lines       string `yaml:"lines"`
 	Hash        string `yaml:"hash"`
 }
 
-type yamlExternal struct {
-	Path      string                 `yaml:"path"`
-	Fragments []yamlExternalFragment `yaml:"fragments"`
+// rawExternal is the unexported struct used to unmarshal an external
+// entry from YAML.
+type rawExternal struct {
+	Path      string        `yaml:"path"`
+	Fragments []rawFragment `yaml:"fragments"`
 }
 
-type yamlOutput struct {
+// rawOutput is the unexported struct used to unmarshal an output entry
+// from YAML.
+type rawOutput struct {
 	ID   string `yaml:"id"`
 	Path string `yaml:"path"`
 }
 
-type yamlFrontmatter struct {
-	DependsOn []string       `yaml:"depends_on"`
-	External  []yamlExternal `yaml:"external"`
-	Input     string         `yaml:"input"`
-	Outputs   []yamlOutput   `yaml:"outputs"`
+// rawFrontmatter is the unexported struct used to unmarshal the full
+// frontmatter block from YAML.
+type rawFrontmatter struct {
+	DependsOn []string      `yaml:"depends_on"`
+	External  []rawExternal `yaml:"external"`
+	Input     string        `yaml:"input"`
+	Outputs   []rawOutput   `yaml:"outputs"`
 }
 
-// ---------------------------------------------------------------------------
-// ParseFrontmatter
-// ---------------------------------------------------------------------------
-
-// ParseFrontmatter reads the file at filePath, extracts the YAML frontmatter
-// block (if present), and returns the parsed result.
-//
-// Rules:
-//   - If the file has no opening "---" delimiter, an empty Frontmatter is
-//     returned (not an error).
-//   - If the opening delimiter is present but the closing "---" is never
-//     found (EOF reached first), ErrFrontmatterParse is returned.
-//   - If the YAML between the delimiters is malformed, ErrFrontmatterParse is
-//     returned.
-//   - If the file cannot be read, ErrRead is returned.
-//
-// All returned errors wrap one of the two sentinels so callers can match with
-// errors.Is().
-func ParseFrontmatter(filePath string) (*Frontmatter, error) {
-	// Step 1: Read the file.
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %w", ErrRead, filePath, err)
+// emptyFrontmatter returns a Frontmatter with all fields set to their
+// zero/empty values.
+func emptyFrontmatter() *Frontmatter {
+	return &Frontmatter{
+		DependsOn: []string{},
+		External:  []*FrontmatterExternal{},
+		Input:     "",
+		Outputs:   []*FrontmatterOutput{},
 	}
+}
 
-	// Split the entire file into lines for scanning. We only process lines up
-	// to and including the closing "---", so memory overhead is minimal.
-	lines := strings.Split(string(data), "\n")
-
-	// Use a scanner-style index so the logic mirrors the pseudocode closely.
-	scanner := &lineScanner{lines: lines}
+// FrontmatterParse opens the file at filePath, extracts the YAML
+// frontmatter delimited by --- lines, and unmarshals it into a
+// Frontmatter struct. All missing fields are returned as empty slices
+// or empty strings.
+//
+// Errors:
+//   - ErrFileUnreadable: the file cannot be opened or read.
+//   - ErrMalformedYAML: the content between --- delimiters is not
+//     valid YAML.
+//   - (FileReader.*): propagated from FileOpen.
+func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
+	// Step 1: Open the file.
+	reader, err := filereader.FileOpen(filePath)
+	if err != nil {
+		if errors.Is(err, filereader.ErrFileUnreadable) {
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+		}
+		// Propagate PathUtils errors as-is.
+		return nil, err
+	}
 
 	// Step 2: Read the first line.
-	firstLine, ok := scanner.next()
-	if !ok {
-		// EOF on first read — file is empty; return empty Frontmatter.
-		return &Frontmatter{}, nil
-	}
-
-	// Normalize the line (trim trailing \r from CRLF files).
-	if strings.TrimSpace(firstLine) != "---" {
-		// No opening delimiter — return empty Frontmatter; not an error.
-		return &Frontmatter{}, nil
-	}
-
-	// Step 3: Collect lines until the closing "---" or EOF.
-	var buf []string
-	for {
-		line, ok := scanner.next()
-		if !ok {
-			// EOF reached without a closing delimiter — malformed.
-			return nil, fmt.Errorf("%w: %s: missing closing '---' delimiter", ErrFrontmatterParse, filePath)
+	firstLine, err := filereader.FileReadLine(reader)
+	if err != nil {
+		if errors.Is(err, filereader.ErrEndOfFile) {
+			filereader.FileClose(reader)
+			return emptyFrontmatter(), nil
 		}
-		if strings.TrimRight(line, "\r") == "---" {
-			// Closing delimiter found — stop collecting.
+		filereader.FileClose(reader)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+	}
+
+	// Step 3: Check that the first line is exactly "---".
+	if firstLine != "---" {
+		filereader.FileClose(reader)
+		return emptyFrontmatter(), nil
+	}
+
+	// Step 4: Collect YAML lines until the closing "---".
+	var yamlLines []string
+	for {
+		line, err := filereader.FileReadLine(reader)
+		if err != nil {
+			if errors.Is(err, filereader.ErrEndOfFile) {
+				filereader.FileClose(reader)
+				return nil, fmt.Errorf("%w: unexpected end of file while reading frontmatter", ErrMalformedYAML)
+			}
+			filereader.FileClose(reader)
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+		}
+		if line == "---" {
 			break
 		}
-		// Normalize CRLF line endings.
-		buf = append(buf, strings.TrimRight(line, "\r"))
+		yamlLines = append(yamlLines, line)
 	}
 
-	// Step 4: Build the YAML string from collected lines.
-	// An empty buffer (block was ---\n---) is valid; yaml.Unmarshal handles it
-	// gracefully (nothing to parse → all fields remain zero-valued).
-	yamlStr := strings.Join(buf, "\n")
+	// Step 5: Close the reader.
+	filereader.FileClose(reader)
 
-	// Step 5 & 6: Parse the YAML into the mirror struct, then convert.
-	var raw yamlFrontmatter
-	if len(strings.TrimSpace(yamlStr)) > 0 {
-		if err := yaml.Unmarshal([]byte(yamlStr), &raw); err != nil {
-			return nil, fmt.Errorf("%w: %s: %w", ErrFrontmatterParse, filePath, err)
+	// Step 6: Join lines into a single YAML string.
+	yamlText := strings.Join(yamlLines, "\n")
+
+	// Step 7: Return empty Frontmatter if the YAML block is blank.
+	if strings.TrimSpace(yamlText) == "" {
+		return emptyFrontmatter(), nil
+	}
+
+	// Step 8: Parse the YAML text.
+	var raw rawFrontmatter
+	if err := yaml.Unmarshal([]byte(yamlText), &raw); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrMalformedYAML, err)
+	}
+
+	// Step 9: Extract depends_on.
+	dependsOn := raw.DependsOn
+	if dependsOn == nil {
+		dependsOn = []string{}
+	}
+
+	// Step 10: Extract input.
+	input := raw.Input
+
+	// Step 11: Extract and validate outputs.
+	outputsList := make([]*FrontmatterOutput, 0, len(raw.Outputs))
+	for _, entry := range raw.Outputs {
+		if entry.ID == "" {
+			return nil, fmt.Errorf("%w: output entry missing required field \"id\"", ErrMalformedYAML)
 		}
-	}
-
-	// Step 7: Convert the mirror struct to the exported Frontmatter type.
-	fm := &Frontmatter{
-		DependsOn: raw.DependsOn,
-		Input:     raw.Input,
-	}
-
-	// Ensure slice fields are never nil for consistent caller behaviour.
-	if fm.DependsOn == nil {
-		fm.DependsOn = []string{}
-	}
-
-	// Convert External entries.
-	fm.External = make([]External, 0, len(raw.External))
-	for _, re := range raw.External {
-		ext := External{
-			Path: re.Path,
+		if entry.Path == "" {
+			return nil, fmt.Errorf("%w: output entry missing required field \"path\"", ErrMalformedYAML)
 		}
-		if len(re.Fragments) > 0 {
-			ext.Fragments = make([]ExternalFragment, 0, len(re.Fragments))
-			for _, rf := range re.Fragments {
-				ext.Fragments = append(ext.Fragments, ExternalFragment{
-					Description: rf.Description,
-					Lines:       rf.Lines,
-					Hash:        rf.Hash,
-				})
-			}
-		} else {
-			ext.Fragments = []ExternalFragment{}
-		}
-		fm.External = append(fm.External, ext)
-	}
-
-	// Convert Output entries.
-	fm.Outputs = make([]Output, 0, len(raw.Outputs))
-	for _, ro := range raw.Outputs {
-		fm.Outputs = append(fm.Outputs, Output{
-			ID:   ro.ID,
-			Path: ro.Path,
+		outputsList = append(outputsList, &FrontmatterOutput{
+			ID:   entry.ID,
+			Path: entry.Path,
 		})
 	}
 
-	return fm, nil
-}
+	// Step 12: Extract and validate external entries.
+	externalList := make([]*FrontmatterExternal, 0, len(raw.External))
+	for _, entry := range raw.External {
+		if entry.Path == "" {
+			return nil, fmt.Errorf("%w: external entry missing required field \"path\"", ErrMalformedYAML)
+		}
 
-// ---------------------------------------------------------------------------
-// lineScanner — a minimal line-by-line cursor over a pre-split slice.
-// ---------------------------------------------------------------------------
+		var fragmentsList []*FrontmatterExternalFragment
+		if entry.Fragments != nil {
+			fragmentsList = make([]*FrontmatterExternalFragment, 0, len(entry.Fragments))
+			for _, frag := range entry.Fragments {
+				if frag.Lines == "" {
+					return nil, fmt.Errorf("%w: fragment entry missing required field \"lines\"", ErrMalformedYAML)
+				}
+				if frag.Hash == "" {
+					return nil, fmt.Errorf("%w: fragment entry missing required field \"hash\"", ErrMalformedYAML)
+				}
+				fragmentsList = append(fragmentsList, &FrontmatterExternalFragment{
+					Description: frag.Description,
+					Lines:       frag.Lines,
+					Hash:        frag.Hash,
+				})
+			}
+		} else {
+			fragmentsList = []*FrontmatterExternalFragment{}
+		}
 
-// lineScanner iterates over a slice of lines without reading from disk again.
-// It mirrors the "ReadLine" abstraction described in the pseudocode.
-type lineScanner struct {
-	lines []string
-	pos   int
-}
-
-// next returns the next line and true, or ("", false) when all lines have been
-// consumed (equivalent to "end of file" in the pseudocode).
-func (s *lineScanner) next() (string, bool) {
-	if s.pos >= len(s.lines) {
-		return "", false
+		externalList = append(externalList, &FrontmatterExternal{
+			Path:      entry.Path,
+			Fragments: fragmentsList,
+		})
 	}
-	line := s.lines[s.pos]
-	s.pos++
-	return line, true
-}
 
-// bufioScannerExample shows an alternative implementation approach using
-// bufio.Scanner (kept as a reference comment only; not used at runtime).
-var _ = bufio.NewScanner // import kept to satisfy potential future uses
+	// Step 13: Return the populated Frontmatter.
+	return &Frontmatter{
+		DependsOn: dependsOn,
+		External:  externalList,
+		Input:     input,
+		Outputs:   outputsList,
+	}, nil
+}

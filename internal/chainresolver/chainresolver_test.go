@@ -1,539 +1,754 @@
-// code-from-spec: ROOT/golang/internal/chain_resolver/tests@XavkiZITxjEAENabNercPYgLado
+// code-from-spec: ROOT/golang/tests/chain/resolver@Nr_CPN5-ecBBXE9XjAZsk0uRVR0
 
-// Package chainresolver tests verify that ResolveChain assembles the chain
-// correctly: ancestors from ROOT down to (but not including) the target,
-// cross-tree dependencies with optional qualifiers, external file paths,
-// deduplication rules, and all documented failure modes.
-//
-// Each test creates an isolated directory via t.TempDir(), writes the minimal
-// spec-file tree needed, changes the working directory to that root, calls
-// ResolveChain, and then restores the working directory.
-//
-// All FilePath assertions use forward slashes (as guaranteed by the
-// implementation through filepath.ToSlash).
-//
-// NOTE: The spec mentions a "Code" field in some happy-path cases (outputs
-// file exists / does not exist). The Chain struct defined in the implementation
-// has no such field; the implementation does not populate it. Those two
-// sub-cases have therefore been omitted from this test file. Everything else
-// from the spec is covered.
-package chainresolver
+package chainresolver_test
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v2/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
 )
 
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
-
-// testStr returns a pointer to s. Useful for building *string Qualifier values
-// in expected ChainItems.
-func testStr(s string) *string {
-	return &s
-}
-
-// testWriteFile creates all necessary parent directories and writes content to
-// path (relative to root).
-func testWriteFile(t *testing.T, root, relPath, content string) {
-	t.Helper()
-	full := filepath.Join(root, filepath.FromSlash(relPath))
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		t.Fatalf("testWriteFile: mkdir %s: %v", filepath.Dir(full), err)
-	}
-	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
-		t.Fatalf("testWriteFile: write %s: %v", full, err)
-	}
-}
-
-// testNodeContent returns a well-formed node file with optional frontmatter
-// fields injected between the opening and closing "---" delimiters.
-// Pass an empty string for frontmatterFields when no frontmatter is needed
-// (the file will have no frontmatter block).
-func testNodeContent(frontmatterFields string) string {
-	if frontmatterFields == "" {
-		return "# Public\n\nSome content.\n"
-	}
-	return fmt.Sprintf("---\n%s\n---\n\n# Public\n\nSome content.\n", frontmatterFields)
-}
-
-// testSetupTree writes a minimal ROOT + optional intermediate nodes so that
-// ResolveChain can walk the ancestry chain.
-//
-// paths is a slice of logical names (e.g. "ROOT", "ROOT/a", "ROOT/a/b")
-// whose _node.md files should be created with plain content (no frontmatter).
-func testSetupTree(t *testing.T, root string, paths ...string) {
-	t.Helper()
-	for _, name := range paths {
-		relPath := testLogicalNameToPath(t, name)
-		testWriteFile(t, root, relPath, testNodeContent(""))
-	}
-}
-
-// testLogicalNameToPath converts a logical name to the expected relative file
-// path using the same rules as logicalnames.PathFromLogicalName but without
-// importing that package (which is the package under test's dependency, not
-// the test target itself). We replicate the rule here purely for constructing
-// test fixtures.
-//
-// ROOT               → code-from-spec/_node.md
-// ROOT/x/y           → code-from-spec/x/y/_node.md
-// ROOT/x/y(qualifier) → code-from-spec/x/y/_node.md  (qualifier stripped)
-func testLogicalNameToPath(t *testing.T, name string) string {
-	t.Helper()
-	// Strip parenthetical qualifier.
-	if idx := strings.IndexByte(name, '('); idx >= 0 {
-		name = name[:idx]
-	}
-	if name == "ROOT" {
-		return "code-from-spec/_node.md"
-	}
-	if !strings.HasPrefix(name, "ROOT/") {
-		t.Fatalf("testLogicalNameToPath: unexpected name %q", name)
-	}
-	tail := strings.TrimPrefix(name, "ROOT/")
-	return "code-from-spec/" + tail + "/_node.md"
-}
-
-// testChdir changes the working directory to dir and registers a cleanup
-// function that restores the original directory.
+// testChdir changes the working directory to dir for the duration of the test.
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
-	original, err := os.Getwd()
+	orig, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("testChdir: getwd: %v", err)
+		t.Fatalf("testChdir: %v", err)
 	}
 	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("testChdir: chdir %s: %v", dir, err)
+		t.Fatalf("testChdir: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := os.Chdir(original); err != nil {
-			// Best-effort restore; other tests might fail if this happens.
+		if err := os.Chdir(orig); err != nil {
 			t.Errorf("testChdir cleanup: %v", err)
 		}
 	})
 }
 
-// testQualEqual reports whether two *string values are deeply equal (both nil,
-// or both non-nil with the same string value).
-func testQualEqual(a, b *string) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
-
-// testChainItemEqual compares two ChainItems by all fields.
-func testChainItemEqual(a, b ChainItem) bool {
-	return a.LogicalName == b.LogicalName &&
-		a.FilePath == b.FilePath &&
-		testQualEqual(a.Qualifier, b.Qualifier)
-}
-
-// testAssertChainItems asserts that got matches want exactly (same length and
-// same values in order).
-func testAssertChainItems(t *testing.T, label string, got, want []ChainItem) {
+// testWriteNode creates a _node.md file at the given CFS path (relative to cwd)
+// with the provided frontmatter content.
+func testWriteNode(t *testing.T, cfsPath string, frontmatter string) {
 	t.Helper()
-	if len(got) != len(want) {
-		t.Errorf("%s: length mismatch: got %d, want %d", label, len(got), len(want))
-		t.Errorf("  got:  %v", got)
-		t.Errorf("  want: %v", want)
-		return
+	dir := filepath.Dir(cfsPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("testWriteNode mkdir %s: %v", dir, err)
 	}
-	for i := range want {
-		if !testChainItemEqual(got[i], want[i]) {
-			t.Errorf("%s[%d]: got %+v, want %+v", label, i, got[i], want[i])
-		}
+	content := "---\n" + frontmatter + "---\n"
+	if err := os.WriteFile(cfsPath, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteNode write %s: %v", cfsPath, err)
 	}
 }
 
-// testQualStr formats a *string qualifier for readable test output.
-func testQualStr(q *string) string {
-	if q == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("%q", *q)
+// testEmptyNode creates a _node.md file with empty frontmatter.
+func testEmptyNode(t *testing.T, cfsPath string) {
+	t.Helper()
+	testWriteNode(t, cfsPath, "")
 }
 
-// ---------------------------------------------------------------------------
-// Happy path tests
-// ---------------------------------------------------------------------------
+// testLogicalNameToFilePath returns the file path that LogicalNameToPath would produce,
+// in OS-native form relative to the temp dir. Used for constructing spec tree files.
+func testNodeFilePath(logicalName string) string {
+	// ROOT      -> code-from-spec/_node.md
+	// ROOT/a    -> code-from-spec/a/_node.md
+	// ROOT/a/b  -> code-from-spec/a/b/_node.md
+	stripped := logicalnames.LogicalNameStripQualifier(logicalName)
+	if stripped == "ROOT" {
+		return filepath.Join("code-from-spec", "_node.md")
+	}
+	// Remove "ROOT/" prefix.
+	rel := stripped[len("ROOT/"):]
+	parts := filepath.FromSlash(rel)
+	return filepath.Join("code-from-spec", parts, "_node.md")
+}
 
-// TestResolveChain_LeafAncestorsOnly verifies the basic ancestor chain for a
-// leaf node with no dependencies. The chain must contain ROOT and ROOT/a as
-// ancestors and ROOT/a/b as the target.
-func TestResolveChain_LeafAncestorsOnly(t *testing.T) {
-	root := t.TempDir()
-	// Build tree: ROOT, ROOT/a, ROOT/a/b (leaf).
-	testSetupTree(t, root, "ROOT", "ROOT/a", "ROOT/a/b")
-	testChdir(t, root)
+// ========================
+// TC-AT: Ancestors and Target
+// ========================
 
-	chain, err := ResolveChain("ROOT/a/b")
+// TC-AT-01: Root as target
+func TestChainResolve_AT01_RootAsTarget(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+
+	chain, err := chainresolver.ChainResolve("ROOT")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Ancestors: ROOT and ROOT/a, sorted alphabetically by logical name.
-	wantAncestors := []ChainItem{
-		{LogicalName: "ROOT", FilePath: "code-from-spec/_node.md", Qualifier: nil},
-		{LogicalName: "ROOT/a", FilePath: "code-from-spec/a/_node.md", Qualifier: nil},
+	if len(chain.Ancestors) != 0 {
+		t.Errorf("expected 0 ancestors, got %d", len(chain.Ancestors))
 	}
-	testAssertChainItems(t, "Ancestors", chain.Ancestors, wantAncestors)
-
-	// Target: ROOT/a/b.
-	wantTarget := ChainItem{
-		LogicalName: "ROOT/a/b",
-		FilePath:    "code-from-spec/a/b/_node.md",
-		Qualifier:   nil,
+	if chain.Target == nil {
+		t.Fatal("expected non-nil target")
 	}
-	if !testChainItemEqual(chain.Target, wantTarget) {
-		t.Errorf("Target: got %+v, want %+v", chain.Target, wantTarget)
+	if chain.Target.LogicalName != "ROOT" {
+		t.Errorf("expected target logical name ROOT, got %q", chain.Target.LogicalName)
 	}
-
-	// Dependencies: empty.
+	if chain.Target.Qualifier != "" {
+		t.Errorf("expected no qualifier, got %q", chain.Target.Qualifier)
+	}
 	if len(chain.Dependencies) != 0 {
-		t.Errorf("Dependencies: got %v, want empty", chain.Dependencies)
+		t.Errorf("expected 0 dependencies, got %d", len(chain.Dependencies))
 	}
-
-	// Input: empty.
-	if chain.Input != "" {
-		t.Errorf("Input: got %q, want empty", chain.Input)
+	if len(chain.External) != 0 {
+		t.Errorf("expected 0 external, got %d", len(chain.External))
+	}
+	if chain.Input != nil {
+		t.Errorf("expected nil input, got %+v", chain.Input)
 	}
 }
 
-// TestResolveChain_DependencyNoQualifier verifies that a ROOT/ dependency
-// without a qualifier produces a ChainItem with Qualifier == nil.
-func TestResolveChain_DependencyNoQualifier(t *testing.T) {
-	root := t.TempDir()
-	// ROOT/a depends on ROOT/b (no qualifier).
-	testSetupTree(t, root, "ROOT", "ROOT/b")
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/b"))
+// TC-AT-02: Linear chain — ancestors in root-first order
+func TestChainResolve_AT02_LinearChainAncestors(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testChdir(t, root)
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testEmptyNode(t, testNodeFilePath("ROOT/a"))
+	testEmptyNode(t, testNodeFilePath("ROOT/a/b"))
 
-	chain, err := ResolveChain("ROOT/a")
+	chain, err := chainresolver.ChainResolve("ROOT/a/b")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	wantAncestors := []ChainItem{
-		{LogicalName: "ROOT", FilePath: "code-from-spec/_node.md", Qualifier: nil},
+	if len(chain.Ancestors) != 2 {
+		t.Fatalf("expected 2 ancestors, got %d", len(chain.Ancestors))
 	}
-	testAssertChainItems(t, "Ancestors", chain.Ancestors, wantAncestors)
-
-	wantDeps := []ChainItem{
-		{LogicalName: "ROOT/b", FilePath: "code-from-spec/b/_node.md", Qualifier: nil},
+	if chain.Ancestors[0].LogicalName != "ROOT" {
+		t.Errorf("expected ancestor[0] = ROOT, got %q", chain.Ancestors[0].LogicalName)
 	}
-	testAssertChainItems(t, "Dependencies", chain.Dependencies, wantDeps)
+	if chain.Ancestors[1].LogicalName != "ROOT/a" {
+		t.Errorf("expected ancestor[1] = ROOT/a, got %q", chain.Ancestors[1].LogicalName)
+	}
+	if chain.Target == nil {
+		t.Fatal("expected non-nil target")
+	}
+	if chain.Target.LogicalName != "ROOT/a/b" {
+		t.Errorf("expected target = ROOT/a/b, got %q", chain.Target.LogicalName)
+	}
 }
 
-// TestResolveChain_DependencyWithQualifier verifies that a ROOT/ dependency
-// with a parenthetical qualifier produces a ChainItem with the correct
-// Qualifier pointer.
-func TestResolveChain_DependencyWithQualifier(t *testing.T) {
-	root := t.TempDir()
-	// ROOT/a depends on ROOT/b(interface).
-	testSetupTree(t, root, "ROOT", "ROOT/b")
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/b(interface)"))
+// TC-AT-03: Single parent
+func TestChainResolve_AT03_SingleParent(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testChdir(t, root)
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testEmptyNode(t, testNodeFilePath("ROOT/a"))
 
-	chain, err := ResolveChain("ROOT/a")
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Ancestors) != 1 {
+		t.Fatalf("expected 1 ancestor, got %d", len(chain.Ancestors))
+	}
+	if chain.Ancestors[0].LogicalName != "ROOT" {
+		t.Errorf("expected ancestor[0] = ROOT, got %q", chain.Ancestors[0].LogicalName)
+	}
+	if chain.Target.LogicalName != "ROOT/a" {
+		t.Errorf("expected target = ROOT/a, got %q", chain.Target.LogicalName)
+	}
+}
+
+// TC-AT-04: Target with empty frontmatter
+func TestChainResolve_AT04_EmptyFrontmatter(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testEmptyNode(t, testNodeFilePath("ROOT/a"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Dependencies) != 0 {
+		t.Errorf("expected 0 dependencies, got %d", len(chain.Dependencies))
+	}
+	if len(chain.External) != 0 {
+		t.Errorf("expected 0 external, got %d", len(chain.External))
+	}
+	if chain.Input != nil {
+		t.Errorf("expected nil input")
+	}
+}
+
+// ========================
+// TC-DEP: Dependencies — ROOT/ References
+// ========================
+
+// TC-DEP-01: Dependency without qualifier
+func TestChainResolve_DEP01_DependencyNoQualifier(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ROOT/b\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/b"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if len(chain.Dependencies) != 1 {
-		t.Fatalf("Dependencies length: got %d, want 1", len(chain.Dependencies))
+		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 	dep := chain.Dependencies[0]
-
-	if dep.LogicalName != "ROOT/b(interface)" {
-		t.Errorf("LogicalName: got %q, want %q", dep.LogicalName, "ROOT/b(interface)")
+	if dep.LogicalName != "ROOT/b" {
+		t.Errorf("expected logical name ROOT/b, got %q", dep.LogicalName)
 	}
-	if dep.FilePath != "code-from-spec/b/_node.md" {
-		t.Errorf("FilePath: got %q, want %q", dep.FilePath, "code-from-spec/b/_node.md")
-	}
-	if dep.Qualifier == nil || *dep.Qualifier != "interface" {
-		t.Errorf("Qualifier: got %s, want %q", testQualStr(dep.Qualifier), "interface")
+	if dep.Qualifier != "" {
+		t.Errorf("expected no qualifier, got %q", dep.Qualifier)
 	}
 }
 
-// TestResolveChain_DependenciesSorted verifies that multiple dependencies are
-// sorted by FilePath (alphabetically).
-func TestResolveChain_DependenciesSorted(t *testing.T) {
-	root := t.TempDir()
-	// ROOT/a depends on ROOT/z, ROOT/m, ROOT/b (intentionally out of order).
-	testSetupTree(t, root, "ROOT", "ROOT/z", "ROOT/m", "ROOT/b")
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/z\n  - ROOT/m\n  - ROOT/b"))
+// TC-DEP-02: Dependency with qualifier
+func TestChainResolve_DEP02_DependencyWithQualifier(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testChdir(t, root)
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ROOT/b(interface)\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/b"))
 
-	chain, err := ResolveChain("ROOT/a")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Expect sorted by FilePath: b < m < z.
-	wantDeps := []ChainItem{
-		{LogicalName: "ROOT/b", FilePath: "code-from-spec/b/_node.md", Qualifier: nil},
-		{LogicalName: "ROOT/m", FilePath: "code-from-spec/m/_node.md", Qualifier: nil},
-		{LogicalName: "ROOT/z", FilePath: "code-from-spec/z/_node.md", Qualifier: nil},
-	}
-	testAssertChainItems(t, "Dependencies", chain.Dependencies, wantDeps)
-}
-
-// TestResolveChain_MultipleQualifiersSameFile verifies that two different
-// qualifiers for the same dependency file are both preserved as separate
-// ChainItems.
-func TestResolveChain_MultipleQualifiersSameFile(t *testing.T) {
-	root := t.TempDir()
-	// ROOT/a depends on ROOT/b(interface) and ROOT/b(constraints).
-	testSetupTree(t, root, "ROOT", "ROOT/b")
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/b(interface)\n  - ROOT/b(constraints)"))
-
-	testChdir(t, root)
-
-	chain, err := ResolveChain("ROOT/a")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(chain.Dependencies) != 2 {
-		t.Fatalf("Dependencies length: got %d, want 2", len(chain.Dependencies))
-	}
-
-	// After sorting, "constraints" < "interface" alphabetically.
-	if chain.Dependencies[0].Qualifier == nil || *chain.Dependencies[0].Qualifier != "constraints" {
-		t.Errorf("Dependencies[0].Qualifier: got %s, want %q",
-			testQualStr(chain.Dependencies[0].Qualifier), "constraints")
-	}
-	if chain.Dependencies[1].Qualifier == nil || *chain.Dependencies[1].Qualifier != "interface" {
-		t.Errorf("Dependencies[1].Qualifier: got %s, want %q",
-			testQualStr(chain.Dependencies[1].Qualifier), "interface")
-	}
-	// Both must point to ROOT/b's file.
-	for i, dep := range chain.Dependencies {
-		if dep.FilePath != "code-from-spec/b/_node.md" {
-			t.Errorf("Dependencies[%d].FilePath: got %q, want %q",
-				i, dep.FilePath, "code-from-spec/b/_node.md")
-		}
-	}
-}
-
-// ---------------------------------------------------------------------------
-// NOTE: The spec describes two additional happy-path cases involving an
-// "outputs" frontmatter field and a "Code" field on Chain. The Chain struct
-// in the implementation does not have a Code field, so those cases cannot be
-// tested through the public interface. They have been omitted here.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Edge case: deduplication
-// ---------------------------------------------------------------------------
-
-// TestResolveChain_DeduplicateSameFileNoQualifier verifies that two identical
-// unqualified dependencies are collapsed into one.
-func TestResolveChain_DeduplicateSameFileNoQualifier(t *testing.T) {
-	root := t.TempDir()
-	testSetupTree(t, root, "ROOT", "ROOT/b")
-	// ROOT/a lists ROOT/b twice.
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/b\n  - ROOT/b"))
-
-	testChdir(t, root)
-
-	chain, err := ResolveChain("ROOT/a")
+	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if len(chain.Dependencies) != 1 {
-		t.Errorf("Dependencies length: got %d, want 1 (duplicate should be removed)",
-			len(chain.Dependencies))
+		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
-	if len(chain.Dependencies) > 0 && chain.Dependencies[0].Qualifier != nil {
-		t.Errorf("Qualifier: got %s, want nil", testQualStr(chain.Dependencies[0].Qualifier))
+	dep := chain.Dependencies[0]
+	if dep.LogicalName != "ROOT/b" {
+		t.Errorf("expected logical name ROOT/b, got %q", dep.LogicalName)
+	}
+	if dep.Qualifier != "interface" {
+		t.Errorf("expected qualifier 'interface', got %q", dep.Qualifier)
 	}
 }
 
-// TestResolveChain_DeduplicateDifferentQualifiersKept verifies that two
-// different qualifiers for the same file are both retained.
-func TestResolveChain_DeduplicateDifferentQualifiersKept(t *testing.T) {
-	root := t.TempDir()
-	testSetupTree(t, root, "ROOT", "ROOT/b")
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/b(interface)\n  - ROOT/b(constraints)"))
+// TC-DEP-03: Dependencies sorted by file path then qualifier
+func TestChainResolve_DEP03_DependenciesSortedByFilePath(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testChdir(t, root)
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ROOT/z\n  - ROOT/m\n  - ROOT/b\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/z"))
+	testEmptyNode(t, testNodeFilePath("ROOT/m"))
+	testEmptyNode(t, testNodeFilePath("ROOT/b"))
 
-	chain, err := ResolveChain("ROOT/a")
+	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Both entries must be preserved.
-	if len(chain.Dependencies) != 2 {
-		t.Errorf("Dependencies length: got %d, want 2 (different qualifiers must be kept)",
-			len(chain.Dependencies))
+	if len(chain.Dependencies) != 3 {
+		t.Fatalf("expected 3 dependencies, got %d", len(chain.Dependencies))
+	}
+	if chain.Dependencies[0].LogicalName != "ROOT/b" {
+		t.Errorf("expected dependencies[0] = ROOT/b, got %q", chain.Dependencies[0].LogicalName)
+	}
+	if chain.Dependencies[1].LogicalName != "ROOT/m" {
+		t.Errorf("expected dependencies[1] = ROOT/m, got %q", chain.Dependencies[1].LogicalName)
+	}
+	if chain.Dependencies[2].LogicalName != "ROOT/z" {
+		t.Errorf("expected dependencies[2] = ROOT/z, got %q", chain.Dependencies[2].LogicalName)
 	}
 }
 
-// TestResolveChain_DeduplicateNilSubsumesQualifier verifies that when both an
-// unqualified reference (nil qualifier, full # Public) and a qualified
-// reference to the same file appear in depends_on, the unqualified entry wins
-// and the qualified entry is removed.
-func TestResolveChain_DeduplicateNilSubsumesQualifier(t *testing.T) {
-	root := t.TempDir()
-	testSetupTree(t, root, "ROOT", "ROOT/b")
-	// ROOT/b listed both unqualified and with qualifier.
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/b\n  - ROOT/b(interface)"))
+// ========================
+// TC-ART: Dependencies — ARTIFACT/ References
+// ========================
 
-	testChdir(t, root)
+// TC-ART-01: ARTIFACT dependency resolved from generating node
+func TestChainResolve_ART01_ArtifactDependency(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	chain, err := ResolveChain("ROOT/a")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ARTIFACT/b(lib)\n")
+	testWriteNode(t, testNodeFilePath("ROOT/b"), "outputs:\n  - id: lib\n    path: out/lib.go\n")
 
-	// Only the unqualified (nil Qualifier) entry must remain.
-	if len(chain.Dependencies) != 1 {
-		t.Errorf("Dependencies length: got %d, want 1 (nil subsumes specific qualifier)",
-			len(chain.Dependencies))
-	}
-	if len(chain.Dependencies) > 0 && chain.Dependencies[0].Qualifier != nil {
-		t.Errorf("Qualifier: got %s, want nil (nil entry should subsume qualified one)",
-			testQualStr(chain.Dependencies[0].Qualifier))
-	}
-}
-
-// TestResolveChain_DeduplicateQualifierBeforeNilNilWins verifies that the
-// subsumption rule applies even when the qualified entry appears before the
-// nil entry in the depends_on list.
-func TestResolveChain_DeduplicateQualifierBeforeNilNilWins(t *testing.T) {
-	root := t.TempDir()
-	testSetupTree(t, root, "ROOT", "ROOT/b")
-	// Qualified entry comes first; nil entry comes second.
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/b(interface)\n  - ROOT/b"))
-
-	testChdir(t, root)
-
-	chain, err := ResolveChain("ROOT/a")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// The nil entry must subsume the previously-seen qualified entry.
-	if len(chain.Dependencies) != 1 {
-		t.Errorf("Dependencies length: got %d, want 1 (nil always subsumes qualified)",
-			len(chain.Dependencies))
-	}
-	if len(chain.Dependencies) > 0 && chain.Dependencies[0].Qualifier != nil {
-		t.Errorf("Qualifier: got %s, want nil", testQualStr(chain.Dependencies[0].Qualifier))
-	}
-}
-
-// TestResolveChain_DeduplicateRepeatedQualifier verifies that the same
-// qualified reference listed twice is collapsed to a single entry.
-func TestResolveChain_DeduplicateRepeatedQualifier(t *testing.T) {
-	root := t.TempDir()
-	testSetupTree(t, root, "ROOT", "ROOT/b")
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/b(interface)\n  - ROOT/b(interface)"))
-
-	testChdir(t, root)
-
-	chain, err := ResolveChain("ROOT/a")
+	chain, err := chainresolver.ChainResolve("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if len(chain.Dependencies) != 1 {
-		t.Errorf("Dependencies length: got %d, want 1 (repeated qualifier collapsed)",
-			len(chain.Dependencies))
+		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
-	if len(chain.Dependencies) > 0 {
-		dep := chain.Dependencies[0]
-		if dep.Qualifier == nil || *dep.Qualifier != "interface" {
-			t.Errorf("Qualifier: got %s, want %q", testQualStr(dep.Qualifier), "interface")
-		}
+	dep := chain.Dependencies[0]
+	if dep.LogicalName != "ARTIFACT/b(lib)" {
+		t.Errorf("expected logical name ARTIFACT/b(lib), got %q", dep.LogicalName)
+	}
+	if dep.FilePath.Value != "out/lib.go" {
+		t.Errorf("expected file_path out/lib.go, got %q", dep.FilePath.Value)
+	}
+	if dep.Qualifier != "lib" {
+		t.Errorf("expected qualifier 'lib', got %q", dep.Qualifier)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Failure cases
-// ---------------------------------------------------------------------------
+// TC-ART-02: ARTIFACT without qualifier — error
+func TestChainResolve_ART02_ArtifactNoQualifierError(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-// TestResolveChain_InvalidLogicalName verifies that an input that does not
-// start with ROOT/ or ARTIFACT/ produces an error containing
-// "cannot resolve logical name".
-func TestResolveChain_InvalidLogicalName(t *testing.T) {
-	root := t.TempDir()
-	testChdir(t, root)
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ARTIFACT/b\n")
 
-	_, err := ResolveChain("INVALID/something")
+	_, err := chainresolver.ChainResolve("ROOT/a")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "cannot resolve logical name") {
-		t.Errorf("error %q does not contain %q", err.Error(), "cannot resolve logical name")
+	if !errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
+		t.Errorf("expected ErrUnresolvableArtifact, got %v", err)
 	}
 }
 
-// TestResolveChain_UnreadableFrontmatter verifies that a malformed YAML
-// frontmatter block in the target node causes ResolveChain to return an error
-// that wraps frontmatter.ErrFrontmatterParse.
-func TestResolveChain_UnreadableFrontmatter(t *testing.T) {
-	root := t.TempDir()
-	testSetupTree(t, root, "ROOT")
-	// Write invalid YAML inside the frontmatter block.
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		"---\ndepends_on: [\nbad yaml : : :\n---\n\n# Public\n\nContent.\n")
+// TC-ART-03: ARTIFACT — generating node has no outputs
+func TestChainResolve_ART03_ArtifactNoOutputs(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testChdir(t, root)
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ARTIFACT/b(lib)\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/b"))
 
-	_, err := ResolveChain("ROOT/a")
+	_, err := chainresolver.ChainResolve("ROOT/a")
 	if err == nil {
-		t.Fatal("expected error for malformed frontmatter, got nil")
+		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, frontmatter.ErrFrontmatterParse) {
-		t.Errorf("error %q does not wrap frontmatter.ErrFrontmatterParse", err.Error())
+	if !errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
+		t.Errorf("expected ErrUnresolvableArtifact, got %v", err)
 	}
 }
 
-// TestResolveChain_UnresolvableDependency verifies that a depends_on entry
-// that names a ROOT/ node whose _node.md file does not exist on disk causes
-// an error containing "cannot resolve logical name".
-func TestResolveChain_UnresolvableDependency(t *testing.T) {
-	root := t.TempDir()
-	testSetupTree(t, root, "ROOT")
-	// ROOT/a depends on ROOT/nonexistent which has no file on disk.
-	testWriteFile(t, root, "code-from-spec/a/_node.md",
-		testNodeContent("depends_on:\n  - ROOT/nonexistent"))
+// TC-ART-04: ARTIFACT — artifact file does not exist on disk (no error expected)
+func TestChainResolve_ART04_ArtifactFileMissing(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testChdir(t, root)
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ARTIFACT/b(lib)\n")
+	testWriteNode(t, testNodeFilePath("ROOT/b"), "outputs:\n  - id: lib\n    path: out/lib.go\n")
+	// Do NOT create out/lib.go on disk.
 
-	_, err := ResolveChain("ROOT/a")
-	if err == nil {
-		t.Fatal("expected error for unresolvable dependency, got nil")
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "cannot resolve logical name") {
-		t.Errorf("error %q does not contain %q", err.Error(), "cannot resolve logical name")
+
+	if len(chain.Dependencies) != 1 {
+		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
+	}
+	dep := chain.Dependencies[0]
+	if dep.FilePath.Value != "out/lib.go" {
+		t.Errorf("expected file_path out/lib.go, got %q", dep.FilePath.Value)
+	}
+}
+
+// TC-ART-05: ARTIFACT with non-existent output id — error
+func TestChainResolve_ART05_ArtifactMissingOutputID(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ARTIFACT/b(missing)\n")
+	testWriteNode(t, testNodeFilePath("ROOT/b"), "outputs:\n  - id: lib\n    path: out/lib.go\n")
+
+	_, err := chainresolver.ChainResolve("ROOT/a")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
+		t.Errorf("expected ErrUnresolvableArtifact, got %v", err)
+	}
+}
+
+// TC-ART-06: Mixed ROOT/ and ARTIFACT/ dependencies
+func TestChainResolve_ART06_MixedDependencies(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ROOT/c\n  - ARTIFACT/b(lib)\n")
+	testWriteNode(t, testNodeFilePath("ROOT/b"), "outputs:\n  - id: lib\n    path: out/lib.go\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/c"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Dependencies) != 2 {
+		t.Fatalf("expected 2 dependencies, got %d", len(chain.Dependencies))
+	}
+
+	// Verify both are present (exact order depends on file path sorting).
+	foundRootC := false
+	foundArtifactB := false
+	for _, dep := range chain.Dependencies {
+		if dep.LogicalName == "ROOT/c" {
+			foundRootC = true
+		}
+		if dep.LogicalName == "ARTIFACT/b(lib)" {
+			foundArtifactB = true
+		}
+	}
+	if !foundRootC {
+		t.Error("expected ROOT/c in dependencies")
+	}
+	if !foundArtifactB {
+		t.Error("expected ARTIFACT/b(lib) in dependencies")
+	}
+}
+
+// ========================
+// TC-DEDUP: Dependencies — Dedup
+// ========================
+
+// TC-DEDUP-01: Exact duplicate — same file, same qualifier
+func TestChainResolve_DEDUP01_ExactDuplicate(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ROOT/b\n  - ROOT/b\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/b"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Dependencies) != 1 {
+		t.Errorf("expected 1 dependency (deduped), got %d", len(chain.Dependencies))
+	}
+}
+
+// TC-DEDUP-02: No qualifier subsumes qualifier
+func TestChainResolve_DEDUP02_NoQualifierSubsumesQualifier(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ROOT/b\n  - ROOT/b(interface)\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/b"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Dependencies) != 1 {
+		t.Fatalf("expected 1 dependency (unqualified subsumes qualified), got %d", len(chain.Dependencies))
+	}
+	if chain.Dependencies[0].Qualifier != "" {
+		t.Errorf("expected no qualifier, got %q", chain.Dependencies[0].Qualifier)
+	}
+}
+
+// TC-DEDUP-03: Qualifier before no-qualifier — no-qualifier wins
+func TestChainResolve_DEDUP03_QualifierBeforeNoQualifier(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ROOT/b(interface)\n  - ROOT/b\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/b"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Dependencies) != 1 {
+		t.Fatalf("expected 1 dependency (unqualified wins), got %d", len(chain.Dependencies))
+	}
+	if chain.Dependencies[0].Qualifier != "" {
+		t.Errorf("expected no qualifier, got %q", chain.Dependencies[0].Qualifier)
+	}
+}
+
+// TC-DEDUP-04: Same file, different qualifiers — both kept
+func TestChainResolve_DEDUP04_DifferentQualifiersKept(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ROOT/b(interface)\n  - ROOT/b(constraints)\n")
+	testEmptyNode(t, testNodeFilePath("ROOT/b"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Dependencies) != 2 {
+		t.Fatalf("expected 2 dependencies (both kept), got %d", len(chain.Dependencies))
+	}
+	// Sorted by qualifier alphabetically.
+	if chain.Dependencies[0].Qualifier != "constraints" {
+		t.Errorf("expected dependencies[0].qualifier = constraints, got %q", chain.Dependencies[0].Qualifier)
+	}
+	if chain.Dependencies[1].Qualifier != "interface" {
+		t.Errorf("expected dependencies[1].qualifier = interface, got %q", chain.Dependencies[1].Qualifier)
+	}
+}
+
+// TC-DEDUP-05: Duplicate ARTIFACT — same logical name
+func TestChainResolve_DEDUP05_DuplicateArtifact(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - ARTIFACT/b(lib)\n  - ARTIFACT/b(lib)\n")
+	testWriteNode(t, testNodeFilePath("ROOT/b"), "outputs:\n  - id: lib\n    path: out/lib.go\n")
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.Dependencies) != 1 {
+		t.Errorf("expected 1 dependency (deduped), got %d", len(chain.Dependencies))
+	}
+}
+
+// ========================
+// TC-EXT: External
+// ========================
+
+// TC-EXT-01: External entries copied from frontmatter
+func TestChainResolve_EXT01_ExternalEntries(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"),
+		"external:\n  - path: docs/api.yaml\n  - path: proto/v1.proto\n")
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.External) != 2 {
+		t.Fatalf("expected 2 external entries, got %d", len(chain.External))
+	}
+	// Sorted alphabetically.
+	if chain.External[0].Path != "docs/api.yaml" {
+		t.Errorf("expected external[0].path = docs/api.yaml, got %q", chain.External[0].Path)
+	}
+	if chain.External[1].Path != "proto/v1.proto" {
+		t.Errorf("expected external[1].path = proto/v1.proto, got %q", chain.External[1].Path)
+	}
+}
+
+// TC-EXT-02: External with fragments preserved
+func TestChainResolve_EXT02_ExternalFragmentsPreserved(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"),
+		"external:\n  - path: f.txt\n    fragments:\n      - lines: \"1-10\"\n        hash: abc\n")
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.External) != 1 {
+		t.Fatalf("expected 1 external entry, got %d", len(chain.External))
+	}
+	ext := chain.External[0]
+	if ext.Path != "f.txt" {
+		t.Errorf("expected path f.txt, got %q", ext.Path)
+	}
+	if len(ext.Fragments) != 1 {
+		t.Fatalf("expected 1 fragment, got %d", len(ext.Fragments))
+	}
+	frag := ext.Fragments[0]
+	if frag.Lines != "1-10" {
+		t.Errorf("expected fragment lines '1-10', got %q", frag.Lines)
+	}
+	if frag.Hash != "abc" {
+		t.Errorf("expected fragment hash 'abc', got %q", frag.Hash)
+	}
+}
+
+// TC-EXT-03: Empty external — no entries
+func TestChainResolve_EXT03_NoExternal(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testEmptyNode(t, testNodeFilePath("ROOT/a"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(chain.External) != 0 {
+		t.Errorf("expected 0 external entries, got %d", len(chain.External))
+	}
+}
+
+// ========================
+// TC-INP: Input
+// ========================
+
+// TC-INP-01: Input resolved from generating node
+func TestChainResolve_INP01_InputResolved(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "input: \"ARTIFACT/b(data)\"\n")
+	testWriteNode(t, testNodeFilePath("ROOT/b"), "outputs:\n  - id: data\n    path: out/data.json\n")
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if chain.Input == nil {
+		t.Fatal("expected non-nil input")
+	}
+	if chain.Input.LogicalName != "ARTIFACT/b(data)" {
+		t.Errorf("expected input logical name ARTIFACT/b(data), got %q", chain.Input.LogicalName)
+	}
+	if chain.Input.FilePath.Value != "out/data.json" {
+		t.Errorf("expected input file_path out/data.json, got %q", chain.Input.FilePath.Value)
+	}
+	if chain.Input.Qualifier != "data" {
+		t.Errorf("expected input qualifier 'data', got %q", chain.Input.Qualifier)
+	}
+}
+
+// TC-INP-02: No input — absent
+func TestChainResolve_INP02_NoInput(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testEmptyNode(t, testNodeFilePath("ROOT/a"))
+
+	chain, err := chainresolver.ChainResolve("ROOT/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if chain.Input != nil {
+		t.Errorf("expected nil input, got %+v", chain.Input)
+	}
+}
+
+// TC-INP-03: Input without qualifier — error
+func TestChainResolve_INP03_InputNoQualifierError(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "input: \"ARTIFACT/b\"\n")
+
+	_, err := chainresolver.ChainResolve("ROOT/a")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
+		t.Errorf("expected ErrUnresolvableArtifact, got %v", err)
+	}
+}
+
+// TC-INP-04: Input with non-existent output id — error
+func TestChainResolve_INP04_InputMissingOutputID(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "input: \"ARTIFACT/b(missing)\"\n")
+	testWriteNode(t, testNodeFilePath("ROOT/b"), "outputs:\n  - id: data\n    path: out/data.json\n")
+
+	_, err := chainresolver.ChainResolve("ROOT/a")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
+		t.Errorf("expected ErrUnresolvableArtifact, got %v", err)
+	}
+}
+
+// ========================
+// TC-ERR: Error Cases
+// ========================
+
+// TC-ERR-01: Unrecognized prefix in depends_on
+func TestChainResolve_ERR01_UnrecognizedPrefix(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+	testWriteNode(t, testNodeFilePath("ROOT/a"), "depends_on:\n  - UNKNOWN/something\n")
+
+	_, err := chainresolver.ChainResolve("ROOT/a")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
+		t.Errorf("expected ErrUnresolvableArtifact, got %v", err)
+	}
+}
+
+// TC-ERR-02: Invalid target logical name
+func TestChainResolve_ERR02_InvalidTargetLogicalName(t *testing.T) {
+	_, err := chainresolver.ChainResolve("INVALID/something")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	// Should propagate from LogicalNameGetParent or LogicalNameToPath.
+	// We just verify an error is returned.
+}
+
+// TC-ERR-03: Unreadable frontmatter
+func TestChainResolve_ERR03_UnreadableFrontmatter(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testEmptyNode(t, testNodeFilePath("ROOT"))
+
+	// Write a _node.md with malformed YAML in frontmatter.
+	nodePath := testNodeFilePath("ROOT/a")
+	dir := filepath.Dir(nodePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	malformedContent := "---\ndepends_on: [unclosed\n---\n"
+	if err := os.WriteFile(nodePath, []byte(malformedContent), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := chainresolver.ChainResolve("ROOT/a")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, chainresolver.ErrUnreadableFrontmatter) {
+		t.Errorf("expected ErrUnreadableFrontmatter, got %v", err)
 	}
 }
