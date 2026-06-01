@@ -211,6 +211,12 @@ func TestPathCfsToOs_SymlinkEscapesRoot(t *testing.T) {
 		t.Skipf("symlink creation not supported or insufficient permissions: %v", err)
 	}
 
+	// Create a real file in the outside directory so os.Stat succeeds
+	// and the symlink resolution check runs.
+	if err := os.WriteFile(filepath.Join(outsideDir, "file.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("failed to create target file: %v", err)
+	}
+
 	cfsPath := &pathutils.PathCfs{Value: symlinkName + "/file.txt"}
 	_, err = pathutils.PathCfsToOs(cfsPath)
 	if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
