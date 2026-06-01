@@ -55,5 +55,9 @@ contradictory.
 
 ## Rules
 
+- **Do not write comments.** The spec tree is the
+  documentation. Comments in generated code are redundant
+  and create noise in diffs across regenerations. The only
+  exception is the artifact tag.
 - **Write straightforward code.** Simple and readable over
   clever and compact.
