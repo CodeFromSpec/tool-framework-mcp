@@ -159,7 +159,6 @@ an independent OS process with its own state.
 | `load_chain` | Load the spec chain for a node, including the chain hash |
 | `write_file` | Write a generated file to disk, validated against `outputs` |
 | `validate_specs` | Validate format, circular references, and artifact staleness |
-| `hash_fragment` | Calculate hash of a file line range for `external:` fragments |
 
 ## Decisions
 

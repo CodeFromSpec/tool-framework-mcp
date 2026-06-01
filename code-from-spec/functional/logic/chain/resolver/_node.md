@@ -60,8 +60,7 @@ or to compute the chain hash.
    then by qualifier, each with its resolved file path
    and an optional qualifier.
 3. **External** — files from the target's `external`,
-   sorted alphabetically by path, including fragment
-   declarations when present.
+   sorted alphabetically by path.
 4. **Target** — the target node itself.
 5. **Input** — the target's `input` artifact, if present.
 
@@ -165,10 +164,7 @@ Keep the first occurrence when removing duplicates.
 ### Step 4 — Collect external
 
 Copy the `external` list from the target's frontmatter
-into the chain. The list preserves the `FrontmatterExternal`
-records as-is, including any `fragments` declarations.
-Sort entries alphabetically by `path`. Fragments within
-each entry retain their declaration order.
+into the chain. Sort entries alphabetically by `path`.
 
 ### Step 5 — Resolve input
 

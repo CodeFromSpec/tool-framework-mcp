@@ -25,7 +25,7 @@ Implement the pseudocode from the input as a Go package.
   `LogicalNameIsArtifact`.
 - Use the `frontmatter` package for `FrontmatterParse` and
   the `Frontmatter`, `FrontmatterExternal`,
-  `FrontmatterExternalFragment`, `FrontmatterOutput` records.
+  `FrontmatterOutput` records.
 - Use the `pathutils` package for `PathCfs`.
 - The package name should be `chainresolver`.
 - `ChainItem` and `Chain` are exported structs in this package.

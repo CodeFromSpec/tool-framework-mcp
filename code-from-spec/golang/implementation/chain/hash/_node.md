@@ -32,8 +32,7 @@ Implement the pseudocode from the input as a Go package.
 - Use the `logicalnames` package for
   `LogicalNameIsArtifact`.
 - Use the `textnormalization` package for `NormalizeText`.
-- Use the `frontmatter` package for `FrontmatterExternal`
-  and `FrontmatterExternalFragment`.
+- Use the `frontmatter` package for `FrontmatterExternal`.
 - For SHA-1 and base64url, use `crypto/sha1` and
   `encoding/base64` (base64.RawURLEncoding).
 - The package name should be `chainhash`.

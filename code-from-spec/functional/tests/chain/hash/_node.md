@@ -121,31 +121,11 @@ Expect hashes are identical — frontmatter is stripped.
 
 ### External files
 
-#### External whole file — hashes all content
+#### External file — hashes all content
 
 Create an external file. Build Chain with external
-entry (no fragments). Compute hash. Modify the file.
-Recompute. Expect hashes differ.
-
-#### External with fragments — hashes declared ranges
-
-Create a file with 10 lines. Build Chain with external
-entry, fragments = [{lines: "3-5"}]. Compute hash.
-Modify line 4. Recompute. Expect hashes differ.
-
-#### External with fragments — change outside range ignored
-
-Create a file with 10 lines. Build Chain with external
-entry, fragments = [{lines: "3-5"}]. Compute hash.
-Modify line 8 (outside range). Recompute. Expect
-hashes are identical.
-
-#### External with multiple fragments — declaration order
-
-Create a file with 10 lines. Build Chain with external
-entry, fragments = [{lines: "6-8"}, {lines: "1-3"}].
-Compute hash. Reverse the fragment order in the Chain
-and recompute. Expect hashes differ — order matters.
+entry. Compute hash. Modify the file. Recompute.
+Expect hashes differ.
 
 ### Target
 

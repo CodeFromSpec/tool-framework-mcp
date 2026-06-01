@@ -1,5 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/validate_specs@Dd85TKR_5yeUj4wbifTFYVqewH4
-
+// code-from-spec: ROOT/golang/implementation/mcp_tools/validate_specs@WaOLA2A6WaSTCegfCwalnlQT6FY
 package mcpvalidatespecs
 
 import (
@@ -18,321 +17,254 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
 )
 
-// StalenessEntry describes a single output artifact that is missing,
-// stale, or has a malformed artifact tag.
-//
-// Artifacts whose hash matches are not included in the report.
 type StalenessEntry struct {
-	// Node is the logical name of the spec tree node that owns the output.
-	Node string
-
-	// OutputID is the id of the output as declared in the node's frontmatter.
-	OutputID string
-
-	// ArtifactPath is the relative path to the artifact file.
+	Node         string
+	OutputID     string
 	ArtifactPath string
-
-	// Status describes the staleness condition. One of:
-	//   "missing"       — the file does not exist.
-	//   "stale"         — the file exists but the hash does not match.
-	//   "malformed tag" — the file exists but has no artifact tag or the
-	//                     tag cannot be parsed.
-	Status string
-
-	// Detail provides a human-readable explanation of the staleness condition.
-	Detail string
-
-	// Rank is the node's rank as returned by NodeRankCompute. Entries with
-	// equal rank have no dependency between them and can be processed in
-	// parallel.
-	Rank int
+	Status       string
+	Rank         int
+	Detail       string
 }
 
-// ValidationReport is the result returned by MCPValidateSpecs.
-// It aggregates all discovered problems across the spec tree.
 type ValidationReport struct {
-	// FormatErrors is the list of format rule violations found during
-	// spec tree validation.
 	FormatErrors []*spectreevalidate.FormatError
-
-	// Cycles is a flat list of logical names involved in non-convergence
-	// during ranking, as returned by NodeRankCompute.
-	Cycles []string
-
-	// Staleness is the list of output artifacts that are missing, stale,
-	// or have a malformed artifact tag.
-	Staleness []*StalenessEntry
+	Cycles       []string
+	Staleness    []*StalenessEntry
 }
 
-// parsedNode holds the cached parse result for a single spec tree node.
 type parsedNode struct {
-	logicalName string
-	fm          *frontmatter.Frontmatter
-	node        *parsenode.Node
+	fm   *frontmatter.Frontmatter
+	node *parsenode.Node
 }
 
-// MCPValidateSpecs scans the entire spec tree starting from
-// "code-from-spec/", validates all nodes, and checks each declared
-// output artifact for staleness.
-//
-// It never returns an error. All discovered problems — format errors,
-// ranking cycles, and stale or missing artifacts — are collected and
-// returned in a ValidationReport.
 func MCPValidateSpecs() *ValidationReport {
-	var formatErrors []*spectreevalidate.FormatError
-
-	// Step 1 — Discover nodes.
-	discoveredNodes, err := spectree.SpecTreeScan()
+	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
-		formatErrors = append(formatErrors, &spectreevalidate.FormatError{
-			Node:   "",
-			Rule:   "scan",
-			Detail: err.Error(),
-		})
 		return &ValidationReport{
-			FormatErrors: formatErrors,
-			Cycles:       []string{},
-			Staleness:    []*StalenessEntry{},
+			FormatErrors: []*spectreevalidate.FormatError{
+				{Node: "", Rule: "scan", Detail: err.Error()},
+			},
+			Cycles:    []string{},
+			Staleness: []*StalenessEntry{},
 		}
 	}
 
-	// Step 2 — Parse all nodes.
-	// Cache keyed by logical name, preserving insertion order via a slice.
-	cacheMap := make(map[string]*parsedNode)
-	var cacheOrder []string
+	parsedNodes := make(map[string]*parsedNode)
+	var parseErrors []*spectreevalidate.FormatError
 
-	for _, n := range discoveredNodes {
-		logicalName := n.LogicalName
-		filePath := n.FilePath
-
-		// 2a. Parse frontmatter.
-		fm, fmErr := frontmatter.FrontmatterParse(&filePath)
-		if fmErr != nil {
-			formatErrors = append(formatErrors, &spectreevalidate.FormatError{
-				Node:   logicalName,
+	for _, n := range nodes {
+		fm, err := frontmatter.FrontmatterParse(&n.FilePath)
+		if err != nil {
+			parseErrors = append(parseErrors, &spectreevalidate.FormatError{
+				Node:   n.LogicalName,
 				Rule:   "parse",
-				Detail: fmErr.Error(),
+				Detail: err.Error(),
 			})
 			continue
 		}
 
-		// 2b. Parse node.
-		nd, ndErr := parsenode.NodeParse(logicalName)
-		if ndErr != nil {
-			formatErrors = append(formatErrors, &spectreevalidate.FormatError{
-				Node:   logicalName,
+		parsed, err := parsenode.NodeParse(n.LogicalName)
+		if err != nil {
+			parseErrors = append(parseErrors, &spectreevalidate.FormatError{
+				Node:   n.LogicalName,
 				Rule:   "parse",
-				Detail: ndErr.Error(),
+				Detail: err.Error(),
 			})
 			continue
 		}
 
-		// 2c. Store in cache.
-		cacheMap[logicalName] = &parsedNode{
-			logicalName: logicalName,
-			fm:          fm,
-			node:        nd,
-		}
-		cacheOrder = append(cacheOrder, logicalName)
+		parsedNodes[n.LogicalName] = &parsedNode{fm: fm, node: parsed}
 	}
 
-	// Step 3 — Format validation.
-	var validateInputs []*spectreevalidate.SpecTreeValidateInput
-	for _, name := range cacheOrder {
-		entry := cacheMap[name]
-		validateInputs = append(validateInputs, &spectreevalidate.SpecTreeValidateInput{
-			LogicalName: entry.logicalName,
-			Frontmatter: entry.fm,
-			Node:        entry.node,
+	var validateEntries []*spectreevalidate.SpecTreeValidateInput
+	for logicalName, pn := range parsedNodes {
+		validateEntries = append(validateEntries, &spectreevalidate.SpecTreeValidateInput{
+			LogicalName: logicalName,
+			Frontmatter: pn.fm,
+			Node:        pn.node,
 		})
 	}
 
-	validationFormatErrors := spectreevalidate.SpecTreeValidate(validateInputs)
-	formatErrors = append(formatErrors, validationFormatErrors...)
+	validateErrors := spectreevalidate.SpecTreeValidate(validateEntries)
 
-	// Step 4 — Ranking and cycle detection.
-	var rankedEntries []*noderanking.NodeRankEntry
-	var cycleList []string
+	allFormatErrors := append(parseErrors, validateErrors...)
 
-	if len(formatErrors) > 0 {
-		// Skip ranking when there are format errors.
-		rankedEntries = []*noderanking.NodeRankEntry{}
-		cycleList = []string{}
-	} else {
-		// 4a. Build ranking inputs.
+	rankedEntries := make(map[string]int)
+	var cycles []string
+	rankingAvailable := false
+
+	if len(allFormatErrors) == 0 {
 		var rankInputs []*noderanking.NodeRankInput
-		for _, name := range cacheOrder {
-			entry := cacheMap[name]
+		for logicalName, pn := range parsedNodes {
 			rankInputs = append(rankInputs, &noderanking.NodeRankInput{
-				LogicalName: entry.logicalName,
-				Frontmatter: entry.fm,
+				LogicalName: logicalName,
+				Frontmatter: pn.fm,
 			})
 		}
 
-		// 4b. Compute ranking.
-		ranked, cycles, rankErr := noderanking.NodeRankCompute(rankInputs)
-		if rankErr != nil {
-			if errors.Is(rankErr, noderanking.ErrUnresolvableReference) {
-				formatErrors = append(formatErrors, &spectreevalidate.FormatError{
+		ranked, cycleNames, err := noderanking.NodeRankCompute(rankInputs)
+		if err != nil {
+			if errors.Is(err, noderanking.ErrUnresolvableReference) {
+				allFormatErrors = append(allFormatErrors, &spectreevalidate.FormatError{
 					Node:   "",
 					Rule:   "ranking",
-					Detail: rankErr.Error(),
+					Detail: err.Error(),
 				})
 			} else {
-				formatErrors = append(formatErrors, &spectreevalidate.FormatError{
+				allFormatErrors = append(allFormatErrors, &spectreevalidate.FormatError{
 					Node:   "",
 					Rule:   "ranking",
-					Detail: rankErr.Error(),
+					Detail: err.Error(),
 				})
 			}
-			rankedEntries = []*noderanking.NodeRankEntry{}
-			cycleList = []string{}
+			cycles = []string{}
 		} else {
-			rankedEntries = ranked
-			cycleList = cycles
+			for _, entry := range ranked {
+				rankedEntries[entry.LogicalName] = entry.Rank
+			}
+			cycles = cycleNames
+			rankingAvailable = true
 		}
+	} else {
+		cycles = []string{}
 	}
 
-	// Step 5 — Staleness detection.
-
-	// Step 7 — Build rank lookup by logical name.
-	rankLookup := make(map[string]int)
-	for _, entry := range rankedEntries {
-		rankLookup[entry.LogicalName] = entry.Rank
+	type workItem struct {
+		logicalName string
+		rank        int
 	}
 
-	// Step 8 — Collect nodes with outputs and sort them.
-	var nodesWithOutputs []*parsedNode
-	for _, name := range cacheOrder {
-		entry := cacheMap[name]
-		if len(entry.fm.Outputs) > 0 {
-			nodesWithOutputs = append(nodesWithOutputs, entry)
+	var workList []workItem
+	for logicalName, pn := range parsedNodes {
+		if len(pn.fm.Outputs) == 0 {
+			continue
 		}
+		rank := 0
+		if rankingAvailable {
+			if r, ok := rankedEntries[logicalName]; ok {
+				rank = r
+			}
+		}
+		workList = append(workList, workItem{logicalName: logicalName, rank: rank})
 	}
 
-	sort.Slice(nodesWithOutputs, func(i, j int) bool {
-		rankI := rankLookup[nodesWithOutputs[i].logicalName]
-		rankJ := rankLookup[nodesWithOutputs[j].logicalName]
-		if rankI != rankJ {
-			return rankI < rankJ
-		}
-		return nodesWithOutputs[i].logicalName < nodesWithOutputs[j].logicalName
-	})
+	if rankingAvailable {
+		sort.Slice(workList, func(i, j int) bool {
+			if workList[i].rank != workList[j].rank {
+				return workList[i].rank < workList[j].rank
+			}
+			return workList[i].logicalName < workList[j].logicalName
+		})
+	} else {
+		sort.Slice(workList, func(i, j int) bool {
+			return workList[i].logicalName < workList[j].logicalName
+		})
+	}
 
-	// Step 9 — Initialize staleness list.
-	var stalenessEntries []*StalenessEntry
+	var staleness []*StalenessEntry
 
-	// Step 10 — Check staleness for each node with outputs.
-	for _, entry := range nodesWithOutputs {
-		logicalName := entry.logicalName
-		nodeRank := rankLookup[logicalName]
+	for _, item := range workList {
+		pn := parsedNodes[item.logicalName]
+		rank := item.rank
 
-		// 10a. Resolve the chain.
-		chain, chainErr := chainresolver.ChainResolve(logicalName)
-		if chainErr != nil {
-			for _, output := range entry.fm.Outputs {
-				stalenessEntries = append(stalenessEntries, &StalenessEntry{
-					Node:         logicalName,
+		chain, err := chainresolver.ChainResolve(item.logicalName)
+		if err != nil {
+			for _, output := range pn.fm.Outputs {
+				staleness = append(staleness, &StalenessEntry{
+					Node:         item.logicalName,
 					OutputID:     output.ID,
 					ArtifactPath: output.Path,
 					Status:       "missing",
-					Detail:       chainErr.Error(),
-					Rank:         nodeRank,
+					Detail:       err.Error(),
+					Rank:         rank,
 				})
 			}
 			continue
 		}
 
-		// 10b. Compute the chain hash.
-		chainHash, hashErr := chainhash.ChainHashCompute(chain)
-		if hashErr != nil {
-			for _, output := range entry.fm.Outputs {
-				stalenessEntries = append(stalenessEntries, &StalenessEntry{
-					Node:         logicalName,
+		chainHash, err := chainhash.ChainHashCompute(chain)
+		if err != nil {
+			for _, output := range pn.fm.Outputs {
+				staleness = append(staleness, &StalenessEntry{
+					Node:         item.logicalName,
 					OutputID:     output.ID,
 					ArtifactPath: output.Path,
 					Status:       "missing",
-					Detail:       hashErr.Error(),
-					Rank:         nodeRank,
+					Detail:       err.Error(),
+					Rank:         rank,
 				})
 			}
 			continue
 		}
 
-		// 10c. Check each output artifact.
-		for _, output := range entry.fm.Outputs {
+		for _, output := range pn.fm.Outputs {
 			cfsPath := &pathutils.PathCfs{Value: output.Path}
-
-			tag, tagErr := artifacttag.ArtifactTagExtract(cfsPath)
-			if tagErr != nil {
-				if errors.Is(tagErr, artifacttag.ErrFileUnreadable) {
-					stalenessEntries = append(stalenessEntries, &StalenessEntry{
-						Node:         logicalName,
+			tag, err := artifacttag.ArtifactTagExtract(cfsPath)
+			if err != nil {
+				if errors.Is(err, artifacttag.ErrFileUnreadable) {
+					staleness = append(staleness, &StalenessEntry{
+						Node:         item.logicalName,
 						OutputID:     output.ID,
 						ArtifactPath: output.Path,
 						Status:       "missing",
-						Detail:       tagErr.Error(),
-						Rank:         nodeRank,
+						Detail:       err.Error(),
+						Rank:         rank,
 					})
-				} else if errors.Is(tagErr, artifacttag.ErrNoTagFound) || errors.Is(tagErr, artifacttag.ErrMalformedTag) {
-					stalenessEntries = append(stalenessEntries, &StalenessEntry{
-						Node:         logicalName,
+				} else if errors.Is(err, artifacttag.ErrNoTagFound) || errors.Is(err, artifacttag.ErrMalformedTag) {
+					staleness = append(staleness, &StalenessEntry{
+						Node:         item.logicalName,
 						OutputID:     output.ID,
 						ArtifactPath: output.Path,
 						Status:       "malformed tag",
-						Detail:       tagErr.Error(),
-						Rank:         nodeRank,
+						Detail:       err.Error(),
+						Rank:         rank,
 					})
 				} else {
-					stalenessEntries = append(stalenessEntries, &StalenessEntry{
-						Node:         logicalName,
+					staleness = append(staleness, &StalenessEntry{
+						Node:         item.logicalName,
 						OutputID:     output.ID,
 						ArtifactPath: output.Path,
-						Status:       "missing",
-						Detail:       tagErr.Error(),
-						Rank:         nodeRank,
+						Status:       "malformed tag",
+						Detail:       err.Error(),
+						Rank:         rank,
 					})
 				}
 				continue
 			}
 
-			// Compare the tag hash with the computed chain hash.
 			if tag.Hash != chainHash {
-				stalenessEntries = append(stalenessEntries, &StalenessEntry{
-					Node:         logicalName,
+				staleness = append(staleness, &StalenessEntry{
+					Node:         item.logicalName,
 					OutputID:     output.ID,
 					ArtifactPath: output.Path,
 					Status:       "stale",
-					Detail:       fmt.Sprintf("file hash %s does not match expected hash %s", tag.Hash, chainHash),
-					Rank:         nodeRank,
+					Detail:       fmt.Sprintf("file hash: %s, expected: %s", tag.Hash, chainHash),
+					Rank:         rank,
 				})
 			}
-			// If hashes match, skip — do not add an entry.
 		}
 	}
 
-	// Step 11 — Sort staleness entries by rank ascending, then logical name ascending.
-	sort.Slice(stalenessEntries, func(i, j int) bool {
-		if stalenessEntries[i].Rank != stalenessEntries[j].Rank {
-			return stalenessEntries[i].Rank < stalenessEntries[j].Rank
+	sort.Slice(staleness, func(i, j int) bool {
+		if staleness[i].Rank != staleness[j].Rank {
+			return staleness[i].Rank < staleness[j].Rank
 		}
-		return stalenessEntries[i].Node < stalenessEntries[j].Node
+		return staleness[i].Node < staleness[j].Node
 	})
 
-	// Step 12 — Assemble and return the report.
-	if cycleList == nil {
-		cycleList = []string{}
+	if allFormatErrors == nil {
+		allFormatErrors = []*spectreevalidate.FormatError{}
 	}
-	if formatErrors == nil {
-		formatErrors = []*spectreevalidate.FormatError{}
+	if cycles == nil {
+		cycles = []string{}
 	}
-	if stalenessEntries == nil {
-		stalenessEntries = []*StalenessEntry{}
+	if staleness == nil {
+		staleness = []*StalenessEntry{}
 	}
 
 	return &ValidationReport{
-		FormatErrors: formatErrors,
-		Cycles:       cycleList,
-		Staleness:    stalenessEntries,
+		FormatErrors: allFormatErrors,
+		Cycles:       cycles,
+		Staleness:    staleness,
 	}
 }

@@ -41,5 +41,5 @@ would produce:
 - Subsection headings are also normalized (e.g.
   `"interface"` not `"Interface"`).
 
-For tests that validate external files (fragment hashes),
-use `testChdir` and create files on disk.
+For tests that validate external files, use `testChdir`
+and create files on disk.

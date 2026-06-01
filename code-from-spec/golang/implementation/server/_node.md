@@ -4,7 +4,6 @@ depends_on:
   - ARTIFACT/golang/interfaces/mcp_tools/load_chain(interface)
   - ARTIFACT/golang/interfaces/mcp_tools/write_file(interface)
   - ARTIFACT/golang/interfaces/mcp_tools/validate_specs(interface)
-  - ARTIFACT/golang/interfaces/mcp_tools/hash_fragment(interface)
 outputs:
   - id: main
     path: cmd/framework-mcp/main.go
@@ -44,8 +43,6 @@ the server.
      `write_file`.
    - `mcpvalidatespecs.MCPValidateSpecs` — tool name
      `validate_specs`.
-   - `mcphashfragment.MCPHashFragment` — tool name
-     `hash_fragment`.
 5. Call `s.Run(context.Background(), &mcp.StdioTransport{})`.
 6. If `Run` returns an error, print it to stderr and
    exit 1.
@@ -63,7 +60,6 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
-  hash_fragment    Calculate hash of a file line range.
 
 MCP configuration example:
   {
@@ -87,9 +83,8 @@ MCP configuration example:
 
 ## Go-specific guidance
 
-- Import the four MCP tool packages:
-  `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`,
-  `mcphashfragment`.
+- Import the three MCP tool packages:
+  `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`.
 - Each tool handler receives MCP request parameters and
   calls the corresponding package function.
 - The handler wraps the function result into an MCP
@@ -100,5 +95,5 @@ MCP configuration example:
   (if present).
 - For `MCPValidateSpecs`, the result is
   `ValidationReport` — format as human-readable text.
-- For `MCPWriteFile` and `MCPHashFragment`, the result
-  is a string — return directly as text content.
+- For `MCPWriteFile`, the result is a string — return
+  directly as text content.

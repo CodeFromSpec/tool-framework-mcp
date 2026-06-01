@@ -67,8 +67,14 @@ artifacts, or when stale artifacts exist.
    >    mappings you inferred, interpretations of ambiguous
    >    wording. If there are none, omit the section.
 
-4. After all subagents complete, run `validate_specs` again.
-   Report the remaining stale items (if any) to the user.
+4. After each rank completes, run `validate_specs` again.
+   Regenerating a rank may cause new artifacts to become
+   stale in higher ranks (chain hashes propagate). The
+   updated report shows the current state — use it to
+   determine the next rank to process.
+5. After all ranks are processed, run `validate_specs` a
+   final time. Report the remaining stale items (if any)
+   to the user.
 
 ## Rules
 

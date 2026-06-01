@@ -1,139 +1,133 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/hash@vsalCLmPzVYfEDw0DkWSPpWYiC0 -->
-
-# Test Specification: ChainHashCompute
-
-Each test builds a `Chain` record directly (without calling `ChainResolve`),
-creates any required files on disk, calls `ChainHashCompute`, and checks the
-expected outcome.
-
----
+<!-- code-from-spec: ROOT/functional/tests/chain/hash@2_rqZ3hgkmCSWQT2xUGvKhXDzn0 -->
 
 ## Properties
 
 ### Hash is deterministic
 
-**Setup:**
-- Create a spec node file at a temporary path with `# Public` content.
-- Build a `Chain` with:
-  - `ancestors`: empty
-  - `dependencies`: empty
-  - `external`: empty
-  - `target`: a `ChainItem` pointing to the spec node file
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT (_node.md) with `# Public` content.
+  Create a spec node file for ROOT/a (_node.md) with `# Public` content.
+  Build a Chain directly:
+    ancestors = [ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute` with the Chain. Record result as `hash1`.
-2. Call `ChainHashCompute` again with the same Chain. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` equals `hash2`.
+Expected outcome:
+  hash1 equals hash2.
 
 ---
 
 ### Hash is 27 characters
 
-**Setup:**
-- Create any valid spec node file on disk.
-- Build a minimal `Chain` with `target` pointing to that file and all other
-  fields empty or absent.
+Setup:
+  Create a spec node file for ROOT (_node.md) with `# Public` content.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute` with the Chain. Record result as `hash`.
+Actions:
+  Call ChainHashCompute with the Chain.
 
-**Expected outcome:**
-- `hash` is exactly 27 characters long.
+Expected outcome:
+  The result is exactly 27 characters long.
 
 ---
 
 ### Hash changes when ancestor content changes
 
-**Setup:**
-- Create a spec node file for ROOT containing a `# Public` section with content
-  `"Root public content"`.
-- Create a spec node file for ROOT/a with minimal content (used as target).
-- Build a `Chain` with:
-  - `ancestors`: [ChainItem for ROOT]
-  - `dependencies`: empty
-  - `external`: empty
-  - `target`: ChainItem for ROOT/a
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT (_node.md) with `# Public\n\nOriginal content.`.
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = [ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify ROOT's spec node file: change `# Public` content to `"Modified root public content"`.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite ROOT's _node.md, replacing `# Public` content with `# Public\n\nModified content.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
 ### Hash changes when dependency content changes
 
-**Setup:**
-- Create a spec node file for ROOT with minimal content.
-- Create a spec node file for ROOT/b with `# Public` content `"Dependency content"`.
-- Create a spec node file for ROOT/a (target) with `# Public` content and a
-  `depends_on` reference to ROOT/b.
-- Build a `Chain` with:
-  - `ancestors`: [ChainItem for ROOT]
-  - `dependencies`: [ChainItem for ROOT/b, qualifier absent]
-  - `external`: empty
-  - `target`: ChainItem for ROOT/a
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT (_node.md) with `# Public` content.
+  Create a spec node file for ROOT/b (_node.md) with `# Public\n\nDependency original.`.
+  Create a spec node file for ROOT/a (_node.md) with `# Public` content.
+  Build a Chain directly:
+    ancestors = [ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)]
+    dependencies = [ChainItem(logical_name="ROOT/b", file_path=<root_b_node_path>, qualifier=absent)]
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify ROOT/b's spec node file: change `# Public` content to `"Modified dependency content"`.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite ROOT/b's _node.md with `# Public\n\nDependency modified.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
 ### Hash changes when target Public changes
 
-**Setup:**
-- Create a spec node file for ROOT with minimal content.
-- Create a spec node file for ROOT/a with `# Public` content `"Target public"`.
-- Build a `Chain` with:
-  - `ancestors`: [ChainItem for ROOT]
-  - `dependencies`: empty
-  - `external`: empty
-  - `target`: ChainItem for ROOT/a
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT (_node.md) with `# Public` content.
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget original.`.
+  Build a Chain directly:
+    ancestors = [ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify ROOT/a's spec node file: change `# Public` content to `"Modified target public"`.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite ROOT/a's _node.md with `# Public\n\nTarget modified.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
 ### Hash changes when target Agent changes
 
-**Setup:**
-- Create a spec node file for ROOT with minimal content.
-- Create a spec node file for ROOT/a with both `# Public` and `# Agent`
-  sections.
-- Build a `Chain` with:
-  - `ancestors`: [ChainItem for ROOT]
-  - `dependencies`: empty
-  - `external`: empty
-  - `target`: ChainItem for ROOT/a
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT (_node.md) with `# Public` content.
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nSome public.\n\n# Agent\n\nOriginal agent.`.
+  Build a Chain directly:
+    ancestors = [ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify ROOT/a's spec node file: change `# Agent` content to different text.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite ROOT/a's _node.md with `# Public\n\nSome public.\n\n# Agent\n\nModified agent.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
@@ -141,67 +135,85 @@ expected outcome.
 
 ### Ancestor with Public section contributes hash
 
-**Setup:**
-- Create a spec node file for ROOT with a `# Public` section containing
-  `"Ancestor public content"`.
-- Create a spec node file for ROOT/a with minimal content (target).
-- Build a `Chain` with:
-  - `ancestors`: [ChainItem for ROOT]
-  - `dependencies`: empty
-  - `external`: empty
-  - `target`: ChainItem for ROOT/a
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT (_node.md) with `# Public\n\nSome content.`.
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = [ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash`.
+Actions:
+  Call ChainHashCompute with the Chain.
 
-**Expected outcome:**
-- `hash` is a non-empty string of exactly 27 characters.
-- No error is returned.
+Expected outcome:
+  No error. Result is exactly 27 characters long and non-empty.
 
 ---
 
 ### Ancestor without Public section — skipped
 
-**Setup:**
-- Create a spec node file for ROOT that has only a name/title section and no
-  `# Public` section.
-- Create a spec node file for ROOT/a with a `# Public` section (target).
-- Build two Chains:
-  - Chain A: `ancestors` = [ChainItem for ROOT (no Public)], `target` = ROOT/a
-  - Chain B: Create a second spec node for ROOT/c with a `# Public` section.
-    `ancestors` = [ChainItem for ROOT/c (has Public)], `target` = ROOT/a
+Setup:
+  Create a spec node file for ROOT (_node.md) with content that has no `# Public` section
+  (e.g., only a name heading and a description).
+  Create a spec node file for ROOT/a (_node.md) with content that has no `# Public` section.
+  Build Chain-A directly:
+    ancestors = [ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
+  Create a second spec node file for ROOT2 (_node.md) with `# Public\n\nSome content.`.
+  Create a spec node file for ROOT2/a (_node.md) with `# Public\n\nTarget.`.
+  Build Chain-B directly:
+    ancestors = [ChainItem(logical_name="ROOT2", file_path=<root2_node_path>, qualifier=absent)]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT2/a", file_path=<root2_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute` with Chain A. Record result as `hashA`.
-2. Call `ChainHashCompute` with Chain B. Record result as `hashB`.
+Actions:
+  Call ChainHashCompute with Chain-A. Record result as hashA.
+  Call ChainHashCompute with Chain-B. Record result as hashB.
 
-**Expected outcome:**
-- `hashA` does not equal `hashB`.
-  (An ancestor without `# Public` produces a different contribution than one
-  with `# Public`.)
+Expected outcome:
+  hashA does not equal hashB.
 
 ---
 
 ### Multiple ancestors — order matters
 
-**Setup:**
-- Create spec node files:
-  - ROOT with `# Public` content `"Root public"`.
-  - ROOT/a with `# Public` content `"A public"`.
-  - ROOT/a/b as target with minimal content.
-- Build two Chains:
-  - Chain A: `ancestors` = [ChainItem for ROOT, ChainItem for ROOT/a]
-    (root-first order), `target` = ROOT/a/b
-  - Chain B: `ancestors` = [ChainItem for ROOT/a, ChainItem for ROOT]
-    (reversed order), `target` = ROOT/a/b
+Setup:
+  Create a spec node file for ROOT (_node.md) with `# Public\n\nRoot public.`.
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nIntermediate public.`.
+  Create a spec node file for ROOT/a/b (_node.md) with `# Public\n\nTarget.`.
+  Build Chain-Forward directly:
+    ancestors = [
+      ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent),
+      ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    ]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a/b", file_path=<root_a_b_node_path>, qualifier=absent)
+    input = absent
+  Build Chain-Swapped directly with ancestors in reversed order:
+    ancestors = [
+      ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent),
+      ChainItem(logical_name="ROOT", file_path=<root_node_path>, qualifier=absent)
+    ]
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a/b", file_path=<root_a_b_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute` with Chain A. Record result as `hashA`.
-2. Call `ChainHashCompute` with Chain B. Record result as `hashB`.
+Actions:
+  Call ChainHashCompute with Chain-Forward. Record result as hashForward.
+  Call ChainHashCompute with Chain-Swapped. Record result as hashSwapped.
 
-**Expected outcome:**
-- `hashA` does not equal `hashB`.
+Expected outcome:
+  hashForward does not equal hashSwapped.
 
 ---
 
@@ -209,189 +221,137 @@ expected outcome.
 
 ### ROOT dependency without qualifier — hashes Public
 
-**Setup:**
-- Create a spec node file for ROOT/b with `# Public` content `"Dep public"`.
-- Create a spec node file for ROOT/a (target) with minimal content.
-- Build a `Chain` with:
-  - `ancestors`: empty
-  - `dependencies`: [ChainItem for ROOT/b, qualifier absent]
-  - `external`: empty
-  - `target`: ChainItem for ROOT/a
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT/b (_node.md) with `# Public\n\nOriginal dep public.`.
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = [ChainItem(logical_name="ROOT/b", file_path=<root_b_node_path>, qualifier=absent)]
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify ROOT/b's `# Public` content to `"Modified dep public"`.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite ROOT/b's _node.md with `# Public\n\nModified dep public.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
 ### ROOT dependency with qualifier — hashes subsection
 
-**Setup:**
-- Create a spec node file for ROOT/b with `# Public` containing an
-  `## Interface` subsection with content `"Interface content"`.
-- Create a spec node file for ROOT/a (target) with minimal content.
-- Build a `Chain` with:
-  - `ancestors`: empty
-  - `dependencies`: [ChainItem for ROOT/b, qualifier = "interface"]
-  - `external`: empty
-  - `target`: ChainItem for ROOT/a
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT/b (_node.md) with:
+    `# Public\n\n## Interface\n\nOriginal interface content.\n\n## Other\n\nOther content.`
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = [ChainItem(logical_name="ROOT/b", file_path=<root_b_node_path>, qualifier="interface")]
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify the `## Interface` subsection content in ROOT/b to `"Modified interface"`.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite ROOT/b's _node.md changing the `## Interface` content to `## Interface\n\nModified interface content.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
 ### Qualifier case normalization
 
-**Setup:**
-- Create a spec node file for ROOT/b with `# Public` containing an
-  `## Interface` subsection.
-- Create a spec node file for ROOT/a (target) with minimal content.
-- Build a `Chain` with:
-  - `dependencies`: [ChainItem for ROOT/b, qualifier = "INTERFACE"]
-  - all other fields empty or absent
-  - `target`: ChainItem for ROOT/a
+Setup:
+  Create a spec node file for ROOT/b (_node.md) with:
+    `# Public\n\n## Interface\n\nSome interface content.`
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = [ChainItem(logical_name="ROOT/b", file_path=<root_b_node_path>, qualifier="INTERFACE")]
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`.
+Actions:
+  Call ChainHashCompute with the Chain.
 
-**Expected outcome:**
-- No error is returned.
-- The result is a 27-character string (the qualifier was normalized to
-  match `## Interface` case-insensitively).
+Expected outcome:
+  No error. The result is exactly 27 characters long.
 
 ---
 
 ### ARTIFACT dependency — hashes file minus frontmatter
 
-**Setup:**
-- Create an artifact file with YAML frontmatter (e.g., an `outputs` field) and
-  body content `"Artifact body"` after the frontmatter delimiter.
-- Build a `Chain` with:
-  - `dependencies`: [ChainItem pointing to the artifact file, qualifier absent]
-  - all other fields empty or absent
-  - `target`: a minimal spec node file
+Setup:
+  Create an artifact file with frontmatter followed by body content:
+    `---\nsome: value\n---\n\nOriginal body content.`
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = [ChainItem(logical_name="ARTIFACT/some_id", file_path=<artifact_file_path>, qualifier=absent)]
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify the artifact body content to `"Modified artifact body"` (leave
-   frontmatter unchanged).
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite the artifact file with `---\nsome: value\n---\n\nModified body content.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
 ### ARTIFACT dependency — frontmatter change ignored
 
-**Setup:**
-- Create an artifact file with frontmatter and body content `"Stable body"`.
-- Build a `Chain` with:
-  - `dependencies`: [ChainItem pointing to the artifact file, qualifier absent]
-  - all other fields empty or absent
-  - `target`: a minimal spec node file
+Setup:
+  Create an artifact file with frontmatter followed by body content:
+    `---\nsome: value\n---\n\nBody content.`
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = [ChainItem(logical_name="ARTIFACT/some_id", file_path=<artifact_file_path>, qualifier=absent)]
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify only the frontmatter of the artifact file (e.g., add or change a
-   field). Leave the body unchanged.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite the artifact file with `---\nother: changed\n---\n\nBody content.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` equals `hash2`.
+Expected outcome:
+  hash1 equals hash2.
 
 ---
 
 ## External files
 
-### External whole file — hashes all content
+### External file — hashes all content
 
-**Setup:**
-- Create an external file with content `"External file content"`.
-- Build a `Chain` with:
-  - `external`: [FrontmatterExternal with path pointing to the file, no fragments]
-  - all other fields empty or absent
-  - `target`: a minimal spec node file
+Setup:
+  Create an external file with content `Original external content.`.
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = []
+    external = [FrontmatterExternal(path=<external_file_path>)]
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify the external file content to `"Modified external content"`.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite the external file with `Modified external content.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
-
----
-
-### External with fragments — hashes declared ranges
-
-**Setup:**
-- Create an external file with exactly 10 lines, each line containing its
-  line number (e.g., `"line 1"`, `"line 2"`, ..., `"line 10"`).
-- Build a `Chain` with:
-  - `external`: [FrontmatterExternal with path to that file,
-    fragments = [{lines: "3-5"}]]
-  - all other fields empty or absent
-  - `target`: a minimal spec node file
-
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify line 4 of the external file to `"modified line 4"`.
-3. Call `ChainHashCompute` again. Record result as `hash2`.
-
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
-
----
-
-### External with fragments — change outside range ignored
-
-**Setup:**
-- Create an external file with exactly 10 lines.
-- Build a `Chain` with:
-  - `external`: [FrontmatterExternal with path to that file,
-    fragments = [{lines: "3-5"}]]
-  - all other fields empty or absent
-  - `target`: a minimal spec node file
-
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify line 8 of the external file (outside the declared range).
-3. Call `ChainHashCompute` again. Record result as `hash2`.
-
-**Expected outcome:**
-- `hash1` equals `hash2`.
-
----
-
-### External with multiple fragments — declaration order
-
-**Setup:**
-- Create an external file with exactly 10 lines.
-- Build two Chains, both with a `target` pointing to a minimal spec node file:
-  - Chain A: `external` = [FrontmatterExternal with fragments =
-    [{lines: "6-8"}, {lines: "1-3"}]]
-  - Chain B: `external` = [FrontmatterExternal with fragments =
-    [{lines: "1-3"}, {lines: "6-8"}]]
-
-**Actions:**
-1. Call `ChainHashCompute` with Chain A. Record result as `hashA`.
-2. Call `ChainHashCompute` with Chain B. Record result as `hashB`.
-
-**Expected outcome:**
-- `hashA` does not equal `hashB`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
@@ -399,40 +359,42 @@ expected outcome.
 
 ### Target Public and Agent both contribute
 
-**Setup:**
-- Create a spec node file for ROOT/a with both `# Public` section
-  (`"Public content"`) and `# Agent` section (`"Agent content"`).
-- Build a `Chain` with:
-  - `ancestors`: empty
-  - `dependencies`: empty
-  - `external`: empty
-  - `target`: ChainItem for ROOT/a
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT/a (_node.md) with:
+    `# Public\n\nPublic content.\n\n# Agent\n\nAgent content.`
+  Build a Chain directly:
+    ancestors = []
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Remove the `# Agent` section from ROOT/a's file (keep `# Public` only).
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite ROOT/a's _node.md with `# Public\n\nPublic content.` (removing `# Agent`).
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
 ### Target without Agent — Agent skipped
 
-**Setup:**
-- Create a spec node file for ROOT/a with `# Public` content only (no
-  `# Agent` section).
-- Build a `Chain` with `target` pointing to ROOT/a and all other fields empty
-  or absent.
+Setup:
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nPublic only content.` and no `# Agent` section.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`.
+Actions:
+  Call ChainHashCompute with the Chain.
 
-**Expected outcome:**
-- No error is returned.
-- The result is a 27-character string.
+Expected outcome:
+  No error. Result is exactly 27 characters long.
 
 ---
 
@@ -440,44 +402,43 @@ expected outcome.
 
 ### Input hashes file minus frontmatter
 
-**Setup:**
-- Create an artifact file with YAML frontmatter and body content
-  `"Input body content"`.
-- Build a `Chain` with:
-  - `ancestors`: empty
-  - `dependencies`: empty
-  - `external`: empty
-  - `target`: a minimal spec node file
-  - `input`: ChainItem pointing to the artifact file
+Setup:
+  Create an artifact file with frontmatter followed by body content:
+    `---\nsome: value\n---\n\nOriginal input body.`
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = ChainItem(logical_name="ARTIFACT/input_id", file_path=<artifact_file_path>, qualifier=absent)
 
-**Actions:**
-1. Call `ChainHashCompute`. Record result as `hash1`.
-2. Modify the artifact body to `"Modified input body"` (leave frontmatter
-   unchanged).
-3. Call `ChainHashCompute` again. Record result as `hash2`.
+Actions:
+  Call ChainHashCompute with the Chain. Record result as hash1.
+  Overwrite the artifact file with `---\nsome: value\n---\n\nModified input body.`.
+  Call ChainHashCompute again with the same Chain. Record result as hash2.
 
-**Expected outcome:**
-- `hash1` does not equal `hash2`.
+Expected outcome:
+  hash1 does not equal hash2.
 
 ---
 
 ### No input — skipped
 
-**Setup:**
-- Create a minimal spec node file (target).
-- Build a `Chain` with:
-  - `ancestors`: empty
-  - `dependencies`: empty
-  - `external`: empty
-  - `target`: ChainItem for the spec node file
-  - `input`: absent
+Setup:
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly:
+    ancestors = []
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`.
+Actions:
+  Call ChainHashCompute with the Chain.
 
-**Expected outcome:**
-- No error is returned.
-- The result is a 27-character string.
+Expected outcome:
+  No error. Result is exactly 27 characters long.
 
 ---
 
@@ -485,42 +446,54 @@ expected outcome.
 
 ### Unreadable spec node file
 
-**Setup:**
-- Build a `Chain` where `target` is a `ChainItem` whose `file_path` points to a
-  file that does not exist on disk.
+Setup:
+  Build a Chain directly referencing a spec node file that does not exist on disk:
+    ancestors = []
+    dependencies = []
+    external = []
+    target = ChainItem(logical_name="ROOT/missing", file_path=<nonexistent_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`.
+Actions:
+  Call ChainHashCompute with the Chain.
 
-**Expected outcome:**
-- Returns error `ParseFailure`.
+Expected outcome:
+  Error ParseFailure is returned.
 
 ---
 
 ### Unreadable artifact file
 
-**Setup:**
-- Build a `Chain` with a dependency `ChainItem` whose `file_path` is an
-  ARTIFACT path pointing to a file that does not exist on disk.
-- `target` is a valid minimal spec node file.
+Setup:
+  Build a Chain directly with an ARTIFACT dependency pointing to a file that does not exist on disk:
+    ancestors = []
+    dependencies = [ChainItem(logical_name="ARTIFACT/missing", file_path=<nonexistent_path>, qualifier=absent)]
+    external = []
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
+  (ROOT/a node file exists on disk with `# Public` content.)
 
-**Actions:**
-1. Call `ChainHashCompute`.
+Actions:
+  Call ChainHashCompute with the Chain.
 
-**Expected outcome:**
-- Returns error `FileUnreadable`.
+Expected outcome:
+  Error FileUnreadable is returned.
 
 ---
 
 ### Unreadable external file
 
-**Setup:**
-- Build a `Chain` with an external entry (`FrontmatterExternal`) whose path
-  points to a file that does not exist on disk.
-- `target` is a valid minimal spec node file.
+Setup:
+  Create a spec node file for ROOT/a (_node.md) with `# Public\n\nTarget.`.
+  Build a Chain directly with an external entry pointing to a file that does not exist on disk:
+    ancestors = []
+    dependencies = []
+    external = [FrontmatterExternal(path=<nonexistent_path>)]
+    target = ChainItem(logical_name="ROOT/a", file_path=<root_a_node_path>, qualifier=absent)
+    input = absent
 
-**Actions:**
-1. Call `ChainHashCompute`.
+Actions:
+  Call ChainHashCompute with the Chain.
 
-**Expected outcome:**
-- Returns error `FileUnreadable`.
+Expected outcome:
+  Error FileUnreadable is returned.

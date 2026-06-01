@@ -80,4 +80,4 @@ over stdin (JSON-RPC). Parse the JSON-RPC response from
 stdout.
 
 Expect: the response contains tools named `load_chain`,
-`write_file`, `validate_specs`, and `hash_fragment`.
+`write_file`, and `validate_specs`.

@@ -18,13 +18,11 @@ Test cases for the frontmatter component.
 
 #### Parses complete frontmatter (all fields)
 
-Create a file with all fields: `depends_on`, `external`
-(with fragments), `input`, and `outputs`. Call
-`FrontmatterParse`.
+Create a file with all fields: `depends_on`, `external`,
+`input`, and `outputs`. Call `FrontmatterParse`.
 
 Expect `depends_on` contains the listed dependencies.
-`external` has one entry with `path` and one fragment
-containing `description`, `lines`, and `hash`. `input`
+`external` has two entries each with `path`. `input`
 matches the specified value. `outputs` has two entries
 each with `id` and `path`. No error.
 
@@ -45,15 +43,13 @@ Call `FrontmatterParse`.
 Expect `depends_on` contains the listed values. All
 other fields are empty. No error.
 
-#### Parses frontmatter with external and fragments
+#### Parses frontmatter with external entries
 
-Create a file with `external` entries including
-fragments. Call `FrontmatterParse`.
+Create a file with multiple `external` entries. Call
+`FrontmatterParse`.
 
-Expect `external` has two entries. First entry has `path`
-and two fragments with correct `description`, `lines`,
-and `hash`. Second entry has `path` only, no fragments.
-No error.
+Expect `external` has two entries each with correct
+`path`. No error.
 
 #### Parses frontmatter with input field
 
@@ -62,15 +58,6 @@ Create a file with only the `input` field. Call
 
 Expect `input` matches the specified value. All other
 fields are empty. No error.
-
-#### Fragment without description
-
-Create a file with an `external` entry containing a
-fragment with `lines` and `hash` but no `description`.
-Call `FrontmatterParse`.
-
-Expect the fragment is parsed with `description` absent,
-`lines` and `hash` correct. No error.
 
 #### Ignores unknown frontmatter fields
 
@@ -144,14 +131,6 @@ Expect error MalformedYAML.
 
 Create a file with an `external` entry that has no
 `path` field. Call `FrontmatterParse`.
-
-Expect error MalformedYAML.
-
-#### Missing required field in fragment
-
-Create a file with an `external` entry containing a
-fragment that has `lines` but no `hash`. Call
-`FrontmatterParse`.
 
 Expect error MalformedYAML.
 

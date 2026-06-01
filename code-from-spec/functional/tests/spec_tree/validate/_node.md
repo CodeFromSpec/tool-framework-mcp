@@ -193,15 +193,7 @@ ROOT/a.
 
 ### external_files
 
-Fragment hashes use SHA-1 encoded as base64url (RFC
-4648 §5, no padding) — always 27 characters. The input
-to SHA-1 is the lines in the declared range, read with
-`FileReadLine` (which normalizes CRLF to LF and strips
-terminators), each with `\n` (LF) appended — including
-the last line. Tests that need a "correct hash" must
-compute it using this algorithm.
-
-#### External file exists — no fragments
+#### External file exists
 
 Input: ROOT, ROOT/a (leaf, external = [{path:
 "some/file.txt"}]). Create "some/file.txt" on disk
@@ -214,61 +206,6 @@ Input: ROOT, ROOT/a (leaf, external = [{path:
 "nonexistent.txt"}]). Do not create the file. Call
 SpecTreeValidate. Expect a FormatError with rule =
 "external_files" for ROOT/a.
-
-#### Fragment with valid hash
-
-Input: ROOT, ROOT/a (leaf, external = [{path:
-"f.txt", fragments: [{lines: "1-3", hash: <correct
-hash>}]}]). Create "f.txt" with 5 lines: "alpha",
-"bravo", "charlie", "delta", "echo" (one per line).
-Compute the correct hash from lines 1-3 per the rule
-above. Call SpecTreeValidate. Expect no external_files
-error.
-
-#### Fragment with invalid hash
-
-Input: ROOT, ROOT/a (leaf, external = [{path:
-"f.txt", fragments: [{lines: "1-3", hash:
-"wrong_______________________"}]}]). Create "f.txt"
-with 5 lines: "alpha", "bravo", "charlie", "delta",
-"echo". Call SpecTreeValidate. Expect a FormatError
-with rule = "external_files" for ROOT/a.
-
-#### Fragment with invalid range format
-
-Input: ROOT, ROOT/a (leaf, external = [{path:
-"f.txt", fragments: [{lines: "abc", hash: "x"}]}]).
-Create "f.txt" with content "hello\n". Call
-SpecTreeValidate. Expect a FormatError with rule =
-"external_files" for ROOT/a.
-
-#### Fragment with start > end
-
-Input: ROOT, ROOT/a (leaf, external = [{path:
-"f.txt", fragments: [{lines: "5-3", hash: "x"}]}]).
-Create "f.txt" with 5 lines: "alpha", "bravo",
-"charlie", "delta", "echo". Call SpecTreeValidate.
-Expect a FormatError with rule = "external_files" for
-ROOT/a.
-
-#### Fragment with start < 1
-
-Input: ROOT, ROOT/a (leaf, external = [{path:
-"f.txt", fragments: [{lines: "0-3", hash: "x"}]}]).
-Create "f.txt" with 5 lines: "alpha", "bravo",
-"charlie", "delta", "echo". Call SpecTreeValidate.
-Expect a FormatError with rule = "external_files" for
-ROOT/a.
-
-#### Fragment out of range
-
-Input: ROOT, ROOT/a (leaf, external = [{path:
-"f.txt", fragments: [{lines: "1-100", hash:
-"x"}]}]). Create "f.txt" with 5 lines: "alpha",
-"bravo", "charlie", "delta", "echo". Call
-SpecTreeValidate. Expect a FormatError with rule =
-"external_files" for ROOT/a indicating fragment out
-of range.
 
 ### output_paths
 

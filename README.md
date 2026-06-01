@@ -14,8 +14,6 @@ artifact management.
   against the node's `outputs` list
 - **validate_specs** — validates the spec tree for format errors,
   circular references, and artifact staleness
-- **hash_fragment** — calculates the hash of a line range in a
-  file, for use in `external:` fragment declarations
 
 ## Install
 
@@ -61,7 +59,6 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
-  hash_fragment    Calculate hash of a file line range.
 
 MCP configuration example:
   {

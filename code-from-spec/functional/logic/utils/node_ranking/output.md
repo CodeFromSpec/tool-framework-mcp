@@ -1,8 +1,7 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/node_ranking@SRPv1KJ8gMJsLrYWDKfAijz_SF8 -->
+<!-- code-from-spec: ROOT/functional/logic/utils/node_ranking@pLWNUkgid17GjA_z6uJ_kDVq34o -->
 
 ## Records
 
-```
 record NodeRankInput
   logical_name: string
   frontmatter: frontmatter.Frontmatter
@@ -10,131 +9,106 @@ record NodeRankInput
 record NodeRankEntry
   logical_name: string
   rank: integer
-```
 
-## Internal Records
-
-```
-record EntryState
+record RankEntry
   logical_name: string
   dependencies: list of strings
   rank: integer
-```
 
 ## Functions
 
-```
 function NodeRankCompute(entries: list of NodeRankInput) -> (ranked: list of NodeRankEntry, cycles: list of string)
   errors:
-    - UnresolvableReference: a depends_on or input
-      target cannot be resolved.
-```
+    - UnresolvableReference: a depends_on or input target cannot be resolved.
 
-### Step 1 — Build entry map
+  1. Build entry map (keyed by logical name):
 
-  1. Create an empty entry map (keyed by logical name, values are EntryState records).
+     Initialize an empty map called entry_map.
 
-  2. For each NodeRankInput in entries:
-       a. Add a spec node EntryState to the map:
-            - logical_name = NodeRankInput.logical_name
-            - dependencies = [] (filled in Step 2)
-            - rank = 0
+     For each item in entries:
+       a. Add a RankEntry to entry_map keyed by item.logical_name
+          with rank = 0 and dependencies = empty list.
 
-       b. For each output in NodeRankInput.frontmatter.outputs:
-            - Derive the artifact logical name:
-                i.   Strip the "ROOT/" prefix from NodeRankInput.logical_name
-                     to get the node path segment.
-                     If NodeRankInput.logical_name is exactly "ROOT", the
-                     path segment is empty string — artifact key becomes
-                     "ARTIFACT/(id)".
-                ii.  Prepend "ARTIFACT/" to that segment.
-                iii. Append "(" + output.id + ")".
-                     Example: node "ROOT/a/b" with output id "foo" →
-                     "ARTIFACT/a/b(foo)".
-            - Add an artifact EntryState to the map:
-                - logical_name = artifact logical name from above
-                - dependencies = [] (filled in Step 2)
-                - rank = 0
+       b. For each output in item.frontmatter.outputs:
+            Construct artifact_key by:
+              - Taking item.logical_name and stripping the "ROOT/" prefix.
+              - Prepending "ARTIFACT/".
+              - Appending "(" + output.id + ")".
+            Example: "ROOT/a/b" with output.id "foo" -> "ARTIFACT/a/b(foo)".
+            Add a RankEntry to entry_map keyed by artifact_key
+            with rank = 0 and dependencies = empty list.
 
-### Step 2 — Build dependency edges
+  2. Build dependency edges:
 
-  3. For each spec node entry in the entry map:
-       a. If the logical name is "ROOT", skip (no dependencies, handled in Step 3).
+     For each item in entries:
+       a. If item.logical_name is not "ROOT":
+            Call LogicalNameGetParent(item.logical_name) -> parent_name.
+            If parent_name is not found in entry_map,
+              raise error "UnresolvableReference".
+            Add parent_name to entry_map[item.logical_name].dependencies.
 
-       b. Derive parent:
-            - Call LogicalNameGetParent(logical_name) to get parent logical name.
-            - If parent is not in the entry map,
-              raise error "UnresolvableReference" for that parent.
-            - Add parent logical name to this entry's dependencies.
+       b. For each dep in item.frontmatter.depends_on:
+            If dep starts with "ARTIFACT/":
+              lookup_key = dep (use as-is).
+            Else:
+              lookup_key = LogicalNameStripQualifier(dep).
+            If lookup_key is not found in entry_map,
+              raise error "UnresolvableReference".
+            Add lookup_key to entry_map[item.logical_name].dependencies.
 
-       c. For each item in this node's frontmatter.depends_on:
-            - If item starts with "ARTIFACT/":
-                - Use item as-is as the lookup key.
-            - Else (it is a "ROOT/" reference):
-                - Call LogicalNameStripQualifier(item) to get the bare
-                  logical name for lookup.
-            - If the lookup key is not in the entry map,
-              raise error "UnresolvableReference" for that key.
-            - Add the lookup key to this entry's dependencies.
+       c. If item.frontmatter.input is non-empty:
+            If item.frontmatter.input is not found in entry_map,
+              raise error "UnresolvableReference".
+            Add item.frontmatter.input to entry_map[item.logical_name].dependencies.
 
-       d. If frontmatter.input is non-empty:
-            - Use frontmatter.input as-is as the lookup key
-              (it is an "ARTIFACT/" reference).
-            - If the lookup key is not in the entry map,
-              raise error "UnresolvableReference" for that key.
-            - Add the lookup key to this entry's dependencies.
+     For each artifact_key in entry_map whose key starts with "ARTIFACT/":
+       Determine the generating node's logical name by:
+         - Stripping the "ARTIFACT/" prefix from artifact_key.
+         - Stripping any qualifier using LogicalNameStripQualifier.
+         - Prepending "ROOT/".
+       If the generating node logical name is not found in entry_map,
+         raise error "UnresolvableReference".
+       Add the generating node logical name to entry_map[artifact_key].dependencies.
 
-  4. For each artifact entry in the entry map:
-       - The generating node's logical name is derived by calling
-         LogicalNameGetArtifactGenerator(artifact_logical_name),
-         which strips "ARTIFACT/" prefix and qualifier to return a "ROOT/" name.
-       - If the generating node logical name is not in the entry map,
-         raise error "UnresolvableReference" for that node.
-       - Add the generating node logical name to this artifact entry's dependencies.
+  3. Initialize ranks:
 
-### Step 3 — Initialize ranks
+     Set entry_map["ROOT"].rank = 0.
+     For all other entries, rank is already 0 from Step 1.
 
-  5. Set the rank of the "ROOT" entry to 0 (fixed, will not be updated).
-     Set the rank of every other entry to 0 as an initial value.
+  4. Iterate and detect cycles:
 
-### Step 4 — Iterate and detect cycles
+     Let N = total number of entries in entry_map.
+     Initialize changed_in_last_pass = empty list.
 
-  6. Let N = total number of entries in the entry map.
+     Repeat up to N times (loop index i from 1 to N):
+       Set changed_this_pass = empty list.
 
-  7. Let changed_in_last_pass = empty list.
+       For each entry in entry_map (excluding "ROOT"):
+         Compute max_dep_rank = maximum of entry_map[dep].rank
+           for each dep in entry.dependencies.
+         Compute new_rank = 1 + max_dep_rank.
+         If new_rank > entry.rank:
+           Set entry.rank = new_rank.
+           Add entry.logical_name to changed_this_pass.
 
-  8. Repeat N times (passes indexed 1 through N):
-       a. Set changed_this_pass = empty list.
-       b. For each entry in the entry map (excluding "ROOT"):
-            i.  Compute new_rank = 1 + max(rank of each entry in this entry's dependencies).
-                If this entry has no dependencies, new_rank = 1 (though only
-                ROOT has no dependencies and it is excluded).
-            ii. If new_rank > entry.rank:
-                  - Update entry.rank = new_rank.
-                  - Add entry.logical_name to changed_this_pass.
-       c. Set changed_in_last_pass = changed_this_pass.
-       d. If changed_this_pass is empty, stop iterating (graph has converged,
-          no cycles detected).
+       If changed_this_pass is empty:
+         Stop iterating (converged, no cycles).
+       Else:
+         Set changed_in_last_pass = changed_this_pass.
 
-  9. If iteration completed all N passes without converging (the loop ran to
-     completion without an early stop in step 8d):
-       - The entries in changed_in_last_pass are the cycle participants to report.
-       - Do not raise an error — proceed to Step 5 and include cycle information
-         in the return value.
+       If i equals N and changed_this_pass is not empty:
+         Cycles detected. changed_in_last_pass contains the cycle participants.
 
-     If the loop stopped early (converged), cycles = empty list.
+  5. Output:
 
-### Step 5 — Output
+     Build result_entries as a list of NodeRankEntry
+       by collecting all entries from entry_map as (logical_name, rank).
 
-  10. Collect all EntryState records from the entry map as NodeRankEntry records
-      (logical_name + rank).
+     Sort result_entries:
+       - Primary: rank ascending.
+       - Secondary: logical_name ascending.
 
-  11. Sort the list:
-        - Primary sort: rank ascending.
-        - Secondary sort: logical_name ascending (lexicographic).
+     If cycles were detected, set cycle_list = changed_in_last_pass.
+     Else set cycle_list = empty list.
 
-  12. Return:
-        - ranked = the sorted list of NodeRankEntry records.
-        - cycles = the list of logical names from changed_in_last_pass
-          (empty if no cycles were detected).
-```
+     Return (ranked = result_entries, cycles = cycle_list).
