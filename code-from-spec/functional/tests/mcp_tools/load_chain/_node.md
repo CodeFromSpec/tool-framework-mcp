@@ -105,17 +105,6 @@ MCPLoadChain with "ROOT/a".
 Expect context contains the full content of
 "data/config.yaml".
 
-#### External file with fragments — line ranges only
-
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
-external = [{path: "data/big.txt", fragments:
-[{lines: "2-4", hash: "ignored"}]}]). Create
-"data/big.txt" with 10 lines. Call MCPLoadChain with
-"ROOT/a".
-
-Expect context contains only lines 2-4 from
-"data/big.txt".
-
 #### Target has reduced frontmatter with outputs only
 
 Create a spec tree: ROOT, ROOT/a (leaf with depends_on

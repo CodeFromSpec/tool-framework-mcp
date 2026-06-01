@@ -20,14 +20,8 @@ Parses structured metadata from the top of spec node files.
 ## Interface
 
 ```
-record FrontmatterExternalFragment
-  description: optional string
-  lines: string
-  hash: string
-
 record FrontmatterExternal
   path: string
-  fragments: optional list of FrontmatterExternalFragment
 
 record FrontmatterOutput
   id: string
@@ -81,10 +75,6 @@ depends_on:
 external:
   - path: proto/payments/v1/transfers.proto
   - path: docs/vendor/stripe-payouts.yaml
-    fragments:
-      - description: POST /v1/payouts request/response
-        lines: 150-210
-        hash: q9Sd3uV6wPrK5yG7aB2xLoN8hIc
 input: ARTIFACT/functional/transfers(logic)
 outputs:
   - id: handler
@@ -99,8 +89,7 @@ in the Frontmatter record are silently ignored.
 
 ### Required fields in sub-records
 
-Within each `external` entry, `path` is required. Within
-each `fragments` entry, `lines` and `hash` are required.
+Within each `external` entry, `path` is required.
 Within each `outputs` entry, `id` and `path` are required.
 Missing required fields are reported as "malformed YAML".
 

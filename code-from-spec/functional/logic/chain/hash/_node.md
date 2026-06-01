@@ -75,8 +75,7 @@ the content that position injects into the chain.
 | `ROOT/` dep, no qualifier | `# Public` section of the referenced node |
 | `ROOT/` dep, with qualifier | `## <qualifier>` subsection of `# Public` |
 | `ARTIFACT/` dep | Full file content, excluding frontmatter |
-| External, no fragments | Full file content |
-| External, with fragments | Each fragment's line range, concatenated in declaration order |
+| External | Full file content |
 | Input | Full file content, excluding frontmatter |
 
 ### Hashing spec nodes with NodeParse
@@ -125,25 +124,11 @@ Call `FileClose` in all cases — including error paths.
 
 ### Hashing external files
 
-For external entries without fragments: create a `PathCfs`
-from the entry's `path` string, open with `FileOpen`.
-If `FileOpen` fails, raise "file unreadable". Read all
+For each external entry: create a `PathCfs` from the
+entry's `path` string, open with `FileOpen`. If
+`FileOpen` fails, raise "file unreadable". Read all
 lines with `FileReadLine`, append `\n` after each line.
 Compute SHA-1. Call `FileClose`.
-
-For external entries with fragments, create a `PathCfs`
-from the entry's `path` string. For each fragment:
-- Parse the `lines` field as `start-end` (1-based,
-  inclusive).
-- Open the file with `FileOpen`. If `FileOpen` fails,
-  raise "file unreadable".
-- Use `FileSkipLines` to skip `start - 1` lines, then
-  read `end - start + 1` lines with `FileReadLine`.
-- Call `FileClose`.
-- Append `\n` after each line.
-
-Concatenate all fragment contents in declaration order.
-Compute a single SHA-1 for the concatenation.
 
 ### Algorithm
 

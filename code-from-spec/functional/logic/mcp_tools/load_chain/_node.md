@@ -125,14 +125,8 @@ For each dependency:
 **External** (from `chain.external`)
 
 For each external entry, create a `PathCfs` from the
-entry's `path`:
-- If no fragments: open with `FileOpen`, read all
-  content. Call `FileClose`.
-- If fragments: for each fragment, parse `lines` as
-  `start-end`, open with `FileOpen`, skip `start - 1`
-  lines, read `end - start + 1` lines. Call `FileClose`.
-  Append `\n` after each line. Concatenate fragments
-  in declaration order.
+entry's `path`. Open with `FileOpen`, read all content.
+Call `FileClose`.
 
 **Target Public** (from `chain.target`)
 

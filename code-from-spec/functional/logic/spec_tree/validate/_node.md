@@ -136,35 +136,10 @@ For each `external` entry, create a `PathCfs` with the
 entry's `path` as its value (external paths are relative
 to the project root).
 
-**Step 1 — Verify existence.** Open the file with
-`FileOpen`. If it fails (invalid path, file does not
-exist, or not readable), report a format error and skip
-to the next external entry. If it succeeds, call
-`FileClose` immediately.
-
-**Step 2 — Verify fragments.** If `fragments` are
-declared, process each fragment independently:
-- Parse the `lines` field as `start-end` (both 1-based,
-  inclusive). Example: `"150-210"` means lines 150
-  through 210. If the format is invalid, `start < 1`,
-  or `start > end`, report a format error and skip this
-  fragment.
-- Open the file again with `FileOpen`. If it fails,
-  report a format error and skip this fragment.
-- Use `FileSkipLines` to skip `start - 1` lines, then
-  read `end - start + 1` lines with `FileReadLine`. If
-  `FileReadLine` returns "end of file" before all lines
-  are read, call `FileClose`, report a format error
-  (fragment out of range), and skip this fragment.
-- Call `FileClose`.
-- Append `\n` (LF) after each read line, including the
-  last, to form the content. `FileReadLine` already
-  normalizes CRLF, so the result is platform-independent.
-- Compute SHA-1 of the joined content.
-- Encode the 20-byte SHA-1 digest as base64url (RFC 4648
-  §5, no padding) — 27 characters.
-- Compare with the declared `hash`. If mismatch, report
-  a format error.
+Open the file with `FileOpen`. If it fails (invalid
+path, file does not exist, or not readable), report a
+format error and skip to the next external entry. If
+it succeeds, call `FileClose` immediately.
 
 #### output_paths
 

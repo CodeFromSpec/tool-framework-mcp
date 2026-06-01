@@ -191,15 +191,6 @@ Call ChainResolve with "ROOT/a".
 Expect external list contains both entries, sorted
 alphabetically: docs/api.yaml before proto/v1.proto.
 
-#### External with fragments preserved
-
-Create spec tree: ROOT, ROOT/a (leaf, external =
-[{path: "f.txt", fragments: [{lines: "1-10",
-hash: "abc"}]}]). Call ChainResolve with "ROOT/a".
-
-Expect external list contains one entry with path =
-"f.txt" and fragments preserved as-is.
-
 #### Empty external — no entries
 
 Create spec tree: ROOT, ROOT/a (leaf, no external).
