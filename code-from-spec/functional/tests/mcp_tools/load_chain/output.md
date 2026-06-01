@@ -1,13 +1,6 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@NMqCZ4PTtyGuSQsUCgtZXf_OWFQ -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@hLEXp8jDxErw_uxUBPm6cBuiGEA -->
 
-# Test Specification: MCPLoadChain
-
-Each test case creates a spec tree on disk with `_node.md` files, then calls
-`MCPLoadChain`. Results are asserted against an `MCPLoadChainResult` record.
-
----
-
-## Happy Path
+## Test Cases for MCPLoadChain
 
 ---
 
@@ -17,11 +10,9 @@ Each test case creates a spec tree on disk with `_node.md` files, then calls
 
 Create `ROOT/_node.md`:
 ```
----
-name: ROOT
----
 # Public
-Root public content line one.
+
+Root public content.
 ```
 
 Create `ROOT/a/_node.md`:
@@ -29,13 +20,15 @@ Create `ROOT/a/_node.md`:
 ---
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
 # Public
-Leaf A public content.
+
+Node a public content.
 
 # Agent
-Leaf A agent guidance.
+
+Node a agent content.
 ```
 
 **Action**
@@ -44,12 +37,13 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- Result is an `MCPLoadChainResult`.
+Result is an `MCPLoadChainResult` where:
 - `chain_hash` is a string of exactly 27 characters.
-- `context` contains the `# Public` heading followed by "Root public content line one."
-- `context` contains a frontmatter block delimited by `---` lines, containing only the `outputs` field.
-- `context` contains the `# Public` heading followed by "Leaf A public content."
-- `context` contains the `# Agent` heading followed by "Leaf A agent guidance."
+- `context` contains, in order:
+  - The `# Public` heading and "Root public content." from ROOT.
+  - A frontmatter block delimited by `---` lines containing only the `outputs` field.
+  - The `# Public` heading and "Node a public content." from ROOT/a.
+  - The `# Agent` heading and "Node a agent content." from ROOT/a.
 - `input` is absent.
 
 ---
@@ -60,20 +54,16 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 Create `ROOT/_node.md`:
 ```
----
-name: ROOT
----
 # Public
+
 Root public content.
 ```
 
 Create `ROOT/a/_node.md`:
 ```
----
-name: a
----
 # Public
-A public content.
+
+Node a public content.
 ```
 
 Create `ROOT/a/b/_node.md`:
@@ -81,10 +71,8 @@ Create `ROOT/a/b/_node.md`:
 ---
 outputs:
   - id: main
-    path: out/b.txt
+    path: out/b.go
 ---
-# Public
-B public content.
 ```
 
 **Action**
@@ -93,9 +81,7 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a/b"`.
 
 **Expected outcome**
 
-- `context` contains the `# Public` heading followed by "Root public content."
-- `context` contains the `# Public` heading followed by "A public content."
-- ROOT's public content appears before ROOT/a's public content in `context`.
+`context` contains ROOT's `# Public` heading and "Root public content." followed by ROOT/a's `# Public` heading and "Node a public content.", in ancestor-first order.
 
 ---
 
@@ -105,11 +91,9 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a/b"`.
 
 Create `ROOT/_node.md`:
 ```
----
-name: ROOT
----
 # Name
-Root name section only.
+
+Root name content only.
 ```
 
 Create `ROOT/a/_node.md`:
@@ -117,10 +101,11 @@ Create `ROOT/a/_node.md`:
 ---
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
 # Public
-A public content.
+
+Node a public content.
 ```
 
 **Action**
@@ -129,9 +114,7 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- No error is raised.
-- `context` does not contain "Root name section only." or any ROOT content.
-- `context` contains "A public content."
+`context` does not contain ROOT's content. ROOT was skipped because it has no `# Public` section.
 
 ---
 
@@ -141,9 +124,6 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 Create `ROOT/_node.md`:
 ```
----
-name: ROOT
----
 # Public
 ```
 
@@ -152,10 +132,11 @@ Create `ROOT/a/_node.md`:
 ---
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
 # Public
-A public content.
+
+Node a public content.
 ```
 
 **Action**
@@ -164,22 +145,15 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- No error is raised.
-- `context` does not contain ROOT's `# Public` heading or any ROOT content.
-- `context` contains "A public content."
+`context` does not contain ROOT's content. ROOT was skipped because its `# Public` section is empty.
 
 ---
 
-### TC-05: Dependency without qualifier — public included
+### TC-05: Dependency without qualifier — full public included
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
@@ -188,25 +162,21 @@ depends_on:
   - ROOT/b
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
-# Public
-A public content.
 ```
 
 Create `ROOT/b/_node.md`:
 ```
----
-name: b
----
 # Public
-B intro content.
 
 ## Interface
-B interface details.
+
+Interface content.
 
 ## Constraints
-B constraint details.
+
+Constraints content.
 ```
 
 **Action**
@@ -215,9 +185,7 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- `context` contains "B intro content."
-- `context` contains the `## Interface` heading and "B interface details."
-- `context` contains the `## Constraints` heading and "B constraint details."
+`context` contains ROOT/b's `# Public` section including both the `## Interface` heading with its content and the `## Constraints` heading with its content.
 
 ---
 
@@ -225,12 +193,7 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
@@ -239,25 +202,21 @@ depends_on:
   - ROOT/b(interface)
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
-# Public
-A public content.
 ```
 
 Create `ROOT/b/_node.md`:
 ```
----
-name: b
----
 # Public
-B intro content.
 
 ## Interface
-B interface details.
+
+Interface content.
 
 ## Constraints
-B constraint details.
+
+Constraints content.
 ```
 
 **Action**
@@ -266,9 +225,7 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- `context` contains the `## Interface` heading and "B interface details."
-- `context` does not contain the `## Constraints` heading or "B constraint details."
-- `context` does not contain "B intro content."
+`context` contains the `## Interface` heading and "Interface content." from ROOT/b. `context` does not contain the `## Constraints` heading or "Constraints content.".
 
 ---
 
@@ -276,10 +233,16 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Setup**
 
-Create `ROOT/_node.md`:
+Create `ROOT/_node.md` (minimal, no public section).
+
+Create `ROOT/a/_node.md`:
 ```
 ---
-name: ROOT
+depends_on:
+  - ARTIFACT/b(code)
+outputs:
+  - id: main
+    path: out/a.go
 ---
 ```
 
@@ -297,22 +260,7 @@ Create `out/b.go`:
 ---
 some: frontmatter
 ---
-package main
-
-// Body content of b.go
-```
-
-Create `ROOT/a/_node.md`:
-```
----
-depends_on:
-  - ARTIFACT/b(code)
-outputs:
-  - id: main
-    path: out/a.txt
----
-# Public
-A public content.
+Body content of b.go.
 ```
 
 **Action**
@@ -321,8 +269,7 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- `context` contains "package main" and "// Body content of b.go".
-- `context` does not contain "some: frontmatter" or the `---` delimiters from the artifact frontmatter.
+`context` contains "Body content of b.go." and does not contain the frontmatter block from `out/b.go`.
 
 ---
 
@@ -330,18 +277,7 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
-
-Create `data/config.yaml`:
-```
-key: value
-setting: enabled
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
@@ -350,10 +286,14 @@ external:
   - path: data/config.yaml
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
-# Public
-A public content.
+```
+
+Create `data/config.yaml`:
+```
+key: value
+other: data
 ```
 
 **Action**
@@ -362,72 +302,15 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- `context` contains "key: value" and "setting: enabled".
+`context` contains the full content of `data/config.yaml`, including "key: value" and "other: data".
 
 ---
 
-### TC-09: External file with fragments — line ranges only
+### TC-09: Target has reduced frontmatter with outputs only
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
-
-Create `data/big.txt` with exactly 10 lines:
-```
-line 1
-line 2
-line 3
-line 4
-line 5
-line 6
-line 7
-line 8
-line 9
-line 10
-```
-
-Create `ROOT/a/_node.md`:
-```
----
-external:
-  - path: data/big.txt
-    fragments:
-      - lines: "2-4"
-        hash: ignored
-outputs:
-  - id: main
-    path: out/a.txt
----
-# Public
-A public content.
-```
-
-**Action**
-
-Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
-
-**Expected outcome**
-
-- `context` contains "line 2", "line 3", and "line 4".
-- `context` does not contain "line 1", "line 5", "line 6", "line 7", "line 8", "line 9", or "line 10".
-
----
-
-### TC-10: Target has reduced frontmatter with outputs only
-
-**Setup**
-
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
@@ -436,20 +319,11 @@ depends_on:
   - ROOT/b
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
-# Public
-A public content.
 ```
 
-Create `ROOT/b/_node.md`:
-```
----
-name: b
----
-# Public
-B public content.
-```
+Create `ROOT/b/_node.md` (minimal, no public section).
 
 **Action**
 
@@ -457,35 +331,30 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- `context` contains a frontmatter block delimited by `---` lines.
-- That frontmatter block contains the `outputs` field.
-- That frontmatter block does not contain the `depends_on` field.
+`context` contains a frontmatter block delimited by `---` lines. That block contains only the `outputs` field. The `depends_on` field is not present in that block.
 
 ---
 
-### TC-11: Target agent section included
+### TC-10: Target agent section included
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
 ---
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
 # Public
-A public content.
+
+Node a public content.
 
 # Agent
-A agent guidance.
+
+Node a agent content.
 ```
 
 **Action**
@@ -494,31 +363,26 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- `context` contains the `# Public` heading and "A public content."
-- `context` contains the `# Agent` heading and "A agent guidance."
+`context` contains the `# Public` heading and "Node a public content." and also the `# Agent` heading and "Node a agent content.".
 
 ---
 
-### TC-12: Target without agent section — skipped
+### TC-11: Target without agent section — skipped
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
 ---
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
 # Public
-A public content.
+
+Node a public content.
 ```
 
 **Action**
@@ -527,20 +391,23 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- No error is raised.
-- `context` contains "A public content."
-- `context` does not contain a `# Agent` heading.
+No error. `context` contains the public content. No `# Agent` heading appears in `context`.
 
 ---
 
-### TC-13: Input separated from context
+### TC-12: Input separated from context
 
 **Setup**
 
-Create `ROOT/_node.md`:
+Create `ROOT/_node.md` (minimal, no public section).
+
+Create `ROOT/a/_node.md`:
 ```
 ---
-name: ROOT
+input: ARTIFACT/b(data)
+outputs:
+  - id: main
+    path: out/a.go
 ---
 ```
 
@@ -556,21 +423,9 @@ outputs:
 Create `out/data.json`:
 ```
 ---
-artifact: frontmatter
+some: frontmatter
 ---
-{"key": "value", "count": 42}
-```
-
-Create `ROOT/a/_node.md`:
-```
----
-input: ARTIFACT/b(data)
-outputs:
-  - id: main
-    path: out/a.txt
----
-# Public
-A public content.
+Body content of data.json.
 ```
 
 **Action**
@@ -579,32 +434,24 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- `result.input` contains `{"key": "value", "count": 42}`.
-- `result.input` does not contain "artifact: frontmatter" or the `---` frontmatter delimiters.
-- `result.context` does not contain the body of `out/data.json`.
+- `result.input` contains "Body content of data.json." without the frontmatter block.
+- `result.context` does not contain the input body content.
 
 ---
 
-### TC-14: No input — field absent
+### TC-13: No input — field absent
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
 ---
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
-# Public
-A public content.
 ```
 
 **Action**
@@ -613,54 +460,31 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- No error is raised.
-- `result.input` is absent.
+`result.input` is absent.
 
 ---
 
-### TC-15: Hash is deterministic
+### TC-14: Hash is deterministic
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-# Public
-Deterministic root content.
-```
-
-Create `ROOT/a/_node.md`:
-```
----
-outputs:
-  - id: main
-    path: out/a.txt
----
-# Public
-Deterministic A content.
-```
+Create a spec tree: ROOT (with public section containing known content) and ROOT/a (leaf with outputs and public section with known content).
 
 **Action**
 
-Call `MCPLoadChain` with `logical_name = "ROOT/a"` twice, producing `result1` and `result2`.
+Call `MCPLoadChain` with `logical_name = "ROOT/a"` twice.
 
 **Expected outcome**
 
-- `result1.chain_hash` equals `result2.chain_hash`.
+Both calls return an `MCPLoadChainResult` with identical `chain_hash` values.
 
 ---
 
-## Error Cases
-
----
-
-### TC-E01: Invalid logical name — not ROOT/
+### TC-15: Invalid logical name — not ROOT/
 
 **Setup**
 
-No files needed.
+None.
 
 **Action**
 
@@ -668,15 +492,15 @@ Call `MCPLoadChain` with `logical_name = "INVALID/something"`.
 
 **Expected outcome**
 
-- An error is raised with name `UnsupportedReference` (propagated from LogicalNames via `LogicalNameToPath`).
+Error `UnsupportedReference` is returned (propagated from `LogicalNameToPath`).
 
 ---
 
-### TC-E02: Nonexistent node file
+### TC-16: Nonexistent node file
 
 **Setup**
 
-No `_node.md` created for `ROOT/nonexistent`.
+No `_node.md` file exists at the path corresponding to `"ROOT/nonexistent"`.
 
 **Action**
 
@@ -684,28 +508,21 @@ Call `MCPLoadChain` with `logical_name = "ROOT/nonexistent"`.
 
 **Expected outcome**
 
-- An error is raised propagated from `FrontmatterParse` with name `FileUnreadable`.
+Error `FileUnreadable` is returned (propagated from `FrontmatterParse` via `FileReader`).
 
 ---
 
-### TC-E03: No outputs declared
+### TC-17: No outputs declared
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
----
-name: a
----
 # Public
-A public content.
+
+Node a public content.
 ```
 
 **Action**
@@ -714,20 +531,15 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- An error is raised with name `NoOutputs`.
+Error `NoOutputs` is returned.
 
 ---
 
-### TC-E04: Invalid output path — traversal
+### TC-18: Invalid output path — path traversal
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
@@ -736,8 +548,6 @@ outputs:
   - id: main
     path: ../../etc/passwd
 ---
-# Public
-A public content.
 ```
 
 **Action**
@@ -746,20 +556,15 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- An error is raised with name `InvalidOutputPath`.
+Error `InvalidOutputPath` is returned.
 
 ---
 
-### TC-E05: Unresolvable dependency
+### TC-19: Unresolvable dependency
 
 **Setup**
 
-Create `ROOT/_node.md`:
-```
----
-name: ROOT
----
-```
+Create `ROOT/_node.md` (minimal, no public section).
 
 Create `ROOT/a/_node.md`:
 ```
@@ -768,13 +573,11 @@ depends_on:
   - ROOT/missing
 outputs:
   - id: main
-    path: out/a.txt
+    path: out/a.go
 ---
-# Public
-A public content.
 ```
 
-Do not create `ROOT/missing/_node.md`.
+No `ROOT/missing/_node.md` file is created.
 
 **Action**
 
@@ -782,4 +585,4 @@ Call `MCPLoadChain` with `logical_name = "ROOT/a"`.
 
 **Expected outcome**
 
-- An error is raised. The error is detected during chain processing (hash computation or context building) because the missing node's file cannot be read.
+An error is returned. The missing node is detected during chain processing (hash computation or context building).

@@ -1,635 +1,429 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/resolver@KR4iYQ8W2ozS8KIBiu-f0XxbhKs -->
+<!-- code-from-spec: ROOT/functional/tests/chain/resolver@5w9PuCMhjZQnUoRqjwcjlrty8Vs -->
 
-# ChainResolve — Test Specification
-
-Each test case describes: files to create on disk (setup), the call
-to `ChainResolve`, and the expected outcome. All spec nodes are
-represented by `_node.md` files. Frontmatter is written in YAML
-between `---` delimiters at the top of each file.
-
----
+# Test Specification: ChainResolve
 
 ## Ancestors and Target
 
-### TC-AT-01: Root as target
+### Root as target
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
 
-Create file `<root>/_node.md` with empty frontmatter.
+Actions:
+- Call `ChainResolve("ROOT")`.
 
-**Action**
-
-Call `ChainResolve("ROOT")`.
-
-**Expected outcome**
-
-Return a Chain where:
-- ancestors = empty list
-- target = ChainItem(logical_name="ROOT", qualifier=absent)
-- dependencies = empty list
-- external = empty list
-- input = absent
+Expected:
+- `ancestors` = empty list.
+- `target` = ChainItem(logical_name="ROOT", qualifier=absent).
+- `dependencies` = empty list.
+- `external` = empty list.
+- `input` = absent.
 
 ---
 
-### TC-AT-02: Linear chain — ancestors in root-first order
+### Linear chain — ancestors in root-first order
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with empty frontmatter.
+- Create `_node.md` at ROOT/a/b with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — empty frontmatter
-- `<root>/a/b/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a/b")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a/b")`.
-
-**Expected outcome**
-
-Return a Chain where:
-- ancestors = [ChainItem(logical_name="ROOT"), ChainItem(logical_name="ROOT/a")] in that order
-- target = ChainItem(logical_name="ROOT/a/b", qualifier=absent)
+Expected:
+- `ancestors` = [ChainItem(ROOT), ChainItem(ROOT/a)] in that order.
+- `target` = ChainItem(logical_name="ROOT/a/b", qualifier=absent).
 
 ---
 
-### TC-AT-03: Single parent
+### Single parent
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Return a Chain where:
-- ancestors = [ChainItem(logical_name="ROOT")]
-- target = ChainItem(logical_name="ROOT/a", qualifier=absent)
+Expected:
+- `ancestors` = [ChainItem(ROOT)].
+- `target` = ChainItem(logical_name="ROOT/a", qualifier=absent).
 
 ---
 
-### TC-AT-04: Target with empty frontmatter
+### Target with empty frontmatter
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with empty frontmatter (leaf, no depends_on, no external, no input).
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — empty frontmatter (no depends_on, no external, no input)
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Return a Chain where:
-- ancestors = [ChainItem(logical_name="ROOT")]
-- target = ChainItem(logical_name="ROOT/a", qualifier=absent)
-- dependencies = empty list
-- external = empty list
-- input = absent
+Expected:
+- `ancestors` = [ChainItem(ROOT)].
+- `target` = ChainItem(logical_name="ROOT/a", qualifier=absent).
+- `dependencies` = empty list.
+- `external` = empty list.
+- `input` = absent.
 
 ---
 
 ## Dependencies — ROOT/ References
 
-### TC-DEP-01: Dependency without qualifier
+### Dependency without qualifier
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ROOT/b"]`.
+- Create `_node.md` at ROOT/b with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ROOT/b"]`
-- `<root>/b/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains one ChainItem where:
-- logical_name = "ROOT/b"
-- qualifier = absent
+Expected:
+- `dependencies` contains one ChainItem with logical_name="ROOT/b", qualifier=absent.
 
 ---
 
-### TC-DEP-02: Dependency with qualifier
+### Dependency with qualifier
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ROOT/b(interface)"]`.
+- Create `_node.md` at ROOT/b with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ROOT/b(interface)"]`
-- `<root>/b/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains one ChainItem where:
-- logical_name = "ROOT/b"
-- qualifier = "interface"
+Expected:
+- `dependencies` contains one ChainItem with logical_name="ROOT/b", qualifier="interface".
 
 ---
 
-### TC-DEP-03: Dependencies sorted by file path then qualifier
+### Dependencies sorted by file path then qualifier
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ROOT/z", "ROOT/m", "ROOT/b"]`.
+- Create `_node.md` at ROOT/z with empty frontmatter.
+- Create `_node.md` at ROOT/m with empty frontmatter.
+- Create `_node.md` at ROOT/b with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ROOT/z", "ROOT/m", "ROOT/b"]`
-- `<root>/z/_node.md` — empty frontmatter
-- `<root>/m/_node.md` — empty frontmatter
-- `<root>/b/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies is sorted alphabetically by file path:
-- ChainItem(logical_name="ROOT/b") comes first
-- ChainItem(logical_name="ROOT/m") comes second
-- ChainItem(logical_name="ROOT/z") comes third
+Expected:
+- `dependencies` is sorted alphabetically by file path (ROOT/b path, then ROOT/m path, then ROOT/z path).
 
 ---
 
 ## Dependencies — ARTIFACT/ References
 
-### TC-ART-01: ARTIFACT dependency resolved from generating node
+### ARTIFACT dependency resolved from generating node
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ARTIFACT/b(lib)"]`.
+- Create `_node.md` at ROOT/b with frontmatter: `outputs: [{id: "lib", path: "out/lib.go"}]`.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ARTIFACT/b(lib)"]`
-- `<root>/b/_node.md` — frontmatter:
-  ```
-  outputs:
-    - id: lib
-      path: out/lib.go
-  ```
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains one ChainItem where:
-- logical_name = "ARTIFACT/b(lib)"
-- file_path = "out/lib.go"
-- qualifier = "lib"
+Expected:
+- `dependencies` contains one ChainItem with logical_name="ARTIFACT/b(lib)", file_path="out/lib.go", qualifier="lib".
 
 ---
 
-### TC-ART-02: ARTIFACT without qualifier — error
+### ARTIFACT without qualifier — error
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ARTIFACT/b"]`.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ARTIFACT/b"]`
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Raises error `UnresolvableArtifact`.
+Expected:
+- Error `UnresolvableArtifact`.
 
 ---
 
-### TC-ART-03: ARTIFACT — generating node has no outputs
+### ARTIFACT — generating node has no outputs
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ARTIFACT/b(lib)"]`.
+- Create `_node.md` at ROOT/b with empty frontmatter (no outputs declared).
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ARTIFACT/b(lib)"]`
-- `<root>/b/_node.md` — empty frontmatter (no outputs field)
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Raises error `UnresolvableArtifact`.
+Expected:
+- Error `UnresolvableArtifact`.
 
 ---
 
-### TC-ART-04: ARTIFACT — artifact file does not exist on disk
+### ARTIFACT — artifact file does not exist on disk
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ARTIFACT/b(lib)"]`.
+- Create `_node.md` at ROOT/b with frontmatter: `outputs: [{id: "lib", path: "out/lib.go"}]`.
+- Do NOT create the file `out/lib.go` on disk.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ARTIFACT/b(lib)"]`
-- `<root>/b/_node.md` — frontmatter:
-  ```
-  outputs:
-    - id: lib
-      path: out/lib.go
-  ```
-Do NOT create the file `out/lib.go` on disk.
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-No error raised. dependencies contains one ChainItem where:
-- file_path = "out/lib.go"
-
-File existence is not verified by the resolver.
+Expected:
+- No error.
+- `dependencies` contains one ChainItem with file_path="out/lib.go".
+- File existence is not verified by the resolver.
 
 ---
 
-### TC-ART-05: ARTIFACT with non-existent output id — error
+### ARTIFACT with non-existent output id — error
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ARTIFACT/b(missing)"]`.
+- Create `_node.md` at ROOT/b with frontmatter: `outputs: [{id: "lib", path: "out/lib.go"}]`.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ARTIFACT/b(missing)"]`
-- `<root>/b/_node.md` — frontmatter:
-  ```
-  outputs:
-    - id: lib
-      path: out/lib.go
-  ```
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Raises error `UnresolvableArtifact`.
+Expected:
+- Error `UnresolvableArtifact`.
 
 ---
 
-### TC-ART-06: Mixed ROOT/ and ARTIFACT/ dependencies
+### Mixed ROOT/ and ARTIFACT/ dependencies
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ROOT/c", "ARTIFACT/b(lib)"]`.
+- Create `_node.md` at ROOT/b with frontmatter: `outputs: [{id: "lib", path: "out/lib.go"}]`.
+- Create `_node.md` at ROOT/c with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ROOT/c", "ARTIFACT/b(lib)"]`
-- `<root>/b/_node.md` — frontmatter:
-  ```
-  outputs:
-    - id: lib
-      path: out/lib.go
-  ```
-- `<root>/c/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains two entries — ChainItem for "ROOT/c" and
-ChainItem for "ARTIFACT/b(lib)" — sorted by file path value.
+Expected:
+- `dependencies` contains two entries (one for ROOT/c and one for ARTIFACT/b(lib)), sorted by their resolved file path values.
 
 ---
 
 ## Dependencies — Dedup
 
-### TC-DEDUP-01: Exact duplicate — same file, same qualifier
+### Exact duplicate — same file, same qualifier
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ROOT/b", "ROOT/b"]`.
+- Create `_node.md` at ROOT/b with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ROOT/b", "ROOT/b"]`
-- `<root>/b/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains exactly one entry for ROOT/b (not two).
+Expected:
+- `dependencies` contains exactly one entry for ROOT/b.
 
 ---
 
-### TC-DEDUP-02: No qualifier subsumes qualifier
+### No qualifier subsumes qualifier
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ROOT/b", "ROOT/b(interface)"]`.
+- Create `_node.md` at ROOT/b with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ROOT/b", "ROOT/b(interface)"]`
-- `<root>/b/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains exactly one entry for ROOT/b where:
-- qualifier = absent
-
-The ROOT/b(interface) entry is removed because the unqualified
-entry subsumes it.
+Expected:
+- `dependencies` contains exactly one entry for ROOT/b with qualifier=absent.
+- The entry with qualifier="interface" is removed.
 
 ---
 
-### TC-DEDUP-03: Qualifier before no-qualifier — no-qualifier wins
+### Qualifier before no-qualifier — no-qualifier wins
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ROOT/b(interface)", "ROOT/b"]`.
+- Create `_node.md` at ROOT/b with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ROOT/b(interface)", "ROOT/b"]`
-- `<root>/b/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains exactly one entry for ROOT/b where:
-- qualifier = absent
-
-Regardless of declaration order, the unqualified entry wins.
+Expected:
+- `dependencies` contains exactly one entry for ROOT/b with qualifier=absent.
 
 ---
 
-### TC-DEDUP-04: Same file, different qualifiers — both kept
+### Same file, different qualifiers — both kept
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ROOT/b(interface)", "ROOT/b(constraints)"]`.
+- Create `_node.md` at ROOT/b with empty frontmatter.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ROOT/b(interface)", "ROOT/b(constraints)"]`
-- `<root>/b/_node.md` — empty frontmatter
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains two entries (both kept, sorted by qualifier):
-- ChainItem(logical_name="ROOT/b", qualifier="constraints")
-- ChainItem(logical_name="ROOT/b", qualifier="interface")
+Expected:
+- `dependencies` contains two entries: one with qualifier="constraints" and one with qualifier="interface", sorted alphabetically by qualifier.
 
 ---
 
-### TC-DEDUP-05: Duplicate ARTIFACT — same logical name
+### Duplicate ARTIFACT — same logical name
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["ARTIFACT/b(lib)", "ARTIFACT/b(lib)"]`.
+- Create `_node.md` at ROOT/b with frontmatter: `outputs: [{id: "lib", path: "out/lib.go"}]`.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["ARTIFACT/b(lib)", "ARTIFACT/b(lib)"]`
-- `<root>/b/_node.md` — frontmatter:
-  ```
-  outputs:
-    - id: lib
-      path: out/lib.go
-  ```
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-dependencies contains exactly one ARTIFACT entry (not two).
+Expected:
+- `dependencies` contains exactly one ARTIFACT entry for ARTIFACT/b(lib).
 
 ---
 
 ## External
 
-### TC-EXT-01: External entries copied from frontmatter
+### External entries copied from frontmatter
 
-**Setup**
-
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter:
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter:
   ```
   external:
-    - path: docs/api.yaml
-    - path: proto/v1.proto
+    - path: "docs/api.yaml"
+    - path: "proto/v1.proto"
   ```
 
-**Action**
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-external list contains two entries, sorted alphabetically:
-- entry with path = "docs/api.yaml"
-- entry with path = "proto/v1.proto"
+Expected:
+- `external` contains two entries sorted alphabetically: "docs/api.yaml" before "proto/v1.proto".
 
 ---
 
-### TC-EXT-02: External with fragments preserved
+### Empty external — no entries
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with empty frontmatter (no external field).
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter:
-  ```
-  external:
-    - path: f.txt
-      fragments:
-        - lines: "1-10"
-          hash: abc
-  ```
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-external list contains one entry where:
-- path = "f.txt"
-- fragments list is preserved as-is with lines = "1-10" and hash = "abc"
-
----
-
-### TC-EXT-03: Empty external — no entries
-
-**Setup**
-
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter with no `external` field
-
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-external list is empty.
+Expected:
+- `external` = empty list.
 
 ---
 
 ## Input
 
-### TC-INP-01: Input resolved from generating node
+### Input resolved from generating node
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `input: "ARTIFACT/b(data)"`.
+- Create `_node.md` at ROOT/b with frontmatter: `outputs: [{id: "data", path: "out/data.json"}]`.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `input: "ARTIFACT/b(data)"`
-- `<root>/b/_node.md` — frontmatter:
-  ```
-  outputs:
-    - id: data
-      path: out/data.json
-  ```
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-input = ChainItem where:
-- logical_name = "ARTIFACT/b(data)"
-- file_path = "out/data.json"
-- qualifier = "data"
+Expected:
+- `input` = ChainItem(logical_name="ARTIFACT/b(data)", file_path="out/data.json", qualifier="data").
 
 ---
 
-### TC-INP-02: No input — absent
+### No input — absent
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with empty frontmatter (no input field).
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter with no `input` field
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-input is absent.
+Expected:
+- `input` = absent.
 
 ---
 
-### TC-INP-03: Input without qualifier — error
+### Input without qualifier — error
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `input: "ARTIFACT/b"`.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `input: "ARTIFACT/b"`
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Raises error `UnresolvableArtifact`.
+Expected:
+- Error `UnresolvableArtifact`.
 
 ---
 
-### TC-INP-04: Input with non-existent output id — error
+### Input with non-existent output id — error
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `input: "ARTIFACT/b(missing)"`.
+- Create `_node.md` at ROOT/b with frontmatter: `outputs: [{id: "data", path: "out/data.json"}]`.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `input: "ARTIFACT/b(missing)"`
-- `<root>/b/_node.md` — frontmatter:
-  ```
-  outputs:
-    - id: data
-      path: out/data.json
-  ```
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Raises error `UnresolvableArtifact`.
+Expected:
+- Error `UnresolvableArtifact`.
 
 ---
 
 ## Error Cases
 
-### TC-ERR-01: Unrecognized prefix in depends_on
+### Unrecognized prefix in depends_on
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with frontmatter: `depends_on: ["UNKNOWN/something"]`.
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — frontmatter: `depends_on: ["UNKNOWN/something"]`
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Raises error `UnresolvableArtifact`.
+Expected:
+- Error `UnresolvableArtifact`.
 
 ---
 
-### TC-ERR-02: Invalid target logical name
+### Invalid target logical name
 
-**Setup**
+Setup:
+- No spec tree required.
 
-No spec tree needed.
+Actions:
+- Call `ChainResolve("INVALID/something")`.
 
-**Action**
-
-Call `ChainResolve("INVALID/something")`.
-
-**Expected outcome**
-
-Raises an error propagated from `LogicalNameGetParent` or
-`LogicalNameToPath`.
+Expected:
+- Error propagated from `LogicalNameGetParent` or `LogicalNameToPath`.
 
 ---
 
-### TC-ERR-03: Unreadable frontmatter
+### Unreadable frontmatter
 
-**Setup**
+Setup:
+- Create `_node.md` at ROOT with empty frontmatter.
+- Create `_node.md` at ROOT/a with invalid YAML content in frontmatter (malformed YAML between `---` delimiters).
 
-Create files:
-- `<root>/_node.md` — empty frontmatter
-- `<root>/a/_node.md` — file contains invalid YAML in frontmatter
-  (e.g., malformed indentation or unclosed quotes between `---` delimiters)
+Actions:
+- Call `ChainResolve("ROOT/a")`.
 
-**Action**
-
-Call `ChainResolve("ROOT/a")`.
-
-**Expected outcome**
-
-Raises error `UnreadableFrontmatter`.
+Expected:
+- Error `UnreadableFrontmatter`.

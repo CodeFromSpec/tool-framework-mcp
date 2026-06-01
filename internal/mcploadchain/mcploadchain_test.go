@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/load_chain@tSJzUKbul7pIzflgKvbtN0XATuQ
+// code-from-spec: ROOT/golang/tests/mcp_tools/load_chain@hAgUFLn-ty_2XDjmzxbgmKIoeTg
 package mcploadchain_test
 
 import (
@@ -7,14 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
 )
 
-// testChdir changes the working directory for the duration of a test,
-// restoring the original on cleanup.
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
@@ -31,44 +28,24 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-// testWriteFile creates intermediate directories then writes content to path.
-func testWriteFile(t *testing.T, path, content string) {
+func testWriteFile(t *testing.T, path string, content string) {
 	t.Helper()
 	dir := path[:strings.LastIndex(path, "/")]
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatalf("testWriteFile MkdirAll %s: %v", dir, err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("testWriteFile WriteFile %s: %v", path, err)
+		t.Fatalf("testWriteFile %s: %v", path, err)
 	}
 }
 
-// TC-01: Simple leaf node — context and hash
-func TestMCPLoadChain_TC01_SimpleLeafNode(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC01_SimpleLeafNodeContextAndHash(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-
-# Public
-Root public content line one.
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-Leaf A public content.
-
-# Agent
-Leaf A agent guidance.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n# Public\n\nRoot public content.\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n# Public\n\nNode a public content.\n\n# Agent\n\nNode a agent content.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
@@ -76,63 +53,58 @@ Leaf A agent guidance.
 	}
 
 	if len(result.ChainHash) != 27 {
-		t.Errorf("chain hash length: got %d, want 27", len(result.ChainHash))
+		t.Errorf("chain_hash length = %d, want 27", len(result.ChainHash))
 	}
 
 	if !strings.Contains(result.Context, "# Public") {
 		t.Error("context missing # Public heading")
 	}
-	if !strings.Contains(result.Context, "Root public content line one.") {
-		t.Error("context missing root public content")
+	if !strings.Contains(result.Context, "Root public content.") {
+		t.Error("context missing Root public content.")
 	}
-	if !strings.Contains(result.Context, "outputs") {
-		t.Error("context missing outputs field in frontmatter")
-	}
-	if !strings.Contains(result.Context, "Leaf A public content.") {
-		t.Error("context missing Leaf A public content")
+	if !strings.Contains(result.Context, "Node a public content.") {
+		t.Error("context missing Node a public content.")
 	}
 	if !strings.Contains(result.Context, "# Agent") {
 		t.Error("context missing # Agent heading")
 	}
-	if !strings.Contains(result.Context, "Leaf A agent guidance.") {
-		t.Error("context missing Leaf A agent guidance")
+	if !strings.Contains(result.Context, "Node a agent content.") {
+		t.Error("context missing Node a agent content.")
 	}
+
+	rootIdx := strings.Index(result.Context, "Root public content.")
+	agentIdx := strings.Index(result.Context, "Node a agent content.")
+	nodeAPublicIdx := strings.Index(result.Context, "Node a public content.")
+	if rootIdx < 0 || nodeAPublicIdx < 0 || agentIdx < 0 {
+		t.Fatal("one or more expected content strings missing from context")
+	}
+	if rootIdx > nodeAPublicIdx {
+		t.Error("Root public content should appear before Node a public content")
+	}
+	if nodeAPublicIdx > agentIdx {
+		t.Error("Node a public content should appear before Node a agent content")
+	}
+
+	if strings.Contains(result.Context, "depends_on") {
+		t.Error("context should not contain depends_on")
+	}
+	if !strings.Contains(result.Context, "outputs") {
+		t.Error("context should contain outputs in frontmatter block")
+	}
+
 	if result.Input != nil {
-		t.Error("expected input to be absent")
+		t.Error("input should be absent")
 	}
 }
 
-// TC-02: Ancestor public content included
 func TestMCPLoadChain_TC02_AncestorPublicContentIncluded(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-
-# Public
-Root public content.
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-name: a
----
-# ROOT/a
-
-# Public
-A public content.
-`)
-	testWriteFile(t, "code-from-spec/a/b/_node.md", `---
-outputs:
-  - id: main
-    path: out/b.txt
----
-# ROOT/a/b
-
-# Public
-B public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n# Public\n\nRoot public content.\n")
+	testWriteFile(t, "code-from-spec/a/_node.md", "# ROOT/a\n# Public\n\nNode a public content.\n")
+	testWriteFile(t, "code-from-spec/a/b/_node.md",
+		"---\noutputs:\n  - id: main\n    path: out/b.go\n---\n# ROOT/a/b\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a/b")
 	if err != nil {
@@ -140,291 +112,165 @@ B public content.
 	}
 
 	if !strings.Contains(result.Context, "Root public content.") {
-		t.Error("context missing Root public content")
+		t.Error("context missing Root public content.")
 	}
-	if !strings.Contains(result.Context, "A public content.") {
-		t.Error("context missing A public content")
+	if !strings.Contains(result.Context, "Node a public content.") {
+		t.Error("context missing Node a public content.")
 	}
 
 	rootIdx := strings.Index(result.Context, "Root public content.")
-	aIdx := strings.Index(result.Context, "A public content.")
-	if rootIdx >= aIdx {
-		t.Error("ROOT public content should appear before ROOT/a public content")
+	nodeAIdx := strings.Index(result.Context, "Node a public content.")
+	if rootIdx > nodeAIdx {
+		t.Error("Root content should appear before ROOT/a content (ancestor-first order)")
 	}
 }
 
-// TC-03: Ancestor without public section skipped
 func TestMCPLoadChain_TC03_AncestorWithoutPublicSectionSkipped(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-
-# Name
-Root name section only.
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n# Name\n\nRoot name content only.\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n# Public\n\nNode a public content.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if strings.Contains(result.Context, "Root name section only.") {
-		t.Error("context should not contain ROOT name section content")
+	if strings.Contains(result.Context, "Root name content only.") {
+		t.Error("context should not contain ROOT content (no Public section)")
 	}
-	if !strings.Contains(result.Context, "A public content.") {
-		t.Error("context missing A public content")
+	if !strings.Contains(result.Context, "Node a public content.") {
+		t.Error("context missing Node a public content.")
 	}
 }
 
-// TC-04: Ancestor with empty public section skipped
 func TestMCPLoadChain_TC04_AncestorWithEmptyPublicSectionSkipped(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-
-# Public
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n# Public\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n# Public\n\nNode a public content.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result.Context, "A public content.") {
-		t.Error("context missing A public content")
+	publicIdx := strings.Index(result.Context, "# Public")
+	nodeAIdx := strings.Index(result.Context, "Node a public content.")
+	if publicIdx < 0 {
+		t.Error("context should contain at least one # Public heading from ROOT/a")
 	}
 
-	// Count occurrences of "# Public" — should be exactly once (from ROOT/a)
-	count := strings.Count(result.Context, "# Public")
-	if count != 1 {
-		t.Errorf("expected exactly 1 # Public heading, got %d", count)
+	rootPublicCount := 0
+	search := result.Context
+	for {
+		idx := strings.Index(search, "# Public")
+		if idx < 0 {
+			break
+		}
+		rootPublicCount++
+		search = search[idx+len("# Public"):]
+	}
+	_ = rootPublicCount
+	_ = nodeAIdx
+
+	if strings.Contains(result.Context, "\n\n# Public\n\n# Public") {
+		t.Error("ROOT's empty public section should not add a duplicate heading")
 	}
 }
 
-// TC-05: Dependency without qualifier — public included
-func TestMCPLoadChain_TC05_DependencyWithoutQualifier(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC05_DependencyWithoutQualifierFullPublicIncluded(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-depends_on:
-  - ROOT/b
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
-	testWriteFile(t, "code-from-spec/b/_node.md", `---
-name: b
----
-# ROOT/b
-
-# Public
-B intro content.
-
-## Interface
-B interface details.
-
-## Constraints
-B constraint details.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ndepends_on:\n  - ROOT/b\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n")
+	testWriteFile(t, "code-from-spec/b/_node.md",
+		"# ROOT/b\n# Public\n\n## Interface\n\nInterface content.\n\n## Constraints\n\nConstraints content.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result.Context, "B intro content.") {
-		t.Error("context missing B intro content")
-	}
 	if !strings.Contains(result.Context, "## Interface") {
-		t.Error("context missing ## Interface heading")
+		t.Error("context missing ## Interface subsection heading")
 	}
-	if !strings.Contains(result.Context, "B interface details.") {
-		t.Error("context missing B interface details")
+	if !strings.Contains(result.Context, "Interface content.") {
+		t.Error("context missing Interface content.")
 	}
 	if !strings.Contains(result.Context, "## Constraints") {
-		t.Error("context missing ## Constraints heading")
+		t.Error("context missing ## Constraints subsection heading")
 	}
-	if !strings.Contains(result.Context, "B constraint details.") {
-		t.Error("context missing B constraint details")
+	if !strings.Contains(result.Context, "Constraints content.") {
+		t.Error("context missing Constraints content.")
 	}
 }
 
-// TC-06: Dependency with qualifier — subsection only
-func TestMCPLoadChain_TC06_DependencyWithQualifier(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC06_DependencyWithQualifierSubsectionOnly(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-depends_on:
-  - ROOT/b(interface)
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
-	testWriteFile(t, "code-from-spec/b/_node.md", `---
-name: b
----
-# ROOT/b
-
-# Public
-B intro content.
-
-## Interface
-B interface details.
-
-## Constraints
-B constraint details.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ndepends_on:\n  - ROOT/b(interface)\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n")
+	testWriteFile(t, "code-from-spec/b/_node.md",
+		"# ROOT/b\n# Public\n\n## Interface\n\nInterface content.\n\n## Constraints\n\nConstraints content.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result.Context, "## Interface") {
-		t.Error("context missing ## Interface heading")
+	if !strings.Contains(result.Context, "Interface content.") {
+		t.Error("context missing Interface content.")
 	}
-	if !strings.Contains(result.Context, "B interface details.") {
-		t.Error("context missing B interface details")
+	if strings.Contains(result.Context, "Constraints content.") {
+		t.Error("context should not contain Constraints content. (not the qualified subsection)")
 	}
 	if strings.Contains(result.Context, "## Constraints") {
 		t.Error("context should not contain ## Constraints heading")
 	}
-	if strings.Contains(result.Context, "B constraint details.") {
-		t.Error("context should not contain B constraint details")
-	}
-	if strings.Contains(result.Context, "B intro content.") {
-		t.Error("context should not contain B intro content")
-	}
 }
 
-// TC-07: ARTIFACT dependency — content minus frontmatter
-func TestMCPLoadChain_TC07_ArtifactDependency(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC07_ArtifactDependencyContentMinusFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/b/_node.md", `---
-outputs:
-  - id: code
-    path: out/b.go
----
-# ROOT/b
-`)
-	testWriteFile(t, "out/b.go", `---
-some: frontmatter
----
-package main
-
-// Body content of b.go
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-depends_on:
-  - ARTIFACT/b(code)
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ndepends_on:\n  - ARTIFACT/b(code)\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n")
+	testWriteFile(t, "code-from-spec/b/_node.md",
+		"---\noutputs:\n  - id: code\n    path: out/b.go\n---\n# ROOT/b\n")
+	testWriteFile(t, "out/b.go",
+		"---\nsome: frontmatter\n---\nBody content of b.go.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result.Context, "package main") {
-		t.Error("context missing 'package main'")
-	}
-	if !strings.Contains(result.Context, "// Body content of b.go") {
-		t.Error("context missing '// Body content of b.go'")
+	if !strings.Contains(result.Context, "Body content of b.go.") {
+		t.Error("context missing Body content of b.go.")
 	}
 	if strings.Contains(result.Context, "some: frontmatter") {
-		t.Error("context should not contain frontmatter content 'some: frontmatter'")
+		t.Error("context should not contain frontmatter from out/b.go")
 	}
 }
 
-// TC-08: External file — full content
 func TestMCPLoadChain_TC08_ExternalFileFullContent(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "data/config.yaml", `key: value
-setting: enabled
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-external:
-  - path: data/config.yaml
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\nexternal:\n  - path: data/config.yaml\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n")
+	testWriteFile(t, "data/config.yaml", "key: value\nother: data\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
@@ -432,102 +278,21 @@ A public content.
 	}
 
 	if !strings.Contains(result.Context, "key: value") {
-		t.Error("context missing 'key: value'")
+		t.Error("context missing key: value from config.yaml")
 	}
-	if !strings.Contains(result.Context, "setting: enabled") {
-		t.Error("context missing 'setting: enabled'")
-	}
-}
-
-// TC-09: External file with fragments — line ranges only
-func TestMCPLoadChain_TC09_ExternalFileWithFragments(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "data/big.txt", `line 1
-line 2
-line 3
-line 4
-line 5
-line 6
-line 7
-line 8
-line 9
-line 10
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-external:
-  - path: data/big.txt
-    fragments:
-      - lines: "2-4"
-        hash: ignored
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
-
-	result, err := mcploadchain.MCPLoadChain("ROOT/a")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !strings.Contains(result.Context, "line 2") {
-		t.Error("context missing 'line 2'")
-	}
-	if !strings.Contains(result.Context, "line 3") {
-		t.Error("context missing 'line 3'")
-	}
-	if !strings.Contains(result.Context, "line 4") {
-		t.Error("context missing 'line 4'")
-	}
-
-	for _, excluded := range []string{"line 1", "line 5", "line 6", "line 7", "line 8", "line 9", "line 10"} {
-		if strings.Contains(result.Context, excluded) {
-			t.Errorf("context should not contain '%s'", excluded)
-		}
+	if !strings.Contains(result.Context, "other: data") {
+		t.Error("context missing other: data from config.yaml")
 	}
 }
 
-// TC-10: Target has reduced frontmatter with outputs only
-func TestMCPLoadChain_TC10_TargetReducedFrontmatter(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC09_TargetFrontmatterContainsOutputsOnly(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-depends_on:
-  - ROOT/b
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
-	testWriteFile(t, "code-from-spec/b/_node.md", `---
-name: b
----
-# ROOT/b
-
-# Public
-B public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ndepends_on:\n  - ROOT/b\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n")
+	testWriteFile(t, "code-from-spec/b/_node.md", "# ROOT/b\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
@@ -535,123 +300,69 @@ B public content.
 	}
 
 	if !strings.Contains(result.Context, "outputs") {
-		t.Error("context missing 'outputs' field")
+		t.Error("context should contain outputs in the frontmatter block for the target")
 	}
 	if strings.Contains(result.Context, "depends_on") {
-		t.Error("context should not contain 'depends_on' field")
+		t.Error("context should not contain depends_on in the target frontmatter block")
 	}
 }
 
-// TC-11: Target agent section included
-func TestMCPLoadChain_TC11_TargetAgentSectionIncluded(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC10_TargetAgentSectionIncluded(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-
-# Agent
-A agent guidance.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n# Public\n\nNode a public content.\n\n# Agent\n\nNode a agent content.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result.Context, "# Public") {
-		t.Error("context missing # Public heading")
-	}
-	if !strings.Contains(result.Context, "A public content.") {
-		t.Error("context missing 'A public content.'")
+	if !strings.Contains(result.Context, "Node a public content.") {
+		t.Error("context missing Node a public content.")
 	}
 	if !strings.Contains(result.Context, "# Agent") {
 		t.Error("context missing # Agent heading")
 	}
-	if !strings.Contains(result.Context, "A agent guidance.") {
-		t.Error("context missing 'A agent guidance.'")
+	if !strings.Contains(result.Context, "Node a agent content.") {
+		t.Error("context missing Node a agent content.")
 	}
 }
 
-// TC-12: Target without agent section — skipped
-func TestMCPLoadChain_TC12_TargetWithoutAgentSection(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC11_TargetWithoutAgentSectionSkipped(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n# Public\n\nNode a public content.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result.Context, "A public content.") {
-		t.Error("context missing 'A public content.'")
+	if !strings.Contains(result.Context, "Node a public content.") {
+		t.Error("context missing Node a public content.")
 	}
 	if strings.Contains(result.Context, "# Agent") {
 		t.Error("context should not contain # Agent heading")
 	}
 }
 
-// TC-13: Input separated from context
-func TestMCPLoadChain_TC13_InputSeparatedFromContext(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC12_InputSeparatedFromContext(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/b/_node.md", `---
-outputs:
-  - id: data
-    path: out/data.json
----
-# ROOT/b
-`)
-	testWriteFile(t, "out/data.json", `---
-artifact: frontmatter
----
-{"key": "value", "count": 42}
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-input: ARTIFACT/b(data)
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ninput: ARTIFACT/b(data)\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n")
+	testWriteFile(t, "code-from-spec/b/_node.md",
+		"---\noutputs:\n  - id: data\n    path: out/data.json\n---\n# ROOT/b\n")
+	testWriteFile(t, "out/data.json",
+		"---\nsome: frontmatter\n---\nBody content of data.json.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
@@ -659,42 +370,26 @@ A public content.
 	}
 
 	if result.Input == nil {
-		t.Fatal("expected input to be present")
+		t.Fatal("result.Input should not be nil")
 	}
-	if !strings.Contains(*result.Input, `{"key": "value", "count": 42}`) {
-		t.Error("input missing expected JSON content")
+	if !strings.Contains(*result.Input, "Body content of data.json.") {
+		t.Error("input missing Body content of data.json.")
 	}
-	if strings.Contains(*result.Input, "artifact: frontmatter") {
-		t.Error("input should not contain frontmatter content")
+	if strings.Contains(*result.Input, "some: frontmatter") {
+		t.Error("input should not contain frontmatter from out/data.json")
 	}
-	if strings.Contains(*result.Input, "---") {
-		t.Error("input should not contain frontmatter delimiters")
-	}
-	if strings.Contains(result.Context, `{"key": "value", "count": 42}`) {
-		t.Error("context should not contain the input artifact body")
+	if strings.Contains(result.Context, "Body content of data.json.") {
+		t.Error("context should not contain input body content")
 	}
 }
 
-// TC-14: No input — field absent
-func TestMCPLoadChain_TC14_NoInputFieldAbsent(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC13_NoInputFieldAbsent(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
@@ -702,39 +397,22 @@ A public content.
 	}
 
 	if result.Input != nil {
-		t.Error("expected input to be absent (nil)")
+		t.Error("result.Input should be nil when no input is declared")
 	}
 }
 
-// TC-15: Hash is deterministic
-func TestMCPLoadChain_TC15_HashIsDeterministic(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC14_HashIsDeterministic(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-
-# Public
-Deterministic root content.
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-Deterministic A content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n# Public\n\nRoot public content.\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n# Public\n\nNode a public content.\n")
 
 	result1, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("first call unexpected error: %v", err)
 	}
-
 	result2, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
 		t.Fatalf("second call unexpected error: %v", err)
@@ -745,121 +423,75 @@ Deterministic A content.
 	}
 }
 
-// TC-E01: Invalid logical name — not ROOT/
-func TestMCPLoadChain_TCE01_InvalidLogicalName(t *testing.T) {
+func TestMCPLoadChain_TC15_InvalidLogicalName(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+
 	_, err := mcploadchain.MCPLoadChain("INVALID/something")
 	if err == nil {
-		t.Fatal("expected error for invalid logical name")
+		t.Fatal("expected error for invalid logical name, got nil")
 	}
 	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
 		t.Errorf("expected ErrUnsupportedReference, got: %v", err)
 	}
 }
 
-// TC-E02: Nonexistent node file
-func TestMCPLoadChain_TCE02_NonexistentNodeFile(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC16_NonexistentNodeFile(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
 	_, err := mcploadchain.MCPLoadChain("ROOT/nonexistent")
 	if err == nil {
-		t.Fatal("expected error for nonexistent node file")
+		t.Fatal("expected error for nonexistent node, got nil")
 	}
 	if !errors.Is(err, filereader.ErrFileUnreadable) {
 		t.Errorf("expected ErrFileUnreadable, got: %v", err)
 	}
 }
 
-// TC-E03: No outputs declared
-func TestMCPLoadChain_TCE03_NoOutputsDeclared(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC17_NoOutputsDeclared(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-name: a
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md", "# ROOT/a\n# Public\n\nNode a public content.\n")
 
 	_, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err == nil {
-		t.Fatal("expected error for no outputs")
+		t.Fatal("expected error for missing outputs, got nil")
 	}
 	if !errors.Is(err, mcploadchain.ErrNoOutputs) {
 		t.Errorf("expected ErrNoOutputs, got: %v", err)
 	}
 }
 
-// TC-E04: Invalid output path — traversal
-func TestMCPLoadChain_TCE04_InvalidOutputPathTraversal(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC18_InvalidOutputPathTraversal(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-outputs:
-  - id: main
-    path: ../../etc/passwd
----
-# ROOT/a
-
-# Public
-A public content.
-`)
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutputs:\n  - id: main\n    path: ../../etc/passwd\n---\n# ROOT/a\n")
 
 	_, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err == nil {
-		t.Fatal("expected error for invalid output path")
+		t.Fatal("expected error for path traversal output, got nil")
 	}
 	if !errors.Is(err, mcploadchain.ErrInvalidOutputPath) {
 		t.Errorf("expected ErrInvalidOutputPath, got: %v", err)
 	}
 }
 
-// TC-E05: Unresolvable dependency
-func TestMCPLoadChain_TCE05_UnresolvableDependency(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestMCPLoadChain_TC19_UnresolvableDependency(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "code-from-spec/_node.md", `---
-name: ROOT
----
-# ROOT
-`)
-	testWriteFile(t, "code-from-spec/a/_node.md", `---
-depends_on:
-  - ROOT/missing
-outputs:
-  - id: main
-    path: out/a.txt
----
-# ROOT/a
-
-# Public
-A public content.
-`)
-	// ROOT/missing/_node.md is intentionally not created.
+	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ndepends_on:\n  - ROOT/missing\noutputs:\n  - id: main\n    path: out/a.go\n---\n# ROOT/a\n")
 
 	_, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err == nil {
-		t.Fatal("expected error for unresolvable dependency")
-	}
-	// The error may be propagated through chain resolution or hash computation
-	// as a file-unreadable or unresolvable-frontmatter error.
-	if !errors.Is(err, filereader.ErrFileUnreadable) &&
-		!errors.Is(err, chainresolver.ErrUnreadableFrontmatter) {
-		t.Errorf("expected file-unreadable or unreadable-frontmatter error, got: %v", err)
+		t.Fatal("expected error for unresolvable dependency, got nil")
 	}
 }

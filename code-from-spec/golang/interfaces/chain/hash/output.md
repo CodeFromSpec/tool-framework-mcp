@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@Su4iOa8FdoeVVCyENdO-I75Q-wQ)
+[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@L86EFczDZEpblyV2wAS8jb9Maqs)
 
 # Package `chainhash`
 
@@ -6,7 +6,7 @@
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
 ```
 
-Package `chainhash` computes a stable 27-character base64url-encoded SHA-1 hash for a resolved spec chain, used to detect staleness of generated artifacts.
+Package `chainhash` computes a deterministic 27-character hash over an ordered chain of spec node files.
 
 ---
 
@@ -17,8 +17,7 @@ package chainhash
 
 import "errors"
 
-// ErrFileUnreadable is returned when a file in the chain cannot be
-// read or opened.
+// ErrFileUnreadable is returned when a file in the chain cannot be read or opened.
 var ErrFileUnreadable = errors.New("file unreadable")
 
 // ErrParseFailure is returned when a node file cannot be parsed.
@@ -34,13 +33,14 @@ package chainhash
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
 
-// ChainHashCompute receives a Chain (as returned by ChainResolve) and
-// returns a 27-character base64url encoded SHA-1 hash.
+// ChainHashCompute receives a Chain (as returned by ChainResolve) and returns
+// a 27-character base64url encoded SHA-1 hash.
 //
-// The function reads each position's content from disk, computes a
-// content hash (SHA-1) for each file, concatenates all content hashes
-// as raw bytes in chain assembly order, and computes the final SHA-1
-// of the concatenation.
+// For each position in the chain (in assembly order), the function reads the
+// file content from disk and computes a SHA-1 hash of that content. All
+// per-file SHA-1 digests are concatenated as raw bytes in chain assembly order,
+// and a final SHA-1 is computed over the concatenation. The result is encoded
+// as base64url without padding, producing a 27-character string.
 //
 // Errors:
 //   - ErrFileUnreadable: a file in the chain cannot be read or opened.
@@ -67,25 +67,22 @@ import (
 )
 
 func main() {
-	// First, resolve the chain for a target logical name.
 	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/hash")
 	if err != nil {
-		log.Fatalf("failed to resolve chain: %v", err)
+		log.Fatalf("chain resolution failed: %v", err)
 	}
 
-	// Compute the chain hash.
 	hash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		if errors.Is(err, chainhash.ErrFileUnreadable) {
 			log.Fatal("a file in the chain could not be read")
 		}
 		if errors.Is(err, chainhash.ErrParseFailure) {
-			log.Fatal("a node file in the chain could not be parsed")
+			log.Fatal("a node file could not be parsed")
 		}
-		log.Fatalf("unexpected error: %v", err)
+		log.Fatalf("hash computation failed: %v", err)
 	}
 
-	// The hash is a 27-character base64url-encoded SHA-1 string.
-	fmt.Printf("chain hash: %s\n", hash)
+	fmt.Println("chain hash:", hash)
 }
 ```

@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/write_file@qf9I293Z7WU0k4e4UgnqLCVybDg)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/write_file@rwbRTR9QLC9dw2_b0JQ7WYoCDJc)
 
 # Package `mcpwritefile`
 
@@ -6,7 +6,7 @@
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
 ```
 
-Package `mcpwritefile` implements the MCP `write_file` tool. It validates that the requested output path is declared in the target node's frontmatter before delegating the write to the file writer.
+Package `mcpwritefile` implements the MCP `write_file` tool. It validates that a given path is declared in the target node's outputs and writes the provided content to disk.
 
 ---
 
@@ -21,13 +21,12 @@ import "errors"
 // cannot be parsed.
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
 
-// ErrNoOutputs is returned when the target node has no outputs field
-// declared in its frontmatter.
-var ErrNoOutputs = errors.New("node has no outputs")
+// ErrNoOutputs is returned when the target node has no outputs field.
+var ErrNoOutputs = errors.New("no outputs")
 
-// ErrPathNotInOutputs is returned when the requested path is not
-// declared in the node's outputs list.
-var ErrPathNotInOutputs = errors.New("path not declared in node outputs")
+// ErrPathNotInOutputs is returned when the given path is not declared
+// in the node's outputs list.
+var ErrPathNotInOutputs = errors.New("path not in outputs")
 ```
 
 ---
@@ -37,14 +36,9 @@ var ErrPathNotInOutputs = errors.New("path not declared in node outputs")
 ```go
 package mcpwritefile
 
-// MCPWriteFile writes content to the given path, provided that path is
-// declared in the outputs field of the node identified by logical_name.
-//
-// The function resolves logical_name to the node's spec file path,
-// parses its frontmatter, checks that path appears in the outputs list,
-// validates the path, and finally writes the content.
-//
-// On success it returns the string "wrote <path>".
+// MCPWriteFile validates that path is declared in the outputs of the
+// node identified by logical_name, then writes content to that path.
+// Returns a success message of the form "wrote <path>" on success.
 //
 // Errors:
 //   - ErrUnreadableFrontmatter: the node's frontmatter cannot be parsed.
@@ -72,11 +66,11 @@ import (
 )
 
 func main() {
-	logicalName := "ROOT/golang/interfaces/mcp_tools/write_file"
-	outputPath := "code-from-spec/golang/interfaces/mcp_tools/write_file/output.md"
-	content := "# Generated output\n\nHello, world!\n"
-
-	result, err := mcpwritefile.MCPWriteFile(logicalName, outputPath, content)
+	result, err := mcpwritefile.MCPWriteFile(
+		"ROOT/golang/interfaces/mcp_tools/write_file",
+		"code-from-spec/golang/interfaces/mcp_tools/write_file/output.md",
+		"# generated content\n",
+	)
 	if err != nil {
 		if errors.Is(err, mcpwritefile.ErrUnreadableFrontmatter) {
 			log.Fatal("could not parse node frontmatter")
@@ -85,11 +79,11 @@ func main() {
 			log.Fatal("node declares no outputs")
 		}
 		if errors.Is(err, mcpwritefile.ErrPathNotInOutputs) {
-			log.Fatal("path is not authorised by the node's outputs list")
+			log.Fatal("path is not authorized by node outputs")
 		}
-		log.Fatalf("unexpected error: %v", err)
+		log.Fatalf("write failed: %v", err)
 	}
 
-	fmt.Println(result) // wrote code-from-spec/golang/interfaces/mcp_tools/write_file/output.md
+	fmt.Println(result)
 }
 ```

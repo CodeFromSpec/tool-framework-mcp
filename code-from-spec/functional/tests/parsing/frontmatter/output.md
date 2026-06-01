@@ -1,472 +1,219 @@
-<!-- code-from-spec: ROOT/functional/tests/parsing/frontmatter@cl1UQur34DKetda98Rkp0RdLehM -->
+<!-- code-from-spec: ROOT/functional/tests/parsing/frontmatter@cNudHADxoatpkjMk3D_dsFetLj8 -->
 
-# Test Specification: FrontmatterParse
-
-## Records
-
-```
-record FrontmatterExternalFragment
-  description: optional string
-  lines: string
-  hash: string
-
-record FrontmatterExternal
-  path: string
-  fragments: optional list of FrontmatterExternalFragment
-
-record FrontmatterOutput
-  id: string
-  path: string
-
-record Frontmatter
-  depends_on: list of strings
-  external: list of FrontmatterExternal
-  input: string
-  outputs: list of FrontmatterOutput
-```
+## Test Cases: FrontmatterParse
 
 ---
 
-## Happy Path
+### Happy Path
 
-### TC-HP-01: Parses complete frontmatter (all fields)
+---
 
-**Setup:**
-Create a file with the following frontmatter containing all fields:
-- `depends_on`: a list of two dependency strings
-- `external`: one entry with a `path` and one fragment containing `description`, `lines`, and `hash`
+#### Parses complete frontmatter (all fields)
+
+Setup: Create a file with frontmatter containing all fields:
+- `depends_on`: two dependency strings
+- `external`: two entries each with a `path` field
 - `input`: a non-empty string value
-- `outputs`: two entries, each with `id` and `path`
+- `outputs`: two entries each with `id` and `path` fields
 
-Example file content:
-```
----
-depends_on:
-  - "dep/one"
-  - "dep/two"
-external:
-  - path: "some/external/file.md"
-    fragments:
-      - description: "A fragment description"
-        lines: "10-20"
-        hash: "abc123"
-input: "some/input/file.md"
-outputs:
-  - id: "output_one"
-    path: "path/to/output_one.go"
-  - id: "output_two"
-    path: "path/to/output_two.go"
----
-Body content here.
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
-- `depends_on` contains `"dep/one"` and `"dep/two"`.
-- `external` has one entry with `path` equal to `"some/external/file.md"` and one fragment with `description` equal to `"A fragment description"`, `lines` equal to `"10-20"`, `hash` equal to `"abc123"`.
-- `input` equals `"some/input/file.md"`.
-- `outputs` has two entries: first with `id` `"output_one"` and `path` `"path/to/output_one.go"`, second with `id` `"output_two"` and `path` `"path/to/output_two.go"`.
+- `depends_on` contains the two listed dependency strings.
+- `external` has two entries with the correct `path` values.
+- `input` matches the specified value.
+- `outputs` has two entries with the correct `id` and `path` values.
 
 ---
 
-### TC-HP-02: Parses frontmatter with only outputs
+#### Parses frontmatter with only outputs
 
-**Setup:**
-Create a file with frontmatter containing only `outputs` (one entry with `id` and `path`).
+Setup: Create a file with frontmatter containing only an `outputs` field with one entry having `id` and `path`.
 
-Example file content:
-```
----
-outputs:
-  - id: "my_output"
-    path: "path/to/my_output.go"
----
-Body content here.
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
 - `depends_on` is empty.
 - `external` is empty.
-- `input` is empty string.
-- `outputs` has one entry with `id` `"my_output"` and `path` `"path/to/my_output.go"`.
+- `input` is empty.
+- `outputs` has one entry with the correct `id` and `path`.
 
 ---
 
-### TC-HP-03: Parses frontmatter with only depends_on
+#### Parses frontmatter with only depends_on
 
-**Setup:**
-Create a file with frontmatter containing only `depends_on` (a list of two strings).
+Setup: Create a file with frontmatter containing only a `depends_on` field listing two values.
 
-Example file content:
-```
----
-depends_on:
-  - "dep/alpha"
-  - "dep/beta"
----
-Body content here.
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
-- `depends_on` contains `"dep/alpha"` and `"dep/beta"`.
+- `depends_on` contains the two listed values.
 - `external` is empty.
-- `input` is empty string.
+- `input` is empty.
 - `outputs` is empty.
 
 ---
 
-### TC-HP-04: Parses frontmatter with external and fragments
+#### Parses frontmatter with external entries
 
-**Setup:**
-Create a file with frontmatter containing an `external` field with two entries. The first entry has a `path` and two fragments each with `description`, `lines`, and `hash`. The second entry has only a `path` and no fragments.
+Setup: Create a file with frontmatter containing only an `external` field with two entries each having a `path`.
 
-Example file content:
-```
----
-external:
-  - path: "docs/first.md"
-    fragments:
-      - description: "First fragment"
-        lines: "1-5"
-        hash: "hash001"
-      - description: "Second fragment"
-        lines: "10-15"
-        hash: "hash002"
-  - path: "docs/second.md"
----
-Body content.
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
-- `external` has two entries.
-- First entry: `path` equals `"docs/first.md"`, two fragments — first with `description` `"First fragment"`, `lines` `"1-5"`, `hash` `"hash001"`; second with `description` `"Second fragment"`, `lines` `"10-15"`, `hash` `"hash002"`.
-- Second entry: `path` equals `"docs/second.md"`, no fragments (empty or absent).
-- `depends_on` is empty, `input` is empty string, `outputs` is empty.
+- `external` has two entries with the correct `path` values.
+- All other fields are empty.
 
 ---
 
-### TC-HP-05: Parses frontmatter with input field
+#### Parses frontmatter with input field
 
-**Setup:**
-Create a file with frontmatter containing only the `input` field.
+Setup: Create a file with frontmatter containing only an `input` field set to a non-empty string.
 
-Example file content:
-```
----
-input: "path/to/input/source.md"
----
-Body content.
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
-- `input` equals `"path/to/input/source.md"`.
+- `input` matches the specified value.
 - `depends_on` is empty.
 - `external` is empty.
 - `outputs` is empty.
 
 ---
 
-### TC-HP-06: Fragment without description
+#### Ignores unknown frontmatter fields
 
-**Setup:**
-Create a file with frontmatter containing an `external` entry that has one fragment with `lines` and `hash` but no `description`.
+Setup: Create a file with frontmatter containing known fields (`depends_on`, `outputs`) plus an extra unknown field (e.g., `custom_field: value`).
 
-Example file content:
-```
----
-external:
-  - path: "docs/nodesc.md"
-    fragments:
-      - lines: "5-10"
-        hash: "hashXYZ"
----
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
-- `external` has one entry with `path` `"docs/nodesc.md"` and one fragment.
-- The fragment has `description` absent (not present), `lines` equal to `"5-10"`, and `hash` equal to `"hashXYZ"`.
-
----
-
-### TC-HP-07: Ignores unknown frontmatter fields
-
-**Setup:**
-Create a file with frontmatter containing known fields (`depends_on`, `outputs`) plus one or more unknown fields (e.g., `custom_field: "some value"`, `another_unknown: 42`).
-
-Example file content:
-```
----
-depends_on:
-  - "dep/known"
-custom_field: "some value"
-another_unknown: 42
-outputs:
-  - id: "out1"
-    path: "path/out1.go"
----
-Body content.
-```
-
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
-- No error.
-- `depends_on` contains `"dep/known"`.
-- `outputs` has one entry with `id` `"out1"` and `path` `"path/out1.go"`.
+- Known fields are parsed correctly.
 - Unknown fields are silently ignored.
 
 ---
 
-### TC-HP-08: File with no frontmatter returns empty result
+#### File with no frontmatter returns empty result
 
-**Setup:**
-Create a file that contains no `---` delimiter at all — body content only.
+Setup: Create a file containing only body content, with no `---` delimiter anywhere.
 
-Example file content:
-```
-This is just body content.
-No frontmatter here.
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
-- `depends_on` is empty.
-- `external` is empty.
-- `input` is empty string.
-- `outputs` is empty.
+- All fields (`depends_on`, `external`, `input`, `outputs`) are empty.
 
 ---
 
-## Edge Cases
+### Edge Cases
 
-### TC-EC-01: Empty frontmatter
-
-**Setup:**
-Create a file with opening and closing `---` delimiters and nothing between them.
-
-Example file content:
-```
 ---
----
-Some body content.
-```
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
+#### Empty frontmatter
 
-**Expected outcome:**
+Setup: Create a file with an opening `---` and a closing `---` and nothing between them.
+
+Action: Call `FrontmatterParse` with the file path.
+
+Expected outcome:
 - No error.
-- `depends_on` is empty.
-- `external` is empty.
-- `input` is empty string.
-- `outputs` is empty.
+- All fields are empty.
 
 ---
 
-### TC-EC-02: File with only frontmatter, nothing after
+#### File with only frontmatter, nothing after
 
-**Setup:**
-Create a file with a frontmatter block (opening `---`, content, closing `---`) and no body content after the closing `---`.
+Setup: Create a file with valid frontmatter (opening `---`, some fields, closing `---`) and no body content after the closing delimiter.
 
-Example file content:
-```
----
-depends_on:
-  - "dep/only"
----
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
-- `depends_on` contains `"dep/only"`.
-- `external` is empty, `input` is empty string, `outputs` is empty.
+- Fields are parsed correctly.
 
 ---
 
-### TC-EC-03: Delimiter with trailing whitespace is not recognized
+#### Delimiter with trailing whitespace is not recognized
 
-**Setup:**
-Create a file where the first line is `---   ` (three dashes followed by trailing spaces). No other `---` delimiter is present.
+Setup: Create a file where the first line is `---   ` (with trailing spaces), followed by some content.
 
-Example file content:
-```
----   
-Some body content.
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
+Expected outcome:
 - No error.
-- The line `---   ` is not recognized as a frontmatter delimiter.
-- Result has all fields empty (treated as a file with no frontmatter).
+- All fields are empty — the line with trailing spaces is not recognized as a frontmatter delimiter.
 
 ---
 
-## Failure Cases
-
-### TC-FC-01: File does not exist
-
-**Setup:**
-No file is created. Use a `PathCfs` that points to a non-existent file path within the allowed directory.
-
-**Action:**
-Call `FrontmatterParse` with the non-existent path.
-
-**Expected outcome:**
-- Error `FileUnreadable` is returned.
+### Failure Cases
 
 ---
 
-### TC-FC-02: Propagates path errors
+#### File does not exist
 
-**Setup:**
-No file is created. Use an invalid `PathCfs` that represents a directory traversal (e.g., `"../../outside"`).
+Setup: No file is created. Prepare a `PathCfs` pointing to a non-existent file.
 
-**Action:**
-Call `FrontmatterParse` with the invalid path.
+Action: Call `FrontmatterParse` with the non-existent file path.
 
-**Expected outcome:**
-- Error `DirectoryTraversal` is returned (propagated from FileReader/PathUtils via FileOpen).
+Expected outcome:
+- Error `FileUnreadable`.
 
 ---
 
-### TC-FC-03: Malformed YAML
+#### Propagates path errors
 
-**Setup:**
-Create a file with invalid YAML content between the frontmatter delimiters.
+Setup: Prepare an invalid `PathCfs` value that represents a path escaping the root (e.g., `"../../outside"`).
 
-Example file content:
-```
----
-depends_on: [unclosed bracket
-  - bad: yaml: here
----
-Body content.
-```
+Action: Call `FrontmatterParse` with the invalid path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
-- Error `MalformedYAML` is returned.
+Expected outcome:
+- Error `DirectoryTraversal` propagated from `FileReader`/`PathUtils` via `FileOpen`.
 
 ---
 
-### TC-FC-04: Unclosed frontmatter block
+#### Malformed YAML
 
-**Setup:**
-Create a file that starts with `---` but has no closing `---` delimiter.
+Setup: Create a file with a valid opening `---`, invalid YAML content between the delimiters (e.g., unbalanced brackets or bad indentation), and a closing `---`.
 
-Example file content:
-```
----
-depends_on:
-  - "dep/one"
-Body content with no closing delimiter.
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
-- Error `MalformedYAML` is returned.
+Expected outcome:
+- Error `MalformedYAML`.
 
 ---
 
-### TC-FC-05: Missing required field in external entry
+#### Unclosed frontmatter block
 
-**Setup:**
-Create a file with an `external` entry that has no `path` field (only fragments or other fields).
+Setup: Create a file that begins with `---` but has no subsequent closing `---` — only body content follows.
 
-Example file content:
-```
----
-external:
-  - fragments:
-      - lines: "1-5"
-        hash: "abc"
----
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
-- Error `MalformedYAML` is returned.
+Expected outcome:
+- Error `MalformedYAML`.
 
 ---
 
-### TC-FC-06: Missing required field in fragment
+#### Missing required field in external entry
 
-**Setup:**
-Create a file with an `external` entry containing a fragment that has `lines` but no `hash`.
+Setup: Create a file with an `external` entry in the frontmatter that has no `path` field (e.g., the entry is present but `path` is omitted).
 
-Example file content:
-```
----
-external:
-  - path: "docs/file.md"
-    fragments:
-      - description: "Some fragment"
-        lines: "1-10"
----
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
-- Error `MalformedYAML` is returned.
+Expected outcome:
+- Error `MalformedYAML`.
 
 ---
 
-### TC-FC-07: Missing required field in output entry
+#### Missing required field in output entry
 
-**Setup:**
-Create a file with an `outputs` entry that has `id` but no `path`.
+Setup: Create a file with an `outputs` entry that has an `id` field but no `path` field.
 
-Example file content:
-```
----
-outputs:
-  - id: "output_without_path"
----
-```
+Action: Call `FrontmatterParse` with the file path.
 
-**Action:**
-Call `FrontmatterParse` with the path to this file.
-
-**Expected outcome:**
-- Error `MalformedYAML` is returned.
+Expected outcome:
+- Error `MalformedYAML`.

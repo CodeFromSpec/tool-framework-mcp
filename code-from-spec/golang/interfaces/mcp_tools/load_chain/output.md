@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@y6eQCq8oQixNQQd-yj4O0V9DYpM)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@lSs04uHCDrqWP2QWMV5cIEf6QRE)
 
 # Package `mcploadchain`
 
@@ -6,7 +6,7 @@
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
 ```
 
-Package `mcploadchain` implements the `load_chain` MCP tool, which resolves a spec chain for a given logical name, computes its hash, and returns the concatenated chain context together with an optional input artifact.
+Package `mcploadchain` implements the `load_chain` MCP tool, which resolves and assembles the spec chain for a target node.
 
 ---
 
@@ -15,17 +15,11 @@ Package `mcploadchain` implements the `load_chain` MCP tool, which resolves a sp
 ```go
 package mcploadchain
 
-// MCPLoadChainResult holds the result of a successful load_chain tool call.
+// MCPLoadChainResult holds the result returned by MCPLoadChain.
 type MCPLoadChainResult struct {
-	// ChainHash is the 27-character base64url-encoded SHA-1 chain hash.
 	ChainHash string
-
-	// Context is all chain content concatenated as a single stream.
-	Context string
-
-	// Input is the content of the input artifact, excluding frontmatter.
-	// It is nil when the target node has no input artifact.
-	Input *string
+	Context   string
+	Input     *string
 }
 ```
 
@@ -41,8 +35,7 @@ import "errors"
 // ErrNoOutputs is returned when the target node has no outputs field.
 var ErrNoOutputs = errors.New("no outputs")
 
-// ErrInvalidOutputPath is returned when an output path fails path
-// validation.
+// ErrInvalidOutputPath is returned when an output path fails path validation.
 var ErrInvalidOutputPath = errors.New("invalid output path")
 ```
 
@@ -53,9 +46,8 @@ var ErrInvalidOutputPath = errors.New("invalid output path")
 ```go
 package mcploadchain
 
-// MCPLoadChain resolves the spec chain for the given logical name,
-// computes the chain hash, and returns the concatenated context and
-// optional input artifact content.
+// MCPLoadChain resolves the spec chain for the given logical name and returns
+// the assembled context, chain hash, and optional input content.
 //
 // Errors:
 //   - ErrNoOutputs: the target node has no outputs field.
@@ -80,13 +72,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
 )
 
 func main() {
-	// Call MCPLoadChain with the logical name of the target node.
 	result, err := mcploadchain.MCPLoadChain("ROOT/golang/interfaces/mcp_tools/load_chain")
 	if err != nil {
 		if errors.Is(err, mcploadchain.ErrNoOutputs) {
@@ -95,32 +84,14 @@ func main() {
 		if errors.Is(err, mcploadchain.ErrInvalidOutputPath) {
 			log.Fatal("an output path failed validation")
 		}
-		if errors.Is(err, chainresolver.ErrUnreadableFrontmatter) {
-			log.Fatal("could not parse a node's frontmatter")
-		}
-		if errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
-			log.Fatal("an ARTIFACT/ reference could not be resolved")
-		}
-		if errors.Is(err, chainhash.ErrFileUnreadable) {
-			log.Fatal("a file in the chain could not be read")
-		}
-		if errors.Is(err, chainhash.ErrParseFailure) {
-			log.Fatal("a node file in the chain could not be parsed")
-		}
-		log.Fatalf("unexpected error: %v", err)
+		log.Fatalf("load_chain failed: %v", err)
 	}
 
-	// The chain hash is a 27-character base64url-encoded SHA-1 string.
-	fmt.Printf("chain_hash: %s\n", result.ChainHash)
+	fmt.Println("chain hash:", result.ChainHash)
+	fmt.Println("context length:", len(result.Context))
 
-	// The context contains all chain content concatenated.
-	fmt.Printf("context length: %d bytes\n", len(result.Context))
-
-	// Input is only present when the target node declares an input artifact.
 	if result.Input != nil {
-		fmt.Printf("input length: %d bytes\n", len(*result.Input))
-	} else {
-		fmt.Println("input: (none)")
+		fmt.Println("input content length:", len(*result.Input))
 	}
 }
 ```
