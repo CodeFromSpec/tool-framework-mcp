@@ -41,8 +41,7 @@ hashed content.
 | `depends_on: ROOT/x/y` | `# Public` section of the referenced node |
 | `depends_on: ROOT/x/y(z)` | `## z` subsection of `# Public` of the referenced node |
 | `depends_on: ARTIFACT/x/y(id)` | Full content of the referenced artifact, excluding any frontmatter |
-| `external` (whole file) | Full content of the referenced file |
-| `external` (with fragments) | Concatenation of each fragment's content, in declaration order |
+| `external` | Full content of the referenced file |
 | `input: ARTIFACT/x/y(id)` | Full content of the artifact file, excluding any frontmatter |
 
 ---

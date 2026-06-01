@@ -126,20 +126,10 @@ depends_on:
 
 #### external
 
-External file dependencies. References project files — source
-code, configuration, data files, third-party documentation, or
-any other text file. The content of the referenced file is
-included in the chain as context for the generation subagent.
+External file dependencies. References source code, configuration, data files, third-party
+documentation, or any other text file. The entire content of each referenced file
+is included in the chain as context for the generation subagent.
 Paths are relative to the project root and use forward slashes.
-
-By default, the entire file is imported. To import specific
-portions, declare `fragments` — each fragment specifies a line
-range (`lines`) and a content hash (`hash`). The hash is
-computed from the content at the declared lines. If the content
-at those lines changes or the lines shift, the hash will not
-match — this is reported as an error, not as staleness. The
-`description` field on a fragment is optional and ignored by
-the framework; it exists for human readability.
 
 If a referenced file does not exist, it is reported as an error.
 
@@ -148,13 +138,6 @@ If a referenced file does not exist, it is reported as an error.
 external:
   - path: proto/payments/v1/transfers.proto
   - path: docs/vendor/stripe-payouts.yaml
-    fragments:
-      - description: POST /v1/payouts request/response
-        lines: 150-210
-        hash: q9Sd3uV6wPrK5yG7aB2xLoN8hIc
-      - description: Payout object schema
-        lines: 480-530
-        hash: r1Te4vW7xQsL6zH8bC3yMpO9iJd
 ---
 ```
 
@@ -330,8 +313,8 @@ building the **chain**:
    - `ROOT/x/y(z)` — `## z` subsection of `# Public` only.
    - `ARTIFACT/x/y(id)` — full content of the referenced artifact, excluding any frontmatter.
 3. The target node's `external` content, appended in
-   alphabetical order by path. For each entry, either the full
-   file content or the declared fragments are included.
+   alphabetical order by path. The full file content of
+   each entry is included.
 4. The target node's `# Public` section.
 5. The target node's `# Agent` section.
 6. If the target node has an `input` field, the content of the
@@ -403,4 +386,4 @@ before returning or comparing them.
 | Tool | URL |
 |---|---|
 | `staleness-check` | https://github.com/CodeFromSpec/tool-staleness-check/releases/latest |
-| `framework-mcp` | https://github.com/CodeFromSpec/tool-framework-mcp/releases/latest |
+| `subagent-mcp` | https://github.com/CodeFromSpec/tool-subagent-mcp/releases/latest |
