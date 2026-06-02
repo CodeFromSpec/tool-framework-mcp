@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/artifact_tag@s9VIuXEVdYf5c4OCPW029VCSIdc)
+[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/artifact_tag@n3vlZYg8oEtFLOA_I36eXUzQseQ)
 
 # Package `artifacttag`
 
@@ -15,8 +15,6 @@ package artifacttag
 ```go
 package artifacttag
 
-// ArtifactTag holds the parsed contents of a code-from-spec tag found
-// inside a generated file.
 type ArtifactTag struct {
 	LogicalName string
 	Hash        string
@@ -42,9 +40,6 @@ package artifacttag
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// ArtifactTagExtract scans the file at file_path line by line for a
-// code-from-spec: <logical-name>@<hash> tag. The tag may appear inside
-// any comment syntax. Returns the parsed ArtifactTag on success.
 func ArtifactTagExtract(file_path *pathutils.PathCfs) (*ArtifactTag, error)
 ```
 

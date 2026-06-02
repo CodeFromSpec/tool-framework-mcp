@@ -106,9 +106,11 @@ Expect error DirectoryTraversal.
 
 #### Rejects symlink escaping project root
 
-Create a symlink inside the project root pointing to a
-directory outside it. Call `PathCfsToOs` with a path
-through the symlink. Expect error ResolvesOutsideRoot.
+Create a directory outside the project root and a file
+inside it (so the symlink target exists on disk). Create
+a symlink inside the project root pointing to that
+outside file. Call `PathCfsToOs` with a path through the
+symlink. Expect error ResolvesOutsideRoot.
 
 #### Roundtrip: CfsToOs then OsToCfs
 
@@ -141,9 +143,10 @@ backslashes.
 
 #### Symlink within root resolving within root
 
-Create a symlink inside the project root pointing to
-another location inside the project root. Call
-`PathOsToCfs` with the symlink path. Expect success.
+Create a file inside the project root (so the symlink
+target exists on disk). Create a symlink inside the
+project root pointing to that file. Call `PathOsToCfs`
+with the symlink path. Expect success.
 
 #### Rejects path outside project root
 

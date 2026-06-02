@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/os/path_utils@nkiJhkS9B_zGsrPndTktR1KktHY -->
+<!-- code-from-spec: ROOT/functional/tests/os/path_utils@F2zflFQ2C4QHMhvjamR07L8ok4o -->
 
 ## PathValidateCfs
 
@@ -176,7 +176,7 @@ Expected: error DirectoryTraversal is returned. No conversion is attempted.
 
 ### rejects symlink escaping project root
 
-Setup: a symlink exists inside the project root whose target resolves to a directory outside the project root.
+Setup: a directory is created outside the project root with a file inside it (so the symlink target exists on disk). A symlink is created inside the project root pointing to that outside file.
 
 Action: call `PathCfsToOs` with a path that traverses through that symlink.
 
@@ -200,7 +200,7 @@ Expected: no error at either step. The final `PathCfs` value equals `"internal/c
 
 ### converts valid OS path that exists
 
-Setup: a file exists inside the project root. Its absolute OS path is known.
+Setup: a file is created inside the project root. Its absolute OS path is known.
 
 Action: call `PathOsToCfs` with that absolute OS path.
 
@@ -230,7 +230,7 @@ Expected: no error is returned. The resulting `PathCfs` value contains no backsl
 
 ### symlink within root resolving within root
 
-Setup: a symlink exists inside the project root pointing to another location that is also inside the project root.
+Setup: a file is created inside the project root (so the symlink target exists on disk). A symlink is created inside the project root pointing to that file.
 
 Action: call `PathOsToCfs` with the absolute OS path of that symlink.
 

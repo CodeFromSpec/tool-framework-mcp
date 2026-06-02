@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_reader@yEtAaYmUrn7xyFFrwQUUdsv9SNI)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_reader@AC8uE0OBBVXRNUcxNVsS6_HzdHw)
 
 # Package `filereader`
 
@@ -17,7 +17,6 @@ package filereader
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// FileReader holds the state for sequential line-by-line reading of a file.
 type FileReader struct {
 	CfsPath pathutils.PathCfs
 }
@@ -41,22 +40,9 @@ package filereader
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// FileOpen opens the file at cfs_path and prepares it for sequential
-// line-by-line reading from the beginning. The caller must call FileClose
-// when done to avoid leaking the file handle.
 func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error)
-
-// FileReadLine reads the next line from the reader, normalizes CRLF to LF,
-// and returns the line without the line terminator. Returns ErrEndOfFile
-// when no more lines are available.
 func FileReadLine(reader *FileReader) (string, error)
-
-// FileSkipLines reads and discards count lines from the reader without
-// returning their content.
 func FileSkipLines(reader *FileReader, count int)
-
-// FileClose releases the file resource held by reader. After FileClose,
-// FileReadLine returns ErrEndOfFile and FileSkipLines does nothing.
 func FileClose(reader *FileReader)
 ```
 

@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/list_files@E6eVzTLIZItumtyB5mMVu_kkLyM)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/list_files@YFY0LKmxwzxvqRTn9pQK5fDzzlw)
 
 # Package `listfiles`
 
@@ -28,9 +28,6 @@ package listfiles
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// ListFiles returns all files (not directories) found recursively under
-// cfs_path, as PathCfs values sorted alphabetically. Returns an empty
-// slice if the directory exists but contains no files.
 func ListFiles(cfs_path *pathutils.PathCfs) ([]*pathutils.PathCfs, error)
 ```
 

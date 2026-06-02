@@ -101,11 +101,13 @@ Rule name: `dependency_targets`.
 
 Each `depends_on` entry must be valid:
 
-- **`ROOT/` references**: strip the qualifier using
+- **ROOT references** (the entry is exactly `ROOT` or
+  starts with `ROOT/`): strip the qualifier using
   `LogicalNameStripQualifier` to get the bare logical
   name (e.g. `ROOT/a/b(interface)` → `ROOT/a/b`; if no
   qualifier, returned unchanged). Verify the bare
-  logical name exists in the known logical names set. Also verify it does not point to the node itself
+  logical name exists in the known logical names set.
+  Also verify it does not point to the node itself
   (bare name equals the current node's logical name),
   an ancestor (the bare name followed by `/` is a prefix
   of the current node's logical name), or a descendant

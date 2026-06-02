@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_writer@4iEcuKf4RshEpEgLdDIxxKeQess)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_writer@iWl_1sQuco7BkZw2valSnyXFaQg)
 
 # Package `filewriter`
 
@@ -28,10 +28,6 @@ package filewriter
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// FileWrite writes content to the file at cfs_path as UTF-8 encoded text.
-// If the file exists it is overwritten; if it does not exist it is created.
-// Intermediate directories are created as needed. The path is validated
-// before any file or directory is created.
 func FileWrite(cfs_path *pathutils.PathCfs, content string) error
 ```
 

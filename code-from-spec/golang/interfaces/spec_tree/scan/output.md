@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/scan@MXeKn6ZuauiO6hGkh_lSkQapD4A)
+[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/scan@vftWbTD-g7JG2wH_nSIfob9hay8)
 
 # Package `spectree`
 
@@ -17,7 +17,6 @@ package spectree
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// SpecTreeNode associates a logical name with the PathCfs of its _node.md file.
 type SpecTreeNode struct {
 	LogicalName string
 	FilePath    pathutils.PathCfs
@@ -39,9 +38,6 @@ var ErrNoNodesFound = errors.New("no _node.md files found under code-from-spec/"
 ```go
 package spectree
 
-// SpecTreeScan scans the code-from-spec/ directory for all _node.md files
-// and returns a SpecTreeNode for each one, sorted alphabetically by logical
-// name.
 func SpecTreeScan() ([]*SpecTreeNode, error)
 ```
 

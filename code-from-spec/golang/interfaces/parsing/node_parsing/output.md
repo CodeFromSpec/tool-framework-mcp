@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/node_parsing@ODYPWPNZ2yO6mqywoIejqaSnMek)
+[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/node_parsing@PwYvAUI0iOaeg9vI3OeLilwQJ4Y)
 
 # Package `parsenode`
 
@@ -15,19 +15,12 @@ package parsenode
 ```go
 package parsenode
 
-// NodeSubsection represents a level-2 heading and its content within a section.
-// Heading is the normalized form; RawHeading is the original line as read from
-// the file. Content holds each line exactly as read.
 type NodeSubsection struct {
 	Heading    string
 	RawHeading string
 	Content    []string
 }
 
-// NodeSection represents a level-1 heading and its content within a node file.
-// Heading is the normalized form; RawHeading is the original line as read from
-// the file. Content holds lines before the first level-2 heading, each exactly
-// as read. Subsections holds one entry per level-2 heading found.
 type NodeSection struct {
 	Heading     string
 	RawHeading  string
@@ -35,9 +28,6 @@ type NodeSection struct {
 	Subsections []*NodeSubsection
 }
 
-// Node is the parsed representation of a _node.md file.
-// NameSection is the first (name) section. Public, Agent, and Private hold
-// the corresponding sections when present. Private preserves file order.
 type Node struct {
 	NameSection *NodeSection
 	Public      *NodeSection
@@ -68,9 +58,6 @@ var ErrDuplicateSubsection                  = errors.New("duplicate subsection h
 ```go
 package parsenode
 
-// NodeParse reads and parses the _node.md file for the given logical_name.
-// The logical name must start with ROOT/ and must not contain a parenthetical
-// qualifier.
 func NodeParse(logical_name string) (*Node, error)
 ```
 
