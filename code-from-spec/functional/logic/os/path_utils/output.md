@@ -1,12 +1,8 @@
-<!-- code-from-spec: ROOT/functional/logic/os/path_utils@j6ywRj5HVrT0-qP-mnfyrigoqfo -->
-
-# path_utils
+<!-- code-from-spec: ROOT/functional/logic/os/path_utils@bVJjs49IJJTP83ZCH5oBX1QFPSE -->
 
 namespace: pathutils
 
 ---
-
-## Records
 
 record PathCfs
   value: string
@@ -16,116 +12,89 @@ record PathOs
 
 ---
 
-## Functions
+function PathGetProjectRoot() -> PathOs
+  errors:
+    - CannotDetermineRoot
 
-### PathGetProjectRoot() -> PathOs
+  1. Read the current working directory of the process.
+     If the working directory cannot be read, raise error "cannot determine project root".
 
-Returns the current working directory of the process as a PathOs (absolute,
-OS-native format).
-
-  1. Read the working directory of the current process.
-     If the working directory cannot be read, raise error "cannot determine
-     project root".
-
-  2. Return a PathOs with that absolute path as its value.
-
-Errors:
-  - CannotDetermineRoot: the working directory cannot be read.
+  2. Return a PathOs with the working directory as its value.
 
 ---
 
-### PathValidateCfs(value: string)
-
-Validates that a string conforms to the PathCfs format rules. Raises an error
-describing the first violation found. Does not check whether the file exists.
+function PathValidateCfs(value: string)
+  errors:
+    - PathEmpty
+    - PathAbsolute
+    - PathContainsBackslash
+    - DirectoryTraversal
 
   1. If value is empty, raise error "path is empty".
 
-  2. If value starts with "/" or matches a drive-letter pattern (e.g. "C:"),
-     raise error "path is absolute".
+  2. If value starts with "/" or starts with a drive letter pattern
+     (a single letter followed by ":"), raise error "path is absolute".
 
-  3. If value contains "\", raise error "path contains backslash".
+  3. If value contains any "\" character, raise error "path contains backslash".
 
   4. Normalize the path by resolving "." and ".." components.
 
-  5. For each component of the normalized path:
-       If the component equals "..", raise error "directory traversal detected".
-
-Errors:
-  - PathEmpty: the path value is empty.
-  - PathAbsolute: the path starts with "/" or a drive letter like "C:".
-  - PathContainsBackslash: the path contains "\" characters.
-  - DirectoryTraversal: the path contains ".." components after normalization.
+  5. For each component in the normalized path:
+       If the component is "..", raise error "directory traversal".
 
 ---
 
-### PathCfsToOs(cfs_path: PathCfs) -> PathOs
-
-Validates a PathCfs and converts it to an absolute PathOs. This is the single
-entry point for going from framework paths to OS paths. Never sanitizes —
-rejects invalid paths. Never creates or modifies files.
+function PathCfsToOs(cfs_path: PathCfs) -> PathOs
+  errors:
+    - ResolvesOutsideRoot
+    - PathEmpty          (propagated from PathValidateCfs)
+    - PathAbsolute       (propagated from PathValidateCfs)
+    - PathContainsBackslash (propagated from PathValidateCfs)
+    - DirectoryTraversal (propagated from PathValidateCfs)
+    - CannotDetermineRoot (propagated from PathGetProjectRoot)
 
   1. Call PathValidateCfs with cfs_path.value.
-     If it raises any error, propagate that error to the caller.
+     If it raises any error, propagate that error immediately without continuing.
 
-  2. Obtain the project root by calling PathGetProjectRoot.
-     If it raises any error, propagate that error to the caller.
+  2. Call PathGetProjectRoot.
+     If it raises an error, propagate that error immediately without continuing.
+     Store the result as root.
 
-  3. Replace all forward slash "/" characters in cfs_path.value with the OS
-     path separator.
+  3. Replace all "/" characters in cfs_path.value with the OS-native path separator.
+     Store the result as os_relative.
 
-  4. Join the project root path with the converted relative path to form a
-     single absolute path.
+  4. Join root.value and os_relative to form an absolute path.
+     Store the result as abs_path.
 
-  5. Check whether the resulting path exists on the filesystem.
-     If it exists:
-       a. Resolve all symlinks in the path to obtain the real absolute path.
-       b. Verify that the resolved path starts with the project root path
-          (using the project root as a prefix, including its trailing
-          separator, to avoid partial directory name matches).
-          If it does not, raise error "resolves outside root".
+  5. If abs_path refers to an existing filesystem entry:
+       Resolve any symlinks in abs_path to obtain resolved_path.
+       If resolved_path does not start with root.value, raise error "resolves outside root".
+       Return a PathOs with resolved_path as its value.
 
-  6. Return a PathOs whose value is the absolute joined path from step 4
-     (pre-symlink-resolution), confirming containment has passed.
-
-Errors:
-  - ResolvesOutsideRoot: after resolving symlinks, the path is outside the
-    project root.
-  - (propagated from PathValidateCfs): PathEmpty, PathAbsolute,
-    PathContainsBackslash, DirectoryTraversal.
-  - (propagated from PathGetProjectRoot): CannotDetermineRoot.
+  6. Return a PathOs with abs_path as its value.
 
 ---
 
-### PathOsToCfs(os_path: PathOs) -> PathCfs
+function PathOsToCfs(os_path: PathOs) -> PathCfs
+  errors:
+    - ResolvesOutsideRoot
+    - CannotDetermineRoot (propagated from PathGetProjectRoot)
 
-Converts an absolute PathOs to a PathCfs relative to the project root. Used
-by components that receive paths from the OS (e.g. directory listing). Never
-creates or modifies files.
+  1. Call PathGetProjectRoot.
+     If it raises an error, propagate that error immediately without continuing.
+     Store the result as root.
 
-  1. Obtain the project root by calling PathGetProjectRoot.
-     If it raises any error, propagate that error to the caller.
+  2. If os_path.value refers to an existing filesystem entry:
+       Resolve any symlinks in os_path.value to obtain resolved_path.
+     Else:
+       Set resolved_path to os_path.value.
 
-  2. Check whether os_path.value exists on the filesystem.
-     If it exists:
-       a. Resolve all symlinks in os_path.value to obtain the real absolute
-          path.
-       b. Use the resolved path as the working path for the remaining steps.
-     If it does not exist, use os_path.value as the working path.
+  3. If resolved_path does not start with root.value, raise error "resolves outside root".
 
-  3. Verify that the working path starts with the project root path (using
-     the project root as a prefix, including its trailing separator, to avoid
-     partial directory name matches).
-     If it does not, raise error "resolves outside root".
+  4. Compute the relative portion of resolved_path by removing the root.value prefix
+     and any leading path separator.
+     Store the result as rel_path.
 
-  4. Compute the relative portion of the working path by removing the project
-     root prefix.
+  5. Replace all OS-native path separator characters in rel_path with "/".
 
-  5. Replace all OS path separator characters in the relative path with
-     forward slashes "/".
-
-  6. Return a PathCfs with the resulting relative path as its value.
-
-Errors:
-  - ResolvesOutsideRoot: the path is not within the project root.
-  - (propagated from PathGetProjectRoot): CannotDetermineRoot.
+  6. Return a PathCfs with the result as its value.

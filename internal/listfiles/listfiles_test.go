@@ -1,10 +1,9 @@
-// code-from-spec: ROOT/golang/tests/os/list_files@QMm75BJzL7HqJ46y_YItQ3Ga6-E
+// code-from-spec: ROOT/golang/tests/os/list_files@t34DcAhMcLlFQf1HDDYLCYUugMs
 package listfiles_test
 
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-// testChdir changes the working directory to dir for the duration of the test.
 func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	orig, err := os.Getwd()
@@ -29,253 +27,206 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-// testMakeDir creates a directory (and all parents) under the working directory.
-func testMakeDir(t *testing.T, path string) {
-	t.Helper()
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		t.Fatalf("testMakeDir: %v", err)
-	}
-}
+func TestListFiles_FlatDirectory(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-// testWriteFile creates a file with the given content under the working directory.
-func testWriteFile(t *testing.T, path string, content []byte) {
-	t.Helper()
-	dir := filepath.Dir(path)
-	if dir != "." {
-		testMakeDir(t, dir)
+	if err := os.MkdirAll("mydir", 0755); err != nil {
+		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, content, 0o644); err != nil {
-		t.Fatalf("testWriteFile: %v", err)
-	}
-}
-
-// testCfsValues extracts the string values from a slice of PathCfs pointers.
-func testCfsValues(paths []*pathutils.PathCfs) []string {
-	vals := make([]string, len(paths))
-	for i, p := range paths {
-		vals[i] = p.Value
-	}
-	return vals
-}
-
-// testStringSliceEqual checks that two string slices have equal length and contents.
-func testStringSliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
+		if err := os.WriteFile("mydir/"+name, []byte("x"), 0644); err != nil {
+			t.Fatal(err)
 		}
 	}
-	return true
-}
 
-// TestListFiles_FlatDirectory verifies that ListFiles returns files in a flat
-// directory in alphabetical order.
-func TestListFiles_FlatDirectory(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
-
-	testWriteFile(t, "a.txt", []byte("a"))
-	testWriteFile(t, "b.txt", []byte("b"))
-	testWriteFile(t, "c.txt", []byte("c"))
-
-	result, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "."})
+	files, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "mydir"})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if len(result) != 3 {
-		t.Fatalf("expected 3 files, got %d", len(result))
+
+	want := []string{"mydir/a.txt", "mydir/b.txt", "mydir/c.txt"}
+	if len(files) != len(want) {
+		t.Fatalf("got %d files, want %d", len(files), len(want))
 	}
-	got := testCfsValues(result)
-	want := []string{"a.txt", "b.txt", "c.txt"}
-	if !testStringSliceEqual(got, want) {
-		t.Errorf("expected %v, got %v", want, got)
+	for i, f := range files {
+		if f.Value != want[i] {
+			t.Errorf("files[%d] = %q, want %q", i, f.Value, want[i])
+		}
 	}
 }
 
-// TestListFiles_Recursive verifies that ListFiles descends into subdirectories.
 func TestListFiles_Recursive(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "dir/alpha.txt", []byte("alpha"))
-	testWriteFile(t, "dir/sub/beta.txt", []byte("beta"))
-	testWriteFile(t, "dir/sub/deep/gamma.txt", []byte("gamma"))
+	if err := os.MkdirAll("dir/sub/deep", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("dir/alpha.txt", []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("dir/sub/beta.txt", []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("dir/sub/deep/gamma.txt", []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
-	result, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "dir"})
+	files, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "dir"})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if len(result) != 3 {
-		t.Fatalf("expected 3 files, got %d", len(result))
-	}
-	got := testCfsValues(result)
+
 	want := []string{"dir/alpha.txt", "dir/sub/beta.txt", "dir/sub/deep/gamma.txt"}
-	if !testStringSliceEqual(got, want) {
-		t.Errorf("expected %v, got %v", want, got)
+	if len(files) != len(want) {
+		t.Fatalf("got %d files, want %d: %v", len(files), len(want), files)
+	}
+	for i, f := range files {
+		if f.Value != want[i] {
+			t.Errorf("files[%d] = %q, want %q", i, f.Value, want[i])
+		}
 	}
 }
 
-// TestListFiles_SortedAlphabetically verifies that results are sorted regardless
-// of the order files are created.
 func TestListFiles_SortedAlphabetically(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	// Create in non-alphabetical order.
-	testWriteFile(t, "flat/z.txt", []byte("z"))
-	testWriteFile(t, "flat/a.txt", []byte("a"))
-	testWriteFile(t, "flat/m.txt", []byte("m"))
+	if err := os.MkdirAll("sortdir", 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"z.txt", "a.txt", "m.txt"} {
+		if err := os.WriteFile("sortdir/"+name, []byte("x"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
 
-	result, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "flat"})
+	files, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "sortdir"})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if len(result) != 3 {
-		t.Fatalf("expected 3 files, got %d", len(result))
+
+	want := []string{"sortdir/a.txt", "sortdir/m.txt", "sortdir/z.txt"}
+	if len(files) != len(want) {
+		t.Fatalf("got %d files, want %d", len(files), len(want))
 	}
-	got := testCfsValues(result)
-	want := []string{"flat/a.txt", "flat/m.txt", "flat/z.txt"}
-	if !testStringSliceEqual(got, want) {
-		t.Errorf("expected %v, got %v", want, got)
+	for i, f := range files {
+		if f.Value != want[i] {
+			t.Errorf("files[%d] = %q, want %q", i, f.Value, want[i])
+		}
 	}
 }
 
-// TestListFiles_EmptyDirectory verifies that ListFiles returns an empty slice
-// for a directory with no files.
 func TestListFiles_EmptyDirectory(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testMakeDir(t, "empty")
-
-	result, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "empty"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := os.MkdirAll("emptydir", 0755); err != nil {
+		t.Fatal(err)
 	}
-	if len(result) != 0 {
-		t.Errorf("expected empty slice, got %v", testCfsValues(result))
+
+	files, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "emptydir"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 0 {
+		t.Errorf("expected empty list, got %d files", len(files))
 	}
 }
 
-// TestListFiles_OnlySubdirectories verifies that ListFiles returns an empty
-// slice when the directory tree contains only subdirectories and no files.
 func TestListFiles_OnlySubdirectories(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testMakeDir(t, "parent/child1")
-	testMakeDir(t, "parent/child2")
+	if err := os.MkdirAll("parent/sub1", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll("parent/sub2", 0755); err != nil {
+		t.Fatal(err)
+	}
 
-	result, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "parent"})
+	files, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "parent"})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if len(result) != 0 {
-		t.Errorf("expected empty slice, got %v", testCfsValues(result))
+	if len(files) != 0 {
+		t.Errorf("expected empty list, got %d files", len(files))
 	}
 }
 
-// TestListFiles_DirectoryNotFound verifies that ListFiles returns
-// ErrDirectoryNotFound for a path that does not exist.
-func TestListFiles_DirectoryNotFound(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestListFiles_DirectoryDoesNotExist(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "nonexistent/dir"})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
+	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "nonexistent"})
 	if !errors.Is(err, listfiles.ErrDirectoryNotFound) {
-		t.Errorf("expected ErrDirectoryNotFound, got: %v", err)
+		t.Errorf("expected ErrDirectoryNotFound, got %v", err)
 	}
 }
 
-// TestListFiles_PropagatesDirectoryTraversal verifies that ListFiles propagates
-// the ErrDirectoryTraversal error from PathUtils when given a path that escapes
-// the project root.
-func TestListFiles_PropagatesDirectoryTraversal(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestListFiles_PropagatesValidationErrors(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
 	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "../../outside"})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
 	if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
-		t.Errorf("expected ErrDirectoryTraversal, got: %v", err)
+		t.Errorf("expected ErrDirectoryTraversal, got %v", err)
 	}
 }
 
-// TestListFiles_PropagatesResolvesOutsideRoot verifies that ListFiles propagates
-// ErrResolvesOutsideRoot when a symlink inside the directory points outside the
-// project root.
-func TestListFiles_PropagatesResolvesOutsideRoot(t *testing.T) {
+func TestListFiles_PropagatesConversionErrors(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("symlinks require elevated privileges on Windows")
+		t.Skip("symlinks not reliably supported on Windows")
 	}
 
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testMakeDir(t, "symlinkdir")
-	// Create a target file outside the project root (use os.TempDir which is
-	// guaranteed to be outside our temp working dir).
-	outside := filepath.Join(os.TempDir(), "outside_target.txt")
-	if err := os.WriteFile(outside, []byte("outside"), 0o644); err != nil {
-		t.Fatalf("failed to create outside target: %v", err)
-	}
-	t.Cleanup(func() { os.Remove(outside) })
-
-	// Create a regular file so the directory is not empty.
-	testWriteFile(t, "symlinkdir/regular.txt", []byte("regular"))
-
-	// Create a symlink pointing outside the project root.
-	if err := os.Symlink(outside, "symlinkdir/link.txt"); err != nil {
-		t.Fatalf("failed to create symlink: %v", err)
+	outside := t.TempDir()
+	if err := os.WriteFile(outside+"/external.txt", []byte("x"), 0644); err != nil {
+		t.Fatal(err)
 	}
 
-	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "symlinkdir"})
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if err := os.MkdirAll("linkdir", 0755); err != nil {
+		t.Fatal(err)
 	}
+	if err := os.WriteFile("linkdir/normal.txt", []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside+"/external.txt", "linkdir/symlink.txt"); err != nil {
+		t.Skip("cannot create symlink:", err)
+	}
+
+	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "linkdir"})
 	if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
-		t.Errorf("expected ErrResolvesOutsideRoot, got: %v", err)
+		t.Errorf("expected ErrResolvesOutsideRoot, got %v", err)
 	}
 }
 
-// TestListFiles_WalkError verifies that ListFiles returns ErrWalkError when a
-// subdirectory cannot be read due to permission restrictions.
 func TestListFiles_WalkError(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("directory permission restrictions behave differently on Windows")
-	}
-	if os.Getuid() == 0 {
-		t.Skip("running as root; permission restrictions do not apply")
+		t.Skip("directory permissions cannot prevent traversal on Windows")
 	}
 
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testWriteFile(t, "walkdir/sub/file.txt", []byte("content"))
-
-	// Deny read access to the subdirectory.
-	subPath := filepath.Join(tmp, "walkdir", "sub")
-	if err := os.Chmod(subPath, 0o000); err != nil {
-		t.Fatalf("failed to chmod subdir: %v", err)
+	if err := os.MkdirAll("parent/restricted", 0755); err != nil {
+		t.Fatal(err)
 	}
-	// Restore permissions for cleanup.
+	if err := os.WriteFile("parent/restricted/file.txt", []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod("parent/restricted", 0000); err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
-		os.Chmod(subPath, 0o755) //nolint:errcheck
+		os.Chmod("parent/restricted", 0755)
 	})
 
-	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "walkdir"})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
+	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "parent"})
 	if !errors.Is(err, listfiles.ErrWalkError) {
-		t.Errorf("expected ErrWalkError, got: %v", err)
+		t.Errorf("expected ErrWalkError, got %v", err)
 	}
 }

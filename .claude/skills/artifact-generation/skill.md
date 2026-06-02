@@ -98,3 +98,6 @@ artifacts, or when stale artifacts exist.
 - After generation, do not automatically run build or tests
   unless the user asks — report what was generated and let the
   user decide.
+- Track and report token usage. After each rank completes,
+  report the cumulative subagent tokens spent in this
+  generation session. At the end, report the total.

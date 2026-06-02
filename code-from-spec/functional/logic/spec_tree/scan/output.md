@@ -1,44 +1,44 @@
-<!-- code-from-spec: ROOT/functional/logic/spec_tree/scan@BOCN_cdbsKfp9njAI5EFiFsp4Q4 -->
+<!-- code-from-spec: ROOT/functional/logic/spec_tree/scan@o5zywBGePnW68eCf3RxajBMkVXg -->
 
-# Spec Tree Scan
+## Namespace
 
-namespace: spectreescan
+    namespace: spectreescan
 
 ## Records
 
+```
 record SpecTreeNode
   logical_name: string
   file_path: pathutils.PathCfs
+```
 
 ## Functions
 
 ```
 function SpecTreeScan() -> list of SpecTreeNode
   errors:
-    - NoNodesFound: no _node.md files were found under
-      code-from-spec/.
+    - NoNodesFound: no _node.md files found under code-from-spec/.
     - (ListFiles.*): propagated from ListFiles.
     - (LogicalNames.*): propagated from LogicalNameFromPath.
-
-  1. Call ListFiles with "code-from-spec/" as the directory.
-     If ListFiles raises an error, propagate it unchanged.
-
-  2. Filter the returned file paths: keep only those where
-     the file name portion (everything after the last "/")
-     is exactly "_node.md".
-
-  3. For each remaining path in the filtered list:
-     a. Call LogicalNameFromPath with the path.
-        If LogicalNameFromPath raises an error, propagate it
-        unchanged.
-     b. Construct a SpecTreeNode with:
-          logical_name: the result of LogicalNameFromPath
-          file_path: the current path
-
-  4. Sort the list of SpecTreeNode records alphabetically
-     by logical_name.
-
-  5. If the sorted list is empty, raise error "no nodes found".
-
-  6. Return the sorted list.
 ```
+
+### SpecTreeScan
+
+  1. Call `ListFiles` with the path `"code-from-spec/"`.
+     If `ListFiles` raises an error, propagate it.
+
+  2. Filter the results: keep only entries where the file name portion
+     of the path (everything after the last `"/"`) is exactly `"_node.md"`.
+
+  3. For each matching file path, call `LogicalNameFromPath` to derive
+     the logical name.
+     If `LogicalNameFromPath` raises an error, propagate it.
+     Build a `SpecTreeNode` record with:
+       `logical_name`: the derived logical name
+       `file_path`: the matching file path
+
+  4. Sort the resulting list alphabetically by `logical_name`.
+
+  5. If the list is empty, raise error `NoNodesFound`.
+
+  6. Return the sorted list of `SpecTreeNode` records.

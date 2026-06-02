@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/logical_names@tizdeABgzzi2jYneADOYGweLT_E
+// code-from-spec: ROOT/golang/tests/utils/logical_names@YEe2OHRyUc8CEc2n9WddM0Mc6_0
 package logicalnames_test
 
 import (
@@ -9,523 +9,324 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-// ---------------------------------------------------------------------------
-// LogicalNameToPath
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameToPath(t *testing.T) {
-	type testCase struct {
-		name        string
-		input       string
-		wantPath    string
-		wantErr     error
+func TestLogicalNameToPath_ROOTAlone(t *testing.T) {
+	result, err := logicalnames.LogicalNameToPath("ROOT")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	tests := []testCase{
-		// TC-01
-		{
-			name:     "ROOT alone",
-			input:    "ROOT",
-			wantPath: "code-from-spec/_node.md",
-		},
-		// TC-02
-		{
-			name:     "ROOT with path",
-			input:    "ROOT/payments/processor",
-			wantPath: "code-from-spec/payments/processor/_node.md",
-		},
-		// TC-03
-		{
-			name:     "strips qualifier before resolving",
-			input:    "ROOT/x/y(interface)",
-			wantPath: "code-from-spec/x/y/_node.md",
-		},
-		// TC-04
-		{
-			name:    "rejects ARTIFACT reference",
-			input:   "ARTIFACT/x(y)",
-			wantErr: logicalnames.ErrUnsupportedReference,
-		},
-		// TC-05
-		{
-			name:    "rejects unrecognized prefix",
-			input:   "UNKNOWN/something",
-			wantErr: logicalnames.ErrUnsupportedReference,
-		},
-		// TC-06
-		{
-			name:    "rejects empty string",
-			input:   "",
-			wantErr: logicalnames.ErrUnsupportedReference,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := logicalnames.LogicalNameToPath(tc.input)
-			if tc.wantErr != nil {
-				if err == nil {
-					t.Fatalf("expected error %v, got nil", tc.wantErr)
-				}
-				if !errors.Is(err, tc.wantErr) {
-					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got.Value != tc.wantPath {
-				t.Errorf("got path %q, want %q", got.Value, tc.wantPath)
-			}
-		})
+	if result.Value != "code-from-spec/_node.md" {
+		t.Errorf("Value = %q, want %q", result.Value, "code-from-spec/_node.md")
 	}
 }
 
-// ---------------------------------------------------------------------------
-// LogicalNameFromPath
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameFromPath(t *testing.T) {
-	type testCase struct {
-		name     string
-		input    string
-		wantName string
-		wantErr  error
+func TestLogicalNameToPath_ROOTWithPath(t *testing.T) {
+	result, err := logicalnames.LogicalNameToPath("ROOT/payments/processor")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	tests := []testCase{
-		// TC-07
-		{
-			name:     "root node",
-			input:    "code-from-spec/_node.md",
-			wantName: "ROOT",
-		},
-		// TC-08
-		{
-			name:     "nested node",
-			input:    "code-from-spec/x/y/_node.md",
-			wantName: "ROOT/x/y",
-		},
-		// TC-09
-		{
-			name:    "rejects non-node path",
-			input:   "internal/config/config.go",
-			wantErr: logicalnames.ErrInvalidPath,
-		},
-		// TC-10
-		{
-			name:    "rejects path without _node.md",
-			input:   "code-from-spec/x/y/output.md",
-			wantErr: logicalnames.ErrInvalidPath,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			cfsPath := &pathutils.PathCfs{Value: tc.input}
-			got, err := logicalnames.LogicalNameFromPath(cfsPath)
-			if tc.wantErr != nil {
-				if err == nil {
-					t.Fatalf("expected error %v, got nil", tc.wantErr)
-				}
-				if !errors.Is(err, tc.wantErr) {
-					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tc.wantName {
-				t.Errorf("got name %q, want %q", got, tc.wantName)
-			}
-		})
+	if result.Value != "code-from-spec/payments/processor/_node.md" {
+		t.Errorf("Value = %q, want %q", result.Value, "code-from-spec/payments/processor/_node.md")
 	}
 }
 
-// ---------------------------------------------------------------------------
-// LogicalNameGetParent
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameGetParent(t *testing.T) {
-	type testCase struct {
-		name       string
-		input      string
-		wantParent string
-		wantErr    error
+func TestLogicalNameToPath_StripsQualifierBeforeResolving(t *testing.T) {
+	result, err := logicalnames.LogicalNameToPath("ROOT/x/y(interface)")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	tests := []testCase{
-		// TC-11
-		{
-			name:       "ROOT/x parent is ROOT",
-			input:      "ROOT/domain",
-			wantParent: "ROOT",
-		},
-		// TC-12
-		{
-			name:       "ROOT/x/y parent is ROOT/x",
-			input:      "ROOT/domain/config",
-			wantParent: "ROOT/domain",
-		},
-		// TC-13
-		{
-			name:       "strips qualifier before computing parent",
-			input:      "ROOT/domain/config(interface)",
-			wantParent: "ROOT/domain",
-		},
-		// TC-14
-		{
-			name:    "ROOT has no parent",
-			input:   "ROOT",
-			wantErr: logicalnames.ErrNoParent,
-		},
-		// TC-15
-		{
-			name:    "rejects ARTIFACT reference",
-			input:   "ARTIFACT/x(y)",
-			wantErr: logicalnames.ErrNotARootReference,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := logicalnames.LogicalNameGetParent(tc.input)
-			if tc.wantErr != nil {
-				if err == nil {
-					t.Fatalf("expected error %v, got nil", tc.wantErr)
-				}
-				if !errors.Is(err, tc.wantErr) {
-					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tc.wantParent {
-				t.Errorf("got parent %q, want %q", got, tc.wantParent)
-			}
-		})
+	if result.Value != "code-from-spec/x/y/_node.md" {
+		t.Errorf("Value = %q, want %q", result.Value, "code-from-spec/x/y/_node.md")
 	}
 }
 
-// ---------------------------------------------------------------------------
-// LogicalNameGetQualifier
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameGetQualifier(t *testing.T) {
-	type testCase struct {
-		name          string
-		input         string
-		wantQualifier string
-		wantPresent   bool
-	}
-
-	tests := []testCase{
-		// TC-16
-		{
-			name:          "extracts qualifier from ROOT reference",
-			input:         "ROOT/x/y(interface)",
-			wantQualifier: "interface",
-			wantPresent:   true,
-		},
-		// TC-17
-		{
-			name:          "extracts qualifier from ARTIFACT reference",
-			input:         "ARTIFACT/x/y(id)",
-			wantQualifier: "id",
-			wantPresent:   true,
-		},
-		// TC-18
-		{
-			name:        "returns absent when no qualifier",
-			input:       "ROOT/x/y",
-			wantPresent: false,
-		},
-		// TC-19
-		{
-			name:        "returns absent for ROOT alone",
-			input:       "ROOT",
-			wantPresent: false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			gotQualifier, gotPresent := logicalnames.LogicalNameGetQualifier(tc.input)
-			if gotPresent != tc.wantPresent {
-				t.Errorf("got present=%v, want present=%v", gotPresent, tc.wantPresent)
-			}
-			if tc.wantPresent && gotQualifier != tc.wantQualifier {
-				t.Errorf("got qualifier %q, want %q", gotQualifier, tc.wantQualifier)
-			}
-		})
+func TestLogicalNameToPath_RejectsARTIFACTReference(t *testing.T) {
+	_, err := logicalnames.LogicalNameToPath("ARTIFACT/x")
+	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
+		t.Errorf("error = %v, want ErrUnsupportedReference", err)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// LogicalNameStripQualifier
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameStripQualifier(t *testing.T) {
-	type testCase struct {
-		name  string
-		input string
-		want  string
-	}
-
-	tests := []testCase{
-		// TC-20
-		{
-			name:  "strips qualifier from ROOT reference",
-			input: "ROOT/x/y(interface)",
-			want:  "ROOT/x/y",
-		},
-		// TC-21
-		{
-			name:  "strips qualifier from ARTIFACT reference",
-			input: "ARTIFACT/x/y(id)",
-			want:  "ARTIFACT/x/y",
-		},
-		// TC-22
-		{
-			name:  "no qualifier returns unchanged",
-			input: "ROOT/x/y",
-			want:  "ROOT/x/y",
-		},
-		// TC-23
-		{
-			name:  "ROOT alone returns unchanged",
-			input: "ROOT",
-			want:  "ROOT",
-		},
-		// TC-24
-		{
-			name:  "empty string returns unchanged",
-			input: "",
-			want:  "",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := logicalnames.LogicalNameStripQualifier(tc.input)
-			if got != tc.want {
-				t.Errorf("got %q, want %q", got, tc.want)
-			}
-		})
+func TestLogicalNameToPath_RejectsUnrecognizedPrefix(t *testing.T) {
+	_, err := logicalnames.LogicalNameToPath("UNKNOWN/something")
+	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
+		t.Errorf("error = %v, want ErrUnsupportedReference", err)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// LogicalNameHasParent
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameHasParent(t *testing.T) {
-	type testCase struct {
-		name  string
-		input string
-		want  bool
-	}
-
-	tests := []testCase{
-		// TC-25
-		{
-			name:  "ROOT alone",
-			input: "ROOT",
-			want:  false,
-		},
-		// TC-26
-		{
-			name:  "ROOT with path",
-			input: "ROOT/domain/config",
-			want:  true,
-		},
-		// TC-27
-		{
-			name:  "ROOT with qualifier",
-			input: "ROOT/domain/config(interface)",
-			want:  true,
-		},
-		// TC-28
-		{
-			name:  "ARTIFACT reference",
-			input: "ARTIFACT/x(y)",
-			want:  false,
-		},
-		// TC-29
-		{
-			name:  "empty string",
-			input: "",
-			want:  false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := logicalnames.LogicalNameHasParent(tc.input)
-			if got != tc.want {
-				t.Errorf("got %v, want %v", got, tc.want)
-			}
-		})
+func TestLogicalNameToPath_RejectsEmptyString(t *testing.T) {
+	_, err := logicalnames.LogicalNameToPath("")
+	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
+		t.Errorf("error = %v, want ErrUnsupportedReference", err)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// LogicalNameHasQualifier
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameHasQualifier(t *testing.T) {
-	type testCase struct {
-		name  string
-		input string
-		want  bool
+func TestLogicalNameFromPath_RootNode(t *testing.T) {
+	result, err := logicalnames.LogicalNameFromPath(&pathutils.PathCfs{Value: "code-from-spec/_node.md"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	tests := []testCase{
-		// TC-30
-		{
-			name:  "without qualifier",
-			input: "ROOT/x",
-			want:  false,
-		},
-		// TC-31
-		{
-			name:  "with qualifier",
-			input: "ROOT/x(y)",
-			want:  true,
-		},
-		// TC-32
-		{
-			name:  "ARTIFACT with qualifier",
-			input: "ARTIFACT/x(y)",
-			want:  true,
-		},
-		// TC-33
-		{
-			name:  "ROOT alone",
-			input: "ROOT",
-			want:  false,
-		},
-		// TC-34
-		{
-			name:  "empty string",
-			input: "",
-			want:  false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := logicalnames.LogicalNameHasQualifier(tc.input)
-			if got != tc.want {
-				t.Errorf("got %v, want %v", got, tc.want)
-			}
-		})
+	if result != "ROOT" {
+		t.Errorf("result = %q, want %q", result, "ROOT")
 	}
 }
 
-// ---------------------------------------------------------------------------
-// LogicalNameIsArtifact
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameIsArtifact(t *testing.T) {
-	type testCase struct {
-		name  string
-		input string
-		want  bool
+func TestLogicalNameFromPath_NestedNode(t *testing.T) {
+	result, err := logicalnames.LogicalNameFromPath(&pathutils.PathCfs{Value: "code-from-spec/x/y/_node.md"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	tests := []testCase{
-		// TC-35
-		{
-			name:  "ARTIFACT reference",
-			input: "ARTIFACT/x(y)",
-			want:  true,
-		},
-		// TC-36
-		{
-			name:  "ROOT reference",
-			input: "ROOT/x(y)",
-			want:  false,
-		},
-		// TC-37
-		{
-			name:  "empty string",
-			input: "",
-			want:  false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := logicalnames.LogicalNameIsArtifact(tc.input)
-			if got != tc.want {
-				t.Errorf("got %v, want %v", got, tc.want)
-			}
-		})
+	if result != "ROOT/x/y" {
+		t.Errorf("result = %q, want %q", result, "ROOT/x/y")
 	}
 }
 
-// ---------------------------------------------------------------------------
-// LogicalNameGetArtifactGenerator
-// ---------------------------------------------------------------------------
-
-func TestLogicalNameGetArtifactGenerator(t *testing.T) {
-	type testCase struct {
-		name      string
-		input     string
-		wantName  string
-		wantErr   error
+func TestLogicalNameFromPath_RejectsNonNodePath(t *testing.T) {
+	_, err := logicalnames.LogicalNameFromPath(&pathutils.PathCfs{Value: "internal/config/config.go"})
+	if !errors.Is(err, logicalnames.ErrInvalidPath) {
+		t.Errorf("error = %v, want ErrInvalidPath", err)
 	}
+}
 
-	tests := []testCase{
-		// TC-38
-		{
-			name:     "simple artifact",
-			input:    "ARTIFACT/x(y)",
-			wantName: "ROOT/x",
-		},
-		// TC-39
-		{
-			name:     "nested artifact",
-			input:    "ARTIFACT/x/y/z(id)",
-			wantName: "ROOT/x/y/z",
-		},
-		// TC-40
-		{
-			name:    "rejects ROOT reference",
-			input:   "ROOT/x(y)",
-			wantErr: logicalnames.ErrNotAnArtifactReference,
-		},
-		// TC-41
-		{
-			name:     "artifact reference without qualifier",
-			input:    "ARTIFACT/x",
-			wantName: "ROOT/x",
-		},
+func TestLogicalNameFromPath_RejectsPathWithoutNodeMd(t *testing.T) {
+	_, err := logicalnames.LogicalNameFromPath(&pathutils.PathCfs{Value: "code-from-spec/x/y/output.md"})
+	if !errors.Is(err, logicalnames.ErrInvalidPath) {
+		t.Errorf("error = %v, want ErrInvalidPath", err)
 	}
+}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := logicalnames.LogicalNameGetArtifactGenerator(tc.input)
-			if tc.wantErr != nil {
-				if err == nil {
-					t.Fatalf("expected error %v, got nil", tc.wantErr)
-				}
-				if !errors.Is(err, tc.wantErr) {
-					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tc.wantName {
-				t.Errorf("got %q, want %q", got, tc.wantName)
-			}
-		})
+func TestLogicalNameGetParent_ROOTXParentIsROOT(t *testing.T) {
+	result, err := logicalnames.LogicalNameGetParent("ROOT/domain")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "ROOT" {
+		t.Errorf("result = %q, want %q", result, "ROOT")
+	}
+}
+
+func TestLogicalNameGetParent_ROOTXYParentIsROOTX(t *testing.T) {
+	result, err := logicalnames.LogicalNameGetParent("ROOT/domain/config")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "ROOT/domain" {
+		t.Errorf("result = %q, want %q", result, "ROOT/domain")
+	}
+}
+
+func TestLogicalNameGetParent_StripsQualifierBeforeComputingParent(t *testing.T) {
+	result, err := logicalnames.LogicalNameGetParent("ROOT/domain/config(interface)")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "ROOT/domain" {
+		t.Errorf("result = %q, want %q", result, "ROOT/domain")
+	}
+}
+
+func TestLogicalNameGetParent_ROOTHasNoParent(t *testing.T) {
+	_, err := logicalnames.LogicalNameGetParent("ROOT")
+	if !errors.Is(err, logicalnames.ErrNoParent) {
+		t.Errorf("error = %v, want ErrNoParent", err)
+	}
+}
+
+func TestLogicalNameGetParent_RejectsARTIFACTReference(t *testing.T) {
+	_, err := logicalnames.LogicalNameGetParent("ARTIFACT/x")
+	if !errors.Is(err, logicalnames.ErrNotARootReference) {
+		t.Errorf("error = %v, want ErrNotARootReference", err)
+	}
+}
+
+func TestLogicalNameGetQualifier_ExtractsQualifierFromROOTReference(t *testing.T) {
+	qualifier, ok := logicalnames.LogicalNameGetQualifier("ROOT/x/y(interface)")
+	if !ok {
+		t.Fatalf("ok = false, want true")
+	}
+	if qualifier != "interface" {
+		t.Errorf("qualifier = %q, want %q", qualifier, "interface")
+	}
+}
+
+func TestLogicalNameGetQualifier_ARTIFACTWithoutQualifierReturnsAbsent(t *testing.T) {
+	qualifier, ok := logicalnames.LogicalNameGetQualifier("ARTIFACT/x/y")
+	if ok {
+		t.Errorf("ok = true, want false")
+	}
+	if qualifier != "" {
+		t.Errorf("qualifier = %q, want empty", qualifier)
+	}
+}
+
+func TestLogicalNameGetQualifier_ReturnsAbsentWhenNoQualifier(t *testing.T) {
+	qualifier, ok := logicalnames.LogicalNameGetQualifier("ROOT/x/y")
+	if ok {
+		t.Errorf("ok = true, want false")
+	}
+	if qualifier != "" {
+		t.Errorf("qualifier = %q, want empty", qualifier)
+	}
+}
+
+func TestLogicalNameGetQualifier_ReturnsAbsentForROOTAlone(t *testing.T) {
+	qualifier, ok := logicalnames.LogicalNameGetQualifier("ROOT")
+	if ok {
+		t.Errorf("ok = true, want false")
+	}
+	if qualifier != "" {
+		t.Errorf("qualifier = %q, want empty", qualifier)
+	}
+}
+
+func TestLogicalNameStripQualifier_StripsQualifierFromROOTReference(t *testing.T) {
+	result := logicalnames.LogicalNameStripQualifier("ROOT/x/y(interface)")
+	if result != "ROOT/x/y" {
+		t.Errorf("result = %q, want %q", result, "ROOT/x/y")
+	}
+}
+
+func TestLogicalNameStripQualifier_ARTIFACTWithoutQualifierReturnsUnchanged(t *testing.T) {
+	result := logicalnames.LogicalNameStripQualifier("ARTIFACT/x/y")
+	if result != "ARTIFACT/x/y" {
+		t.Errorf("result = %q, want %q", result, "ARTIFACT/x/y")
+	}
+}
+
+func TestLogicalNameStripQualifier_NoQualifierReturnsUnchanged(t *testing.T) {
+	result := logicalnames.LogicalNameStripQualifier("ROOT/x/y")
+	if result != "ROOT/x/y" {
+		t.Errorf("result = %q, want %q", result, "ROOT/x/y")
+	}
+}
+
+func TestLogicalNameStripQualifier_ROOTAloneReturnsUnchanged(t *testing.T) {
+	result := logicalnames.LogicalNameStripQualifier("ROOT")
+	if result != "ROOT" {
+		t.Errorf("result = %q, want %q", result, "ROOT")
+	}
+}
+
+func TestLogicalNameStripQualifier_EmptyStringReturnsUnchanged(t *testing.T) {
+	result := logicalnames.LogicalNameStripQualifier("")
+	if result != "" {
+		t.Errorf("result = %q, want empty", result)
+	}
+}
+
+func TestLogicalNameHasParent_ROOTAlone(t *testing.T) {
+	result := logicalnames.LogicalNameHasParent("ROOT")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameHasParent_ROOTWithPath(t *testing.T) {
+	result := logicalnames.LogicalNameHasParent("ROOT/domain/config")
+	if !result {
+		t.Errorf("result = false, want true")
+	}
+}
+
+func TestLogicalNameHasParent_ROOTWithQualifier(t *testing.T) {
+	result := logicalnames.LogicalNameHasParent("ROOT/domain/config(interface)")
+	if !result {
+		t.Errorf("result = false, want true")
+	}
+}
+
+func TestLogicalNameHasParent_ARTIFACTReference(t *testing.T) {
+	result := logicalnames.LogicalNameHasParent("ARTIFACT/x")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameHasParent_EmptyString(t *testing.T) {
+	result := logicalnames.LogicalNameHasParent("")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameHasQualifier_WithoutQualifier(t *testing.T) {
+	result := logicalnames.LogicalNameHasQualifier("ROOT/x")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameHasQualifier_WithQualifier(t *testing.T) {
+	result := logicalnames.LogicalNameHasQualifier("ROOT/x(y)")
+	if !result {
+		t.Errorf("result = false, want true")
+	}
+}
+
+func TestLogicalNameHasQualifier_ARTIFACTWithoutQualifier(t *testing.T) {
+	result := logicalnames.LogicalNameHasQualifier("ARTIFACT/x")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameHasQualifier_ROOTAlone(t *testing.T) {
+	result := logicalnames.LogicalNameHasQualifier("ROOT")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameHasQualifier_EmptyString(t *testing.T) {
+	result := logicalnames.LogicalNameHasQualifier("")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameIsArtifact_ARTIFACTReference(t *testing.T) {
+	result := logicalnames.LogicalNameIsArtifact("ARTIFACT/x")
+	if !result {
+		t.Errorf("result = false, want true")
+	}
+}
+
+func TestLogicalNameIsArtifact_ROOTReference(t *testing.T) {
+	result := logicalnames.LogicalNameIsArtifact("ROOT/x(y)")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameIsArtifact_EmptyString(t *testing.T) {
+	result := logicalnames.LogicalNameIsArtifact("")
+	if result {
+		t.Errorf("result = true, want false")
+	}
+}
+
+func TestLogicalNameGetArtifactGenerator_SimpleArtifact(t *testing.T) {
+	result, err := logicalnames.LogicalNameGetArtifactGenerator("ARTIFACT/x")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "ROOT/x" {
+		t.Errorf("result = %q, want %q", result, "ROOT/x")
+	}
+}
+
+func TestLogicalNameGetArtifactGenerator_NestedArtifact(t *testing.T) {
+	result, err := logicalnames.LogicalNameGetArtifactGenerator("ARTIFACT/x/y/z")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "ROOT/x/y/z" {
+		t.Errorf("result = %q, want %q", result, "ROOT/x/y/z")
+	}
+}
+
+func TestLogicalNameGetArtifactGenerator_RejectsROOTReference(t *testing.T) {
+	_, err := logicalnames.LogicalNameGetArtifactGenerator("ROOT/x(y)")
+	if !errors.Is(err, logicalnames.ErrNotAnArtifactReference) {
+		t.Errorf("error = %v, want ErrNotAnArtifactReference", err)
 	}
 }

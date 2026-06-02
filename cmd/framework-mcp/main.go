@@ -1,11 +1,13 @@
-// code-from-spec: ROOT/golang/implementation/server@OAT2vYxwfYDrS91tppR8X4FF6dI
+// code-from-spec: ROOT/golang/implementation/server@oNYmkB7A7BxxDPxMC5fFHW-W_f0
 package main
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpchainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpvalidatespecs"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
@@ -23,6 +25,7 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
+  chain_hash       Compute the chain hash for a node.
   version          Print the tool version.
 
 MCP configuration example:
@@ -51,15 +54,14 @@ func main() {
 		Name: "framework-mcp",
 	}, nil)
 
-	type LoadChainArgs struct {
+	type loadChainArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to load the chain for"`
 	}
-
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "load_chain",
 		Description: "Load the spec chain context for a given logical name. Returns all relevant spec files concatenated in a single response.",
 		Meta:        mcp.Meta{"anthropic/maxResultSizeChars": 500000},
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args LoadChainArgs) (*mcp.CallToolResult, any, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args loadChainArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcploadchain.MCPLoadChain(args.LogicalName)
 		if err != nil {
 			return &mcp.CallToolResult{
@@ -67,68 +69,82 @@ func main() {
 				IsError: true,
 			}, nil, nil
 		}
-
 		content := []mcp.Content{
-			&mcp.TextContent{Text: "chain_hash: " + result.ChainHash},
+			&mcp.TextContent{Text: result.ChainHash},
 			&mcp.TextContent{Text: result.Context},
 		}
 		if result.Input != nil {
 			content = append(content, &mcp.TextContent{Text: *result.Input})
 		}
-
-		return &mcp.CallToolResult{
-			Content: content,
-		}, nil, nil
+		return &mcp.CallToolResult{Content: content}, nil, nil
 	})
 
-	type WriteFileArgs struct {
+	type writeFileArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node whose outputs list authorizes the write"`
 		Path        string `json:"path" jsonschema:"relative file path from project root"`
 		Content     string `json:"content" jsonschema:"complete file content to write"`
 	}
-
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "write_file",
 		Description: "Write a generated source file to disk. The path must be one of the files declared in the node's outputs list. Overwrites existing content.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteFileArgs) (*mcp.CallToolResult, any, error) {
-		result, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Path, args.Content)
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args writeFileArgs) (*mcp.CallToolResult, any, error) {
+		msg, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Path, args.Content)
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
 				IsError: true,
 			}, nil, nil
 		}
-
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: result}},
+			Content: []mcp.Content{&mcp.TextContent{Text: msg}},
 		}, nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate_specs",
-		Description: "Validate all spec nodes for format errors, detect ranking cycles, and check artifact staleness.",
+		Description: "Validate the spec tree format, detect dependency cycles, and check artifact staleness.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		report := mcpvalidatespecs.MCPValidateSpecs()
 
-		text := ""
-
 		if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
-			text = "All specs valid. No format errors, cycles, or stale artifacts."
-		} else {
-			for _, fe := range report.FormatErrors {
-				text += fmt.Sprintf("format error: node=%s rule=%s detail=%s\n", fe.Node, fe.Rule, fe.Detail)
-			}
-			for _, name := range report.Cycles {
-				text += fmt.Sprintf("cycle detected: %s\n", name)
-			}
-			for _, se := range report.Staleness {
-				text += fmt.Sprintf("staleness | node: %s | path: %s | status: %s | rank: %d | detail: %s\n",
-					se.Node, se.ArtifactPath, se.Status, se.Rank, se.Detail)
-			}
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: "spec tree is valid and all artifacts are fresh"}},
+			}, nil, nil
+		}
+
+		var sb strings.Builder
+		for _, e := range report.FormatErrors {
+			sb.WriteString(fmt.Sprintf("format error: node=%s rule=%s detail=%s\n", e.Node, e.Rule, e.Detail))
+		}
+		for _, name := range report.Cycles {
+			sb.WriteString(fmt.Sprintf("cycle: %s\n", name))
+		}
+		for _, s := range report.Staleness {
+			sb.WriteString(fmt.Sprintf("staleness: node=%s path=%s status=%s rank=%d detail=%s\n",
+				s.Node, s.ArtifactPath, s.Status, s.Rank, s.Detail))
 		}
 
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: text}},
+			Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+		}, nil, nil
+	})
+
+	type chainHashArgs struct {
+		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to compute the chain hash for"`
+	}
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "chain_hash",
+		Description: "Compute the 27-character base64url chain hash for a given logical name.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args chainHashArgs) (*mcp.CallToolResult, any, error) {
+		hash, err := mcpchainhash.MCPChainHash(args.LogicalName)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
+				IsError: true,
+			}, nil, nil
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: hash}},
 		}, nil, nil
 	})
 
@@ -145,4 +161,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	os.Exit(0)
 }

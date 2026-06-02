@@ -1,29 +1,25 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@lSs04uHCDrqWP2QWMV5cIEf6QRE)
+<!-- code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@5vTisVNWFkG1YQl0-n9QFud4Wwo -->
 
 # Package `mcploadchain`
 
+```go
+package mcploadchain
 ```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
-```
 
-Package `mcploadchain` implements the `load_chain` MCP tool, which resolves and assembles the spec chain for a target node.
+Import path: `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"`
 
----
-
-## Structs
+## Struct Definitions
 
 ```go
 package mcploadchain
 
-// MCPLoadChainResult holds the result returned by MCPLoadChain.
+// MCPLoadChainResult holds the result of a load_chain tool call.
 type MCPLoadChainResult struct {
 	ChainHash string
 	Context   string
 	Input     *string
 }
 ```
-
----
 
 ## Error Sentinels
 
@@ -32,35 +28,25 @@ package mcploadchain
 
 import "errors"
 
-// ErrNoOutputs is returned when the target node has no outputs field.
-var ErrNoOutputs = errors.New("no outputs")
-
-// ErrInvalidOutputPath is returned when an output path fails path validation.
-var ErrInvalidOutputPath = errors.New("invalid output path")
+var ErrNoOutput          = errors.New("target node has no output field")
+var ErrInvalidOutputPath = errors.New("the output path fails path validation")
 ```
-
----
 
 ## Functions
 
 ```go
 package mcploadchain
 
-// MCPLoadChain resolves the spec chain for the given logical name and returns
-// the assembled context, chain hash, and optional input content.
+// MCPLoadChain resolves, concatenates, and returns the full chain content
+// for the given logical name, along with its 27-character base64url chain
+// hash and optional input artifact content.
 //
-// Errors:
-//   - ErrNoOutputs: the target node has no outputs field.
-//   - ErrInvalidOutputPath: an output path fails path validation.
-//   - (LogicalNames.*): propagated from LogicalNameToPath.
-//   - (ChainResolver.*): propagated from ChainResolve.
-//   - (ChainHash.*): propagated from ChainHashCompute.
-//   - (NodeParsing.*): propagated from NodeParse.
-//   - (FileReader.*): propagated from FileOpen.
+// Returns ErrNoOutput if the target node has no output field.
+// Returns ErrInvalidOutputPath if the output path fails path validation.
+// Propagates errors from LogicalNames, ChainResolver, ChainHash,
+// NodeParsing, and FileReader packages.
 func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error)
 ```
-
----
 
 ## Usage Example
 
@@ -68,7 +54,6 @@ func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error)
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
@@ -76,22 +61,16 @@ import (
 )
 
 func main() {
-	result, err := mcploadchain.MCPLoadChain("ROOT/golang/interfaces/mcp_tools/load_chain")
+	result, err := mcploadchain.MCPLoadChain("ROOT/golang/interfaces/chain/resolver")
 	if err != nil {
-		if errors.Is(err, mcploadchain.ErrNoOutputs) {
-			log.Fatal("target node has no outputs field")
-		}
-		if errors.Is(err, mcploadchain.ErrInvalidOutputPath) {
-			log.Fatal("an output path failed validation")
-		}
-		log.Fatalf("load_chain failed: %v", err)
+		log.Fatal(err)
 	}
 
 	fmt.Println("chain hash:", result.ChainHash)
 	fmt.Println("context length:", len(result.Context))
 
 	if result.Input != nil {
-		fmt.Println("input content length:", len(*result.Input))
+		fmt.Println("input length:", len(*result.Input))
 	}
 }
 ```

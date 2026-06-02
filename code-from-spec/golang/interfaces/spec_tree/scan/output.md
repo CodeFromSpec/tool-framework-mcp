@@ -1,36 +1,28 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/scan@IoyET-8CAzhbZfLbHTdO2tvYT3k)
+[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/scan@MXeKn6ZuauiO6hGkh_lSkQapD4A)
 
 # Package `spectree`
 
+Import path: `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"`
+
+## Package Declaration
+
+```go
+package spectree
 ```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"
-```
 
-Package `spectree` provides functionality to scan the `code-from-spec/` directory and build a tree of spec nodes with their logical names and file paths.
-
----
-
-## Structs
+## Struct Definitions
 
 ```go
 package spectree
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// SpecTreeNode represents a single node discovered in the spec tree.
-// Each node corresponds to a _node.md file found under code-from-spec/.
+// SpecTreeNode associates a logical name with the PathCfs of its _node.md file.
 type SpecTreeNode struct {
-	// LogicalName is the canonical logical name of the node
-	// (e.g. "ROOT/functional/logic/os/file_reader").
 	LogicalName string
-
-	// FilePath is the CFS-format path to the _node.md file
-	// (e.g. "code-from-spec/functional/logic/os/file_reader/_node.md").
-	FilePath pathutils.PathCfs
+	FilePath    pathutils.PathCfs
 }
 ```
-
----
 
 ## Error Sentinels
 
@@ -39,33 +31,19 @@ package spectree
 
 import "errors"
 
-// ErrNoNodesFound is returned when no _node.md files are found
-// under the code-from-spec/ directory.
 var ErrNoNodesFound = errors.New("no _node.md files found under code-from-spec/")
 ```
 
----
-
-## Functions
+## Function Signatures
 
 ```go
 package spectree
 
-// SpecTreeScan scans the code-from-spec/ directory relative to the
-// project root and returns all discovered spec nodes sorted
-// alphabetically by logical name.
-//
-// Each node corresponds to a _node.md file. The logical name is
-// derived from its path relative to the code-from-spec/ directory.
-//
-// Errors:
-//   - ErrNoNodesFound: no _node.md files found under code-from-spec/.
-//   - (ListFiles.*): propagated from the internal file listing operation.
-//   - (LogicalNames.*): propagated from LogicalNameFromPath.
+// SpecTreeScan scans the code-from-spec/ directory for all _node.md files
+// and returns a SpecTreeNode for each one, sorted alphabetically by logical
+// name.
 func SpecTreeScan() ([]*SpecTreeNode, error)
 ```
-
----
 
 ## Usage Example
 
@@ -73,7 +51,6 @@ func SpecTreeScan() ([]*SpecTreeNode, error)
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
@@ -81,20 +58,13 @@ import (
 )
 
 func main() {
-	// Scan the spec tree rooted at code-from-spec/.
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
-		if errors.Is(err, spectree.ErrNoNodesFound) {
-			log.Fatal("no spec nodes found — is the code-from-spec/ directory present?")
-		}
-		log.Fatalf("scan failed: %v", err)
+		log.Fatal(err)
 	}
 
-	// Nodes are sorted alphabetically by logical name.
-	fmt.Printf("found %d spec nodes:\n", len(nodes))
-	for _, node := range nodes {
-		fmt.Printf("  logical_name=%-60s  file_path=%s\n",
-			node.LogicalName, node.FilePath.Value)
+	for _, n := range nodes {
+		fmt.Printf("%s -> %s\n", n.LogicalName, n.FilePath.Value)
 	}
 }
 ```

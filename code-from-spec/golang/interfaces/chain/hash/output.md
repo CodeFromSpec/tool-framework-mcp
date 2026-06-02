@@ -1,14 +1,17 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@L86EFczDZEpblyV2wAS8jb9Maqs)
+[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@ix3VSdJyE1UklaD-HSV7to2yXgY)
 
 # Package `chainhash`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
+```go
+package chainhash
 ```
 
-Package `chainhash` computes a deterministic 27-character hash over an ordered chain of spec node files.
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash`
 
----
+## Types
+
+No additional types. Inputs and outputs use primitive Go types and the
+`chainresolver.Chain` type from the `chainresolver` package.
 
 ## Error Sentinels
 
@@ -17,14 +20,9 @@ package chainhash
 
 import "errors"
 
-// ErrFileUnreadable is returned when a file in the chain cannot be read or opened.
 var ErrFileUnreadable = errors.New("file unreadable")
-
-// ErrParseFailure is returned when a node file cannot be parsed.
-var ErrParseFailure = errors.New("parse failure")
+var ErrParseFailure   = errors.New("parse failure")
 ```
-
----
 
 ## Functions
 
@@ -34,23 +32,23 @@ package chainhash
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
 
 // ChainHashCompute receives a Chain (as returned by ChainResolve) and returns
-// a 27-character base64url encoded SHA-1 hash.
+// a 27-character base64url encoded SHA-1 hash. The function reads each
+// position's content from disk, computes a SHA-1 content hash for each,
+// concatenates all content hashes as raw bytes in chain assembly order, and
+// computes the final SHA-1 of the concatenation.
 //
-// For each position in the chain (in assembly order), the function reads the
-// file content from disk and computes a SHA-1 hash of that content. All
-// per-file SHA-1 digests are concatenated as raw bytes in chain assembly order,
-// and a final SHA-1 is computed over the concatenation. The result is encoded
-// as base64url without padding, producing a 27-character string.
+// Chain assembly order:
+//  1. Ancestors (root-first)
+//  2. Dependencies (sorted alphabetically by file path, then qualifier)
+//  3. External entries (sorted alphabetically by path)
+//  4. Target
+//  5. Input (if present)
 //
-// Errors:
-//   - ErrFileUnreadable: a file in the chain cannot be read or opened.
-//   - ErrParseFailure: a node file cannot be parsed.
-//   - (FileReader.*): propagated from FileOpen.
-//   - (NodeParsing.*): propagated from NodeParse.
+// Returns ErrFileUnreadable if a file in the chain cannot be read or opened,
+// ErrParseFailure if a node file cannot be parsed, or propagated errors from
+// FileReader and NodeParsing packages.
 func ChainHashCompute(chain *chainresolver.Chain) (string, error)
 ```
-
----
 
 ## Usage Example
 
@@ -58,7 +56,6 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error)
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
@@ -67,20 +64,14 @@ import (
 )
 
 func main() {
-	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/hash")
+	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/resolver")
 	if err != nil {
-		log.Fatalf("chain resolution failed: %v", err)
+		log.Fatal(err)
 	}
 
 	hash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		if errors.Is(err, chainhash.ErrFileUnreadable) {
-			log.Fatal("a file in the chain could not be read")
-		}
-		if errors.Is(err, chainhash.ErrParseFailure) {
-			log.Fatal("a node file could not be parsed")
-		}
-		log.Fatalf("hash computation failed: %v", err)
+		log.Fatal(err)
 	}
 
 	fmt.Println("chain hash:", hash)
