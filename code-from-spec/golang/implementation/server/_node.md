@@ -43,6 +43,11 @@ the server.
      `write_file`.
    - `mcpvalidatespecs.MCPValidateSpecs` — tool name
      `validate_specs`.
+   - `version` — tool name `version`. Takes no parameters.
+     Returns the value of a package-level variable
+     `var Version = "dev"`. This variable is overridden
+     at build time via `-ldflags
+     "-X main.Version=<version>"`.
 5. Call `s.Run(context.Background(), &mcp.StdioTransport{})`.
 6. If `Run` returns an error, print it to stderr and
    exit 1.
@@ -60,6 +65,7 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
+  version          Print the tool version.
 
 MCP configuration example:
   {
@@ -97,3 +103,6 @@ MCP configuration example:
   `ValidationReport` — format as human-readable text.
 - For `MCPWriteFile`, the result is a string — return
   directly as text content.
+- For `version`, return `Version` directly as text
+  content. No external package needed — the handler
+  is inline.

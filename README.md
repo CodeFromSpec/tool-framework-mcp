@@ -14,6 +14,7 @@ artifact management.
   against the node's `outputs` list
 - **validate_specs** — validates the spec tree for format errors,
   circular references, and artifact staleness
+- **version** — returns the tool version
 
 ## Install
 
@@ -59,6 +60,7 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
+  version          Print the tool version.
 
 MCP configuration example:
   {

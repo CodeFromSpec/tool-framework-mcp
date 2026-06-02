@@ -1,18 +1,18 @@
-// code-from-spec: ROOT/golang/implementation/server@z3J5YGKWqUV_uTPPK53oyzq1iXM
+// code-from-spec: ROOT/golang/implementation/server@OAT2vYxwfYDrS91tppR8X4FF6dI
 package main
 
 import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
-
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpvalidatespecs"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+var Version = "dev"
 
 const usageMessage = `Usage: framework-mcp
 
@@ -23,6 +23,7 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
+  version          Print the tool version.
 
 MCP configuration example:
   {
@@ -46,19 +47,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := mcp.NewServer(&mcp.Implementation{
+	server := mcp.NewServer(&mcp.Implementation{
 		Name: "framework-mcp",
 	}, nil)
 
-	type loadChainArgs struct {
+	type LoadChainArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to load the chain for"`
 	}
 
-	mcp.AddTool(s, &mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "load_chain",
 		Description: "Load the spec chain context for a given logical name. Returns all relevant spec files concatenated in a single response.",
 		Meta:        mcp.Meta{"anthropic/maxResultSizeChars": 500000},
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args loadChainArgs) (*mcp.CallToolResult, any, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args LoadChainArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcploadchain.MCPLoadChain(args.LogicalName)
 		if err != nil {
 			return &mcp.CallToolResult{
@@ -80,17 +81,17 @@ func main() {
 		}, nil, nil
 	})
 
-	type writeFileArgs struct {
+	type WriteFileArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node whose outputs list authorizes the write"`
 		Path        string `json:"path" jsonschema:"relative file path from project root"`
 		Content     string `json:"content" jsonschema:"complete file content to write"`
 	}
 
-	mcp.AddTool(s, &mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "write_file",
 		Description: "Write a generated source file to disk. The path must be one of the files declared in the node's outputs list. Overwrites existing content.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args writeFileArgs) (*mcp.CallToolResult, any, error) {
-		msg, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Path, args.Content)
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteFileArgs) (*mcp.CallToolResult, any, error) {
+		result, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Path, args.Content)
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
@@ -99,50 +100,48 @@ func main() {
 		}
 
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: msg}},
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
 		}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate_specs",
 		Description: "Validate all spec nodes for format errors, detect ranking cycles, and check artifact staleness.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		report := mcpvalidatespecs.MCPValidateSpecs()
 
-		var sb strings.Builder
+		text := ""
 
 		if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
-			sb.WriteString("All specs valid. No format errors, cycles, or stale artifacts.\n")
+			text = "All specs valid. No format errors, cycles, or stale artifacts."
 		} else {
-			if len(report.FormatErrors) > 0 {
-				sb.WriteString("Format errors:\n")
-				for _, fe := range report.FormatErrors {
-					fmt.Fprintf(&sb, "  node=%s rule=%s detail=%s\n", fe.Node, fe.Rule, fe.Detail)
-				}
+			for _, fe := range report.FormatErrors {
+				text += fmt.Sprintf("format error: node=%s rule=%s detail=%s\n", fe.Node, fe.Rule, fe.Detail)
 			}
-
-			if len(report.Cycles) > 0 {
-				sb.WriteString("Ranking cycles (nodes involved):\n")
-				for _, name := range report.Cycles {
-					fmt.Fprintf(&sb, "  %s\n", name)
-				}
+			for _, name := range report.Cycles {
+				text += fmt.Sprintf("cycle detected: %s\n", name)
 			}
-
-			if len(report.Staleness) > 0 {
-				sb.WriteString("Stale artifacts:\n")
-				for _, se := range report.Staleness {
-					fmt.Fprintf(&sb, "  node=%s output=%s path=%s status=%s rank=%d detail=%s\n",
-						se.Node, se.OutputID, se.ArtifactPath, se.Status, se.Rank, se.Detail)
-				}
+			for _, se := range report.Staleness {
+				text += fmt.Sprintf("staleness: node=%s output=%s path=%s status=%s rank=%d detail=%s\n",
+					se.Node, se.OutputID, se.ArtifactPath, se.Status, se.Rank, se.Detail)
 			}
 		}
 
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+			Content: []mcp.Content{&mcp.TextContent{Text: text}},
 		}, nil, nil
 	})
 
-	if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "version",
+		Description: "Print the tool version.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: Version}},
+		}, nil, nil
+	})
+
+	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

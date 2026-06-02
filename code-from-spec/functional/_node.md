@@ -157,8 +157,9 @@ an independent OS process with its own state.
 | Tool | Purpose |
 |---|---|
 | `load_chain` | Load the spec chain for a node, including the chain hash |
-| `write_file` | Write a generated file to disk, validated against `outputs` |
+| `write_file` | Write a generated file to disk, validated against `output` |
 | `validate_specs` | Validate format, circular references, and artifact staleness |
+| `version` | Return the tool version |
 
 ## Decisions
 
