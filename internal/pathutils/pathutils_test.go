@@ -188,6 +188,9 @@ func TestPathCfsToOs(t *testing.T) {
 		if err := os.Symlink(outsideDir, linkPath); err != nil {
 			t.Skip("symlinks not supported on this platform")
 		}
+		if err := os.WriteFile(filepath.Join(outsideDir, "secret.txt"), []byte("x"), 0644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
 
 		_, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "linkparent/escape/secret.txt"})
 		if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {

@@ -199,8 +199,8 @@ func TestListFiles_PropagatesConversionErrors(t *testing.T) {
 	}
 
 	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "linkdir"})
-	if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
-		t.Errorf("expected ErrResolvesOutsideRoot, got %v", err)
+	if !errors.Is(err, listfiles.ErrWalkError) {
+		t.Errorf("expected ErrWalkError, got %v", err)
 	}
 }
 
