@@ -1,6 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/mcp_tools/validate_specs(interface)
+  - ROOT/functional/logic/chain/hash(interface)
 output: code-from-spec/functional/tests/mcp_tools/validate_specs/output.md
 ---
 
@@ -159,3 +160,9 @@ case with its setup, actions, and expected outcome.
   in the interface.
 - Each test case creates a spec tree on disk, then
   calls `MCPValidateSpecs`.
+- When a test needs to write an artifact file with a
+  valid artifact tag, compute the current chain hash
+  using `ChainHashCompute` (from the `chain/hash`
+  module) and use it in the tag. When a test needs a
+  stale artifact tag, use any 27-character base64url
+  string that differs from the current chain hash.

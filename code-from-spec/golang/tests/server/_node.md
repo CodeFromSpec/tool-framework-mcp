@@ -59,12 +59,25 @@ Expect: exit 1, stderr contains the usage message.
 
 ## MCP Protocol
 
+The MCP stdio transport uses newline-delimited JSON —
+each JSON-RPC message is one line, no embedded newlines.
+The handshake sequence is:
+
+1. Send `initialize` request (with `id`, `method`,
+   `params` including `protocolVersion` and `clientInfo`).
+2. Read the `initialize` response from stdout.
+3. Send `notifications/initialized` notification (with
+   `method` only, no `id` — it is a notification).
+4. Now send further requests (e.g. `tools/list`).
+
+All test cases in this section must follow this
+handshake before sending any request.
+
 ### tools/list advertises maxResultSizeChars for load_chain
 
-Start the binary as a subprocess. Send an MCP
-`initialize` request followed by a `tools/list` request
-over stdin (JSON-RPC). Parse the JSON-RPC response from
-stdout.
+Start the binary as a subprocess. Complete the MCP
+handshake, then send a `tools/list` request. Parse
+the JSON-RPC response from stdout.
 
 Expect: the response contains a tool named `load_chain`
 with `_meta["anthropic/maxResultSizeChars"]` equal to
@@ -72,10 +85,9 @@ with `_meta["anthropic/maxResultSizeChars"]` equal to
 
 ### tools/list advertises all tools
 
-Start the binary as a subprocess. Send an MCP
-`initialize` request followed by a `tools/list` request
-over stdin (JSON-RPC). Parse the JSON-RPC response from
-stdout.
+Start the binary as a subprocess. Complete the MCP
+handshake, then send a `tools/list` request. Parse
+the JSON-RPC response from stdout.
 
 Expect: the response contains tools named `load_chain`,
 `write_file`, `validate_specs`, `chain_hash`, and

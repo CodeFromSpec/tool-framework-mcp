@@ -36,7 +36,11 @@ Given a raw string:
 3. Apply Unicode simple case folding.
 
 Whitespace characters are space (U+0020) and horizontal tab
-(U+0009).
+(U+0009). Standard library functions that test for
+whitespace (e.g. `isSpace`, `IsSpace`) may use a broader
+definition that includes characters like non-breaking
+space (U+00A0). Avoid them if they do not match this
+definition.
 
 ## Contracts
 
