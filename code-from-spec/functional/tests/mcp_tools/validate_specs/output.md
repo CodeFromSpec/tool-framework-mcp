@@ -1,25 +1,24 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/validate_specs@186VSFnhRiCMTjD_6SWT31Thg74 -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/validate_specs@QQUT06e0n7X-MBuFHgztj6S0XiM -->
 
-## Test suite: MCPValidateSpecs
+## Test cases for MCPValidateSpecs
 
-Each test case creates a spec tree on disk, then calls `MCPValidateSpecs`.
-The function always returns a `ValidationReport` and never raises an error.
+Each test creates a spec tree on disk with `_node.md` files, then calls
+`MCPValidateSpecs`. The function always returns a `ValidationReport` —
+it never raises an error.
 
 ---
 
 ### Happy path
 
-#### TC-HP-1: Clean tree — no errors
+#### Clean tree — no errors
 
 Setup:
-- Create a spec tree with ROOT (`_node.md` containing a public section)
-  and ROOT/a (leaf node with `output = "out/a.go"`).
-- Compute the current chain hash for ROOT/a.
-- Create `"out/a.go"` containing a valid artifact tag whose hash matches
-  the current chain hash.
+- Create a spec tree with ROOT (with public section) and ROOT/a (leaf
+  with output = "out/a.go").
+- Compute the chain hash for ROOT/a using `ChainHashCompute`.
+- Create "out/a.go" with a valid artifact tag containing that hash.
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
 - `ValidationReport.format_errors` is empty.
@@ -28,206 +27,185 @@ Expected outcome:
 
 ---
 
-#### TC-HP-2: Stale artifact detected
+#### Stale artifact detected
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with `output = "out/a.go"`).
-- Create `"out/a.go"` containing an artifact tag with an outdated hash
-  (any hash that does not match the current chain hash for ROOT/a).
+- Create a spec tree with ROOT and ROOT/a (leaf with output).
+- Create the output file with an artifact tag containing a 27-character
+  base64url string that differs from the current chain hash.
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains exactly one `StalenessEntry`.
-- That entry has `node = "ROOT/a"`, `status = "stale"`, and `rank` is present
-  (an integer value).
+- `ValidationReport.staleness` contains one `StalenessEntry` for ROOT/a.
+- `StalenessEntry.status` = `"stale"`.
+- `StalenessEntry.rank` is present (integer value).
 
 ---
 
-#### TC-HP-3: Missing artifact detected
+#### Missing artifact detected
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with `output = "out/a.go"`).
-- Do not create the file `"out/a.go"`.
+- Create a spec tree with ROOT and ROOT/a (leaf with output).
+- Do not create the output file.
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains exactly one `StalenessEntry`.
-- That entry has `node = "ROOT/a"` and `status = "missing"`.
+- `ValidationReport.staleness` contains one `StalenessEntry` for ROOT/a.
+- `StalenessEntry.status` = `"missing"`.
 
 ---
 
-#### TC-HP-4: Malformed tag detected
+#### Malformed tag detected
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with `output = "out/a.go"`).
-- Create `"out/a.go"` with content that contains no artifact tag
-  (or contains a line that cannot be parsed as an artifact tag).
+- Create a spec tree with ROOT and ROOT/a (leaf with output).
+- Create the output file with content that has no artifact tag or a
+  malformed artifact tag.
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains exactly one `StalenessEntry`.
-- That entry has `node = "ROOT/a"` and `status = "malformed tag"`.
+- `ValidationReport.staleness` contains one `StalenessEntry` for ROOT/a.
+- `StalenessEntry.status` = `"malformed tag"`.
 
 ---
 
-#### TC-HP-5: Staleness entries include rank
+#### Staleness entries include rank
 
 Setup:
-- Create a spec tree with:
-  - ROOT (public section)
-  - ROOT/a (leaf with `output = "out/a.go"`)
-  - ROOT/b (leaf with `output = "out/b.go"`, `depends_on = ["ROOT/a"]`)
-- Create both output files with outdated hashes.
+- Create a spec tree with ROOT, ROOT/a (leaf with output), ROOT/b (leaf
+  with output, depends_on = ["ROOT/a"]).
+- Create both output files with outdated artifact tags (stale hashes).
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains two `StalenessEntry` records,
-  one for ROOT/a and one for ROOT/b.
-- Both entries have a `rank` field that is an integer.
-- ROOT/a's `rank` is strictly less than ROOT/b's `rank`.
+- `ValidationReport.staleness` contains `StalenessEntry` records for
+  both ROOT/a and ROOT/b.
+- Each entry has a `rank` value.
+- ROOT/a's `rank` is lower than ROOT/b's `rank`.
 
 ---
 
-#### TC-HP-6: Staleness ordered by rank then name
+#### Staleness ordered by rank then name
 
 Setup:
-- Create a spec tree with ROOT, ROOT/z (leaf with `output = "out/z.go"`),
-  and ROOT/a (leaf with `output = "out/a.go"`).
-- Create both output files with outdated hashes.
-- Neither node depends on the other.
+- Create a spec tree with ROOT, ROOT/z (leaf with output), ROOT/a (leaf
+  with output).
+- Both output files have stale artifact tags.
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains two entries.
-- The entry for ROOT/a appears before the entry for ROOT/z
-  (same rank, ordered alphabetically by node name).
+- `ValidationReport.staleness` has two entries.
+- ROOT/a appears before ROOT/z (same rank, alphabetical ordering).
 
 ---
 
 ### Format errors
 
-#### TC-FE-1: Format error from invalid depends_on
+#### Format error from invalid depends_on
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with
-  `depends_on = ["ROOT/missing"]`).
+- Create a spec tree with ROOT and ROOT/a (leaf with depends_on =
+  ["ROOT/missing"]).
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
-- `ValidationReport.format_errors` contains at least one
-  `spectreevalidate.FormatError`.
-- That error has `node = "ROOT/a"` and `rule = "dependency_targets"`.
+- `ValidationReport.format_errors` contains a
+  `spectreevalidate.FormatError` for ROOT/a with rule = "dependency_targets".
 
 ---
 
-#### TC-FE-2: Format error from parse failure
+#### Format error from parse failure
 
 Setup:
 - Create a spec tree with ROOT and ROOT/a whose `_node.md` has invalid
-  content (e.g. text appearing before any heading, making it unparseable).
+  content (e.g. text before any heading).
 
-Actions:
-- Call `MCPValidateSpecs`.
-
-Expected outcome:
-- `ValidationReport.format_errors` contains at least one
-  `spectreevalidate.FormatError` with `node = "ROOT/a"` and
-  `rule = "parse"`.
-- Other valid nodes in the tree are still validated (validation continues).
-
----
-
-#### TC-FE-3: Continues after parse failure
-
-Setup:
-- Create a spec tree with ROOT, ROOT/a (invalid `_node.md` content),
-  and ROOT/b (valid leaf with `output = "out/b.go"` and an outdated
-  artifact hash).
-
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
 - `ValidationReport.format_errors` contains a `spectreevalidate.FormatError`
-  for ROOT/a with `rule = "parse"`.
+  with rule = `"parse"` for ROOT/a.
+- Other nodes are still validated (validation continues).
+
+---
+
+#### Continues after parse failure
+
+Setup:
+- Create a spec tree with ROOT, ROOT/a (invalid `_node.md` content),
+  ROOT/b (valid leaf with output and a stale artifact).
+
+Action: Call `MCPValidateSpecs`.
+
+Expected outcome:
+- `ValidationReport.format_errors` contains a `spectreevalidate.FormatError`
+  for ROOT/a.
 - `ValidationReport.staleness` contains a `StalenessEntry` for ROOT/b.
-- Both are present in the same report.
+- Both are reported in the same `ValidationReport`.
 
 ---
 
 ### Cycle detection
 
-#### TC-CD-1: Simple cycle detected
+#### Simple cycle detected
 
 Setup:
-- Create a spec tree with ROOT, ROOT/a (leaf with
-  `depends_on = ["ROOT/b"]`), and ROOT/b (leaf with
-  `depends_on = ["ROOT/a"]`).
+- Create a spec tree with ROOT, ROOT/a (leaf, depends_on = ["ROOT/b"]),
+  ROOT/b (leaf, depends_on = ["ROOT/a"]).
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
 - `ValidationReport.cycles` is not empty.
-- `ValidationReport.cycles` contains at least one of `"ROOT/a"` or `"ROOT/b"`.
+- `ValidationReport.cycles` contains at least one of ROOT/a or ROOT/b.
 
 ---
 
-#### TC-CD-2: Ranking skipped when format errors exist
+#### Ranking skipped when format errors exist
 
 Setup:
-- Create a spec tree with ROOT, ROOT/a (leaf with an invalid `depends_on`
-  target, e.g. `depends_on = ["ROOT/missing"]`), and ROOT/b (valid leaf
-  with `output = "out/b.go"` and an outdated artifact hash).
+- Create a spec tree with ROOT, ROOT/a (leaf with invalid depends_on
+  target), ROOT/b (valid leaf with output).
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
 - `ValidationReport.format_errors` is not empty.
-- Ranking is skipped — ROOT/b's `StalenessEntry` has `rank = 0`
-  (default when no ranking is available).
+- Ranking is skipped — any `StalenessEntry` for ROOT/b has `rank` = 0
+  (the default when no ranking is available).
 
 ---
 
 ### Edge cases
 
-#### TC-EC-1: Empty spec tree — scan fails
+#### Empty spec tree — scan fails
 
 Setup:
 - Do not create a `code-from-spec/` directory.
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
-- `ValidationReport.format_errors` contains at least one
-  `spectreevalidate.FormatError` with `rule = "scan"`.
+- `ValidationReport.format_errors` contains a `spectreevalidate.FormatError`
+  with rule = `"scan"`.
 - `ValidationReport.cycles` is empty.
 - `ValidationReport.staleness` is empty.
 
 ---
 
-#### TC-EC-2: Node with no output — not in staleness
+#### Node with no output — not in staleness
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with no `output` field).
+- Create a spec tree with ROOT and ROOT/a (leaf with no output field).
 
-Actions:
-- Call `MCPValidateSpecs`.
+Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains no entry for ROOT/a.
-- Staleness checks only apply to nodes that declare an output.
+- `ValidationReport.staleness` contains no `StalenessEntry` for ROOT/a.
+- Staleness check only runs for nodes with an output field.

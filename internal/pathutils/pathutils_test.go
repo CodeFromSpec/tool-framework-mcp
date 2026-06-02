@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/os/path_utils@DSnqhHzBJVM1Gomslrm8qlEciuQ
+// code-from-spec: ROOT/golang/tests/os/path_utils@BaD7DKNUvc5H9vF0xDFXcLzFl8k
 package pathutils_test
 
 import (
@@ -28,7 +28,7 @@ func testChdir(t *testing.T, dir string) {
 }
 
 func TestPathValidateCfs(t *testing.T) {
-	tests := []struct {
+	cases := []struct {
 		name    string
 		input   string
 		wantErr error
@@ -100,7 +100,7 @@ func TestPathValidateCfs(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := pathutils.PathValidateCfs(tc.input)
 			if tc.wantErr == nil {
@@ -136,9 +136,8 @@ func TestPathCfsToOs(t *testing.T) {
 		if !filepath.IsAbs(result.Value) {
 			t.Errorf("expected absolute path, got: %s", result.Value)
 		}
-		suffix := filepath.Join("internal", "config", "config.go")
-		if !strings.HasSuffix(result.Value, suffix) {
-			t.Errorf("expected path to end with %s, got: %s", suffix, result.Value)
+		if !strings.HasSuffix(filepath.ToSlash(result.Value), "internal/config/config.go") {
+			t.Errorf("path does not end with expected suffix: %s", result.Value)
 		}
 	})
 
@@ -153,9 +152,8 @@ func TestPathCfsToOs(t *testing.T) {
 		if !filepath.IsAbs(result.Value) {
 			t.Errorf("expected absolute path, got: %s", result.Value)
 		}
-		suffix := filepath.Join("internal", "newdir", "newfile.go")
-		if !strings.HasSuffix(result.Value, suffix) {
-			t.Errorf("expected path to end with %s, got: %s", suffix, result.Value)
+		if !strings.HasSuffix(filepath.ToSlash(result.Value), "internal/newdir/newfile.go") {
+			t.Errorf("path does not end with expected suffix: %s", result.Value)
 		}
 	})
 
@@ -173,6 +171,9 @@ func TestPathCfsToOs(t *testing.T) {
 	})
 
 	t.Run("rejects invalid CfsPath", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testChdir(t, tempDir)
+
 		_, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "../../etc/passwd"})
 		if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
 			t.Errorf("expected ErrDirectoryTraversal, got: %v", err)
@@ -189,43 +190,33 @@ func TestPathCfsToOs(t *testing.T) {
 			t.Fatalf("WriteFile: %v", err)
 		}
 
-		symlinkDir := filepath.Join(tempDir, "links")
-		if err := os.MkdirAll(symlinkDir, 0755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
-		}
-		symlinkPath := filepath.Join(symlinkDir, "escape")
-		if err := os.Symlink(outsideDir, symlinkPath); err != nil {
-			t.Skip("symlinks not supported on this platform")
+		symlinkPath := filepath.Join(tempDir, "link.txt")
+		if err := os.Symlink(outsideFile, symlinkPath); err != nil {
+			t.Skip("symlinks not supported on this system")
 		}
 
-		_, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "links/escape/secret.txt"})
+		_, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "link.txt"})
 		if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
 			t.Errorf("expected ErrResolvesOutsideRoot, got: %v", err)
 		}
 	})
 
-	t.Run("roundtrip: CfsToOs then OsToCfs", func(t *testing.T) {
+	t.Run("roundtrip CfsToOs then OsToCfs", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
-
-		dir := filepath.Join(tempDir, "internal", "config")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "config.go"), []byte("package config"), 0644); err != nil {
-			t.Fatalf("WriteFile: %v", err)
-		}
 
 		osPath, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "internal/config/config.go"})
 		if err != nil {
 			t.Fatalf("PathCfsToOs: %v", err)
 		}
+
 		cfsPath, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("PathOsToCfs: %v", err)
 		}
+
 		if cfsPath.Value != "internal/config/config.go" {
-			t.Errorf("expected internal/config/config.go, got: %s", cfsPath.Value)
+			t.Errorf("expected %q, got %q", "internal/config/config.go", cfsPath.Value)
 		}
 	})
 }
@@ -235,12 +226,8 @@ func TestPathOsToCfs(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		dir := filepath.Join(tempDir, "mydir")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
-		}
-		filePath := filepath.Join(dir, "myfile.go")
-		if err := os.WriteFile(filePath, []byte("package mydir"), 0644); err != nil {
+		filePath := filepath.Join(tempDir, "somefile.go")
+		if err := os.WriteFile(filePath, []byte("package main"), 0644); err != nil {
 			t.Fatalf("WriteFile: %v", err)
 		}
 
@@ -248,8 +235,8 @@ func TestPathOsToCfs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if result.Value != "mydir/myfile.go" {
-			t.Errorf("expected mydir/myfile.go, got: %s", result.Value)
+		if result.Value != "somefile.go" {
+			t.Errorf("expected %q, got %q", "somefile.go", result.Value)
 		}
 	})
 
@@ -257,14 +244,14 @@ func TestPathOsToCfs(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		nonExistentPath := filepath.Join(tempDir, "nonexistent", "file.go")
+		filePath := filepath.Join(tempDir, "nonexistent", "file.go")
 
-		result, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: nonExistentPath})
+		result, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: filePath})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if result.Value != "nonexistent/file.go" {
-			t.Errorf("expected nonexistent/file.go, got: %s", result.Value)
+			t.Errorf("expected %q, got %q", "nonexistent/file.go", result.Value)
 		}
 	})
 
@@ -272,12 +259,12 @@ func TestPathOsToCfs(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		dir := filepath.Join(tempDir, "a", "b", "c")
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		subDir := filepath.Join(tempDir, "a", "b")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
 			t.Fatalf("MkdirAll: %v", err)
 		}
-		filePath := filepath.Join(dir, "file.go")
-		if err := os.WriteFile(filePath, []byte("package c"), 0644); err != nil {
+		filePath := filepath.Join(subDir, "file.go")
+		if err := os.WriteFile(filePath, []byte(""), 0644); err != nil {
 			t.Fatalf("WriteFile: %v", err)
 		}
 
@@ -286,7 +273,7 @@ func TestPathOsToCfs(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if strings.Contains(result.Value, `\`) {
-			t.Errorf("expected no backslashes, got: %s", result.Value)
+			t.Errorf("result contains backslash: %q", result.Value)
 		}
 	})
 
@@ -294,26 +281,19 @@ func TestPathOsToCfs(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		dir := filepath.Join(tempDir, "realdir")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
-		}
-		realFile := filepath.Join(dir, "real.go")
-		if err := os.WriteFile(realFile, []byte("package realdir"), 0644); err != nil {
+		targetFile := filepath.Join(tempDir, "target.go")
+		if err := os.WriteFile(targetFile, []byte("package main"), 0644); err != nil {
 			t.Fatalf("WriteFile: %v", err)
 		}
 
 		symlinkPath := filepath.Join(tempDir, "link.go")
-		if err := os.Symlink(realFile, symlinkPath); err != nil {
-			t.Skip("symlinks not supported on this platform")
+		if err := os.Symlink(targetFile, symlinkPath); err != nil {
+			t.Skip("symlinks not supported on this system")
 		}
 
-		result, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: symlinkPath})
+		_, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: symlinkPath})
 		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.Value == "" {
-			t.Error("expected non-empty PathCfs value")
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -322,7 +302,7 @@ func TestPathOsToCfs(t *testing.T) {
 		testChdir(t, tempDir)
 
 		outsideDir := t.TempDir()
-		outsidePath := filepath.Join(outsideDir, "file.go")
+		outsidePath := filepath.Join(outsideDir, "outside.go")
 
 		_, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: outsidePath})
 		if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
@@ -337,8 +317,11 @@ func TestPathGetProjectRoot(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+		if result == nil {
+			t.Fatal("result is nil")
+		}
 		if result.Value == "" {
-			t.Error("expected non-empty path")
+			t.Error("result is empty")
 		}
 		if !filepath.IsAbs(result.Value) {
 			t.Errorf("expected absolute path, got: %s", result.Value)
@@ -346,7 +329,7 @@ func TestPathGetProjectRoot(t *testing.T) {
 	})
 
 	t.Run("matches working directory", func(t *testing.T) {
-		wd, err := os.Getwd()
+		cwd, err := os.Getwd()
 		if err != nil {
 			t.Fatalf("Getwd: %v", err)
 		}
@@ -355,18 +338,21 @@ func TestPathGetProjectRoot(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-
-		wdResolved, err := filepath.EvalSymlinks(wd)
-		if err != nil {
-			wdResolved = wd
-		}
-		resultResolved, err := filepath.EvalSymlinks(result.Value)
-		if err != nil {
-			resultResolved = result.Value
+		if result == nil {
+			t.Fatal("result is nil")
 		}
 
-		if resultResolved != wdResolved {
-			t.Errorf("expected %s, got: %s", wdResolved, resultResolved)
+		cwdAbs, err := filepath.Abs(cwd)
+		if err != nil {
+			t.Fatalf("Abs: %v", err)
+		}
+		resultAbs, err := filepath.Abs(result.Value)
+		if err != nil {
+			t.Fatalf("Abs: %v", err)
+		}
+
+		if cwdAbs != resultAbs {
+			t.Errorf("expected %q, got %q", cwdAbs, resultAbs)
 		}
 	})
 }

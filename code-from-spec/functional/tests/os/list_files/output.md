@@ -1,112 +1,147 @@
-<!-- code-from-spec: ROOT/functional/tests/os/list_files@QMYGK1hm6rlcwN_xZ71fqwFTlhk -->
+<!-- code-from-spec: ROOT/functional/tests/os/list_files@Bupv_bXMNS0WVFbAAcaVe57fmEg -->
 
-# Test Specification: ListFiles
+## Test cases for ListFiles
 
-## Happy path
+### Happy path
 
-### Lists files in a flat directory
+#### Lists files in a flat directory
 
-Setup: Create a directory containing three files: `a.txt`, `b.txt`, `c.txt`.
+Setup:
+  Create a temporary directory containing three files: `a.txt`, `b.txt`, `c.txt`.
 
 Actions:
-1. Call `ListFiles` with the directory path.
-2. Expect a list of three `PathCfs` values in alphabetical order: `a.txt`, `b.txt`, `c.txt` (paths relative to the project root).
+  Call `ListFiles` with the path to that directory.
+
+Expected outcome:
+  Returns a list of three `pathutils.PathCfs` values in alphabetical order:
+  `<dir>/a.txt`, `<dir>/b.txt`, `<dir>/c.txt` (relative to the project root).
+  No error.
 
 ---
 
-### Lists files recursively
+#### Lists files recursively
 
-Setup: Create the following directory structure:
-```
-dir/
-  alpha.txt
-  sub/
-    beta.txt
-    deep/
-      gamma.txt
-```
+Setup:
+  Create the following directory structure:
+  ```
+  dir/
+    alpha.txt
+    sub/
+      beta.txt
+      deep/
+        gamma.txt
+  ```
 
 Actions:
-1. Call `ListFiles` with the `dir` path.
-2. Expect three `PathCfs` values in alphabetical order:
-   - `dir/alpha.txt`
-   - `dir/sub/beta.txt`
-   - `dir/sub/deep/gamma.txt`
+  Call `ListFiles` with the path to `dir`.
+
+Expected outcome:
+  Returns a list of three `pathutils.PathCfs` values in alphabetical order:
+  `dir/alpha.txt`, `dir/sub/beta.txt`, `dir/sub/deep/gamma.txt`
+  (relative to the project root).
+  No error.
 
 ---
 
-### Results are sorted alphabetically
+#### Results are sorted alphabetically
 
-Setup: Create a directory containing files `z.txt`, `a.txt`, `m.txt` (created in that order).
+Setup:
+  Create a temporary directory containing files named `z.txt`, `a.txt`, `m.txt`.
 
 Actions:
-1. Call `ListFiles` with the directory path.
-2. Expect the results in order: `a.txt`, `m.txt`, `z.txt`.
+  Call `ListFiles` with the path to that directory.
+
+Expected outcome:
+  Returns a list of three `pathutils.PathCfs` values in order:
+  `<dir>/a.txt`, `<dir>/m.txt`, `<dir>/z.txt`.
+  No error.
 
 ---
 
-## Edge cases
+### Edge cases
 
-### Empty directory
+#### Empty directory
 
-Setup: Create an empty directory.
+Setup:
+  Create a temporary directory containing no files.
 
 Actions:
-1. Call `ListFiles` with the empty directory path.
-2. Expect an empty list — no error.
+  Call `ListFiles` with the path to that directory.
+
+Expected outcome:
+  Returns an empty list.
+  No error.
 
 ---
 
-### Directory with only subdirectories
+#### Directory with only subdirectories
 
-Setup: Create a directory containing only subdirectories, with no files at any level.
+Setup:
+  Create a directory containing only subdirectories (no files at any level).
 
 Actions:
-1. Call `ListFiles` with the directory path.
-2. Expect an empty list — no error.
+  Call `ListFiles` with the path to that directory.
+
+Expected outcome:
+  Returns an empty list.
+  No error.
 
 ---
 
-## Failure cases
+### Failure cases
 
-### Directory does not exist
+#### Directory does not exist
 
-Setup: No directory is created at the target path.
+Setup:
+  No directory is created. Use a path that does not exist.
 
 Actions:
-1. Call `ListFiles` with a path to a non-existent directory.
-2. Expect error DirectoryNotFound.
+  Call `ListFiles` with the non-existent path.
+
+Expected outcome:
+  Returns error `DirectoryNotFound`.
 
 ---
 
-### Propagates validation errors from PathCfsToOs
+#### Propagates validation errors from PathCfsToOs
 
-Setup: No file or directory is created.
+Setup:
+  No directory setup needed. Use an invalid `pathutils.PathCfs` value
+  such as `"../../outside"` that resolves outside the project root.
 
 Actions:
-1. Call `ListFiles` with an invalid `PathCfs` such as `"../../outside"`.
-2. Expect error DirectoryTraversal (propagated from PathUtils).
+  Call `ListFiles` with the invalid path.
+
+Expected outcome:
+  Returns error `DirectoryTraversal` propagated from `PathUtils`.
 
 ---
 
-### Propagates conversion errors from PathOsToCfs
+#### Propagates conversion errors from PathOsToCfs
 
-Skip this test on platforms where symlinks are not supported.
-
-Setup: Create a directory containing a regular file and a symlink that points to a file outside the project root.
+Setup:
+  Create a directory containing a regular file and a symlink that
+  points to a file outside the project root.
+  Skip this test case on platforms where symlinks are not supported.
 
 Actions:
-1. Call `ListFiles` with the directory path.
-2. Expect error ResolvesOutsideRoot (propagated from PathUtils).
+  Call `ListFiles` with that directory.
+
+Expected outcome:
+  Returns error `ResolvesOutsideRoot` propagated from `PathUtils`.
 
 ---
 
-### Walk error
+#### Walk error
 
-Skip this test on platforms where directory permissions cannot prevent traversal.
-
-Setup: Create a directory containing a subdirectory with permissions that prevent reading its contents.
+Setup:
+  Create a directory containing a subdirectory with permissions set
+  to prevent reading its contents.
+  Skip this test case on platforms where directory permissions cannot
+  prevent traversal.
 
 Actions:
-1. Call `ListFiles` on the parent directory.
-2. Expect error WalkError.
+  Call `ListFiles` on the parent directory.
+
+Expected outcome:
+  Returns error `WalkError`.

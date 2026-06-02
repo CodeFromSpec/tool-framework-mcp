@@ -1,394 +1,341 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/hash@c9JNpHP_fGApBQbC5WyCiwxh-w0 -->
+<!-- code-from-spec: ROOT/functional/tests/chain/hash@MnOivbwb2dExRAceSn13XKRyIdw -->
 
-## Test suite: ChainHashCompute
-
----
+## ChainHashCompute — Test Specification
 
 ### Properties
 
----
-
 #### Hash is deterministic
 
-Setup:
-- Create a spec tree with ROOT containing `# Public` content and ROOT/a as target.
-- Build a Chain record with ancestors = [ROOT ChainItem], target = ROOT/a ChainItem.
+Setup: Create files on disk for a valid spec tree. Build a Chain directly.
 
 Actions:
-- Call ChainHashCompute with the Chain.
-- Call ChainHashCompute again with the same Chain.
+1. Call ChainHashCompute with the Chain.
+2. Call ChainHashCompute again with the same Chain.
 
-Expected outcome:
-- Both results are identical strings.
+Expected: Both return values are identical strings.
 
 ---
 
 #### Hash is 27 characters
 
-Setup:
-- Create a spec tree with a valid Chain (any structure).
+Setup: Create files on disk for a valid spec tree. Build a Chain directly.
 
 Actions:
-- Call ChainHashCompute with the Chain.
+1. Call ChainHashCompute with the Chain.
 
-Expected outcome:
-- The result is exactly 27 characters long.
+Expected: The returned string is exactly 27 characters long.
 
 ---
 
 #### Hash changes when ancestor content changes
 
 Setup:
-- Create ROOT with `# Public` section containing some content.
-- Create ROOT/a as target node.
-- Build a Chain with ancestors = [ROOT ChainItem], target = ROOT/a ChainItem.
+- Create a ROOT node file on disk with `# Public` content.
+- Create a ROOT/a node file as the target.
+- Build a Chain with ancestors = [ChainItem for ROOT], target = ChainItem for ROOT/a.
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify ROOT's `# Public` content on disk.
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify ROOT's `# Public` content on disk.
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 #### Hash changes when dependency content changes
 
 Setup:
-- Create ROOT as ancestor node.
-- Create ROOT/b with `# Public` content.
-- Create ROOT/a as target, with a dependency on ROOT/b (no qualifier).
-- Build a Chain with ancestors = [ROOT ChainItem], target = ROOT/a ChainItem, dependencies = [ROOT/b ChainItem].
+- Create ROOT, ROOT/a, ROOT/b node files on disk.
+- Build a Chain with target = ChainItem for ROOT/a, dependencies = [ChainItem for ROOT/b (no qualifier)].
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify ROOT/b's `# Public` content on disk.
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify ROOT/b's `# Public` content on disk.
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 #### Hash changes when target Public changes
 
 Setup:
-- Create ROOT as ancestor node.
-- Create ROOT/a as target with `# Public` content.
-- Build a Chain with target = ROOT/a ChainItem.
+- Create ROOT and ROOT/a node files. ROOT/a has `# Public` content.
+- Build a Chain with target = ChainItem for ROOT/a.
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify ROOT/a's `# Public` content on disk.
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify ROOT/a's `# Public` content on disk.
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 #### Hash changes when target Agent changes
 
 Setup:
-- Create ROOT as ancestor node.
-- Create ROOT/a as target with `# Public` content and `# Agent` content.
-- Build a Chain with target = ROOT/a ChainItem.
+- Create ROOT and ROOT/a node files. ROOT/a has `# Agent` content.
+- Build a Chain with target = ChainItem for ROOT/a.
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify ROOT/a's `# Agent` content on disk.
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify ROOT/a's `# Agent` content on disk.
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 ### Ancestors
 
----
-
 #### Ancestor with Public section contributes hash
 
 Setup:
-- Create ROOT with `# Public` content.
-- Create ROOT/a as target.
-- Build a Chain with ancestors = [ROOT ChainItem], target = ROOT/a ChainItem.
+- Create ROOT node file with `# Public` content.
+- Create ROOT/a node file as target.
+- Build a Chain with ancestors = [ChainItem for ROOT], target = ChainItem for ROOT/a.
 
 Actions:
-- Call ChainHashCompute.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- Result is a non-empty string of exactly 27 characters.
+Expected: Returns a 27-character non-empty string with no error.
 
 ---
 
 #### Ancestor without Public section — skipped
 
 Setup:
-- Create ROOT with no `# Public` section (only a name section or empty content).
-- Create ROOT/a as target with `# Public` content.
-- Build Chain A with ancestors = [ROOT ChainItem], target = ROOT/a ChainItem.
-- Create ROOT/c with `# Public` content.
-- Create ROOT/a2 as target (same content as ROOT/a).
-- Build Chain B with ancestors = [ROOT/c ChainItem], target = ROOT/a2 ChainItem.
+- Create ROOT node file with no `# Public` section (only a name section or empty body).
+- Create ROOT/a node file as target (with `# Public`).
+- Build Chain A with ancestors = [ChainItem for ROOT].
+- Create ROOT/z node file with `# Public` content.
+- Build Chain B with ancestors = [ChainItem for ROOT/z].
 
 Actions:
-- Call ChainHashCompute with Chain A. Record result as hashA.
-- Call ChainHashCompute with Chain B. Record result as hashB.
+1. Call ChainHashCompute with Chain A. Record result as hashA.
+2. Call ChainHashCompute with Chain B. Record result as hashB.
 
-Expected outcome:
-- hashA and hashB differ, because ROOT without `# Public` contributes nothing to the hash while ROOT/c with `# Public` does.
+Expected: hashA and hashB differ (the ancestor without `# Public` contributes no content).
 
 ---
 
 #### Multiple ancestors — order matters
 
 Setup:
-- Create ROOT with `# Public` content "root content".
-- Create ROOT/a with `# Public` content "a content".
-- Create ROOT/a/b as target.
-- Build Chain Forward with ancestors = [ROOT ChainItem, ROOT/a ChainItem] (root-first), target = ROOT/a/b ChainItem.
-- Build Chain Reversed with ancestors = [ROOT/a ChainItem, ROOT ChainItem] (reversed), target = ROOT/a/b ChainItem.
+- Create ROOT, ROOT/a, ROOT/a/b node files. ROOT and ROOT/a both have `# Public` content.
+- Build Chain X with ancestors = [ChainItem for ROOT, ChainItem for ROOT/a] (root-first order), target = ChainItem for ROOT/a/b.
+- Build Chain Y with ancestors = [ChainItem for ROOT/a, ChainItem for ROOT] (swapped order), target = ChainItem for ROOT/a/b.
 
 Actions:
-- Call ChainHashCompute with Chain Forward. Record result as hashForward.
-- Call ChainHashCompute with Chain Reversed. Record result as hashReversed.
+1. Call ChainHashCompute with Chain X. Record result as hashX.
+2. Call ChainHashCompute with Chain Y. Record result as hashY.
 
-Expected outcome:
-- hashForward and hashReversed differ.
+Expected: hashX and hashY differ.
 
 ---
 
 ### Dependencies
 
----
-
 #### ROOT dependency without qualifier — hashes Public
 
 Setup:
-- Create ROOT/b with `# Public` content.
-- Create ROOT/a as target.
-- Build a Chain with target = ROOT/a ChainItem, dependencies = [ROOT/b ChainItem with no qualifier].
+- Create ROOT/b node file with `# Public` content.
+- Build Chain with target = ChainItem for ROOT/a, dependencies = [ChainItem for ROOT/b, qualifier absent].
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify ROOT/b's `# Public` content on disk.
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify ROOT/b's `# Public` content on disk.
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 #### ROOT dependency with qualifier — hashes subsection
 
 Setup:
-- Create ROOT/b with a `# Public` section containing an `## Interface` subsection.
-- Create ROOT/a as target.
-- Build a Chain with target = ROOT/a ChainItem, dependencies = [ROOT/b ChainItem with qualifier = "interface"].
+- Create ROOT/b node file with `# Public` containing a `## Interface` subsection.
+- Build Chain with dependencies = [ChainItem for ROOT/b, qualifier = "interface"].
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify the `## Interface` content inside ROOT/b's `# Public` section on disk.
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify the `## Interface` subsection content in ROOT/b on disk.
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 #### Qualifier case normalization
 
 Setup:
-- Create ROOT/b with a `# Public` section containing an `## Interface` subsection.
-- Create ROOT/a as target.
-- Build a Chain with target = ROOT/a ChainItem, dependencies = [ROOT/b ChainItem with qualifier = "INTERFACE" (uppercase)].
+- Create ROOT/b node file with `# Public` containing a `## Interface` subsection.
+- Build Chain with dependencies = [ChainItem for ROOT/b, qualifier = "INTERFACE" (uppercase)].
 
 Actions:
-- Call ChainHashCompute.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- No error is raised. The qualifier is normalized and matched successfully.
+Expected: Returns a result with no error. The qualifier is normalized before matching.
 
 ---
 
 #### ARTIFACT dependency — hashes file minus frontmatter
 
 Setup:
-- Create an artifact file with frontmatter (e.g., `---\noutput: some/path\n---`) and a body.
-- Build a Chain with dependencies = [ChainItem with file_path pointing to the artifact file, no qualifier].
+- Create an artifact file on disk with frontmatter and body content.
+- Build Chain with dependencies = [ChainItem for the artifact file, marked as ARTIFACT].
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify the body content of the artifact file on disk (leave frontmatter unchanged).
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify the body content of the artifact file on disk (do not change frontmatter).
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 #### ARTIFACT dependency — frontmatter change ignored
 
 Setup:
-- Create an artifact file with frontmatter and a body.
-- Build a Chain with dependencies = [ChainItem pointing to the artifact file, no qualifier].
+- Create an artifact file on disk with frontmatter and body content.
+- Build Chain with ARTIFACT dependency pointing to that file.
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify only the frontmatter of the artifact file on disk (leave body unchanged).
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify only the frontmatter of the artifact file on disk (do not change body).
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 are identical — frontmatter is stripped before hashing.
+Expected: hash1 and hash2 are identical.
 
 ---
 
 #### ARTIFACT dependency — tag hash change ignored
 
 Setup:
-- Create an artifact file with a body containing an artifact tag line:
+- Create an artifact file on disk. The body contains a line:
   `// code-from-spec: ROOT/x/y@aAbBcCdDeEfFgGhHiIjJkKlLmMn`
-- Build a Chain with dependencies = [ChainItem pointing to that file, no qualifier].
+- Build Chain with ARTIFACT dependency pointing to that file.
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Change only the 27-character hash in the artifact tag to a different value
-  (e.g., `zZyYxXwWvVuUtTsSrRqQpPoOnNm`). Leave all other content unchanged.
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Change only the 27-character hash in the tag line to a different value (e.g. `zZyYxXwWvVuUtTsSrRqQpPoOnNm`).
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 are identical — the tag hash portion is neutralized before hashing.
+Expected: hash1 and hash2 are identical — the tag hash portion is neutralized before hashing.
 
 ---
 
 ### External files
 
----
-
 #### External file — hashes all content
 
 Setup:
-- Create an external file with some content.
-- Build a Chain with external = [FrontmatterExternal record pointing to that file], target = some target ChainItem.
+- Create an external file on disk with some content.
+- Build Chain with external = [FrontmatterExternal pointing to that file].
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify the external file's content on disk.
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify the external file's content on disk.
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 ### Target
 
----
-
 #### Target Public and Agent both contribute
 
 Setup:
-- Create ROOT/a as target with both `# Public` and `# Agent` sections.
-- Build a Chain with target = ROOT/a ChainItem.
+- Create ROOT/a node file as target with both `# Public` and `# Agent` sections.
+- Build Chain with target = ChainItem for ROOT/a.
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Remove the `# Agent` section from ROOT/a on disk (keep `# Public` unchanged).
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Remove the `# Agent` section from ROOT/a on disk.
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 #### Target without Agent — Agent skipped
 
 Setup:
-- Create ROOT/a as target with `# Public` only and no `# Agent` section.
-- Build a Chain with target = ROOT/a ChainItem.
+- Create ROOT/a node file as target with `# Public` only (no `# Agent` section).
+- Build Chain with target = ChainItem for ROOT/a.
 
 Actions:
-- Call ChainHashCompute.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- No error is raised. The result is a 27-character string.
+Expected: Returns a result with no error.
 
 ---
 
 ### Input
 
----
-
 #### Input hashes file minus frontmatter
 
 Setup:
-- Create an artifact file with frontmatter and a body.
-- Build a Chain with input = ChainItem pointing to the artifact file.
+- Create an artifact file on disk with frontmatter and body content.
+- Build Chain with input = ChainItem pointing to the artifact file.
 
 Actions:
-- Call ChainHashCompute. Record result as hash1.
-- Modify the body content of the artifact file on disk (leave frontmatter unchanged).
-- Call ChainHashCompute again. Record result as hash2.
+1. Call ChainHashCompute. Record result as hash1.
+2. Modify the body content of the artifact file on disk (do not change frontmatter).
+3. Call ChainHashCompute again. Record result as hash2.
 
-Expected outcome:
-- hash1 and hash2 differ.
+Expected: hash1 and hash2 differ.
 
 ---
 
 #### No input — skipped
 
 Setup:
-- Create ROOT/a as target with `# Public` content.
-- Build a Chain with target = ROOT/a ChainItem, input = absent.
+- Create a minimal spec tree on disk.
+- Build Chain with input absent.
 
 Actions:
-- Call ChainHashCompute.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- No error is raised. The result is a 27-character string.
+Expected: Returns a result with no error.
 
 ---
 
 ### Error cases
 
----
-
 #### Unreadable spec node file
 
 Setup:
-- Build a Chain where the target ChainItem's file_path points to a file that does not exist on disk.
+- Build Chain referencing a ChainItem whose file_path points to a non-existent file on disk.
 
 Actions:
-- Call ChainHashCompute.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- Error ParseFailure is returned.
+Expected: Error ParseFailure is returned.
 
 ---
 
 #### Unreadable artifact file
 
 Setup:
-- Build a Chain with a dependency ChainItem whose file_path points to a non-existent artifact file.
+- Build Chain with an ARTIFACT dependency whose file_path points to a non-existent file on disk.
 
 Actions:
-- Call ChainHashCompute.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- Error FileUnreadable is returned.
+Expected: Error FileUnreadable is returned.
 
 ---
 
 #### Unreadable external file
 
 Setup:
-- Build a Chain with an external entry whose path points to a non-existent file.
+- Build Chain with external = [FrontmatterExternal pointing to a non-existent file on disk].
 
 Actions:
-- Call ChainHashCompute.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- Error FileUnreadable is returned.
+Expected: Error FileUnreadable is returned.

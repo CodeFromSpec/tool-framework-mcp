@@ -1,10 +1,9 @@
-// code-from-spec: ROOT/golang/tests/spec_tree/scan@c18XFpPc6Orxw0woMUMAxS1lRyE
+// code-from-spec: ROOT/golang/tests/spec_tree/scan@DqZw5cidIDsrhn5q00PRMWLBgdM
 package spectree_test
 
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/listfiles"
@@ -27,19 +26,36 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
+func testMkdirAll(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0755); err != nil {
+		t.Fatalf("testMkdirAll: %v", err)
+	}
+}
+
 func testWriteFile(t *testing.T, path string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		t.Fatalf("testWriteFile mkdir: %v", err)
+	dir := path[:len(path)-len("/"+lastSegment(path))]
+	if dir != path {
+		testMkdirAll(t, dir)
 	}
 	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
 		t.Fatalf("testWriteFile: %v", err)
 	}
 }
 
+func lastSegment(path string) string {
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '/' {
+			return path[i+1:]
+		}
+	}
+	return path
+}
+
 func TestSpecTreeScan_RootNodeOnly(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	testWriteFile(t, "code-from-spec/_node.md")
 
@@ -51,16 +67,16 @@ func TestSpecTreeScan_RootNodeOnly(t *testing.T) {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("expected logical name ROOT, got %s", nodes[0].LogicalName)
+		t.Errorf("expected logical_name=ROOT, got %q", nodes[0].LogicalName)
 	}
 	if nodes[0].FilePath.Value != "code-from-spec/_node.md" {
-		t.Errorf("expected file path code-from-spec/_node.md, got %s", nodes[0].FilePath.Value)
+		t.Errorf("expected file_path=code-from-spec/_node.md, got %q", nodes[0].FilePath.Value)
 	}
 }
 
 func TestSpecTreeScan_RootAndNestedNodes(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	testWriteFile(t, "code-from-spec/_node.md")
 	testWriteFile(t, "code-from-spec/a/_node.md")
@@ -83,19 +99,19 @@ func TestSpecTreeScan_RootAndNestedNodes(t *testing.T) {
 		{"ROOT/a/b", "code-from-spec/a/b/_node.md"},
 	}
 
-	for i, e := range expected {
-		if nodes[i].LogicalName != e.logicalName {
-			t.Errorf("node[%d] logical name: expected %s, got %s", i, e.logicalName, nodes[i].LogicalName)
+	for i, exp := range expected {
+		if nodes[i].LogicalName != exp.logicalName {
+			t.Errorf("nodes[%d].LogicalName: expected %q, got %q", i, exp.logicalName, nodes[i].LogicalName)
 		}
-		if nodes[i].FilePath.Value != e.filePath {
-			t.Errorf("node[%d] file path: expected %s, got %s", i, e.filePath, nodes[i].FilePath.Value)
+		if nodes[i].FilePath.Value != exp.filePath {
+			t.Errorf("nodes[%d].FilePath.Value: expected %q, got %q", i, exp.filePath, nodes[i].FilePath.Value)
 		}
 	}
 }
 
 func TestSpecTreeScan_IgnoresNonNodeFiles(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	testWriteFile(t, "code-from-spec/_node.md")
 	testWriteFile(t, "code-from-spec/x/output.md")
@@ -108,18 +124,16 @@ func TestSpecTreeScan_IgnoresNonNodeFiles(t *testing.T) {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("expected logical name ROOT, got %s", nodes[0].LogicalName)
+		t.Errorf("expected logical_name=ROOT, got %q", nodes[0].LogicalName)
 	}
 }
 
-func TestSpecTreeScan_IgnoresEmptySubdirectories(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestSpecTreeScan_IgnoresDirectoriesWithoutNodeMd(t *testing.T) {
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	testWriteFile(t, "code-from-spec/_node.md")
-	if err := os.MkdirAll("code-from-spec/x/y", 0755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
+	testMkdirAll(t, "code-from-spec/x/y")
 
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
@@ -129,13 +143,13 @@ func TestSpecTreeScan_IgnoresEmptySubdirectories(t *testing.T) {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("expected logical name ROOT, got %s", nodes[0].LogicalName)
+		t.Errorf("expected logical_name=ROOT, got %q", nodes[0].LogicalName)
 	}
 }
 
-func TestSpecTreeScan_SortedByLogicalName(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestSpecTreeScan_ResultSortedByLogicalName(t *testing.T) {
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	testWriteFile(t, "code-from-spec/z/_node.md")
 	testWriteFile(t, "code-from-spec/_node.md")
@@ -158,19 +172,19 @@ func TestSpecTreeScan_SortedByLogicalName(t *testing.T) {
 		{"ROOT/z", "code-from-spec/z/_node.md"},
 	}
 
-	for i, e := range expected {
-		if nodes[i].LogicalName != e.logicalName {
-			t.Errorf("node[%d] logical name: expected %s, got %s", i, e.logicalName, nodes[i].LogicalName)
+	for i, exp := range expected {
+		if nodes[i].LogicalName != exp.logicalName {
+			t.Errorf("nodes[%d].LogicalName: expected %q, got %q", i, exp.logicalName, nodes[i].LogicalName)
 		}
-		if nodes[i].FilePath.Value != e.filePath {
-			t.Errorf("node[%d] file path: expected %s, got %s", i, e.filePath, nodes[i].FilePath.Value)
+		if nodes[i].FilePath.Value != exp.filePath {
+			t.Errorf("nodes[%d].FilePath.Value: expected %q, got %q", i, exp.filePath, nodes[i].FilePath.Value)
 		}
 	}
 }
 
 func TestSpecTreeScan_NoCodeFromSpecDirectory(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	_, err := spectree.SpecTreeScan()
 	if err == nil {
@@ -182,12 +196,10 @@ func TestSpecTreeScan_NoCodeFromSpecDirectory(t *testing.T) {
 }
 
 func TestSpecTreeScan_EmptyCodeFromSpecDirectory(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
+	testMkdirAll(t, "code-from-spec")
 
 	_, err := spectree.SpecTreeScan()
 	if err == nil {
@@ -199,8 +211,8 @@ func TestSpecTreeScan_EmptyCodeFromSpecDirectory(t *testing.T) {
 }
 
 func TestSpecTreeScan_OnlyNonNodeFiles(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	testWriteFile(t, "code-from-spec/README.md")
 	testWriteFile(t, "code-from-spec/x/output.md")

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/utils/text_normalization@NaKHQX_4U3f0rRtKRBk9SkguwcE
+// code-from-spec: ROOT/golang/implementation/utils/text_normalization@UUHpkG5CZyXrXLRxIJQS3uCKZ1c
 package textnormalization
 
 import (
@@ -8,13 +8,25 @@ import (
 )
 
 func NormalizeText(raw_string string) string {
-	trimmed := strings.TrimSpace(raw_string)
-	if trimmed == "" {
-		return ""
+	trimmed := strings.TrimFunc(raw_string, func(r rune) bool {
+		return r == ' ' || r == '\t'
+	})
+
+	var builder strings.Builder
+	inWhitespace := false
+	for _, r := range trimmed {
+		if r == ' ' || r == '\t' {
+			if !inWhitespace {
+				builder.WriteRune(' ')
+				inWhitespace = true
+			}
+		} else {
+			builder.WriteRune(r)
+			inWhitespace = false
+		}
 	}
 
-	fields := strings.Fields(trimmed)
-	collapsed := strings.Join(fields, " ")
+	collapsed := builder.String()
 
 	caser := cases.Fold()
 	return caser.String(collapsed)

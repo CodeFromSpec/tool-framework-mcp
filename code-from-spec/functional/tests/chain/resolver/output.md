@@ -1,66 +1,65 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/resolver@KUQajnDlwFOgpC9JVGq9whwbaEQ -->
-
-# Test cases for ChainResolve
-
-All tests create a spec tree on disk with `_node.md` files containing
-frontmatter as needed, then call `ChainResolve` with a target logical name.
-
----
+<!-- code-from-spec: ROOT/functional/tests/chain/resolver@V5oBoUTGEzMTMy8ZiPBRRb4Ou_Y -->
 
 ## Ancestors and target
 
 ### Root as target
 
-Setup: create spec tree with ROOT only (_node.md with empty frontmatter).
+Setup: create `_node.md` for ROOT with no frontmatter.
 
-Action: call ChainResolve with "ROOT".
+Action: call `ChainResolve("ROOT")`.
 
-Expect:
-- ancestors = empty list
-- target = ChainItem with logical_name = "ROOT", qualifier = absent
-- dependencies = empty list
-- external = empty list
-- input = absent
+Expected outcome:
+- `Chain.ancestors` = empty
+- `Chain.target` = `ChainItem(logical_name="ROOT", qualifier=absent)`
+- `Chain.dependencies` = empty
+- `Chain.external` = empty
+- `Chain.input` = absent
 
 ---
 
 ### Linear chain — ancestors in root-first order
 
-Setup: create spec tree with ROOT, ROOT/a, ROOT/a/b (all with empty frontmatter).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a.
+- Create `_node.md` for ROOT/a/b.
 
-Action: call ChainResolve with "ROOT/a/b".
+Action: call `ChainResolve("ROOT/a/b")`.
 
-Expect:
-- ancestors = [ChainItem(logical_name="ROOT"), ChainItem(logical_name="ROOT/a")]
-  in that order (root first)
-- target = ChainItem with logical_name = "ROOT/a/b"
+Expected outcome:
+- `Chain.ancestors` = [`ChainItem(logical_name="ROOT")`, `ChainItem(logical_name="ROOT/a")`] in that order.
+- `Chain.target` = `ChainItem(logical_name="ROOT/a/b")`
 
 ---
 
 ### Single parent
 
-Setup: create spec tree with ROOT, ROOT/a (empty frontmatter).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- ancestors = [ChainItem(logical_name="ROOT")]
-- target = ChainItem with logical_name = "ROOT/a"
+Expected outcome:
+- `Chain.ancestors` = [`ChainItem(logical_name="ROOT")`]
+- `Chain.target` = `ChainItem(logical_name="ROOT/a")`
 
 ---
 
 ### Target with empty frontmatter
 
-Setup: create spec tree with ROOT, ROOT/a (leaf, empty frontmatter).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with empty frontmatter.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- ancestors = [ChainItem(logical_name="ROOT")]
-- target = ChainItem with logical_name = "ROOT/a"
-- dependencies = empty list
-- external = empty list
-- input = absent
+Expected outcome:
+- `Chain.ancestors` = [`ChainItem(logical_name="ROOT")`]
+- `Chain.target` = `ChainItem(logical_name="ROOT/a")`
+- `Chain.dependencies` = empty
+- `Chain.external` = empty
+- `Chain.input` = absent
 
 ---
 
@@ -68,38 +67,45 @@ Expect:
 
 ### Dependency without qualifier
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ROOT/b"]), ROOT/b.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ROOT/b"]`.
+- Create `_node.md` for ROOT/b.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains one ChainItem with logical_name = "ROOT/b",
-  qualifier = absent
+Expected outcome:
+- `Chain.dependencies` contains one `ChainItem` with `logical_name="ROOT/b"`, `qualifier=absent`.
 
 ---
 
 ### Dependency with qualifier
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ROOT/b(interface)"]), ROOT/b.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ROOT/b(interface)"]`.
+- Create `_node.md` for ROOT/b.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains one ChainItem with logical_name = "ROOT/b",
-  qualifier = "interface"
+Expected outcome:
+- `Chain.dependencies` contains one `ChainItem` with `logical_name="ROOT/b"`, `qualifier="interface"`.
 
 ---
 
 ### Dependencies sorted by file path then qualifier
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ROOT/z", "ROOT/m", "ROOT/b"]),
-ROOT/z, ROOT/m, ROOT/b (all empty frontmatter).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ROOT/z", "ROOT/m", "ROOT/b"]`.
+- Create `_node.md` for ROOT/z.
+- Create `_node.md` for ROOT/m.
+- Create `_node.md` for ROOT/b.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies sorted alphabetically by file_path value
-  (ROOT/b before ROOT/m before ROOT/z)
+Expected outcome:
+- `Chain.dependencies` is sorted alphabetically by file path: ROOT/b's path before ROOT/m's path before ROOT/z's path.
 
 ---
 
@@ -107,52 +113,59 @@ Expect:
 
 ### ARTIFACT dependency resolved from generating node
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ARTIFACT/b"]),
-ROOT/b (frontmatter: output = "out/lib.go").
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ARTIFACT/b"]`.
+- Create `_node.md` for ROOT/b with frontmatter `output: "out/lib.go"`.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains one ChainItem with logical_name = "ARTIFACT/b",
-  file_path = PathCfs("out/lib.go")
+Expected outcome:
+- `Chain.dependencies` contains one `ChainItem` with `logical_name="ARTIFACT/b"`, `file_path="out/lib.go"`.
 
 ---
 
 ### ARTIFACT — generating node has no output
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ARTIFACT/b"]),
-ROOT/b (empty frontmatter, no output).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ARTIFACT/b"]`.
+- Create `_node.md` for ROOT/b with empty frontmatter (no `output` field).
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect: error UnresolvableArtifact.
+Expected outcome: error `UnresolvableArtifact`.
 
 ---
 
 ### ARTIFACT — artifact file does not exist on disk
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ARTIFACT/b"]),
-ROOT/b (output = "out/lib.go"). Do NOT create "out/lib.go" on disk.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ARTIFACT/b"]`.
+- Create `_node.md` for ROOT/b with frontmatter `output: "out/lib.go"`.
+- Do NOT create `out/lib.go` on disk.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- no error
-- dependencies contains one ChainItem with file_path = PathCfs("out/lib.go")
-  (existence is not verified by the resolver)
+Expected outcome:
+- No error.
+- `Chain.dependencies` contains one `ChainItem` with `file_path="out/lib.go"`.
 
 ---
 
 ### Mixed ROOT/ and ARTIFACT/ dependencies
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ROOT/c", "ARTIFACT/b"]),
-ROOT/b (output = "out/lib.go"), ROOT/c.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ROOT/c", "ARTIFACT/b"]`.
+- Create `_node.md` for ROOT/b with frontmatter `output: "out/lib.go"`.
+- Create `_node.md` for ROOT/c.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains two entries (one for ROOT/c, one for ARTIFACT/b),
-  sorted by file_path value
+Expected outcome:
+- `Chain.dependencies` contains both entries, sorted by file path value.
 
 ---
 
@@ -160,62 +173,71 @@ Expect:
 
 ### Exact duplicate — same file, same qualifier
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ROOT/b", "ROOT/b"]), ROOT/b.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ROOT/b", "ROOT/b"]`.
+- Create `_node.md` for ROOT/b.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains exactly one entry for ROOT/b (not two)
+Expected outcome:
+- `Chain.dependencies` contains exactly one entry for ROOT/b.
 
 ---
 
 ### No qualifier subsumes qualifier
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ROOT/b", "ROOT/b(interface)"]),
-ROOT/b.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ROOT/b", "ROOT/b(interface)"]`.
+- Create `_node.md` for ROOT/b.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains exactly one entry for ROOT/b with qualifier = absent
-  (the ROOT/b(interface) entry is removed because the unqualified entry subsumes it)
+Expected outcome:
+- `Chain.dependencies` contains exactly one entry for ROOT/b with `qualifier=absent`. The `ROOT/b(interface)` entry is removed.
 
 ---
 
 ### Qualifier before no-qualifier — no-qualifier wins
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ROOT/b(interface)", "ROOT/b"]),
-ROOT/b.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ROOT/b(interface)", "ROOT/b"]`.
+- Create `_node.md` for ROOT/b.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains exactly one entry for ROOT/b with qualifier = absent
+Expected outcome:
+- `Chain.dependencies` contains exactly one entry for ROOT/b with `qualifier=absent`.
 
 ---
 
 ### Same file, different qualifiers — both kept
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ROOT/b(interface)", "ROOT/b(constraints)"]),
-ROOT/b.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ROOT/b(interface)", "ROOT/b(constraints)"]`.
+- Create `_node.md` for ROOT/b.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains two entries: one with qualifier = "constraints" and one
-  with qualifier = "interface" (sorted alphabetically)
+Expected outcome:
+- `Chain.dependencies` contains two entries: one with `qualifier="constraints"`, one with `qualifier="interface"`, sorted by qualifier.
 
 ---
 
 ### Duplicate ARTIFACT — same logical name
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["ARTIFACT/b", "ARTIFACT/b"]),
-ROOT/b (output = "out/lib.go").
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["ARTIFACT/b", "ARTIFACT/b"]`.
+- Create `_node.md` for ROOT/b with frontmatter `output: "out/lib.go"`.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- dependencies contains exactly one ARTIFACT/b entry (not two)
+Expected outcome:
+- `Chain.dependencies` contains exactly one `ARTIFACT/b` entry.
 
 ---
 
@@ -223,25 +245,27 @@ Expect:
 
 ### External entries copied from frontmatter
 
-Setup: create spec tree with ROOT, ROOT/a (external = [{path: "docs/api.yaml"},
-{path: "proto/v1.proto"}]).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `external: [{path: "docs/api.yaml"}, {path: "proto/v1.proto"}]`.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- external list contains both entries, sorted alphabetically:
-  docs/api.yaml before proto/v1.proto
+Expected outcome:
+- `Chain.external` contains both entries sorted alphabetically: `docs/api.yaml` before `proto/v1.proto`.
 
 ---
 
 ### Empty external — no entries
 
-Setup: create spec tree with ROOT, ROOT/a (no external field).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter and no `external` field.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- external list is empty
+Expected outcome:
+- `Chain.external` is empty.
 
 ---
 
@@ -249,25 +273,28 @@ Expect:
 
 ### Input resolved from generating node
 
-Setup: create spec tree with ROOT, ROOT/a (input = "ARTIFACT/b"),
-ROOT/b (output = "out/data.json").
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `input: "ARTIFACT/b"`.
+- Create `_node.md` for ROOT/b with frontmatter `output: "out/data.json"`.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- input = ChainItem with logical_name = "ARTIFACT/b",
-  file_path = PathCfs("out/data.json")
+Expected outcome:
+- `Chain.input` = `ChainItem(logical_name="ARTIFACT/b", file_path="out/data.json")`.
 
 ---
 
 ### No input — absent
 
-Setup: create spec tree with ROOT, ROOT/a (no input field).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter and no `input` field.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect:
-- input is absent
+Expected outcome:
+- `Chain.input` is absent.
 
 ---
 
@@ -275,26 +302,32 @@ Expect:
 
 ### Unrecognized prefix in depends_on
 
-Setup: create spec tree with ROOT, ROOT/a (depends_on = ["UNKNOWN/something"]).
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with frontmatter `depends_on: ["UNKNOWN/something"]`.
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect: error UnresolvableArtifact.
+Expected outcome: error `UnresolvableArtifact`.
 
 ---
 
 ### Invalid target logical name
 
-Action: call ChainResolve with "INVALID/something".
+Setup: none (no spec tree required).
 
-Expect: error propagated from LogicalNameGetParent or LogicalNameToPath.
+Action: call `ChainResolve("INVALID/something")`.
+
+Expected outcome: error propagated from `LogicalNameGetParent` or `LogicalNameToPath`.
 
 ---
 
 ### Unreadable frontmatter
 
-Setup: create spec tree with ROOT, ROOT/a with invalid YAML in frontmatter.
+Setup:
+- Create `_node.md` for ROOT.
+- Create `_node.md` for ROOT/a with invalid YAML in frontmatter (e.g., malformed YAML content that cannot be parsed).
 
-Action: call ChainResolve with "ROOT/a".
+Action: call `ChainResolve("ROOT/a")`.
 
-Expect: error UnreadableFrontmatter.
+Expected outcome: error `UnreadableFrontmatter`.
