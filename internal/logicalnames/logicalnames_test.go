@@ -11,10 +11,10 @@ import (
 
 func TestLogicalNameToPath(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		wantPath    string
-		wantErr     error
+		name     string
+		input    string
+		wantPath string
+		wantErr  error
 	}{
 		{
 			name:     "ROOT alone",
@@ -213,9 +213,9 @@ func TestLogicalNameGetQualifier(t *testing.T) {
 
 func TestLogicalNameStripQualifier(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantOut  string
+		name    string
+		input   string
+		wantOut string
 	}{
 		{
 			name:    "Strips qualifier from ROOT reference",
@@ -375,10 +375,10 @@ func TestLogicalNameIsArtifact(t *testing.T) {
 
 func TestLogicalNameGetArtifactGenerator(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantName  string
-		wantErr   error
+		name     string
+		input    string
+		wantName string
+		wantErr  error
 	}{
 		{
 			name:     "Simple artifact",
