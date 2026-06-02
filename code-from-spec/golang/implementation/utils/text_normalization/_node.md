@@ -3,8 +3,6 @@ depends_on:
   - ROOT/golang/dependencies/golang-x-text
   - ARTIFACT/golang/interfaces/utils/text_normalization(interface)
 input: ARTIFACT/functional/logic/utils/text_normalization(text_normalization)
-external:
-  - path: CODE_FROM_SPEC.md
 outputs:
   - id: textnormalization
     path: internal/textnormalization/textnormalization.go
