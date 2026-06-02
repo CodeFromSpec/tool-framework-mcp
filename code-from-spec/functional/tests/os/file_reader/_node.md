@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/file_reader(interface)
-outputs:
-  - id: file_reader_tests
-    path: code-from-spec/functional/tests/os/file_reader/output.md
+output: code-from-spec/functional/tests/os/file_reader/output.md
 ---
 
 # ROOT/functional/tests/os/file_reader

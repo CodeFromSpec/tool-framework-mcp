@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/node_ranking(interface)
-outputs:
-  - id: node_ranking_tests
-    path: code-from-spec/functional/tests/utils/node_ranking/output.md
+output: code-from-spec/functional/tests/utils/node_ranking/output.md
 ---
 
 # ROOT/functional/tests/utils/node_ranking
@@ -56,39 +54,37 @@ ROOT/a. No cycles.
 
 #### input artifact adds dependency edge
 
-Input: ROOT, ROOT/a with outputs = [{id: "code",
-path: "out.go"}], ROOT/b with input =
-"ARTIFACT/a(code)". Call NodeRankCompute.
+Input: ROOT, ROOT/a with output = "out.go",
+ROOT/b with input = "ARTIFACT/a".
+Call NodeRankCompute.
 
 Expect ROOT/b has higher rank than the artifact
-ARTIFACT/a(code), which has higher rank than ROOT/a.
+ARTIFACT/a, which has higher rank than ROOT/a.
 No cycles.
 
 #### Artifacts get rank one above their node
 
-Input: ROOT, ROOT/a with outputs = [{id: "foo",
-path: "foo.go"}]. Call NodeRankCompute.
-
-Expect ARTIFACT/a(foo) has rank = rank of ROOT/a + 1.
-No cycles.
-
-#### Multiple outputs — each artifact ranked
-
-Input: ROOT, ROOT/a with outputs = [{id: "x",
-path: "x.go"}, {id: "y", path: "y.go"}].
+Input: ROOT, ROOT/a with output = "foo.go".
 Call NodeRankCompute.
 
-Expect two artifact entries ARTIFACT/a(x) and
-ARTIFACT/a(y), both with rank = rank of ROOT/a + 1.
+Expect ARTIFACT/a has rank = rank of ROOT/a + 1.
 No cycles.
+
+#### Single output — artifact ranked
+
+Input: ROOT, ROOT/a with output = "x.go".
+Call NodeRankCompute.
+
+Expect one artifact entry ARTIFACT/a with rank =
+rank of ROOT/a + 1. No cycles.
 
 #### depends_on ARTIFACT reference — used as-is
 
-Input: ROOT, ROOT/a with outputs = [{id: "lib",
-path: "lib.go"}], ROOT/b with depends_on =
-["ARTIFACT/a(lib)"]. Call NodeRankCompute.
+Input: ROOT, ROOT/a with output = "lib.go",
+ROOT/b with depends_on = ["ARTIFACT/a"].
+Call NodeRankCompute.
 
-Expect ROOT/b rank > ARTIFACT/a(lib) rank > ROOT/a
+Expect ROOT/b rank > ARTIFACT/a rank > ROOT/a
 rank. No cycles.
 
 #### Output sorted by rank then logical name
@@ -140,13 +136,12 @@ max(1,2,3) = 4, not 1 + first or last). No cycles.
 
 #### Node with both depends_on and input
 
-Input: ROOT, ROOT/a with outputs = [{id: "out",
-path: "a.go"}], ROOT/b, ROOT/c with depends_on =
-["ROOT/b"] and input = "ARTIFACT/a(out)".
-Call NodeRankCompute.
+Input: ROOT, ROOT/a with output = "a.go",
+ROOT/b, ROOT/c with depends_on = ["ROOT/b"] and
+input = "ARTIFACT/a". Call NodeRankCompute.
 
 Expect ROOT/c rank = 1 + max(rank of ROOT (parent),
-rank of ROOT/b, rank of ARTIFACT/a(out)). No cycles.
+rank of ROOT/b, rank of ARTIFACT/a). No cycles.
 
 #### Empty input list
 
@@ -174,10 +169,9 @@ one of ROOT/a or ROOT/b.
 
 #### Cycle through artifacts
 
-Input: ROOT, ROOT/a with outputs = [{id: "out",
-path: "a.go"}] and depends_on = ["ARTIFACT/b(out)"],
-ROOT/b with outputs = [{id: "out", path: "b.go"}]
-and depends_on = ["ARTIFACT/a(out)"].
+Input: ROOT, ROOT/a with output = "a.go" and
+depends_on = ["ARTIFACT/b"], ROOT/b with
+output = "b.go" and depends_on = ["ARTIFACT/a"].
 Call NodeRankCompute.
 
 Expect cycles list is not empty.
@@ -204,14 +198,14 @@ Expect error UnresolvableReference.
 #### Unresolvable ARTIFACT reference
 
 Input: ROOT, ROOT/a with depends_on =
-["ARTIFACT/missing(id)"]. Call NodeRankCompute.
+["ARTIFACT/missing"]. Call NodeRankCompute.
 
 Expect error UnresolvableReference.
 
 #### Unresolvable input reference
 
 Input: ROOT, ROOT/a with input =
-"ARTIFACT/missing(id)". Call NodeRankCompute.
+"ARTIFACT/missing". Call NodeRankCompute.
 
 Expect error UnresolvableReference.
 

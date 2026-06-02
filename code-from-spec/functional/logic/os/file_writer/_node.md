@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: file_writer
-    path: code-from-spec/functional/logic/os/file_writer/output.md
+output: code-from-spec/functional/logic/os/file_writer/output.md
 ---
 
 # ROOT/functional/logic/os/file_writer

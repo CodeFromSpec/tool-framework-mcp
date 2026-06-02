@@ -8,9 +8,7 @@ depends_on:
   - ROOT/functional/logic/parsing/node_parsing(interface)
 external:
   - path: CODE_FROM_SPEC.md
-outputs:
-  - id: format_validation
-    path: code-from-spec/functional/logic/spec_tree/validate/output.md
+output: code-from-spec/functional/logic/spec_tree/validate/output.md
 ---
 
 # ROOT/functional/logic/spec_tree/validate
@@ -58,11 +56,11 @@ is a leaf if no entry starts with `ROOT/a/b/`.
 
 Build a set of all known logical names for lookup. Add
 every entry's `logical_name` to the set. Then, for each
-entry that has outputs, construct the artifact logical
-name for each output — strip `ROOT/` from the entry's
-logical name, prepend `ARTIFACT/`, append `(id)` — and
-add it to the set. Example: entry `ROOT/a/b` with
-output id `foo` adds `ARTIFACT/a/b(foo)` to the set.
+entry that has output, construct the artifact logical
+name — strip `ROOT/` from the entry's logical name,
+prepend `ARTIFACT/` — and add it to the set. Example:
+entry `ROOT/a/b` with output adds `ARTIFACT/a/b` to the
+set.
 
 For each entry, determine whether it has children: a
 node has children if any other entry's logical name
@@ -85,7 +83,7 @@ must match the entry's `logical_name`. Comparison uses
 Rule name: `leaf_only_fields`.
 
 The fields `depends_on`, `external`, `input`, and
-`outputs` are only permitted on leaf nodes (nodes without
+`output` are only permitted on leaf nodes (nodes without
 children). If a node with children has any of these fields
 non-empty, report one error per field.
 
@@ -114,8 +112,10 @@ Each `depends_on` entry must be valid:
   (the current node's logical name followed by `/` is a
   prefix of the bare name).
 
-- **`ARTIFACT/` references**: verify the reference exists
-  in the known logical names set.
+- **`ARTIFACT/` references**: strip any qualifier using
+  `LogicalNameStripQualifier` (there should not be one,
+  but do so defensively), then verify the bare reference
+  exists in the known logical names set.
 
 Report one error per invalid entry.
 
@@ -125,7 +125,9 @@ Rule name: `input_target`.
 
 If `frontmatter.input` is non-empty, verify it starts
 with `ARTIFACT/`. If not, report a format error. Then
-verify it exists in the known logical names set. If not,
+strip any qualifier using `LogicalNameStripQualifier`
+(defensively), and verify the bare reference exists in
+the known logical names set. If not,
 report a format error.
 
 #### external_files
@@ -145,9 +147,8 @@ it succeeds, call `FileClose` immediately.
 
 Rule name: `output_paths`.
 
-Each `outputs` entry's `path` must pass `PathValidateCfs`
-(no traversal, no absolute paths, no backslashes, within
-project root).
+The output path must pass `PathValidateCfs` (no traversal,
+no absolute paths, no backslashes, within project root).
 
 #### duplicate_subsections
 

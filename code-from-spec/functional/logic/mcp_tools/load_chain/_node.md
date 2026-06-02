@@ -8,9 +8,7 @@ depends_on:
   - ROOT/functional/logic/os/path_utils(interface)
   - ROOT/functional/logic/utils/logical_names(interface)
   - ROOT/functional/logic/utils/text_normalization(interface)
-outputs:
-  - id: load_chain
-    path: code-from-spec/functional/logic/mcp_tools/load_chain/output.md
+output: code-from-spec/functional/logic/mcp_tools/load_chain/output.md
 ---
 
 # ROOT/functional/logic/mcp_tools/load_chain
@@ -35,8 +33,8 @@ record MCPLoadChainResult
 
 function MCPLoadChain(logical_name: string) -> MCPLoadChainResult
   errors:
-    - NoOutputs: target node has no outputs field.
-    - InvalidOutputPath: an output path fails path
+    - NoOutput: target node has no output field.
+    - InvalidOutputPath: the output path fails path
       validation.
     - (LogicalNames.*): propagated from
       LogicalNameToPath.
@@ -70,9 +68,9 @@ Resolve the logical name to a file path using
 `LogicalNameToPath`. If it fails, propagate the error.
 
 Read the target node's frontmatter using
-`FrontmatterParse`. If `frontmatter.outputs` is empty,
-raise NoOutputs. Validate each output path using
-`PathValidateCfs`. If any fails, raise
+`FrontmatterParse`. If `frontmatter.output` is empty,
+raise NoOutputs. Validate the output path using
+`PathValidateCfs`. If it fails, raise
 InvalidOutputPath.
 
 Call `ChainResolve(logical_name)` to get the resolved
@@ -131,7 +129,7 @@ Call `FileClose`.
 **Target Public** (from `chain.target`)
 
 First, emit a reduced frontmatter block containing only
-the `outputs` field (formatted as YAML between `---`
+the `output` field (formatted as YAML between `---`
 delimiters). Then call `NodeParse` with
 `chain.target.logical_name`. Include `# Public` raw
 heading, section content, all `## subsection` raw

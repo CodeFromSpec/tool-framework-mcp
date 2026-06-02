@@ -1,455 +1,472 @@
-<!-- code-from-spec: ROOT/functional/tests/spec_tree/validate@NZpMWPPQ-vXSkIx52QXud2-lCGs -->
+<!-- code-from-spec: ROOT/functional/tests/spec_tree/validate@4Ei9QqX3_HKD9POSqHGpploEJgY -->
 
-## Test Cases for SpecTreeValidate
+# Test cases for SpecTreeValidate
 
----
-
-### Happy path
-
-#### Valid leaf node passes all checks
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT", node has children ROOT/a and ROOT/b
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ROOT/b"], outputs = [{id: "out", path: "internal/out.go"}]), node.name_section.heading = "ROOT/a"
-- Entry 3: logical_name = "ROOT/b", frontmatter = (empty), node.name_section.heading = "ROOT/b"
-
-Actions: Call SpecTreeValidate with the three entries.
-
-Expected outcome: Returns empty list of FormatErrors.
+Input is always a list of `SpecTreeValidateInput`. Each entry has: logical_name,
+frontmatter (Frontmatter record), and node (Node record). Except for external_files
+tests, no file I/O is performed.
 
 ---
 
-#### Valid intermediate node passes all checks
+## Happy path
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT", node.public present with empty content, no agent section
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a"
+### Valid leaf node passes all checks
 
-Actions: Call SpecTreeValidate with the two entries.
+Setup: input list =
+- ROOT: intermediate (has children ROOT/a and ROOT/b),
+  node.name_section.heading = "ROOT", no frontmatter fields, no agent section
+- ROOT/a: leaf, node.name_section.heading = "ROOT/a",
+  depends_on = ["ROOT/b"], output = "internal/out.go", node.public present
+- ROOT/b: leaf, node.name_section.heading = "ROOT/b"
 
-Expected outcome: Returns empty list of FormatErrors.
+Action: call SpecTreeValidate.
 
----
-
-#### Leaf with no frontmatter fields
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a"
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns empty list of FormatErrors.
+Expect: no format errors.
 
 ---
 
-### name_heading
+### Valid intermediate node passes all checks
 
-#### Heading matches logical name
+Setup: input list =
+- ROOT: intermediate (has child ROOT/a), node.name_section.heading = "ROOT",
+  node.public present with empty content, no frontmatter fields, no agent section
+- ROOT/a: leaf, node.name_section.heading = "ROOT/a"
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a"
+Action: call SpecTreeValidate.
 
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns no FormatError with rule = "name_heading".
-
----
-
-#### Heading does not match logical name
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/wrong"
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "name_heading".
+Expect: no format errors.
 
 ---
 
-### leaf_only_fields
+### Leaf with no frontmatter fields
 
-#### Intermediate node with depends_on
+Setup: input list =
+- ROOT: node.name_section.heading = "ROOT"
+- ROOT/a: leaf, node.name_section.heading = "ROOT/a", empty frontmatter
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ROOT/b"]), node.name_section.heading = "ROOT/a" (intermediate — has child ROOT/a/b)
-- Entry 3: logical_name = "ROOT/a/b", frontmatter = (empty), node.name_section.heading = "ROOT/a/b"
+Action: call SpecTreeValidate.
 
-Actions: Call SpecTreeValidate with the three entries.
-
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "leaf_only_fields".
+Expect: no format errors.
 
 ---
 
-#### Intermediate node with outputs
+## Rule: name_heading
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (outputs = [{id: "x", path: "x.go"}]), node.name_section.heading = "ROOT/a" (intermediate — has child ROOT/a/b)
-- Entry 3: logical_name = "ROOT/a/b", frontmatter = (empty), node.name_section.heading = "ROOT/a/b"
+### Heading matches logical name
 
-Actions: Call SpecTreeValidate with the three entries.
+Setup: input list =
+- ROOT: node.name_section.heading = "ROOT"
+- ROOT/a: node.name_section.heading = "ROOT/a"
 
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "leaf_only_fields".
+Action: call SpecTreeValidate.
 
----
-
-#### Intermediate node with input
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (input = "ARTIFACT/c(id)"), node.name_section.heading = "ROOT/a" (intermediate — has child ROOT/a/b)
-- Entry 3: logical_name = "ROOT/a/b", frontmatter = (empty), node.name_section.heading = "ROOT/a/b"
-
-Actions: Call SpecTreeValidate with the three entries.
-
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "leaf_only_fields".
+Expect: no format error with rule = "name_heading".
 
 ---
 
-#### Intermediate node with external
+### Heading does not match logical name
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (external = [{path: "some/file.txt"}]), node.name_section.heading = "ROOT/a" (intermediate — has child ROOT/a/b)
-- Entry 3: logical_name = "ROOT/a/b", frontmatter = (empty), node.name_section.heading = "ROOT/a/b"
+Setup: input list =
+- ROOT: node.name_section.heading = "ROOT"
+- ROOT/a: node.name_section.heading = "ROOT/wrong"
 
-Actions: Call SpecTreeValidate with the three entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "leaf_only_fields".
-
----
-
-#### Intermediate node with multiple restricted fields
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ROOT/b"], outputs = [{id: "x", path: "x.go"}]), node.name_section.heading = "ROOT/a" (intermediate — has child ROOT/a/b)
-- Entry 3: logical_name = "ROOT/a/b", frontmatter = (empty), node.name_section.heading = "ROOT/a/b"
-
-Actions: Call SpecTreeValidate with the three entries.
-
-Expected outcome: Returns exactly two FormatErrors where node = "ROOT/a" and rule = "leaf_only_fields" (one per restricted field present).
+Expect: one FormatError with node = "ROOT/a", rule = "name_heading".
 
 ---
 
-### leaf_only_agent
+## Rule: leaf_only_fields
 
-#### Intermediate node with agent section
+### Intermediate node with depends_on
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a" (intermediate — has child ROOT/a/b), node.agent present with content = ["Agent instructions."]
-- Entry 3: logical_name = "ROOT/a/b", frontmatter = (empty), node.name_section.heading = "ROOT/a/b"
+Setup: input list =
+- ROOT
+- ROOT/a: intermediate (has child ROOT/a/b), depends_on = ["ROOT/b"]
+- ROOT/a/b: leaf
 
-Actions: Call SpecTreeValidate with the three entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "leaf_only_agent".
-
----
-
-#### Leaf node with agent section — no error
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a", node.agent present with content = ["Agent instructions."]
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns no FormatError with rule = "leaf_only_agent".
+Expect: one FormatError with node = "ROOT/a", rule = "leaf_only_fields".
 
 ---
 
-### dependency_targets
+### Intermediate node with output
 
-#### depends_on targets non-existent ROOT node
+Setup: input list =
+- ROOT
+- ROOT/a: intermediate (has child ROOT/a/b), output = "x.go"
+- ROOT/a/b: leaf
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ROOT/missing"]), node.name_section.heading = "ROOT/a"
+Action: call SpecTreeValidate.
 
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "dependency_targets".
-
----
-
-#### depends_on targets ancestor
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a" (intermediate — has child ROOT/a/b)
-- Entry 3: logical_name = "ROOT/a/b", frontmatter = (depends_on = ["ROOT"]), node.name_section.heading = "ROOT/a/b"
-
-Actions: Call SpecTreeValidate with the three entries.
-
-Expected outcome: Returns at least one FormatError where node = "ROOT/a/b" and rule = "dependency_targets".
+Expect: one FormatError with node = "ROOT/a", rule = "leaf_only_fields".
 
 ---
 
-#### depends_on targets descendant
+### Intermediate node with input
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ROOT/a/b"]), node.name_section.heading = "ROOT/a" (intermediate — has child ROOT/a/b)
-- Entry 3: logical_name = "ROOT/a/b", frontmatter = (empty), node.name_section.heading = "ROOT/a/b"
+Setup: input list =
+- ROOT
+- ROOT/a: intermediate (has child ROOT/a/b), input = "ARTIFACT/c"
+- ROOT/a/b: leaf
 
-Actions: Call SpecTreeValidate with the three entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "dependency_targets".
-
----
-
-#### depends_on targets self
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ROOT/a"]), node.name_section.heading = "ROOT/a"
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "dependency_targets".
+Expect: one FormatError with node = "ROOT/a", rule = "leaf_only_fields".
 
 ---
 
-#### depends_on with valid ROOT qualifier
+### Intermediate node with external
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a"
-- Entry 3: logical_name = "ROOT/b", frontmatter = (depends_on = ["ROOT/a(interface)"]), node.name_section.heading = "ROOT/b"
+Setup: input list =
+- ROOT
+- ROOT/a: intermediate (has child ROOT/a/b), external = [{path: "some/file.txt"}]
+- ROOT/a/b: leaf
 
-Actions: Call SpecTreeValidate with the three entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns no FormatError with rule = "dependency_targets". (Qualifier is stripped before lookup; ROOT/a exists and is neither ancestor, descendant, nor self of ROOT/b.)
-
----
-
-#### depends_on with valid ARTIFACT reference
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (outputs = [{id: "lib", path: "lib.go"}]), node.name_section.heading = "ROOT/a"
-- Entry 3: logical_name = "ROOT/b", frontmatter = (depends_on = ["ARTIFACT/a(lib)"]), node.name_section.heading = "ROOT/b"
-
-Actions: Call SpecTreeValidate with the three entries.
-
-Expected outcome: Returns no FormatError with rule = "dependency_targets".
+Expect: one FormatError with node = "ROOT/a", rule = "leaf_only_fields".
 
 ---
 
-#### depends_on with non-existent ARTIFACT reference
+### Intermediate node with multiple restricted fields
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ARTIFACT/missing(id)"]), node.name_section.heading = "ROOT/a"
+Setup: input list =
+- ROOT
+- ROOT/a: intermediate (has child ROOT/a/b), depends_on = ["ROOT/b"], output = "x.go"
+- ROOT/a/b: leaf
 
-Actions: Call SpecTreeValidate with the two entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "dependency_targets".
-
----
-
-#### Multiple invalid depends_on — one error per entry
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ROOT/missing", "ROOT/also_missing"]), node.name_section.heading = "ROOT/a"
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns exactly two FormatErrors where node = "ROOT/a" and rule = "dependency_targets" (one per invalid entry).
+Expect: two FormatErrors both with node = "ROOT/a", rule = "leaf_only_fields"
+(one per restricted field).
 
 ---
 
-### input_target
+## Rule: leaf_only_agent
 
-#### Valid input reference
+### Intermediate node with agent section
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (outputs = [{id: "out", path: "a.go"}]), node.name_section.heading = "ROOT/a"
-- Entry 3: logical_name = "ROOT/b", frontmatter = (input = "ARTIFACT/a(out)"), node.name_section.heading = "ROOT/b"
+Setup: input list =
+- ROOT
+- ROOT/a: intermediate (has child ROOT/a/b), node.agent present with
+  content = ["Agent instructions."]
+- ROOT/a/b: leaf
 
-Actions: Call SpecTreeValidate with the three entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns no FormatError with rule = "input_target".
-
----
-
-#### Input not starting with ARTIFACT/
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (input = "ROOT/something"), node.name_section.heading = "ROOT/a"
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "input_target".
+Expect: one FormatError with node = "ROOT/a", rule = "leaf_only_agent".
 
 ---
 
-#### Input references non-existent artifact
+### Leaf node with agent section — no error
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (input = "ARTIFACT/missing(id)"), node.name_section.heading = "ROOT/a"
+Setup: input list =
+- ROOT: node.name_section.heading = "ROOT"
+- ROOT/a: leaf, node.name_section.heading = "ROOT/a",
+  node.agent present with content = ["Agent instructions."]
 
-Actions: Call SpecTreeValidate with the two entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "input_target".
-
----
-
-### external_files
-
-#### External file exists
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (external = [{path: "some/file.txt"}]), node.name_section.heading = "ROOT/a"
-- File on disk: create "some/file.txt" with content "hello\n" before calling the function.
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns no FormatError with rule = "external_files".
+Expect: no format error with rule = "leaf_only_agent".
 
 ---
 
-#### External file does not exist
+## Rule: dependency_targets
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (external = [{path: "nonexistent.txt"}]), node.name_section.heading = "ROOT/a"
-- File on disk: do not create "nonexistent.txt".
+### depends_on targets non-existent ROOT node
 
-Actions: Call SpecTreeValidate with the two entries.
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, depends_on = ["ROOT/missing"]
 
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "external_files".
+Action: call SpecTreeValidate.
 
----
-
-### output_paths
-
-#### Valid output path
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (outputs = [{id: "x", path: "internal/x.go"}]), node.name_section.heading = "ROOT/a"
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns no FormatError with rule = "output_paths".
+Expect: one FormatError with node = "ROOT/a", rule = "dependency_targets".
 
 ---
 
-#### Output path with traversal
+### depends_on targets ancestor
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (outputs = [{id: "x", path: "../../etc/passwd"}]), node.name_section.heading = "ROOT/a"
+Setup: input list =
+- ROOT
+- ROOT/a: intermediate (has child ROOT/a/b)
+- ROOT/a/b: leaf, depends_on = ["ROOT"]
 
-Actions: Call SpecTreeValidate with the two entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "output_paths".
-
----
-
-#### Output path with backslash
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (outputs = [{id: "x", path: "internal\\x.go"}]), node.name_section.heading = "ROOT/a"
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns at least one FormatError where node = "ROOT/a" and rule = "output_paths".
+Expect: one FormatError with node = "ROOT/a/b", rule = "dependency_targets".
 
 ---
 
-### duplicate_subsections
+### depends_on targets descendant
 
-#### Unique subsection headings — no error
+Setup: input list =
+- ROOT
+- ROOT/a: intermediate (has child ROOT/a/b), depends_on = ["ROOT/a/b"]
+- ROOT/a/b: leaf
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a", node.public present with subsections:
-  - {heading: "interface", raw_heading: "## Interface", content: ["Types."]}
-  - {heading: "context", raw_heading: "## Context", content: ["Background."]}
+Action: call SpecTreeValidate.
 
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns no FormatError with rule = "duplicate_subsections".
+Expect: one FormatError with node = "ROOT/a", rule = "dependency_targets".
 
 ---
 
-#### Duplicate subsection headings
+### depends_on targets self
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a", node.public present with subsections:
-  - {heading: "interface", raw_heading: "## Interface", content: ["First."]}
-  - {heading: "interface", raw_heading: "## Interface", content: ["Second."]}
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, depends_on = ["ROOT/a"]
 
-Actions: Call SpecTreeValidate with the two entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns exactly one FormatError where node = "ROOT/a" and rule = "duplicate_subsections" (for the second occurrence).
+Expect: one FormatError with node = "ROOT/a", rule = "dependency_targets".
 
 ---
 
-#### Three identical subsection headings
+### depends_on with valid ROOT qualifier
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a", node.public present with subsections:
-  - {heading: "interface", raw_heading: "## Interface", content: ["First."]}
-  - {heading: "interface", raw_heading: "## Interface", content: ["Second."]}
-  - {heading: "interface", raw_heading: "## Interface", content: ["Third."]}
+Setup: input list =
+- ROOT
+- ROOT/a: leaf
+- ROOT/b: leaf, depends_on = ["ROOT/a(interface)"]
 
-Actions: Call SpecTreeValidate with the two entries.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns exactly two FormatErrors where node = "ROOT/a" and rule = "duplicate_subsections" (for the second and third occurrences).
-
----
-
-#### No public section — skip
-
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (empty), node.name_section.heading = "ROOT/a", node.public absent
-
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns no FormatError with rule = "duplicate_subsections".
+Expect: no format error with rule = "dependency_targets"
+(qualifier stripped, ROOT/a exists and is not ancestor/descendant/self of ROOT/b).
 
 ---
 
-### Cross-cutting
+### depends_on with valid ARTIFACT reference
 
-#### Collects multiple errors from different rules
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, output = "lib.go"
+- ROOT/b: leaf, depends_on = ["ARTIFACT/a"]
 
-Setup:
-- Entry 1: logical_name = "ROOT", frontmatter = (empty), node.name_section.heading = "ROOT"
-- Entry 2: logical_name = "ROOT/a", frontmatter = (depends_on = ["ROOT/missing"]), node.name_section.heading = "ROOT/wrong", node.public present with subsections:
-  - {heading: "interface", raw_heading: "## Interface", content: ["First."]}
-  - {heading: "interface", raw_heading: "## Interface", content: ["Second."]}
+Action: call SpecTreeValidate.
 
-Actions: Call SpecTreeValidate with the two entries.
-
-Expected outcome: Returns at least three FormatErrors for node = "ROOT/a":
-- At least one with rule = "name_heading"
-- At least one with rule = "dependency_targets"
-- At least one with rule = "duplicate_subsections"
+Expect: no format error with rule = "dependency_targets".
 
 ---
 
-#### Empty input list
+### depends_on with non-existent ARTIFACT reference
 
-Setup: No entries.
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, depends_on = ["ARTIFACT/missing"]
 
-Actions: Call SpecTreeValidate with an empty list.
+Action: call SpecTreeValidate.
 
-Expected outcome: Returns empty list of FormatErrors.
+Expect: one FormatError with node = "ROOT/a", rule = "dependency_targets".
+
+---
+
+### Multiple invalid depends_on — one error per entry
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, depends_on = ["ROOT/missing", "ROOT/also_missing"]
+
+Action: call SpecTreeValidate.
+
+Expect: two FormatErrors both with node = "ROOT/a", rule = "dependency_targets".
+
+---
+
+## Rule: input_target
+
+### Valid input reference
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, output = "a.go"
+- ROOT/b: leaf, input = "ARTIFACT/a"
+
+Action: call SpecTreeValidate.
+
+Expect: no format error with rule = "input_target".
+
+---
+
+### Input not starting with ARTIFACT/
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, input = "ROOT/something"
+
+Action: call SpecTreeValidate.
+
+Expect: one FormatError with node = "ROOT/a", rule = "input_target".
+
+---
+
+### Input references non-existent artifact
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, input = "ARTIFACT/missing"
+
+Action: call SpecTreeValidate.
+
+Expect: one FormatError with node = "ROOT/a", rule = "input_target".
+
+---
+
+## Rule: external_files
+
+### External file exists
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, external = [{path: "some/file.txt"}]
+
+Create "some/file.txt" on disk with content "hello\n".
+
+Action: call SpecTreeValidate.
+
+Expect: no format error with rule = "external_files".
+
+---
+
+### External file does not exist
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, external = [{path: "nonexistent.txt"}]
+
+Do not create "nonexistent.txt" on disk.
+
+Action: call SpecTreeValidate.
+
+Expect: one FormatError with node = "ROOT/a", rule = "external_files".
+
+---
+
+## Rule: output_paths
+
+### Valid output path
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, output = "internal/x.go"
+
+Action: call SpecTreeValidate.
+
+Expect: no format error with rule = "output_paths".
+
+---
+
+### Output path with traversal
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, output = "../../etc/passwd"
+
+Action: call SpecTreeValidate.
+
+Expect: one FormatError with node = "ROOT/a", rule = "output_paths".
+
+---
+
+### Output path with backslash
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, output = "internal\\x.go"
+
+Action: call SpecTreeValidate.
+
+Expect: one FormatError with node = "ROOT/a", rule = "output_paths".
+
+---
+
+## Rule: duplicate_subsections
+
+### Unique subsection headings — no error
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, node.public present with subsections:
+    [{heading: "interface", raw_heading: "## Interface", content: ["Types."]},
+     {heading: "context", raw_heading: "## Context", content: ["Background."]}]
+
+Action: call SpecTreeValidate.
+
+Expect: no format error with rule = "duplicate_subsections".
+
+---
+
+### Duplicate subsection headings
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, node.public present with subsections:
+    [{heading: "interface", raw_heading: "## Interface", content: ["First."]},
+     {heading: "interface", raw_heading: "## Interface", content: ["Second."]}]
+
+Action: call SpecTreeValidate.
+
+Expect: one FormatError with node = "ROOT/a", rule = "duplicate_subsections"
+(for the second occurrence).
+
+---
+
+### Three identical subsection headings
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, node.public present with subsections:
+    [{heading: "interface", raw_heading: "## Interface", content: ["First."]},
+     {heading: "interface", raw_heading: "## Interface", content: ["Second."]},
+     {heading: "interface", raw_heading: "## Interface", content: ["Third."]}]
+
+Action: call SpecTreeValidate.
+
+Expect: two FormatErrors both with node = "ROOT/a", rule = "duplicate_subsections"
+(for the second and third occurrences).
+
+---
+
+### No public section — skip
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, node.public absent
+
+Action: call SpecTreeValidate.
+
+Expect: no format error with rule = "duplicate_subsections".
+
+---
+
+## Cross-cutting
+
+### Collects multiple errors from different rules
+
+Setup: input list =
+- ROOT
+- ROOT/a: leaf, node.name_section.heading = "ROOT/wrong",
+  depends_on = ["ROOT/missing"],
+  node.public present with subsections:
+    [{heading: "interface", raw_heading: "## Interface", content: ["First."]},
+     {heading: "interface", raw_heading: "## Interface", content: ["Second."]}]
+
+Action: call SpecTreeValidate.
+
+Expect: at least three FormatErrors for ROOT/a:
+- one with rule = "name_heading"
+- one with rule = "dependency_targets"
+- one with rule = "duplicate_subsections"
+
+---
+
+### Empty input list
+
+Setup: input = empty list.
+
+Action: call SpecTreeValidate.
+
+Expect: no format errors (empty list returned).

@@ -1,11 +1,9 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/os/list_files(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-input: ARTIFACT/functional/logic/os/list_files(list_files)
-outputs:
-  - id: listfiles
-    path: internal/listfiles/listfiles.go
+  - ARTIFACT/golang/interfaces/os/list_files
+  - ARTIFACT/golang/interfaces/os/path_utils
+input: ARTIFACT/functional/logic/os/list_files
+output: internal/listfiles/listfiles.go
 ---
 
 # ROOT/golang/implementation/os/list_files

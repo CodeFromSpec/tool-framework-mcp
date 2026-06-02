@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: path_utils_tests
-    path: code-from-spec/functional/tests/os/path_utils/output.md
+output: code-from-spec/functional/tests/os/path_utils/output.md
 ---
 
 # ROOT/functional/tests/os/path_utils

@@ -1,39 +1,19 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/text_normalization@7Jja50eBR-qqpAKXxRmAKpTj_tk -->
+<!-- code-from-spec: ROOT/functional/logic/utils/text_normalization@XJ7Af7tH0zQ0nKxUT-OnazWkq7A -->
 
-# Text Normalization
-
-## Functions
-
-```
 function NormalizeText(raw_string) -> string
 
-  1. If raw_string is empty, return "".
+  1. Trim leading and trailing whitespace (U+0020 and U+0009) from raw_string.
 
-  2. Trim all leading and trailing whitespace characters
-     (space U+0020 and horizontal tab U+0009) from raw_string.
+  2. Collapse each run of one or more whitespace characters (U+0020, U+0009)
+     within the result to a single space (U+0020).
 
-  3. Scan the trimmed string for runs of one or more consecutive
-     whitespace characters (space U+0020 or horizontal tab U+0009).
-     Replace each such run with a single space (U+0020).
+  3. Apply Unicode simple case folding to the result.
+     This maps each character to its case-folded equivalent
+     (e.g., "A" -> "a", "Straße" -> "strasse").
 
-  4. Apply Unicode simple case folding to the result,
-     converting each character to its case-folded equivalent
-     (e.g. "A" -> "a", "Straße" -> "strasse").
+  4. Return the resulting string.
 
-  5. Return the resulting string.
-```
-
-## Contracts
-
-- Pure function — no I/O, no errors raised.
-- Deterministic — same input always produces same output.
-
-## Examples
-
-| Input                      | Output                   |
-|----------------------------|--------------------------|
-| `"  Interface  "`          | `"interface"`            |
-| `"PUBLIC"`                 | `"public"`               |
-| `"Straße"`                 | `"strasse"`              |
-| `"Testes   de   aceitação"`| `"testes de aceitação"`  |
-| `""`                       | `""`                     |
+  Notes:
+  - If raw_string is empty or contains only whitespace, return "".
+  - This is a pure function: no I/O, no side effects, no errors raised.
+  - Deterministic: identical inputs always produce identical outputs.

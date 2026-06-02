@@ -1,12 +1,10 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-  - ARTIFACT/golang/interfaces/os/file_reader(interface)
-input: ARTIFACT/functional/tests/parsing/frontmatter(frontmatter_tests)
-outputs:
-  - id: frontmatter_test
-    path: internal/frontmatter/frontmatter_test.go
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/os/path_utils
+  - ARTIFACT/golang/interfaces/os/file_reader
+input: ARTIFACT/functional/tests/parsing/frontmatter
+output: internal/frontmatter/frontmatter_test.go
 ---
 
 # ROOT/golang/tests/parsing/frontmatter

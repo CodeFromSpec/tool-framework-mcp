@@ -1,5 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/utils/node_ranking@NmAoLFbec81I0BpMD0y0qlAdP3A
-
+// code-from-spec: ROOT/golang/implementation/utils/node_ranking@YmQSZlncXpZbHzCoW8Obzav_jHQ
 package noderanking
 
 import (
@@ -16,7 +15,7 @@ var ErrUnresolvableReference = errors.New("unresolvable reference")
 
 type NodeRankInput struct {
 	LogicalName string
-	Frontmatter *frontmatter.Frontmatter
+	Frontmatter frontmatter.Frontmatter
 }
 
 type NodeRankEntry struct {
@@ -24,116 +23,108 @@ type NodeRankEntry struct {
 	Rank        int
 }
 
-type rankEntry struct {
-	logicalName  string
-	dependencies []string
-	rank         int
+type rankState struct {
+	dependencyKeys []string
+	rank           int
 }
 
-func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, error) {
-	entryMap := make(map[string]*rankEntry)
+func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles []string, err error) {
+	stateMap := make(map[string]*rankState)
 
-	for _, item := range entries {
-		entryMap[item.LogicalName] = &rankEntry{
-			logicalName:  item.LogicalName,
-			dependencies: []string{},
-			rank:         0,
-		}
-
-		for _, output := range item.Frontmatter.Outputs {
-			stripped := strings.TrimPrefix(item.LogicalName, "ROOT/")
-			artifactKey := "ARTIFACT/" + stripped + "(" + output.ID + ")"
-			entryMap[artifactKey] = &rankEntry{
-				logicalName:  artifactKey,
-				dependencies: []string{},
-				rank:         0,
-			}
+	for _, entry := range entries {
+		stateMap[entry.LogicalName] = &rankState{}
+		if entry.Frontmatter.Output != "" {
+			artifactName := "ARTIFACT/" + strings.TrimPrefix(entry.LogicalName, "ROOT/")
+			stateMap[artifactName] = &rankState{}
 		}
 	}
 
-	for _, item := range entries {
-		if item.LogicalName != "ROOT" {
-			parentName, err := logicalnames.LogicalNameGetParent(item.LogicalName)
+	for _, entry := range entries {
+		state := stateMap[entry.LogicalName]
+
+		if entry.LogicalName != "ROOT" {
+			parent, err := logicalnames.LogicalNameGetParent(entry.LogicalName)
 			if err != nil {
-				return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, item.LogicalName)
+				return nil, nil, fmt.Errorf("%w: %w", ErrUnresolvableReference, err)
 			}
-			if _, ok := entryMap[parentName]; !ok {
-				return nil, nil, fmt.Errorf("%w: parent %s of %s not found", ErrUnresolvableReference, parentName, item.LogicalName)
-			}
-			entryMap[item.LogicalName].dependencies = append(entryMap[item.LogicalName].dependencies, parentName)
+			state.dependencyKeys = append(state.dependencyKeys, parent)
 		}
 
-		for _, dep := range item.Frontmatter.DependsOn {
-			var lookupKey string
+		for _, dep := range entry.Frontmatter.DependsOn {
+			var key string
 			if strings.HasPrefix(dep, "ARTIFACT/") {
-				lookupKey = dep
+				key = dep
 			} else {
-				lookupKey = logicalnames.LogicalNameStripQualifier(dep)
+				key = logicalnames.LogicalNameStripQualifier(dep)
 			}
-			if _, ok := entryMap[lookupKey]; !ok {
-				return nil, nil, fmt.Errorf("%w: depends_on target %s not found", ErrUnresolvableReference, lookupKey)
-			}
-			entryMap[item.LogicalName].dependencies = append(entryMap[item.LogicalName].dependencies, lookupKey)
+			state.dependencyKeys = append(state.dependencyKeys, key)
 		}
 
-		if item.Frontmatter.Input != "" {
-			if _, ok := entryMap[item.Frontmatter.Input]; !ok {
-				return nil, nil, fmt.Errorf("%w: input target %s not found", ErrUnresolvableReference, item.Frontmatter.Input)
-			}
-			entryMap[item.LogicalName].dependencies = append(entryMap[item.LogicalName].dependencies, item.Frontmatter.Input)
+		if entry.Frontmatter.Input != "" {
+			state.dependencyKeys = append(state.dependencyKeys, entry.Frontmatter.Input)
 		}
 	}
 
-	for artifactKey := range entryMap {
-		if !strings.HasPrefix(artifactKey, "ARTIFACT/") {
-			continue
+	for _, entry := range entries {
+		if entry.Frontmatter.Output != "" {
+			artifactName := "ARTIFACT/" + strings.TrimPrefix(entry.LogicalName, "ROOT/")
+			artifactState := stateMap[artifactName]
+			artifactState.dependencyKeys = append(artifactState.dependencyKeys, entry.LogicalName)
 		}
-		withoutPrefix := strings.TrimPrefix(artifactKey, "ARTIFACT/")
-		stripped := logicalnames.LogicalNameStripQualifier(withoutPrefix)
-		generatorName := "ROOT/" + stripped
-		if _, ok := entryMap[generatorName]; !ok {
-			return nil, nil, fmt.Errorf("%w: generator node %s for artifact %s not found", ErrUnresolvableReference, generatorName, artifactKey)
-		}
-		entryMap[artifactKey].dependencies = append(entryMap[artifactKey].dependencies, generatorName)
 	}
 
-	n := len(entryMap)
-	var changedInLastPass []string
+	for logicalName, state := range stateMap {
+		for _, key := range state.dependencyKeys {
+			if _, ok := stateMap[key]; !ok {
+				return nil, nil, fmt.Errorf("%w: %s depends on unknown %s", ErrUnresolvableReference, logicalName, key)
+			}
+		}
+	}
 
-	for i := 1; i <= n; i++ {
-		changedThisPass := []string{}
+	n := len(stateMap)
+	var cycleParticipants []string
 
-		for _, entry := range entryMap {
-			if entry.logicalName == "ROOT" {
+	for pass := 0; pass < n; pass++ {
+		changed := false
+		var updatedInPass []string
+
+		for logicalName, state := range stateMap {
+			if logicalName == "ROOT" {
 				continue
 			}
-			maxDepRank := 0
-			for _, dep := range entry.dependencies {
-				if depEntry, ok := entryMap[dep]; ok {
-					if depEntry.rank > maxDepRank {
-						maxDepRank = depEntry.rank
-					}
+			maxDepRank := -1
+			for _, key := range state.dependencyKeys {
+				depState := stateMap[key]
+				if depState.rank > maxDepRank {
+					maxDepRank = depState.rank
 				}
 			}
-			newRank := 1 + maxDepRank
-			if newRank > entry.rank {
-				entry.rank = newRank
-				changedThisPass = append(changedThisPass, entry.logicalName)
+			candidateRank := maxDepRank + 1
+			if candidateRank < 0 {
+				candidateRank = 0
+			}
+			if candidateRank > state.rank {
+				state.rank = candidateRank
+				changed = true
+				updatedInPass = append(updatedInPass, logicalName)
 			}
 		}
 
-		if len(changedThisPass) == 0 {
-			changedInLastPass = nil
+		if !changed {
+			cycleParticipants = nil
 			break
 		}
-		changedInLastPass = changedThisPass
+
+		if pass == n-1 {
+			cycleParticipants = updatedInPass
+		}
 	}
 
-	result := make([]*NodeRankEntry, 0, len(entryMap))
-	for _, entry := range entryMap {
+	var result []*NodeRankEntry
+	for logicalName, state := range stateMap {
 		result = append(result, &NodeRankEntry{
-			LogicalName: entry.logicalName,
-			Rank:        entry.rank,
+			LogicalName: logicalName,
+			Rank:        state.rank,
 		})
 	}
 
@@ -144,10 +135,7 @@ func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, erro
 		return result[i].LogicalName < result[j].LogicalName
 	})
 
-	cycleList := []string{}
-	if changedInLastPass != nil {
-		cycleList = changedInLastPass
-	}
+	sort.Strings(cycleParticipants)
 
-	return result, cycleList, nil
+	return result, cycleParticipants, nil
 }

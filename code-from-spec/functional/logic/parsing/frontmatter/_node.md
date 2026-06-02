@@ -2,9 +2,7 @@
 depends_on:
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: frontmatter
-    path: code-from-spec/functional/logic/parsing/frontmatter/output.md
+output: code-from-spec/functional/logic/parsing/frontmatter/output.md
 ---
 
 # ROOT/functional/logic/parsing/frontmatter
@@ -23,15 +21,11 @@ Parses structured metadata from the top of spec node files.
 record FrontmatterExternal
   path: string
 
-record FrontmatterOutput
-  id: string
-  path: string
-
 record Frontmatter
   depends_on: list of strings
   external: list of FrontmatterExternal
   input: string
-  outputs: list of FrontmatterOutput
+  output: string
 
 function FrontmatterParse(file_path: pathutils.PathCfs) -> Frontmatter
   errors:
@@ -71,16 +65,12 @@ record. This is not an error.
 ---
 depends_on:
   - ROOT/external/payments-api/create-transfer
-  - ARTIFACT/extraction/email-templates(templates)
+  - ARTIFACT/extraction/email-templates
 external:
   - path: proto/payments/v1/transfers.proto
   - path: docs/vendor/stripe-payouts.yaml
-input: ARTIFACT/functional/transfers(logic)
-outputs:
-  - id: handler
-    path: internal/transfers/handler.go
-  - id: logic
-    path: internal/transfers/service.go
+input: ARTIFACT/functional/transfers
+output: internal/transfers/handler.go
 ---
 ```
 
@@ -90,7 +80,6 @@ in the Frontmatter record are silently ignored.
 ### Required fields in sub-records
 
 Within each `external` entry, `path` is required.
-Within each `outputs` entry, `id` and `path` are required.
 Missing required fields are reported as "malformed YAML".
 
 ## Contracts

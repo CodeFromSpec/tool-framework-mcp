@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/parsing/artifact_tag(interface)
-outputs:
-  - id: artifact_tag_tests
-    path: code-from-spec/functional/tests/parsing/artifact_tag/output.md
+output: code-from-spec/functional/tests/parsing/artifact_tag/output.md
 ---
 
 # ROOT/functional/tests/parsing/artifact_tag

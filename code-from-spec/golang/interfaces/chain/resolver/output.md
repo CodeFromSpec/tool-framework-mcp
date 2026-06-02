@@ -1,28 +1,31 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/resolver@NRWKzAOgBl0Y_1sQMgT-e5rU1DE)
+[//]: # (code-from-spec: ROOT/golang/interfaces/chain/resolver@wdK7kizmQPUjbo9leC8yPZfs2Mg)
 
 # Package `chainresolver`
 
+```go
+package chainresolver
 ```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
-```
 
-Package `chainresolver` resolves the ordered chain of spec nodes required to assemble context for a target logical name.
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver`
 
----
-
-## Structs
+## Types
 
 ```go
 package chainresolver
 
-// ChainItem represents a single node entry in a resolved chain.
+import (
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+)
+
+// ChainItem represents a single node in the resolved chain.
 type ChainItem struct {
 	LogicalName string
 	FilePath    pathutils.PathCfs
-	Qualifier   *string
+	Qualifier   string
 }
 
-// Chain holds the fully resolved chain for a target logical name.
+// Chain holds the fully resolved chain for a target node.
 type Chain struct {
 	Ancestors    []*ChainItem
 	Dependencies []*ChainItem
@@ -32,8 +35,6 @@ type Chain struct {
 }
 ```
 
----
-
 ## Error Sentinels
 
 ```go
@@ -41,44 +42,27 @@ package chainresolver
 
 import "errors"
 
-// ErrUnreadableFrontmatter is returned when a node's frontmatter cannot
-// be parsed.
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-
-// ErrUnresolvableArtifact is returned when an ARTIFACT/ reference's
-// output id does not match any declared output.
-var ErrUnresolvableArtifact = errors.New("unresolvable artifact")
+var ErrUnresolvableArtifact  = errors.New("unresolvable artifact")
 ```
-
----
 
 ## Functions
 
 ```go
 package chainresolver
 
-// ChainResolve returns the chain for the given target logical name.
+// ChainResolve resolves the full chain for the given target logical name.
+// It collects ancestors from root down to (but not including) the target,
+// resolves depends_on entries as dependencies sorted alphabetically by file
+// path then qualifier, collects external entries sorted alphabetically by
+// path, identifies the target itself, and resolves the input artifact if
+// present.
 //
-// The chain is assembled in the following order:
-//  1. Ancestors — from root down to (but not including) the target node.
-//  2. Dependencies — entries from the target's depends_on, sorted
-//     alphabetically by file path then by qualifier.
-//  3. External — files from the target's external, sorted alphabetically
-//     by path.
-//  4. Target — the target node itself.
-//  5. Input — the target's input artifact, if present.
-//
-// Errors:
-//   - ErrUnreadableFrontmatter: a node's frontmatter cannot be parsed.
-//   - ErrUnresolvableArtifact: an ARTIFACT/ reference's output id does
-//     not match any declared output.
-//   - (LogicalNames.*): propagated from LogicalNameToPath,
-//     LogicalNameGetParent.
-//   - (Frontmatter.*): propagated from FrontmatterParse.
-func ChainResolve(targetLogicalName string) (*Chain, error)
+// Returns ErrUnreadableFrontmatter if any node's frontmatter cannot be
+// parsed, ErrUnresolvableArtifact if an ARTIFACT/ reference cannot be
+// resolved, or propagated errors from LogicalNames and Frontmatter packages.
+func ChainResolve(target_logical_name string) (*Chain, error)
 ```
-
----
 
 ## Usage Example
 
@@ -86,24 +70,16 @@ func ChainResolve(targetLogicalName string) (*Chain, error)
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
 )
 
 func main() {
 	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/resolver")
 	if err != nil {
-		if errors.Is(err, chainresolver.ErrUnreadableFrontmatter) {
-			log.Fatal("could not parse a node's frontmatter")
-		}
-		if errors.Is(err, chainresolver.ErrUnresolvableArtifact) {
-			log.Fatal("an ARTIFACT/ reference could not be resolved")
-		}
-		log.Fatalf("chain resolution failed: %v", err)
+		log.Fatal(err)
 	}
 
 	fmt.Println("target:", chain.Target.LogicalName)
@@ -113,11 +89,7 @@ func main() {
 	}
 
 	for _, dep := range chain.Dependencies {
-		qualifier := ""
-		if dep.Qualifier != nil {
-			qualifier = *dep.Qualifier
-		}
-		fmt.Printf("dependency: %s qualifier=%s\n", dep.LogicalName, qualifier)
+		fmt.Println("dependency:", dep.LogicalName, "qualifier:", dep.Qualifier)
 	}
 
 	for _, ext := range chain.External {
@@ -127,7 +99,5 @@ func main() {
 	if chain.Input != nil {
 		fmt.Println("input:", chain.Input.LogicalName)
 	}
-
-	_ = frontmatter.FrontmatterExternal{}
 }
 ```

@@ -1,173 +1,112 @@
-<!-- code-from-spec: ROOT/functional/tests/os/list_files@wHsX2CkyIvIlDrH32-7PkBw6YUU -->
+<!-- code-from-spec: ROOT/functional/tests/os/list_files@QMYGK1hm6rlcwN_xZ71fqwFTlhk -->
 
 # Test Specification: ListFiles
 
-## Interface
+## Happy path
 
+### Lists files in a flat directory
+
+Setup: Create a directory containing three files: `a.txt`, `b.txt`, `c.txt`.
+
+Actions:
+1. Call `ListFiles` with the directory path.
+2. Expect a list of three `PathCfs` values in alphabetical order: `a.txt`, `b.txt`, `c.txt` (paths relative to the project root).
+
+---
+
+### Lists files recursively
+
+Setup: Create the following directory structure:
 ```
-function ListFiles(cfs_path: pathutils.PathCfs) -> list of pathutils.PathCfs
-  errors:
-    - DirectoryNotFound: the directory does not exist.
-    - WalkError: a filesystem error occurred while traversing.
-    - (PathUtils.*): propagated from pathutils.PathCfsToOs.
-    - (PathUtils.*): propagated from PathOsToCfs.
+dir/
+  alpha.txt
+  sub/
+    beta.txt
+    deep/
+      gamma.txt
 ```
 
----
-
-## Happy Path
-
-### Test: Lists files in a flat directory
-
-**Setup:**
-- Create a temporary directory within the project root.
-- Inside that directory, create three files: `a.txt`, `b.txt`, `c.txt`.
-
-**Action:**
-- Call `ListFiles` with the `PathCfs` for the temporary directory.
-
-**Expected outcome:**
-- Returns a list of three `PathCfs` values.
-- The list is in alphabetical order: `<dir>/a.txt`, `<dir>/b.txt`, `<dir>/c.txt`
-  (paths relative to the project root).
-- No error is returned.
+Actions:
+1. Call `ListFiles` with the `dir` path.
+2. Expect three `PathCfs` values in alphabetical order:
+   - `dir/alpha.txt`
+   - `dir/sub/beta.txt`
+   - `dir/sub/deep/gamma.txt`
 
 ---
 
-### Test: Lists files recursively
+### Results are sorted alphabetically
 
-**Setup:**
-- Create the following directory structure within the project root:
-  ```
-  dir/
-    alpha.txt
-    sub/
-      beta.txt
-      deep/
-        gamma.txt
-  ```
+Setup: Create a directory containing files `z.txt`, `a.txt`, `m.txt` (created in that order).
 
-**Action:**
-- Call `ListFiles` with the `PathCfs` for `dir`.
-
-**Expected outcome:**
-- Returns a list of three `PathCfs` values in alphabetical order:
-  `dir/alpha.txt`, `dir/sub/beta.txt`, `dir/sub/deep/gamma.txt`.
-- No error is returned.
+Actions:
+1. Call `ListFiles` with the directory path.
+2. Expect the results in order: `a.txt`, `m.txt`, `z.txt`.
 
 ---
 
-### Test: Results are sorted alphabetically
+## Edge cases
 
-**Setup:**
-- Create a temporary directory within the project root.
-- Inside that directory, create three files in non-alphabetical order: `z.txt`, `a.txt`, `m.txt`.
+### Empty directory
 
-**Action:**
-- Call `ListFiles` with the `PathCfs` for the temporary directory.
+Setup: Create an empty directory.
 
-**Expected outcome:**
-- Returns a list of three `PathCfs` values in strictly alphabetical order:
-  `<dir>/a.txt`, `<dir>/m.txt`, `<dir>/z.txt`.
-- No error is returned.
+Actions:
+1. Call `ListFiles` with the empty directory path.
+2. Expect an empty list — no error.
 
 ---
 
-## Edge Cases
+### Directory with only subdirectories
 
-### Test: Empty directory
+Setup: Create a directory containing only subdirectories, with no files at any level.
 
-**Setup:**
-- Create a temporary directory within the project root that contains no files or subdirectories.
-
-**Action:**
-- Call `ListFiles` with the `PathCfs` for the empty directory.
-
-**Expected outcome:**
-- Returns an empty list.
-- No error is returned.
+Actions:
+1. Call `ListFiles` with the directory path.
+2. Expect an empty list — no error.
 
 ---
 
-### Test: Directory with only subdirectories
+## Failure cases
 
-**Setup:**
-- Create a temporary directory within the project root.
-- Inside that directory, create one or more subdirectories, but no files at any level.
+### Directory does not exist
 
-**Action:**
-- Call `ListFiles` with the `PathCfs` for the temporary directory.
+Setup: No directory is created at the target path.
 
-**Expected outcome:**
-- Returns an empty list.
-- No error is returned.
+Actions:
+1. Call `ListFiles` with a path to a non-existent directory.
+2. Expect error DirectoryNotFound.
 
 ---
 
-## Failure Cases
+### Propagates validation errors from PathCfsToOs
 
-### Test: Directory does not exist
+Setup: No file or directory is created.
 
-**Setup:**
-- No directory is created. Use a path that is known to not exist on the filesystem.
-
-**Action:**
-- Call `ListFiles` with a `PathCfs` pointing to the non-existent directory.
-
-**Expected outcome:**
-- Returns error `DirectoryNotFound`.
+Actions:
+1. Call `ListFiles` with an invalid `PathCfs` such as `"../../outside"`.
+2. Expect error DirectoryTraversal (propagated from PathUtils).
 
 ---
 
-### Test: Propagates validation errors from PathCfsToOs
+### Propagates conversion errors from PathOsToCfs
 
-**Setup:**
-- No directory setup required.
+Skip this test on platforms where symlinks are not supported.
 
-**Action:**
-- Call `ListFiles` with an invalid `PathCfs` value such as `"../../outside"` that
-  would escape the project root.
+Setup: Create a directory containing a regular file and a symlink that points to a file outside the project root.
 
-**Expected outcome:**
-- Returns error `DirectoryTraversal` (propagated from PathUtils).
-- The function does not attempt any filesystem traversal.
+Actions:
+1. Call `ListFiles` with the directory path.
+2. Expect error ResolvesOutsideRoot (propagated from PathUtils).
 
 ---
 
-### Test: Propagates conversion errors from PathOsToCfs
+### Walk error
 
-**Skip condition:** Skip this test on platforms where symlinks are not supported.
+Skip this test on platforms where directory permissions cannot prevent traversal.
 
-**Setup:**
-- Create a temporary directory within the project root.
-- Inside that directory, create a regular file.
-- Inside that directory, create a symlink that points to a file located outside
-  the project root.
+Setup: Create a directory containing a subdirectory with permissions that prevent reading its contents.
 
-**Action:**
-- Call `ListFiles` with the `PathCfs` for the temporary directory.
-
-**Expected outcome:**
-- Returns error `ResolvesOutsideRoot` (propagated from PathUtils).
-
----
-
-### Test: Walk error
-
-**Skip condition:** Skip this test on platforms where directory permissions cannot
-prevent traversal (e.g., when running as a superuser).
-
-**Setup:**
-- Create a temporary directory within the project root.
-- Inside that directory, create a subdirectory.
-- Inside the subdirectory, create at least one file.
-- Set the permissions on the subdirectory to deny read access.
-
-**Action:**
-- Call `ListFiles` with the `PathCfs` for the parent temporary directory.
-
-**Expected outcome:**
-- Returns error `WalkError`.
-
-**Teardown note:**
-- Restore permissions on the subdirectory so it can be cleaned up after the test.
+Actions:
+1. Call `ListFiles` on the parent directory.
+2. Expect error WalkError.

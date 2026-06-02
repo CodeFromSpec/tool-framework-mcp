@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/text_normalization(interface)
-outputs:
-  - id: text_normalization_tests
-    path: code-from-spec/functional/tests/utils/text_normalization/output.md
+output: code-from-spec/functional/tests/utils/text_normalization/output.md
 ---
 
 # ROOT/functional/tests/utils/text_normalization

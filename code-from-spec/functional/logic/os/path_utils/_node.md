@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/dependencies/owasp-path-traversal
-outputs:
-  - id: path_utils
-    path: code-from-spec/functional/logic/os/path_utils/output.md
+output: code-from-spec/functional/logic/os/path_utils/output.md
 ---
 
 # ROOT/functional/logic/os/path_utils
@@ -63,7 +61,7 @@ A path in the Code from Spec standard format:
   no backslashes.
 
 This is the only path format used in the framework's
-public API — in frontmatter fields (`outputs`, `external`,
+public API — in frontmatter fields (`output`, `external`,
 `input`), in logical names, and in tool parameters.
 
 Examples:

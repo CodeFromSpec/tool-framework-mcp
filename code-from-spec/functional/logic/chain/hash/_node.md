@@ -9,9 +9,7 @@ depends_on:
   - ROOT/functional/logic/utils/text_normalization(interface)
 external:
   - path: CHAIN_HASH.md
-outputs:
-  - id: chain_hash
-    path: code-from-spec/functional/logic/chain/hash/output.md
+output: code-from-spec/functional/logic/chain/hash/output.md
 ---
 
 # ROOT/functional/logic/chain/hash

@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/text_normalization(interface)
-outputs:
-  - id: interface
-    path: code-from-spec/golang/interfaces/utils/text_normalization/output.md
+output: code-from-spec/golang/interfaces/utils/text_normalization/output.md
 ---
 
 # ROOT/golang/interfaces/utils/text_normalization

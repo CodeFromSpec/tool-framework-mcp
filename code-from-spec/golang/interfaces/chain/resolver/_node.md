@@ -1,11 +1,9 @@
 ---
 depends_on:
   - ROOT/functional/logic/chain/resolver(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-outputs:
-  - id: interface
-    path: code-from-spec/golang/interfaces/chain/resolver/output.md
+  - ARTIFACT/golang/interfaces/os/path_utils
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+output: code-from-spec/golang/interfaces/chain/resolver/output.md
 ---
 
 # ROOT/golang/interfaces/chain/resolver

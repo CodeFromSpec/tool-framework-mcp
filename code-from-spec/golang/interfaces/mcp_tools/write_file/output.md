@@ -1,14 +1,12 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/write_file@rwbRTR9QLC9dw2_b0JQ7WYoCDJc)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/write_file@fOPEHJNTORhh8dgPdfn1lJuHpwM)
 
 # Package `mcpwritefile`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
+```go
+package mcpwritefile
 ```
 
-Package `mcpwritefile` implements the MCP `write_file` tool. It validates that a given path is declared in the target node's outputs and writes the provided content to disk.
-
----
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile`
 
 ## Error Sentinels
 
@@ -17,40 +15,26 @@ package mcpwritefile
 
 import "errors"
 
-// ErrUnreadableFrontmatter is returned when the node's frontmatter
-// cannot be parsed.
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-
-// ErrNoOutputs is returned when the target node has no outputs field.
-var ErrNoOutputs = errors.New("no outputs")
-
-// ErrPathNotInOutputs is returned when the given path is not declared
-// in the node's outputs list.
-var ErrPathNotInOutputs = errors.New("path not in outputs")
+var ErrNoOutput              = errors.New("no output")
+var ErrPathNotInOutput       = errors.New("path not in output")
 ```
-
----
 
 ## Functions
 
 ```go
 package mcpwritefile
 
-// MCPWriteFile validates that path is declared in the outputs of the
-// node identified by logical_name, then writes content to that path.
-// Returns a success message of the form "wrote <path>" on success.
+// MCPWriteFile validates that path is declared in the output field of the node
+// identified by logical_name, then writes content to that path. Returns a
+// success message of the form "wrote <path>" on success.
 //
-// Errors:
-//   - ErrUnreadableFrontmatter: the node's frontmatter cannot be parsed.
-//   - ErrNoOutputs: the target node has no outputs field.
-//   - ErrPathNotInOutputs: path is not declared in the node's outputs.
-//   - (LogicalNames.*): propagated from LogicalNameToPath.
-//   - (PathUtils.*): propagated from PathValidateCfs.
-//   - (FileWriter.*): propagated from FileWrite.
+// Returns ErrUnreadableFrontmatter if the node's frontmatter cannot be parsed,
+// ErrNoOutput if the target node has no output field, ErrPathNotInOutput if
+// path is not declared in the node's output, or propagated errors from
+// LogicalNames, PathUtils, and FileWriter packages.
 func MCPWriteFile(logical_name string, path string, content string) (string, error)
 ```
-
----
 
 ## Usage Example
 
@@ -58,7 +42,6 @@ func MCPWriteFile(logical_name string, path string, content string) (string, err
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
@@ -69,19 +52,10 @@ func main() {
 	result, err := mcpwritefile.MCPWriteFile(
 		"ROOT/golang/interfaces/mcp_tools/write_file",
 		"code-from-spec/golang/interfaces/mcp_tools/write_file/output.md",
-		"# generated content\n",
+		"# Package `mcpwritefile`\n",
 	)
 	if err != nil {
-		if errors.Is(err, mcpwritefile.ErrUnreadableFrontmatter) {
-			log.Fatal("could not parse node frontmatter")
-		}
-		if errors.Is(err, mcpwritefile.ErrNoOutputs) {
-			log.Fatal("node declares no outputs")
-		}
-		if errors.Is(err, mcpwritefile.ErrPathNotInOutputs) {
-			log.Fatal("path is not authorized by node outputs")
-		}
-		log.Fatalf("write failed: %v", err)
+		log.Fatal(err)
 	}
 
 	fmt.Println(result)

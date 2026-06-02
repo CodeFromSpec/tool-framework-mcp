@@ -1,11 +1,9 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/node_ranking(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/utils/logical_names(interface)
-outputs:
-  - id: interface
-    path: code-from-spec/golang/interfaces/utils/node_ranking/output.md
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/utils/logical_names
+output: code-from-spec/golang/interfaces/utils/node_ranking/output.md
 ---
 
 # ROOT/golang/interfaces/utils/node_ranking

@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: logical_names
-    path: code-from-spec/functional/logic/utils/logical_names/output.md
+output: code-from-spec/functional/logic/utils/logical_names/output.md
 ---
 
 # ROOT/functional/logic/utils/logical_names
@@ -57,8 +55,9 @@ function LogicalNameGetQualifier(logical_name: string) -> optional string
 
 Extracts the parenthetical qualifier from a logical name.
 Returns absent if no qualifier is present. Works with both
-`ROOT/` and `ARTIFACT/` references. For example,
-`ROOT/x/y(z)` → `z`; `ROOT/x/y` → absent.
+`ROOT/` and `ARTIFACT/` references, though `ARTIFACT/`
+references do not use qualifiers and always return absent.
+For example, `ROOT/x/y(z)` → `z`; `ROOT/x/y` → absent.
 
 ```
 function LogicalNameStripQualifier(logical_name: string) -> string
@@ -67,8 +66,8 @@ function LogicalNameStripQualifier(logical_name: string) -> string
 Returns the logical name without the parenthetical
 qualifier. If no qualifier is present, returns the input
 unchanged. Works with both `ROOT/` and `ARTIFACT/`
-references. For example, `ROOT/x/y(z)` → `ROOT/x/y`;
-`ARTIFACT/x/y(id)` → `ARTIFACT/x/y`;
+references, though `ARTIFACT/` references do not use
+qualifiers. For example, `ROOT/x/y(z)` → `ROOT/x/y`;
 `ROOT/x/y` → `ROOT/x/y`.
 
 ```
@@ -85,7 +84,8 @@ function LogicalNameHasQualifier(logical_name: string) -> boolean
 
 Returns true if the logical name contains a parenthetical
 qualifier. Works with both `ROOT/` and `ARTIFACT/`
-references.
+references, though `ARTIFACT/` references do not use
+qualifiers and always return false.
 
 ```
 function LogicalNameIsArtifact(logical_name: string) -> boolean
@@ -101,10 +101,8 @@ function LogicalNameGetArtifactGenerator(logical_name: string) -> string
 ```
 
 Returns the `ROOT/` logical name of the node that generates
-the referenced artifact. Strips the `ARTIFACT/` prefix and
-any qualifier. Works with or without a qualifier. For
-example, `ARTIFACT/x/y(id)` → `ROOT/x/y`;
-`ARTIFACT/x/y` → `ROOT/x/y`.
+the referenced artifact. Strips the `ARTIFACT/` prefix.
+For example, `ARTIFACT/x/y` → `ROOT/x/y`.
 
 ### Logical name format
 
@@ -117,7 +115,8 @@ Logical names use two prefixes:
 
 An optional parenthetical qualifier targets a specific part:
 - `ROOT/x/y(z)` — the `## z` subsection of `# Public`.
-- `ARTIFACT/x/y(id)` — the artifact with the given id.
+
+`ARTIFACT/` references do not use qualifiers.
 
 ### Path resolution
 
@@ -138,13 +137,11 @@ reference, the caller:
 
 1. Calls `LogicalNameGetArtifactGenerator` to get the
    generating node's logical name
-   (e.g. `ARTIFACT/x/y(id)` → `ROOT/x/y`).
+   (e.g. `ARTIFACT/x/y` → `ROOT/x/y`).
 2. Calls `LogicalNameToPath` to get the generating node's
    `PathCfs`.
-3. Calls `LogicalNameGetQualifier` to get the artifact id.
-4. Reads the node's frontmatter, finds the output entry
-   whose `id` matches, and uses its `path` to locate the
-   artifact file.
+3. Reads the node's frontmatter and uses its output `path`
+   to locate the artifact file.
 
 ### Parent navigation
 
@@ -175,8 +172,8 @@ always returns a `ROOT/` reference:
 | Logical name | Has qualifier | Qualifier | Stripped |
 |---|---|---|---|
 | `ROOT/x(y)` | yes | `y` | `ROOT/x` |
-| `ARTIFACT/x(y)` | yes | `y` | `ARTIFACT/x` |
 | `ROOT/x` | no | — | `ROOT/x` |
+| `ARTIFACT/x` | no | — | `ARTIFACT/x` |
 
 # Agent
 

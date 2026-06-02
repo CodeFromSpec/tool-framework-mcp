@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: list_files
-    path: code-from-spec/functional/logic/os/list_files/output.md
+output: code-from-spec/functional/logic/os/list_files/output.md
 ---
 
 # ROOT/functional/logic/os/list_files

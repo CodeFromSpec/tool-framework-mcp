@@ -26,6 +26,38 @@ artifact file content (referenced via `depends_on` or `input`).
 
 ---
 
+## Artifact tag neutralization
+
+When hashing artifact file content (for `depends_on: ARTIFACT/`
+or `input:`), the 27-character hash in the artifact tag is
+replaced with 27 hyphens (`---------------------------`) before
+hashing. The rest of the line — including the logical name — is
+hashed normally.
+
+For example, the line:
+
+```
+// code-from-spec: ROOT/x/y@k4Xz9pQ1rLmN3vB7wY2tHsJ8dFa
+```
+
+is hashed as:
+
+```
+// code-from-spec: ROOT/x/y@---------------------------
+```
+
+This prevents unnecessary staleness propagation: a change to
+an ancestor's chain hash updates the tag in downstream artifacts,
+but the neutralized hash produces the same content hash — so
+further downstream artifacts are not affected unless their
+actual content changed.
+
+The logical name in the tag still participates in the hash. If
+an artifact is moved to a different node and the tag is updated,
+the content hash changes correctly.
+
+---
+
 ## Content hash
 
 Each position in the chain contributes a **content hash** — the
@@ -40,9 +72,9 @@ hashed content.
 | Target `# Agent` | `# Agent` section |
 | `depends_on: ROOT/x/y` | `# Public` section of the referenced node |
 | `depends_on: ROOT/x/y(z)` | `## z` subsection of `# Public` of the referenced node |
-| `depends_on: ARTIFACT/x/y(id)` | Full content of the referenced artifact, excluding any frontmatter |
+| `depends_on: ARTIFACT/x/y` | Full content of the referenced artifact, excluding frontmatter, with artifact tag hash neutralized |
 | `external` | Full content of the referenced file |
-| `input: ARTIFACT/x/y(id)` | Full content of the artifact file, excluding any frontmatter |
+| `input: ARTIFACT/x/y` | Full content of the artifact file, excluding frontmatter, with artifact tag hash neutralized |
 
 ---
 
@@ -90,7 +122,7 @@ ROOT/external/database         [# Public]            → content hash D  (depend
 proto/payments/v1/transfers.proto [full]             → content hash E  (external)
 ROOT/payments/fees/calculation [# Public]            → content hash F  (target)
 ROOT/payments/fees/calculation [# Agent]             → content hash G  (target)
-ARTIFACT/functional/calc(calc) [file content]        → content hash H  (input)
+ARTIFACT/functional/calc       [file content]        → content hash H  (input)
 ```
 
 The chain hash is:

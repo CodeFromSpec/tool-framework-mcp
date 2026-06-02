@@ -1,219 +1,259 @@
-<!-- code-from-spec: ROOT/functional/tests/parsing/frontmatter@cNudHADxoatpkjMk3D_dsFetLj8 -->
+<!-- code-from-spec: ROOT/functional/tests/parsing/frontmatter@WU7UgYJbHWMcsq0D0NbEOl2jWW0 -->
 
-## Test Cases: FrontmatterParse
+# Test Specification: FrontmatterParse
+
+## Happy Path
+
+### Parses complete frontmatter (all fields)
+
+Setup: Create a file with the following content:
+```
+---
+depends_on:
+  - ROOT/a
+  - ROOT/b
+external:
+  - path: some/external/file.md
+  - path: another/external/file.md
+input: path/to/input.md
+output: path/to/output.md
+---
+Body content here.
+```
+
+Action: Call `FrontmatterParse` with the path to that file.
+
+Expected outcome: Returns a `Frontmatter` record with
+`depends_on` = `["ROOT/a", "ROOT/b"]`,
+`external` has two `FrontmatterExternal` entries with `path` = `"some/external/file.md"` and `path` = `"another/external/file.md"`,
+`input` = `"path/to/input.md"`,
+`output` = `"path/to/output.md"`. No error.
 
 ---
 
-### Happy Path
+### Parses frontmatter with only output
+
+Setup: Create a file with the following content:
+```
+---
+output: path/to/output.md
+---
+Body content here.
+```
+
+Action: Call `FrontmatterParse` with the path to that file.
+
+Expected outcome: Returns a `Frontmatter` record with
+`depends_on` = empty list,
+`external` = empty list,
+`input` = empty string,
+`output` = `"path/to/output.md"`. No error.
 
 ---
 
-#### Parses complete frontmatter (all fields)
+### Parses frontmatter with only depends_on
 
-Setup: Create a file with frontmatter containing all fields:
-- `depends_on`: two dependency strings
-- `external`: two entries each with a `path` field
-- `input`: a non-empty string value
-- `outputs`: two entries each with `id` and `path` fields
+Setup: Create a file with the following content:
+```
+---
+depends_on:
+  - ROOT/x
+  - ROOT/y
+---
+Body content here.
+```
 
-Action: Call `FrontmatterParse` with the file path.
+Action: Call `FrontmatterParse` with the path to that file.
 
-Expected outcome:
-- No error.
-- `depends_on` contains the two listed dependency strings.
-- `external` has two entries with the correct `path` values.
-- `input` matches the specified value.
-- `outputs` has two entries with the correct `id` and `path` values.
+Expected outcome: Returns a `Frontmatter` record with
+`depends_on` = `["ROOT/x", "ROOT/y"]`,
+`external` = empty list,
+`input` = empty string,
+`output` = empty string. No error.
 
 ---
 
-#### Parses frontmatter with only outputs
+### Parses frontmatter with external entries
 
-Setup: Create a file with frontmatter containing only an `outputs` field with one entry having `id` and `path`.
+Setup: Create a file with the following content:
+```
+---
+external:
+  - path: docs/reference.md
+  - path: docs/guide.md
+---
+Body content here.
+```
 
-Action: Call `FrontmatterParse` with the file path.
+Action: Call `FrontmatterParse` with the path to that file.
 
-Expected outcome:
-- No error.
-- `depends_on` is empty.
-- `external` is empty.
-- `input` is empty.
-- `outputs` has one entry with the correct `id` and `path`.
+Expected outcome: Returns a `Frontmatter` record with
+`external` having two entries: first with `path` = `"docs/reference.md"`, second with `path` = `"docs/guide.md"`. All other fields empty. No error.
 
 ---
 
-#### Parses frontmatter with only depends_on
+### Parses frontmatter with input field
 
-Setup: Create a file with frontmatter containing only a `depends_on` field listing two values.
+Setup: Create a file with the following content:
+```
+---
+input: path/to/input.md
+---
+Body content here.
+```
 
-Action: Call `FrontmatterParse` with the file path.
+Action: Call `FrontmatterParse` with the path to that file.
 
-Expected outcome:
-- No error.
-- `depends_on` contains the two listed values.
-- `external` is empty.
-- `input` is empty.
-- `outputs` is empty.
+Expected outcome: Returns a `Frontmatter` record with
+`input` = `"path/to/input.md"`. All other fields empty. No error.
 
 ---
 
-#### Parses frontmatter with external entries
+### Ignores unknown frontmatter fields
 
-Setup: Create a file with frontmatter containing only an `external` field with two entries each having a `path`.
+Setup: Create a file with the following content:
+```
+---
+output: path/to/output.md
+custom_field: some value
+another_unknown: 42
+---
+Body content here.
+```
 
-Action: Call `FrontmatterParse` with the file path.
+Action: Call `FrontmatterParse` with the path to that file.
 
-Expected outcome:
-- No error.
-- `external` has two entries with the correct `path` values.
-- All other fields are empty.
+Expected outcome: Returns a `Frontmatter` record with
+`output` = `"path/to/output.md"`. All other known fields empty. Unknown fields ignored. No error.
 
 ---
 
-#### Parses frontmatter with input field
+### File with no frontmatter returns empty result
 
-Setup: Create a file with frontmatter containing only an `input` field set to a non-empty string.
+Setup: Create a file with no `---` delimiter — body content only:
+```
+This is just body content.
+No frontmatter here.
+```
 
-Action: Call `FrontmatterParse` with the file path.
+Action: Call `FrontmatterParse` with the path to that file.
 
-Expected outcome:
-- No error.
-- `input` matches the specified value.
-- `depends_on` is empty.
-- `external` is empty.
-- `outputs` is empty.
-
----
-
-#### Ignores unknown frontmatter fields
-
-Setup: Create a file with frontmatter containing known fields (`depends_on`, `outputs`) plus an extra unknown field (e.g., `custom_field: value`).
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome:
-- No error.
-- Known fields are parsed correctly.
-- Unknown fields are silently ignored.
+Expected outcome: Returns a `Frontmatter` record with all fields empty. No error.
 
 ---
 
-#### File with no frontmatter returns empty result
+## Edge Cases
 
-Setup: Create a file containing only body content, with no `---` delimiter anywhere.
+### Empty frontmatter
 
-Action: Call `FrontmatterParse` with the file path.
+Setup: Create a file with the following content:
+```
+---
+---
+Body content here.
+```
 
-Expected outcome:
-- No error.
-- All fields (`depends_on`, `external`, `input`, `outputs`) are empty.
+Action: Call `FrontmatterParse` with the path to that file.
+
+Expected outcome: Returns a `Frontmatter` record with all fields empty. No error.
 
 ---
 
-### Edge Cases
+### File with only frontmatter, nothing after
+
+Setup: Create a file with the following content (no body after closing delimiter):
+```
+---
+output: path/to/output.md
+---
+```
+
+Action: Call `FrontmatterParse` with the path to that file.
+
+Expected outcome: Returns a `Frontmatter` record with `output` = `"path/to/output.md"`. All other fields empty. No error.
 
 ---
 
-#### Empty frontmatter
+### Delimiter with trailing whitespace is not recognized
 
-Setup: Create a file with an opening `---` and a closing `---` and nothing between them.
+Setup: Create a file where the first line is `---   ` (with trailing spaces):
+```
+---   
+output: path/to/output.md
+---
+```
 
-Action: Call `FrontmatterParse` with the file path.
+Action: Call `FrontmatterParse` with the path to that file.
 
-Expected outcome:
-- No error.
-- All fields are empty.
+Expected outcome: Returns a `Frontmatter` record with all fields empty — the first line is not recognized as a delimiter, so no frontmatter is parsed. No error.
 
 ---
 
-#### File with only frontmatter, nothing after
+## Failure Cases
 
-Setup: Create a file with valid frontmatter (opening `---`, some fields, closing `---`) and no body content after the closing delimiter.
+### File does not exist
 
-Action: Call `FrontmatterParse` with the file path.
+Setup: None.
 
-Expected outcome:
-- No error.
-- Fields are parsed correctly.
+Action: Call `FrontmatterParse` with a `PathCfs` pointing to a non-existent file.
 
----
-
-#### Delimiter with trailing whitespace is not recognized
-
-Setup: Create a file where the first line is `---   ` (with trailing spaces), followed by some content.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome:
-- No error.
-- All fields are empty — the line with trailing spaces is not recognized as a frontmatter delimiter.
+Expected outcome: Error `FileUnreadable`.
 
 ---
 
-### Failure Cases
+### Propagates path errors
+
+Setup: None.
+
+Action: Call `FrontmatterParse` with an invalid `PathCfs` such as `"../../outside"`.
+
+Expected outcome: Error `DirectoryTraversal` propagated from `FileReader`/`PathUtils` via `FileOpen`.
 
 ---
 
-#### File does not exist
+### Malformed YAML
 
-Setup: No file is created. Prepare a `PathCfs` pointing to a non-existent file.
+Setup: Create a file with invalid YAML between frontmatter delimiters:
+```
+---
+key: [unclosed bracket
+another: : invalid
+---
+Body content.
+```
 
-Action: Call `FrontmatterParse` with the non-existent file path.
+Action: Call `FrontmatterParse` with the path to that file.
 
-Expected outcome:
-- Error `FileUnreadable`.
+Expected outcome: Error `MalformedYAML`.
 
 ---
 
-#### Propagates path errors
+### Unclosed frontmatter block
 
-Setup: Prepare an invalid `PathCfs` value that represents a path escaping the root (e.g., `"../../outside"`).
+Setup: Create a file that starts with `---` but has no closing `---`:
+```
+---
+output: path/to/output.md
+Body content with no closing delimiter.
+```
 
-Action: Call `FrontmatterParse` with the invalid path.
+Action: Call `FrontmatterParse` with the path to that file.
 
-Expected outcome:
-- Error `DirectoryTraversal` propagated from `FileReader`/`PathUtils` via `FileOpen`.
+Expected outcome: Error `MalformedYAML`.
 
 ---
 
-#### Malformed YAML
+### Missing required field in external entry
 
-Setup: Create a file with a valid opening `---`, invalid YAML content between the delimiters (e.g., unbalanced brackets or bad indentation), and a closing `---`.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome:
-- Error `MalformedYAML`.
-
+Setup: Create a file with an `external` entry that has no `path` field:
+```
 ---
-
-#### Unclosed frontmatter block
-
-Setup: Create a file that begins with `---` but has no subsequent closing `---` — only body content follows.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome:
-- Error `MalformedYAML`.
-
+external:
+  - name: some-name
 ---
+Body content.
+```
 
-#### Missing required field in external entry
+Action: Call `FrontmatterParse` with the path to that file.
 
-Setup: Create a file with an `external` entry in the frontmatter that has no `path` field (e.g., the entry is present but `path` is omitted).
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome:
-- Error `MalformedYAML`.
-
----
-
-#### Missing required field in output entry
-
-Setup: Create a file with an `outputs` entry that has an `id` field but no `path` field.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome:
-- Error `MalformedYAML`.
+Expected outcome: Error `MalformedYAML`.

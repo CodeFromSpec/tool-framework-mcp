@@ -1,14 +1,12 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/chain/resolver(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-  - ARTIFACT/golang/interfaces/os/file_reader(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/utils/logical_names(interface)
-input: ARTIFACT/functional/logic/chain/resolver(chain_resolver)
-outputs:
-  - id: chainresolver
-    path: internal/chainresolver/chainresolver.go
+  - ARTIFACT/golang/interfaces/chain/resolver
+  - ARTIFACT/golang/interfaces/os/path_utils
+  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/utils/logical_names
+input: ARTIFACT/functional/logic/chain/resolver
+output: internal/chainresolver/chainresolver.go
 ---
 
 # ROOT/golang/implementation/chain/resolver

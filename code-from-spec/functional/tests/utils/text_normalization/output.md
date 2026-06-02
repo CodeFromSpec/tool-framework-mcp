@@ -1,11 +1,11 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/text_normalization@F8imG1q43CONfOdM_zEVTF8SD48 -->
+<!-- code-from-spec: ROOT/functional/tests/utils/text_normalization@dm61A20wB8AVugzHTRSEeHtPs5Q -->
 
-# Test Specification: NormalizeText
+# NormalizeText — Test Specification
 
-## Function
+## Interface
 
 ```
-NormalizeText(raw_string: string) -> string
+function NormalizeText(raw_string: string) -> string
 ```
 
 ---
@@ -16,13 +16,11 @@ NormalizeText(raw_string: string) -> string
 
 #### Already normalized
 
-- Setup: none
 - Action: call `NormalizeText("public")`
 - Expected: `"public"`
 
 #### Single word
 
-- Setup: none
 - Action: call `NormalizeText("Interface")`
 - Expected: `"interface"`
 
@@ -32,19 +30,16 @@ NormalizeText(raw_string: string) -> string
 
 #### Leading and trailing spaces
 
-- Setup: none
 - Action: call `NormalizeText("  Interface  ")`
 - Expected: `"interface"`
 
 #### Leading and trailing tabs
 
-- Setup: none
 - Action: call `NormalizeText("\tInterface\t")`
 - Expected: `"interface"`
 
 #### Mixed leading whitespace
 
-- Setup: none
 - Action: call `NormalizeText(" \t Interface \t ")`
 - Expected: `"interface"`
 
@@ -54,19 +49,16 @@ NormalizeText(raw_string: string) -> string
 
 #### Multiple spaces between words
 
-- Setup: none
 - Action: call `NormalizeText("Testes   de   aceitacao")`
 - Expected: `"testes de aceitacao"`
 
 #### Tabs between words
 
-- Setup: none
 - Action: call `NormalizeText("Testes\tde\taceitacao")`
 - Expected: `"testes de aceitacao"`
 
 #### Mixed whitespace between words
 
-- Setup: none
 - Action: call `NormalizeText("Testes \t de \t aceitacao")`
 - Expected: `"testes de aceitacao"`
 
@@ -76,25 +68,21 @@ NormalizeText(raw_string: string) -> string
 
 #### All uppercase
 
-- Setup: none
 - Action: call `NormalizeText("PUBLIC")`
 - Expected: `"public"`
 
 #### Mixed case
 
-- Setup: none
 - Action: call `NormalizeText("PuBLiC")`
 - Expected: `"public"`
 
 #### Unicode case folding
 
-- Setup: none
 - Action: call `NormalizeText("TESTES DE ACEITACAO")`
 - Expected: `"testes de aceitacao"`
 
 #### German sharp s
 
-- Setup: none
 - Action: call `NormalizeText("Strasse")`
 - Expected: `"strasse"`
 - Note: Unicode simple case folding maps sharp-s to `"ss"`
@@ -105,19 +93,16 @@ NormalizeText(raw_string: string) -> string
 
 #### Trim, collapse, and case fold together
 
-- Setup: none
 - Action: call `NormalizeText("  TESTES   DE   ACEITACAO  ")`
 - Expected: `"testes de aceitacao"`
 
 #### Logical name qualifier style
 
-- Setup: none
 - Action: call `NormalizeText("testes de ACEITACAO")`
 - Expected: `"testes de aceitacao"`
 
 #### Tabs and mixed case
 
-- Setup: none
 - Action: call `NormalizeText("\tROOT/payments/fees\t")`
 - Expected: `"root/payments/fees"`
 
@@ -127,24 +112,21 @@ NormalizeText(raw_string: string) -> string
 
 #### Empty string
 
-- Setup: none
 - Action: call `NormalizeText("")`
 - Expected: `""`
 
 #### Only whitespace
 
-- Setup: none
 - Action: call `NormalizeText("   \t  ")`
 - Expected: `""`
 
 #### Non-breaking space is not whitespace
 
-- Setup: none
-- Action: call `NormalizeText("hello world")` (the space between the words is a non-breaking space U+00A0)
-- Expected: `"hello world"` (non-breaking space is treated as text, not collapsed or trimmed)
+- Setup: construct a string `"hello world"` where the space between the two words is a non-breaking space (U+00A0), not a regular space
+- Action: call `NormalizeText(<that string>)`
+- Expected: `"hello world"` where the non-breaking space is preserved as text and not collapsed
 
 #### Single character
 
-- Setup: none
 - Action: call `NormalizeText("X")`
 - Expected: `"x"`

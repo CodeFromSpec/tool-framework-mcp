@@ -1,32 +1,23 @@
-<!-- code-from-spec: ROOT/functional/logic/os/list_files@IwA9T-yBMKXlg7h1hxfknvvfASw -->
+<!-- code-from-spec: ROOT/functional/logic/os/list_files@i9F73iNerpUO9BDqrLpdEpBEf4Y -->
 
 function ListFiles(cfs_path: pathutils.PathCfs) -> list of pathutils.PathCfs
-  errors:
-    - DirectoryNotFound: the directory does not exist.
-    - WalkError: a filesystem error occurred while traversing.
-    - (PathUtils.*): propagated from pathutils.PathCfsToOs.
-    - (PathUtils.*): propagated from PathOsToCfs.
 
-  1. Call pathutils.PathCfsToOs with cfs_path.
-     If it returns an error, propagate the error to the caller.
-     Let os_path be the resulting PathOs.
+  1. Call pathutils.PathCfsToOs(cfs_path) to get an OS path.
+     If it raises an error, propagate it.
 
-  2. Check that os_path refers to an existing directory.
+  2. Check that the resolved OS path exists and is a directory.
      If it does not exist, raise error "DirectoryNotFound".
 
-  3. Initialize an empty list called results.
+  3. Recursively walk the directory tree rooted at the OS path.
+     If the walk encounters a filesystem error, raise error "WalkError".
 
-  4. Recursively walk the directory tree rooted at os_path.
-     For each entry encountered during the walk:
-       If a filesystem error occurs while reading a directory
-       or entry, raise error "WalkError".
-       If the entry is a directory, skip it (do not add to results,
-       but continue traversing its contents).
-       If the entry is a file:
-         Call PathOsToCfs with the entry's absolute OS path.
-         If it returns an error, propagate the error to the caller.
-         Append the resulting pathutils.PathCfs to results.
+  4. For each entry encountered during the walk:
+     If the entry is a directory, skip it (continue traversal).
+     If the entry is a file, call PathOsToCfs with its absolute OS path.
+       If PathOsToCfs raises an error, propagate it.
+       Otherwise, add the resulting pathutils.PathCfs to the result list.
 
-  5. Sort results alphabetically by their value field.
+  5. Sort the result list alphabetically by the PathCfs value field.
 
-  6. Return results.
+  6. Return the sorted result list.
+     If no files were found, return an empty list.

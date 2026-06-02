@@ -1,10 +1,8 @@
 ---
 depends_on:
   - ROOT/golang/dependencies/mcp-go-sdk
-input: ARTIFACT/golang/implementation/server(main)
-outputs:
-  - id: main_test
-    path: cmd/framework-mcp/main_test.go
+input: ARTIFACT/golang/implementation/server
+output: cmd/framework-mcp/main_test.go
 ---
 
 # ROOT/golang/tests/server
@@ -72,7 +70,7 @@ Expect: the response contains a tool named `load_chain`
 with `_meta["anthropic/maxResultSizeChars"]` equal to
 `500000`.
 
-### tools/list advertises all four tools
+### tools/list advertises all tools
 
 Start the binary as a subprocess. Send an MCP
 `initialize` request followed by a `tools/list` request
@@ -80,4 +78,5 @@ over stdin (JSON-RPC). Parse the JSON-RPC response from
 stdout.
 
 Expect: the response contains tools named `load_chain`,
-`write_file`, and `validate_specs`.
+`write_file`, `validate_specs`, `chain_hash`, and
+`version`.

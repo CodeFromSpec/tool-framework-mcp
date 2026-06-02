@@ -1,11 +1,9 @@
 ---
 depends_on:
   - ROOT/functional/logic/spec_tree/validate(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/parsing/node_parsing(interface)
-outputs:
-  - id: interface
-    path: code-from-spec/golang/interfaces/spec_tree/validate/output.md
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/parsing/node_parsing
+output: code-from-spec/golang/interfaces/spec_tree/validate/output.md
 ---
 
 # ROOT/golang/interfaces/spec_tree/validate

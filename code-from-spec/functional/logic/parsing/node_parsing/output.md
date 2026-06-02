@@ -1,268 +1,182 @@
-<!-- code-from-spec: ROOT/functional/logic/parsing/node_parsing@hqZu165vvnpWECCgxHHSUpzrBLE -->
+<!-- code-from-spec: ROOT/functional/logic/parsing/node_parsing@7bmo0NQXq41_DE3MVZqwzvfF13E -->
 
-# namespace: parsenode
+## Namespace
 
----
+    namespace: parsenode
 
 ## Records
 
+```
 record NodeSubsection
-  heading:     string          -- normalized text (via NormalizeText)
-  raw_heading: string          -- original line as read from file
-  content:     list of string  -- lines as returned by FileReadLine
+  heading: string
+  raw_heading: string
+  content: list of string
 
 record NodeSection
-  heading:     string          -- normalized text (via NormalizeText)
-  raw_heading: string          -- original line as read from file
-  content:     list of string  -- lines before the first ## heading
+  heading: string
+  raw_heading: string
+  content: list of string
   subsections: list of NodeSubsection
 
 record Node
   name_section: NodeSection
-  public:       optional NodeSection
-  agent:        optional NodeSection
-  private:      list of NodeSection  -- in file order
+  public: optional NodeSection
+  agent: optional NodeSection
+  private: list of NodeSection
+```
 
----
+`heading` is the normalized form (after `NormalizeText`), used for comparisons
+and lookups. `raw_heading` is the original line as read from the file, unchanged.
+Content fields are lists of strings — each element is a line as returned by
+`FileReadLine`, preserving original text exactly.
 
 ## Functions
 
+```
 function NodeParse(logical_name: string) -> Node
   errors:
     - NotARootReference: the logical name does not start with ROOT/.
     - HasQualifier: the logical name contains a parenthetical qualifier.
     - FileUnreadable: the file cannot be opened or read.
-    - UnexpectedContentBeforeFirstHeading: file body has non-blank
-      content before the first level-1 heading, or has no level-1
-      heading at all. Blank lines before the first heading are not
-      an error.
-    - NodeNameDoesNotMatch: the first heading does not match the
-      logical name after normalization.
+    - UnexpectedContentBeforeFirstHeading: file body has non-blank content
+      before the first level-1 heading, or has no level-1 heading at all.
+    - NodeNameDoesNotMatch: the first heading does not match the logical name
+      after normalization.
     - DuplicatePublicSection: more than one Public section exists.
     - DuplicateAgentSection: more than one Agent section exists.
-    - DuplicateSubsection: two level-2 headings within the same
-      section normalize to the same text.
+    - DuplicateSubsection: two level-2 headings within the same section
+      normalize to the same text.
     - (FileReader.*): propagated from FileOpen.
+```
 
-  1. If LogicalNameIsArtifact(logical_name) is true,
-       raise error "not a ROOT reference".
+### NodeParse
 
-  2. If LogicalNameHasQualifier(logical_name) is true,
-       raise error "has qualifier".
+  1. If `LogicalNameIsArtifact(logical_name)` returns true,
+     raise error `NotARootReference`.
 
-  3. Call LogicalNameToPath(logical_name) to obtain the file path.
-     If LogicalNameToPath raises an error, propagate it.
+  2. If `LogicalNameHasQualifier(logical_name)` returns true,
+     raise error `HasQualifier`.
 
-  4. Call FileOpen(file_path) to open the file for reading.
-     If FileOpen raises FileUnreadable or any propagated error,
-       call FileClose if a reader was created, then propagate the error.
+  3. Call `LogicalNameToPath(logical_name)` to get the file path.
 
-  5. Skip frontmatter:
-     a. Call FileReadLine to read the first line.
-        If end of file is reached immediately, proceed to step 6 with
-        no lines (empty body).
-     b. If the first line is exactly "---":
-          Repeatedly call FileReadLine and discard lines until a line
-          that is exactly "---" is read (the closing delimiter).
-          If end of file is reached before finding the closing "---",
-            call FileClose, then raise error
-            "unexpected content before first heading".
-     c. If the first line is not "---":
-          Treat it as the first body line (do not discard it); proceed
-          with this line as the next line to classify in step 6.
+  4. Call `FileOpen` with the file path.
+     If `FileOpen` raises an error, propagate it.
 
-  6. Parse the body into sections:
+  5. Skip the frontmatter:
+     Read the first line using `FileReadLine`.
+     If `EndOfFile` is raised, call `FileClose` and raise
+     `UnexpectedContentBeforeFirstHeading`.
+     If the first line is exactly `"---"`:
+       Read lines and discard them until a line that is exactly `"---"` is found.
+       If `EndOfFile` is reached before the closing `"---"`,
+       call `FileClose` and raise `UnexpectedContentBeforeFirstHeading`.
+     Else:
+       The first line is the first body line — hold it for step 6 processing
+       without consuming another line.
 
-     Initialize:
-       - reader state from step 4/5 (positioned after frontmatter)
-       - pending_line: the un-consumed body line from step 5c (if any),
-         otherwise absent
-       - name_section: absent
-       - public_section: absent
-       - agent_section: absent
-       - private_sections: empty list
-       - current_section: absent
-       - current_subsection: absent
-       - in_code_fence: false
-       - fence_char: absent
-       - fence_length: 0
+  6. Parse the file body into sections. Maintain:
+     - a current section (starts as absent)
+     - a current subsection (starts as absent)
+     - a fenced code block state (open: boolean, fence character, fence length)
+     - a result Node being built
 
-     Repeat until end of file:
+     For each line (beginning with any held line from step 5, then continuing
+     with `FileReadLine` until `EndOfFile`):
 
-       a. Obtain the next line:
-            If pending_line is present, use it and clear pending_line.
-            Otherwise call FileReadLine; if end of file, exit the loop.
+     a. **Fenced code block detection** (applied before heading detection):
+        If not currently inside a fenced code block:
+          If the line consists of 3 or more consecutive backtick characters
+          optionally followed by a language tag (no other characters before
+          the backticks), or 3 or more consecutive tilde characters optionally
+          followed by a language tag, mark the fenced block as open, recording
+          the fence character (`` ` `` or `~`) and fence length.
+          Treat the line as content (not a heading).
+        If currently inside a fenced code block:
+          If the line consists of at least as many of the same fence character
+          as the opening line (with nothing before them), mark the fenced block
+          as closed.
+          Treat the line as content (not a heading) regardless.
 
-       b. Check for code fence transitions:
-            If in_code_fence is false:
-              If the line matches a fenced code block opening
-              (three or more consecutive backtick characters, or three
-              or more consecutive tilde characters, optionally followed
-              by a language tag and nothing else on the line before):
-                Set in_code_fence to true.
-                Set fence_char to the opening character (` or ~).
-                Set fence_length to the count of leading fence characters.
-                Treat the line as content (go to step f).
-              Otherwise, continue to step c.
-            If in_code_fence is true:
-              If the line is a valid closing fence (consists of at least
-              fence_length consecutive fence_char characters, with only
-              optional trailing whitespace):
-                Set in_code_fence to false.
-                Clear fence_char and fence_length.
-              Treat the line as content (go to step f) regardless of
-              whether it closed the fence.
+     b. **Heading detection** (only if not inside a fenced code block):
+        A heading line starts with one or more `"#"` characters immediately
+        followed by at least one space. The heading level equals the number of
+        leading `"#"` characters. The heading text is everything after the
+        `"# "` prefix, trimmed of leading and trailing whitespace.
+        If the heading text ends with one or more `"#"` characters preceded by
+        at least one space, strip that trailing sequence and trim again.
+        Normalize the heading text using `NormalizeText`.
+        Lines like `"#Foo"` (no space after `#`) are not headings — treat as content.
 
-       c. (Only reached when in_code_fence is false.)
-          Attempt to parse the line as an ATX heading:
-            An ATX heading line starts with one or more "#" characters
-            immediately followed by at least one space character.
-            The heading level equals the number of leading "#" characters.
-            The heading text is everything after the "# " prefix,
-            trimmed of leading and trailing whitespace.
-            If a closing "#" sequence is present (preceded by at least
-            one space), strip it and trim again.
-            Lines like "#Foo" (no space after "#") are NOT headings.
-            If the line is not an ATX heading, treat as content (go to step f).
+     c. **Level-1 heading** (not inside fenced code block, heading level is 1):
+        Close the current subsection into the current section (if any).
+        Close the current section into the Node (if any) — see "Section closing".
+        Start a new section with:
+          `raw_heading`: the original line
+          `heading`: normalized heading text
+          `content`: empty list
+          `subsections`: empty list
+        Classify the section — see "Section classification".
+        Set current section to this new section, current subsection to absent.
 
-       d. If the line is a level-1 heading:
-            Finalize current_subsection into current_section (if any).
-            Finalize current_section into the appropriate slot (if any)
-              using ClassifyAndStoreSection (see below).
-            raw_heading := the original line.
-            heading := NormalizeText(extracted heading text).
-            Start a new section with raw_heading and heading,
-              empty content, and empty subsections list.
-            Set current_section to this new section.
-            Set current_subsection to absent.
-            Continue to next iteration (do not add heading line to content).
+     d. **Level-2 heading** (not inside fenced code block, heading level is 2):
+        If current section is absent, treat the line as pre-heading content
+        (handle as in step e).
+        Else:
+          Close the current subsection into the current section (if any).
+          Check if any existing subsection in the current section has the same
+          normalized heading. If so, call `FileClose` and raise
+          `DuplicateSubsection`.
+          Start a new subsection with:
+            `raw_heading`: the original line
+            `heading`: normalized heading text
+            `content`: empty list
+          Set current subsection to this new subsection.
 
-       e. If the line is a level-2 heading and current_section is present:
-            Finalize current_subsection into current_section (if any).
-            raw_heading := the original line.
-            heading := NormalizeText(extracted heading text).
-            Check that no existing subsection in current_section.subsections
-              has the same heading; if so, raise error "duplicate subsection"
-              (call FileClose first).
-            Start a new subsection with raw_heading, heading, and empty content.
-            Set current_subsection to this new subsection.
-            Continue to next iteration (do not add heading line to content).
+     e. **Content line** (not a structural heading, or level 3+, or inside
+        fenced code block, or heading with no space after `#`):
+        If current section is absent:
+          If the line is not blank, call `FileClose` and raise
+          `UnexpectedContentBeforeFirstHeading`.
+          Otherwise, discard the blank line.
+        Else if current subsection is present:
+          Append the line to the current subsection's `content`.
+        Else:
+          Append the line to the current section's `content`.
 
-       f. Add the line to content:
-            If current_subsection is present:
-              Append the line to current_subsection.content.
-            Else if current_section is present:
-              Append the line to current_section.content.
-            Else:
-              If the line is not blank (not empty and not all whitespace):
-                Call FileClose, then raise error
-                "unexpected content before first heading".
-              (Blank lines before the first heading are silently discarded.)
+  7. After `EndOfFile`:
+     Close the current subsection into the current section (if any).
+     Close the current section into the Node (if any).
+     Call `FileClose`.
 
-     After the loop:
-       Finalize current_subsection into current_section (if any).
-       Finalize current_section into the appropriate slot (if any)
-         using ClassifyAndStoreSection.
+  8. If no level-1 heading was ever found (name_section is absent),
+     raise `UnexpectedContentBeforeFirstHeading`.
 
-  7. Validate the name section:
-     If name_section is absent,
-       call FileClose, then raise error
-       "unexpected content before first heading" (no level-1 heading found).
-     Compare name_section.heading with NormalizeText(logical_name):
-       If they do not match,
-         call FileClose, then raise error "node name does not match".
+  9. Return the completed Node.
 
-  8. Call FileClose.
+### Section classification
 
-  9. Return a Node record:
-       name_section: name_section
-       public:       public_section (may be absent)
-       agent:        agent_section  (may be absent)
-       private:      private_sections (in file order)
+When a new level-1 section is started:
+  If this is the first section (name_section is absent):
+    Normalize the logical name using `NormalizeText`.
+    If the section's normalized heading does not match the normalized logical name,
+    call `FileClose` and raise `NodeNameDoesNotMatch`.
+    Set `name_section` to this section.
+  Else if the section's normalized heading equals `"public"`:
+    If `public` is already set, call `FileClose` and raise `DuplicatePublicSection`.
+    Set `public` to this section.
+  Else if the section's normalized heading equals `"agent"`:
+    If `agent` is already set, call `FileClose` and raise `DuplicateAgentSection`.
+    Set `agent` to this section.
+  Else:
+    Append this section to `private`.
 
+### Section closing
 
----
+When closing a current subsection into the current section:
+  Append the subsection to the section's `subsections` list.
+  Set current subsection to absent.
 
-## Helper procedures
-
-procedure ClassifyAndStoreSection(section: NodeSection)
-  -- Assigns the section to name_section, public_section, agent_section,
-  -- or private_sections based on its normalized heading.
-  -- Raises errors for duplicate public/agent sections.
-  -- This procedure is called immediately before starting a new section.
-
-  1. If name_section is absent:
-       Set name_section to section.
-       Return.
-
-  2. If section.heading equals "public":
-       If public_section is already present:
-         Call FileClose, then raise error "duplicate public section".
-       Set public_section to section.
-       Return.
-
-  3. If section.heading equals "agent":
-       If agent_section is already present:
-         Call FileClose, then raise error "duplicate agent section".
-       Set agent_section to section.
-       Return.
-
-  4. Otherwise:
-       Append section to private_sections.
-
-
-procedure FinalizeSubsection(current_subsection, current_section)
-  -- Moves current_subsection into current_section.subsections if present.
-
-  1. If current_subsection is absent, return.
-  2. Append current_subsection to current_section.subsections.
-  3. Set current_subsection to absent.
-
-
----
-
-## ATX Heading parsing detail
-
-function ParseAtxHeading(line: string) -> optional record (level: integer, text: string, raw: string)
-
-  1. Count the number of leading "#" characters. Call this count level.
-     If level is 0, return absent (not a heading).
-
-  2. If the character immediately after the "#" characters is not a space,
-     return absent (e.g., "#Foo" is not a heading).
-
-  3. Extract the heading text: everything after the first space following
-     the leading "#" characters, trimmed of leading and trailing whitespace.
-
-  4. Check for an optional closing "#" sequence:
-     If the trimmed text ends with one or more "#" characters preceded by
-     at least one space, strip the trailing "#" sequence and trim again.
-
-  5. Return a record with:
-       level: count of leading "#" characters
-       text:  the extracted and cleaned heading text (before NormalizeText)
-       raw:   the original line unchanged
-
-
----
-
-## Fenced code block detection detail
-
-function IsFenceOpening(line: string) -> optional record (char: character, length: integer)
-
-  1. Count the number of leading backtick (`) characters. If 3 or more,
-     and no backtick appears in the rest of the line, return
-     record (char: "`", length: count).
-
-  2. Count the number of leading tilde (~) characters. If 3 or more,
-     return record (char: "~", length: count).
-
-  3. Otherwise return absent.
-
-function IsFenceClosing(line: string, fence_char: character, fence_length: integer) -> boolean
-
-  1. Trim trailing whitespace from the line.
-  2. If every character in the trimmed line equals fence_char,
-     and the length of the trimmed line is at least fence_length,
-     return true.
-  3. Otherwise return false.
+When closing a current section into the Node:
+  The section has already been classified and assigned to the Node field.
+  Update the Node field in place with accumulated `content` and `subsections`.
+  Set current section to absent.

@@ -1,11 +1,9 @@
 ---
 depends_on:
   - ROOT/functional/logic/mcp_tools/load_chain(interface)
-  - ARTIFACT/golang/interfaces/chain/resolver(interface)
-  - ARTIFACT/golang/interfaces/chain/hash(interface)
-outputs:
-  - id: interface
-    path: code-from-spec/golang/interfaces/mcp_tools/load_chain/output.md
+  - ARTIFACT/golang/interfaces/chain/resolver
+  - ARTIFACT/golang/interfaces/chain/hash
+output: code-from-spec/golang/interfaces/mcp_tools/load_chain/output.md
 ---
 
 # ROOT/golang/interfaces/mcp_tools/load_chain

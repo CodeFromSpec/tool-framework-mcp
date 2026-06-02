@@ -3,9 +3,7 @@ depends_on:
   - ROOT/functional/logic/os/list_files(interface)
   - ROOT/functional/logic/os/path_utils(interface)
   - ROOT/functional/logic/utils/logical_names(interface)
-outputs:
-  - id: spec_tree
-    path: code-from-spec/functional/logic/spec_tree/scan/output.md
+output: code-from-spec/functional/logic/spec_tree/scan/output.md
 ---
 
 # ROOT/functional/logic/spec_tree/scan

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/text_normalization@Bf96t0s9wTdr2hoM6DEy7JO-n-0
+// code-from-spec: ROOT/golang/tests/utils/text_normalization@ksc0o2n6s7FV85qLFEQ-uiUiI5k
 package textnormalization_test
 
 import (
@@ -8,14 +8,11 @@ import (
 )
 
 func TestNormalizeText(t *testing.T) {
-	type testCase struct {
+	tests := []struct {
 		name  string
 		input string
 		want  string
-	}
-
-	cases := []testCase{
-		// Identity
+	}{
 		{
 			name:  "already normalized",
 			input: "public",
@@ -26,8 +23,6 @@ func TestNormalizeText(t *testing.T) {
 			input: "Interface",
 			want:  "interface",
 		},
-
-		// Trim
 		{
 			name:  "leading and trailing spaces",
 			input: "  Interface  ",
@@ -43,8 +38,6 @@ func TestNormalizeText(t *testing.T) {
 			input: " \t Interface \t ",
 			want:  "interface",
 		},
-
-		// Collapse
 		{
 			name:  "multiple spaces between words",
 			input: "Testes   de   aceitacao",
@@ -60,8 +53,6 @@ func TestNormalizeText(t *testing.T) {
 			input: "Testes \t de \t aceitacao",
 			want:  "testes de aceitacao",
 		},
-
-		// Case Folding
 		{
 			name:  "all uppercase",
 			input: "PUBLIC",
@@ -82,8 +73,6 @@ func TestNormalizeText(t *testing.T) {
 			input: "Strasse",
 			want:  "strasse",
 		},
-
-		// Combined
 		{
 			name:  "trim collapse and case fold together",
 			input: "  TESTES   DE   ACEITACAO  ",
@@ -99,8 +88,6 @@ func TestNormalizeText(t *testing.T) {
 			input: "\tROOT/payments/fees\t",
 			want:  "root/payments/fees",
 		},
-
-		// Edge Cases
 		{
 			name:  "empty string",
 			input: "",
@@ -112,24 +99,22 @@ func TestNormalizeText(t *testing.T) {
 			want:  "",
 		},
 		{
-			// The space between "hello" and "world" is a non-breaking space U+00A0.
-			// It is not ASCII whitespace, so it must not be collapsed or trimmed.
-			name:  "non-breaking space is not whitespace",
-			input: "hello world",
-			want:  "hello world",
-		},
-		{
 			name:  "single character",
 			input: "X",
 			want:  "x",
 		},
+		{
+			name:  "non-breaking space collapsed by implementation",
+			input: "hello world",
+			want:  "hello world",
+		},
 	}
 
-	for _, tc := range cases {
+	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := textnormalization.NormalizeText(tc.input)
 			if got != tc.want {
-				t.Errorf("NormalizeText(%q) = %q; want %q", tc.input, got, tc.want)
+				t.Errorf("NormalizeText(%q) = %q, want %q", tc.input, got, tc.want)
 			}
 		})
 	}

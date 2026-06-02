@@ -1,17 +1,15 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/chain/hash(interface)
-  - ARTIFACT/golang/interfaces/chain/resolver(interface)
-  - ARTIFACT/golang/interfaces/os/file_reader(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/parsing/node_parsing(interface)
-  - ARTIFACT/golang/interfaces/utils/logical_names(interface)
-  - ARTIFACT/golang/interfaces/utils/text_normalization(interface)
-input: ARTIFACT/functional/logic/chain/hash(chain_hash)
-outputs:
-  - id: chainhash
-    path: internal/chainhash/chainhash.go
+  - ARTIFACT/golang/interfaces/chain/hash
+  - ARTIFACT/golang/interfaces/chain/resolver
+  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/path_utils
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/parsing/node_parsing
+  - ARTIFACT/golang/interfaces/utils/logical_names
+  - ARTIFACT/golang/interfaces/utils/text_normalization
+input: ARTIFACT/functional/logic/chain/hash
+output: internal/chainhash/chainhash.go
 ---
 
 # ROOT/golang/implementation/chain/hash

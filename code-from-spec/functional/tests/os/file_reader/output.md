@@ -1,306 +1,175 @@
-<!-- code-from-spec: ROOT/functional/tests/os/file_reader@Yb-U-rm8CEzeDUMoi6HYUUbhFVA -->
+<!-- code-from-spec: ROOT/functional/tests/os/file_reader@nZJS9vADfXZCX234xZLWCCsxpY8 -->
 
-# FileReader Test Specification
+# Test Specification: FileReader
 
-## Interface
+## Happy path
 
-```
-record FileReader
-  cfs_path: pathutils.PathCfs
+### Opens and reads all lines
 
-function FileOpen(cfs_path) -> FileReader
-  errors:
-    - FileUnreadable
-    - (PathUtils.*): propagated from PathCfsToOs
+Setup: Create a file containing three lines: `"alpha"`, `"beta"`, `"gamma"` with LF endings.
 
-function FileReadLine(reader) -> string
-  errors:
-    - EndOfFile
-
-function FileSkipLines(reader, count)
-
-function FileClose(reader)
-```
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"alpha"`.
+3. Call `FileReadLine` → expect `"beta"`.
+4. Call `FileReadLine` → expect `"gamma"`.
+5. Call `FileReadLine` → expect error EndOfFile.
 
 ---
 
-## Happy Path
+### Normalizes CRLF to LF
 
-### TC-01: Opens and reads all lines
+Setup: Create a file containing `"alpha"` and `"beta"` with CRLF endings.
 
-**Setup:**
-  Create a file containing three lines with LF endings:
-  - line 1: `"alpha"`
-  - line 2: `"beta"`
-  - line 3: `"gamma"`
-
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileReadLine` → result 3.
-  5. Call `FileReadLine` → result 4.
-  6. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 is `"alpha"`
-  - result 2 is `"beta"`
-  - result 3 is `"gamma"`
-  - result 4 raises EndOfFile
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"alpha"` (no CR or LF characters in the returned string).
+3. Call `FileReadLine` → expect `"beta"` (no CR or LF characters in the returned string).
 
 ---
 
-### TC-02: Normalizes CRLF to LF
+### Reads file with no trailing newline
 
-**Setup:**
-  Create a file containing two lines with CRLF endings:
-  - line 1: `"alpha\r\n"`
-  - line 2: `"beta\r\n"`
+Setup: Create a file containing `"alpha"` (with LF) and `"beta"` (no trailing newline).
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 is `"alpha"` — no CR or LF characters
-  - result 2 is `"beta"` — no CR or LF characters
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"alpha"`.
+3. Call `FileReadLine` → expect `"beta"`.
+4. Call `FileReadLine` → expect error EndOfFile.
 
 ---
 
-### TC-03: Reads file with no trailing newline
+### FileSkipLines advances the reader
 
-**Setup:**
-  Create a file containing:
-  - line 1: `"alpha"` followed by LF
-  - line 2: `"beta"` with no trailing newline
+Setup: Create a file containing `"one"`, `"two"`, `"three"`, `"four"`, `"five"` with LF endings.
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileReadLine` → result 3.
-  5. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 is `"alpha"`
-  - result 2 is `"beta"`
-  - result 3 raises EndOfFile
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileSkipLines` with count `2`.
+3. Call `FileReadLine` → expect `"three"`.
 
 ---
 
-### TC-04: FileSkipLines advances the reader
+### FileSkipLines past end of file
 
-**Setup:**
-  Create a file containing five lines with LF endings:
-  - `"one"`, `"two"`, `"three"`, `"four"`, `"five"`
+Setup: Create a file containing `"one"`, `"two"` with LF endings.
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileSkipLines` with count 2.
-  3. Call `FileReadLine` → result 1.
-  4. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 is `"three"`
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileSkipLines` with count `10` → expect no error.
+3. Call `FileReadLine` → expect error EndOfFile.
 
 ---
 
-### TC-05: FileSkipLines past end of file
+### Preserves leading whitespace
 
-**Setup:**
-  Create a file containing two lines with LF endings:
-  - `"one"`, `"two"`
+Setup: Create a file containing `"  alpha"` and `"    beta"` with LF endings.
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileSkipLines` with count 10 — expect no error.
-  3. Call `FileReadLine` → result 1.
-  4. Call `FileClose`.
-
-**Expected outcomes:**
-  - `FileSkipLines` completes without raising an error
-  - result 1 raises EndOfFile
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"  alpha"` (leading spaces preserved).
+3. Call `FileReadLine` → expect `"    beta"` (leading spaces preserved).
 
 ---
 
-### TC-06: Preserves leading whitespace
+### Preserves trailing whitespace
 
-**Setup:**
-  Create a file containing two lines with LF endings:
-  - `"  alpha"` (two leading spaces)
-  - `"    beta"` (four leading spaces)
+Setup: Create a file containing `"alpha  "` and `"beta   "` with LF endings.
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 is `"  alpha"` — leading spaces preserved
-  - result 2 is `"    beta"` — leading spaces preserved
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"alpha  "` (trailing spaces preserved).
+3. Call `FileReadLine` → expect `"beta   "` (trailing spaces preserved).
 
 ---
 
-### TC-07: Preserves trailing whitespace
+### Preserves internal whitespace
 
-**Setup:**
-  Create a file containing two lines with LF endings:
-  - `"alpha  "` (two trailing spaces)
-  - `"beta   "` (three trailing spaces)
+Setup: Create a file containing `"alpha   beta"` and `"one\ttwo"` with LF endings.
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 is `"alpha  "` — trailing spaces preserved
-  - result 2 is `"beta   "` — trailing spaces preserved
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"alpha   beta"` (internal spaces preserved).
+3. Call `FileReadLine` → expect `"one\ttwo"` (tab preserved).
 
 ---
 
-### TC-08: Preserves internal whitespace
+### Preserves empty lines
 
-**Setup:**
-  Create a file containing two lines with LF endings:
-  - `"alpha   beta"` (internal spaces)
-  - `"one\ttwo"` (internal tab)
+Setup: Create a file containing `"alpha"`, `""`, `""`, `"beta"` with LF endings.
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 is `"alpha   beta"` — internal spaces preserved
-  - result 2 is `"one\ttwo"` — internal tab preserved
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"alpha"`.
+3. Call `FileReadLine` → expect `""`.
+4. Call `FileReadLine` → expect `""`.
+5. Call `FileReadLine` → expect `"beta"`.
 
 ---
 
-### TC-09: Preserves empty lines
+### Preserves non-ASCII characters
 
-**Setup:**
-  Create a file containing four lines with LF endings:
-  - `"alpha"`, `""`, `""`, `"beta"`
+Setup: Create a file containing `"café"`, `"日本語"`, `"🎉🚀"` with LF endings, encoded as UTF-8.
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileReadLine` → result 3.
-  5. Call `FileReadLine` → result 4.
-  6. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 is `"alpha"`
-  - result 2 is `""` — empty line returned as empty string, not skipped
-  - result 3 is `""` — empty line returned as empty string, not skipped
-  - result 4 is `"beta"`
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"café"`.
+3. Call `FileReadLine` → expect `"日本語"`.
+4. Call `FileReadLine` → expect `"🎉🚀"`.
 
 ---
 
-### TC-10: Preserves non-ASCII characters
+## Edge cases
 
-**Setup:**
-  Create a file containing three lines with LF endings (UTF-8 encoded):
-  - `"café"` (accented character)
-  - `"日本語"` (CJK characters)
-  - `"🎉🚀"` (emoji)
+### Empty file
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileReadLine` → result 3.
-  5. Call `FileClose`.
+Setup: Create an empty file.
 
-**Expected outcomes:**
-  - result 1 is `"café"` — accented characters pass through unchanged
-  - result 2 is `"日本語"` — CJK characters pass through unchanged
-  - result 3 is `"🎉🚀"` — emoji pass through unchanged
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect error EndOfFile immediately.
 
 ---
 
-## Edge Cases
+### Single line without newline
 
-### TC-11: Empty file
+Setup: Create a file containing only `"hello"` with no newline character.
 
-**Setup:**
-  Create an empty file (zero bytes).
-
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileClose`.
-
-**Expected outcomes:**
-  - result 1 raises EndOfFile immediately
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileReadLine` → expect `"hello"`.
+3. Call `FileReadLine` → expect error EndOfFile.
 
 ---
 
-### TC-12: Single line without newline
+## Failure cases
 
-**Setup:**
-  Create a file containing only `"hello"` with no newline character.
+### File does not exist
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileReadLine` → result 1.
-  3. Call `FileReadLine` → result 2.
-  4. Call `FileClose`.
+Setup: No file is created.
 
-**Expected outcomes:**
-  - result 1 is `"hello"`
-  - result 2 raises EndOfFile
+Actions:
+1. Call `FileOpen` with a path to a non-existent file → expect error FileUnreadable.
 
 ---
 
-## Failure Cases
+### Read after close
 
-### TC-13: File does not exist
+Setup: Create a file containing `"alpha"`.
 
-**Setup:**
-  Identify a path that does not correspond to any existing file.
-
-**Actions:**
-  1. Call `FileOpen` with the non-existent path → result 1.
-
-**Expected outcomes:**
-  - result 1 raises FileUnreadable
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileClose`.
+3. Call `FileReadLine` → expect error EndOfFile.
 
 ---
 
-### TC-14: Read after close
+### Skip after close
 
-**Setup:**
-  Create a file containing one line with LF ending:
-  - `"alpha"`
+Setup: Create a file containing `"alpha"`.
 
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileClose`.
-  3. Call `FileReadLine` → result 1.
-
-**Expected outcomes:**
-  - result 1 raises EndOfFile
-
----
-
-### TC-15: Skip after close
-
-**Setup:**
-  Create a file containing one line with LF ending:
-  - `"alpha"`
-
-**Actions:**
-  1. Call `FileOpen` with the file path.
-  2. Call `FileClose`.
-  3. Call `FileSkipLines` with count 1 — expect no error.
-
-**Expected outcomes:**
-  - `FileSkipLines` completes without raising an error — the call does nothing
+Actions:
+1. Call `FileOpen` with the file path.
+2. Call `FileClose`.
+3. Call `FileSkipLines` with count `1` → expect no error (the call does nothing).

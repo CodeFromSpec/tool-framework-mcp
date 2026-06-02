@@ -1,15 +1,13 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/spec_tree/validate(interface)
-  - ARTIFACT/golang/interfaces/os/file_reader(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-  - ARTIFACT/golang/interfaces/utils/text_normalization(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/parsing/node_parsing(interface)
-input: ARTIFACT/functional/logic/spec_tree/validate(format_validation)
-outputs:
-  - id: spectreevalidate
-    path: internal/spectreevalidate/spectreevalidate.go
+  - ARTIFACT/golang/interfaces/spec_tree/validate
+  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/path_utils
+  - ARTIFACT/golang/interfaces/utils/text_normalization
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/parsing/node_parsing
+input: ARTIFACT/functional/logic/spec_tree/validate
+output: internal/spectreevalidate/spectreevalidate.go
 ---
 
 # ROOT/golang/implementation/spec_tree/validate

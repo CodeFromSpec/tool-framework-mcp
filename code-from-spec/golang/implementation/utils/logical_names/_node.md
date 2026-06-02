@@ -1,13 +1,9 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/utils/logical_names(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-input: ARTIFACT/functional/logic/utils/logical_names(logical_names)
-external:
-  - path: CODE_FROM_SPEC.md
-outputs:
-  - id: logicalnames
-    path: internal/logicalnames/logicalnames.go
+  - ARTIFACT/golang/interfaces/utils/logical_names
+  - ARTIFACT/golang/interfaces/os/path_utils
+input: ARTIFACT/functional/logic/utils/logical_names
+output: internal/logicalnames/logicalnames.go
 ---
 
 # ROOT/golang/implementation/utils/logical_names

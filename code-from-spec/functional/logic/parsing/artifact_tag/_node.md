@@ -2,9 +2,7 @@
 depends_on:
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: artifact_tag
-    path: code-from-spec/functional/logic/parsing/artifact_tag/output.md
+output: code-from-spec/functional/logic/parsing/artifact_tag/output.md
 ---
 
 # ROOT/functional/logic/parsing/artifact_tag
