@@ -35,12 +35,18 @@ artifacts, or when stale artifacts exist.
    them. Process ranks in ascending order. Within the same
    rank, artifacts are independent and should be dispatched
    in parallel. For each artifact, dispatch a
-   `code-from-spec-artifact-generation` subagent with the following
-   prompt:
+   `code-from-spec-artifact-generation` subagent. If the
+   artifact file already exists on disk, read its content
+   and include it in the prompt as the existing artifact.
+   This lets the subagent produce minimal changes instead
+   of rewriting from scratch. If the file does not exist
+   (missing artifact), omit the existing artifact section.
+
+   Prompt:
 
    > You are a confined artifact generation subagent.
    > Your only task is to generate the artifact
-   > `<artifact-id>` for the node `<logical-name>`.
+   > for the node `<logical-name>`.
    >
    > Steps:
    > 1. Call `load_chain` with logical_name `<logical-name>` to
@@ -50,6 +56,15 @@ artifacts, or when stale artifacts exist.
    >    spec (its intent, contracts, and interface), the
    >    constraints from ancestor nodes, and any dependency
    >    specs.
+   > 2b. If an existing artifact is provided below, use it
+   >    as a starting point. Compare it against the spec
+   >    and make only the changes needed. If no existing
+   >    artifact is provided, generate from scratch.
+   >
+   > <If existing artifact exists, include here:>
+   > --- existing artifact ---
+   > <content of the existing file>
+   > --- end existing artifact ---
    > 3. Generate the artifact content. The artifact must
    >    contain the artifact tag:
    >    `code-from-spec: <logical-name>@<chain-hash>`
