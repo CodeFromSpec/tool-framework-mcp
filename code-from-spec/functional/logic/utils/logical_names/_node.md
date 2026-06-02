@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: logical_names
-    path: code-from-spec/functional/logic/utils/logical_names/output.md
+output: code-from-spec/functional/logic/utils/logical_names/output.md
 ---
 
 # ROOT/functional/logic/utils/logical_names

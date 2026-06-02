@@ -1,10 +1,8 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/list_files(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-outputs:
-  - id: interface
-    path: code-from-spec/golang/interfaces/os/list_files/output.md
+  - ARTIFACT/golang/interfaces/os/path_utils
+output: code-from-spec/golang/interfaces/os/list_files/output.md
 ---
 
 # ROOT/golang/interfaces/os/list_files

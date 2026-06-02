@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/os/path_utils
-outputs:
-  - id: file_reader
-    path: code-from-spec/functional/logic/os/file_reader/output.md
+output: code-from-spec/functional/logic/os/file_reader/output.md
 ---
 
 # ROOT/functional/logic/os/file_reader

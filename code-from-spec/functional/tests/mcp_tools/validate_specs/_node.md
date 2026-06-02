@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/mcp_tools/validate_specs(interface)
-outputs:
-  - id: validate_specs_tests
-    path: code-from-spec/functional/tests/mcp_tools/validate_specs/output.md
+output: code-from-spec/functional/tests/mcp_tools/validate_specs/output.md
 ---
 
 # ROOT/functional/tests/mcp_tools/validate_specs

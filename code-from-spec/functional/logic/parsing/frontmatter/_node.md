@@ -2,9 +2,7 @@
 depends_on:
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: frontmatter
-    path: code-from-spec/functional/logic/parsing/frontmatter/output.md
+output: code-from-spec/functional/logic/parsing/frontmatter/output.md
 ---
 
 # ROOT/functional/logic/parsing/frontmatter

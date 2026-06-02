@@ -1,12 +1,10 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/parsing/artifact_tag(interface)
-  - ARTIFACT/golang/interfaces/os/file_reader(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-input: ARTIFACT/functional/logic/parsing/artifact_tag(artifact_tag)
-outputs:
-  - id: artifacttag
-    path: internal/artifacttag/artifacttag.go
+  - ARTIFACT/golang/interfaces/parsing/artifact_tag
+  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/path_utils
+input: ARTIFACT/functional/logic/parsing/artifact_tag
+output: internal/artifacttag/artifacttag.go
 ---
 
 # ROOT/golang/implementation/parsing/artifact_tag

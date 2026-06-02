@@ -2,9 +2,7 @@
 depends_on:
   - ROOT/functional/logic/chain/hash(interface)
   - ROOT/functional/logic/chain/resolver(interface)
-outputs:
-  - id: chain_hash_tests
-    path: code-from-spec/functional/tests/chain/hash/output.md
+output: code-from-spec/functional/tests/chain/hash/output.md
 ---
 
 # ROOT/functional/tests/chain/hash

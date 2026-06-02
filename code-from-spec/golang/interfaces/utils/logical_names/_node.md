@@ -1,10 +1,8 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/logical_names(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-outputs:
-  - id: interface
-    path: code-from-spec/golang/interfaces/utils/logical_names/output.md
+  - ARTIFACT/golang/interfaces/os/path_utils
+output: code-from-spec/golang/interfaces/utils/logical_names/output.md
 ---
 
 # ROOT/golang/interfaces/utils/logical_names

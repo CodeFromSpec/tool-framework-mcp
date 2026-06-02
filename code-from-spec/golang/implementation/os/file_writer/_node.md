@@ -1,11 +1,9 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/os/file_writer(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-input: ARTIFACT/functional/logic/os/file_writer(file_writer)
-outputs:
-  - id: filewriter
-    path: internal/filewriter/filewriter.go
+  - ARTIFACT/golang/interfaces/os/file_writer
+  - ARTIFACT/golang/interfaces/os/path_utils
+input: ARTIFACT/functional/logic/os/file_writer
+output: internal/filewriter/filewriter.go
 ---
 
 # ROOT/golang/implementation/os/file_writer

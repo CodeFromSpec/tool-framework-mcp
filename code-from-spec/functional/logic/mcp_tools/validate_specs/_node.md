@@ -9,9 +9,7 @@ depends_on:
   - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/parsing/node_parsing
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: validate_specs
-    path: code-from-spec/functional/logic/mcp_tools/validate_specs/output.md
+output: code-from-spec/functional/logic/mcp_tools/validate_specs/output.md
 ---
 
 # ROOT/functional/logic/mcp_tools/validate_specs

@@ -1,7 +1,5 @@
 ---
-outputs:
-  - id: text_normalization
-    path: code-from-spec/functional/logic/utils/text_normalization/output.md
+output: code-from-spec/functional/logic/utils/text_normalization/output.md
 ---
 
 # ROOT/functional/logic/utils/text_normalization

@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/chain/resolver(interface)
-outputs:
-  - id: chain_resolver_tests
-    path: code-from-spec/functional/tests/chain/resolver/output.md
+output: code-from-spec/functional/tests/chain/resolver/output.md
 ---
 
 # ROOT/functional/tests/chain/resolver

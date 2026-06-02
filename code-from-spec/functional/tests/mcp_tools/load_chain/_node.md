@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/mcp_tools/load_chain(interface)
-outputs:
-  - id: load_chain_tests
-    path: code-from-spec/functional/tests/mcp_tools/load_chain/output.md
+output: code-from-spec/functional/tests/mcp_tools/load_chain/output.md
 ---
 
 # ROOT/functional/tests/mcp_tools/load_chain

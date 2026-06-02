@@ -1,14 +1,12 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/mcp_tools/write_file(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-  - ARTIFACT/golang/interfaces/os/file_writer(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/utils/logical_names(interface)
-input: ARTIFACT/functional/tests/mcp_tools/write_file(write_file_tests)
-outputs:
-  - id: mcpwritefile_test
-    path: internal/mcpwritefile/mcpwritefile_test.go
+  - ARTIFACT/golang/interfaces/mcp_tools/write_file
+  - ARTIFACT/golang/interfaces/os/path_utils
+  - ARTIFACT/golang/interfaces/os/file_writer
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/utils/logical_names
+input: ARTIFACT/functional/tests/mcp_tools/write_file
+output: internal/mcpwritefile/mcpwritefile_test.go
 ---
 
 # ROOT/golang/tests/mcp_tools/write_file

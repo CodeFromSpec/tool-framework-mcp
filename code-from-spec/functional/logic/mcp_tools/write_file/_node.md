@@ -4,9 +4,7 @@ depends_on:
   - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/os/path_utils
   - ROOT/functional/logic/os/file_writer
-outputs:
-  - id: write_file
-    path: code-from-spec/functional/logic/mcp_tools/write_file/output.md
+output: code-from-spec/functional/logic/mcp_tools/write_file/output.md
 ---
 
 # ROOT/functional/logic/mcp_tools/write_file

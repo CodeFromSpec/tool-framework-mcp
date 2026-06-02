@@ -1,10 +1,8 @@
 ---
 depends_on:
   - ROOT/functional/logic/parsing/artifact_tag(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-outputs:
-  - id: interface
-    path: code-from-spec/golang/interfaces/parsing/artifact_tag/output.md
+  - ARTIFACT/golang/interfaces/os/path_utils
+output: code-from-spec/golang/interfaces/parsing/artifact_tag/output.md
 ---
 
 # ROOT/golang/interfaces/parsing/artifact_tag

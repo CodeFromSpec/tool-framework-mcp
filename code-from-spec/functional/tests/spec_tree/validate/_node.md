@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/spec_tree/validate(interface)
-outputs:
-  - id: format_validation_tests
-    path: code-from-spec/functional/tests/spec_tree/validate/output.md
+output: code-from-spec/functional/tests/spec_tree/validate/output.md
 ---
 
 # ROOT/functional/tests/spec_tree/validate

@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/dependencies/owasp-path-traversal
-outputs:
-  - id: path_utils
-    path: code-from-spec/functional/logic/os/path_utils/output.md
+output: code-from-spec/functional/logic/os/path_utils/output.md
 ---
 
 # ROOT/functional/logic/os/path_utils

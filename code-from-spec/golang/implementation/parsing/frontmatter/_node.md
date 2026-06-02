@@ -1,13 +1,11 @@
 ---
 depends_on:
   - ROOT/golang/dependencies/goccy-go-yaml
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/os/file_reader(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-input: ARTIFACT/functional/logic/parsing/frontmatter(frontmatter)
-outputs:
-  - id: frontmatter
-    path: internal/frontmatter/frontmatter.go
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/path_utils
+input: ARTIFACT/functional/logic/parsing/frontmatter
+output: internal/frontmatter/frontmatter.go
 ---
 
 # ROOT/golang/implementation/parsing/frontmatter

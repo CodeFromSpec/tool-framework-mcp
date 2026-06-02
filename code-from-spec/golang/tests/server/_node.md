@@ -1,10 +1,8 @@
 ---
 depends_on:
   - ROOT/golang/dependencies/mcp-go-sdk
-input: ARTIFACT/golang/implementation/server(main)
-outputs:
-  - id: main_test
-    path: cmd/framework-mcp/main_test.go
+input: ARTIFACT/golang/implementation/server
+output: cmd/framework-mcp/main_test.go
 ---
 
 # ROOT/golang/tests/server

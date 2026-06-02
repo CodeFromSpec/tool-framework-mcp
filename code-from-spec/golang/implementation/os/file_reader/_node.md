@@ -1,11 +1,9 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/os/file_reader(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-input: ARTIFACT/functional/logic/os/file_reader(file_reader)
-outputs:
-  - id: filereader
-    path: internal/filereader/filereader.go
+  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/path_utils
+input: ARTIFACT/functional/logic/os/file_reader
+output: internal/filereader/filereader.go
 ---
 
 # ROOT/golang/implementation/os/file_reader

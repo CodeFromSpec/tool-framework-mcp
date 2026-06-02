@@ -1,16 +1,14 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/mcp_tools/chain_hash(interface)
-  - ARTIFACT/golang/interfaces/mcp_tools/load_chain(interface)
-  - ARTIFACT/golang/interfaces/chain/resolver(interface)
-  - ARTIFACT/golang/interfaces/chain/hash(interface)
-  - ARTIFACT/golang/interfaces/os/path_utils(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/utils/logical_names(interface)
-input: ARTIFACT/functional/tests/mcp_tools/chain_hash(chain_hash_tests)
-outputs:
-  - id: mcpchainhash_test
-    path: internal/mcpchainhash/mcpchainhash_test.go
+  - ARTIFACT/golang/interfaces/mcp_tools/chain_hash
+  - ARTIFACT/golang/interfaces/mcp_tools/load_chain
+  - ARTIFACT/golang/interfaces/chain/resolver
+  - ARTIFACT/golang/interfaces/chain/hash
+  - ARTIFACT/golang/interfaces/os/path_utils
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/utils/logical_names
+input: ARTIFACT/functional/tests/mcp_tools/chain_hash
+output: internal/mcpchainhash/mcpchainhash_test.go
 ---
 
 # ROOT/golang/tests/mcp_tools/chain_hash

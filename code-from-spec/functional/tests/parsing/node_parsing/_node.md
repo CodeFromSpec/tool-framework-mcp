@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/parsing/node_parsing(interface)
-outputs:
-  - id: node_parsing_tests
-    path: code-from-spec/functional/tests/parsing/node_parsing/output.md
+output: code-from-spec/functional/tests/parsing/node_parsing/output.md
 ---
 
 # ROOT/functional/tests/parsing/node_parsing

@@ -2,9 +2,7 @@
 depends_on:
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/parsing/frontmatter(interface)
-outputs:
-  - id: node_ranking
-    path: code-from-spec/functional/logic/utils/node_ranking/output.md
+output: code-from-spec/functional/logic/utils/node_ranking/output.md
 ---
 
 # ROOT/functional/logic/utils/node_ranking

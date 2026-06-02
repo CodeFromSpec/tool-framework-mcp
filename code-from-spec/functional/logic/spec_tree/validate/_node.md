@@ -8,9 +8,7 @@ depends_on:
   - ROOT/functional/logic/parsing/node_parsing(interface)
 external:
   - path: CODE_FROM_SPEC.md
-outputs:
-  - id: format_validation
-    path: code-from-spec/functional/logic/spec_tree/validate/output.md
+output: code-from-spec/functional/logic/spec_tree/validate/output.md
 ---
 
 # ROOT/functional/logic/spec_tree/validate

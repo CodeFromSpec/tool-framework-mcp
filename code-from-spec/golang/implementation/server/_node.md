@@ -1,13 +1,11 @@
 ---
 depends_on:
   - ROOT/golang/dependencies/mcp-go-sdk
-  - ARTIFACT/golang/interfaces/mcp_tools/load_chain(interface)
-  - ARTIFACT/golang/interfaces/mcp_tools/write_file(interface)
-  - ARTIFACT/golang/interfaces/mcp_tools/validate_specs(interface)
-  - ARTIFACT/golang/interfaces/mcp_tools/chain_hash(interface)
-outputs:
-  - id: main
-    path: cmd/framework-mcp/main.go
+  - ARTIFACT/golang/interfaces/mcp_tools/load_chain
+  - ARTIFACT/golang/interfaces/mcp_tools/write_file
+  - ARTIFACT/golang/interfaces/mcp_tools/validate_specs
+  - ARTIFACT/golang/interfaces/mcp_tools/chain_hash
+output: cmd/framework-mcp/main.go
 ---
 
 # ROOT/golang/implementation/server

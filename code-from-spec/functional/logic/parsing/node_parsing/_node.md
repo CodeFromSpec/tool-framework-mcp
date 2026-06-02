@@ -3,9 +3,7 @@ depends_on:
   - ROOT/functional/logic/utils/logical_names(interface)
   - ROOT/functional/logic/os/file_reader(interface)
   - ROOT/functional/logic/utils/text_normalization(interface)
-outputs:
-  - id: node_parsing
-    path: code-from-spec/functional/logic/parsing/node_parsing/output.md
+output: code-from-spec/functional/logic/parsing/node_parsing/output.md
 ---
 
 # ROOT/functional/logic/parsing/node_parsing

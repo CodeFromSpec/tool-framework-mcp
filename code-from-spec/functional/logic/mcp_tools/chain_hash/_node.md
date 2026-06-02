@@ -5,9 +5,7 @@ depends_on:
   - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/os/path_utils(interface)
   - ROOT/functional/logic/utils/logical_names(interface)
-outputs:
-  - id: chain_hash
-    path: code-from-spec/functional/logic/mcp_tools/chain_hash/output.md
+output: code-from-spec/functional/logic/mcp_tools/chain_hash/output.md
 ---
 
 # ROOT/functional/logic/mcp_tools/chain_hash

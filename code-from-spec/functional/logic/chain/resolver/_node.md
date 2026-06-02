@@ -3,9 +3,7 @@ depends_on:
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/os/path_utils(interface)
-outputs:
-  - id: chain_resolver
-    path: code-from-spec/functional/logic/chain/resolver/output.md
+output: code-from-spec/functional/logic/chain/resolver/output.md
 ---
 
 # ROOT/functional/logic/chain/resolver

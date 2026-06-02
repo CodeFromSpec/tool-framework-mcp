@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/mcp_tools/write_file(interface)
-outputs:
-  - id: write_file_tests
-    path: code-from-spec/functional/tests/mcp_tools/write_file/output.md
+output: code-from-spec/functional/tests/mcp_tools/write_file/output.md
 ---
 
 # ROOT/functional/tests/mcp_tools/write_file

@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/mcp_tools/chain_hash(interface)
-outputs:
-  - id: chain_hash_tests
-    path: code-from-spec/functional/tests/mcp_tools/chain_hash/output.md
+output: code-from-spec/functional/tests/mcp_tools/chain_hash/output.md
 ---
 
 # ROOT/functional/tests/mcp_tools/chain_hash

@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/utils/node_ranking(interface)
-outputs:
-  - id: node_ranking_tests
-    path: code-from-spec/functional/tests/utils/node_ranking/output.md
+output: code-from-spec/functional/tests/utils/node_ranking/output.md
 ---
 
 # ROOT/functional/tests/utils/node_ranking

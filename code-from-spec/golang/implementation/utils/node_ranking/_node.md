@@ -1,12 +1,10 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/utils/node_ranking(interface)
-  - ARTIFACT/golang/interfaces/parsing/frontmatter(interface)
-  - ARTIFACT/golang/interfaces/utils/logical_names(interface)
-input: ARTIFACT/functional/logic/utils/node_ranking(node_ranking)
-outputs:
-  - id: noderanking
-    path: internal/noderanking/noderanking.go
+  - ARTIFACT/golang/interfaces/utils/node_ranking
+  - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/utils/logical_names
+input: ARTIFACT/functional/logic/utils/node_ranking
+output: internal/noderanking/noderanking.go
 ---
 
 # ROOT/golang/implementation/utils/node_ranking

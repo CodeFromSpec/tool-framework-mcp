@@ -1,9 +1,7 @@
 ---
 depends_on:
   - ROOT/functional/logic/parsing/frontmatter(interface)
-outputs:
-  - id: frontmatter_tests
-    path: code-from-spec/functional/tests/parsing/frontmatter/output.md
+output: code-from-spec/functional/tests/parsing/frontmatter/output.md
 ---
 
 # ROOT/functional/tests/parsing/frontmatter
