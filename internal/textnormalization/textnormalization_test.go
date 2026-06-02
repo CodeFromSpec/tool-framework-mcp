@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/text_normalization@ksc0o2n6s7FV85qLFEQ-uiUiI5k
+// code-from-spec: ROOT/golang/tests/utils/text_normalization@vR4RSl_tvk02EkV8Xsm5B4IdpTY
 package textnormalization_test
 
 import (
@@ -99,14 +99,14 @@ func TestNormalizeText(t *testing.T) {
 			want:  "",
 		},
 		{
+			name:  "non-breaking space is not whitespace",
+			input: "hello world",
+			want:  "hello world",
+		},
+		{
 			name:  "single character",
 			input: "X",
 			want:  "x",
-		},
-		{
-			name:  "non-breaking space collapsed by implementation",
-			input: "hello world",
-			want:  "hello world",
 		},
 	}
 

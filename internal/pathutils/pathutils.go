@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/path_utils@M2CJLATtYNNoMihwyxXNUuCeaw4
+// code-from-spec: ROOT/golang/implementation/os/path_utils@9a0fakjwXxM-tc20PeRF_AD8Chc
 package pathutils
 
 import (
@@ -17,12 +17,12 @@ type PathOs struct {
 	Value string
 }
 
-var ErrCannotDetermineRoot   = errors.New("cannot determine project root")
-var ErrPathEmpty             = errors.New("path is empty")
-var ErrPathAbsolute          = errors.New("path must be relative")
+var ErrCannotDetermineRoot = errors.New("cannot determine project root")
+var ErrPathEmpty = errors.New("path is empty")
+var ErrPathAbsolute = errors.New("path is absolute")
 var ErrPathContainsBackslash = errors.New("path contains backslash")
-var ErrDirectoryTraversal    = errors.New("path contains directory traversal")
-var ErrResolvesOutsideRoot   = errors.New("path resolves outside project root")
+var ErrDirectoryTraversal = errors.New("path contains directory traversal")
+var ErrResolvesOutsideRoot = errors.New("path resolves outside project root")
 
 func PathGetProjectRoot() (*PathOs, error) {
 	wd, err := os.Getwd()
@@ -40,17 +40,16 @@ func PathValidateCfs(value string) error {
 	if strings.HasPrefix(value, "/") {
 		return ErrPathAbsolute
 	}
-
-	if len(value) >= 2 && value[1] == ':' {
+	if len(value) >= 2 && value[1] == ':' && ((value[0] >= 'a' && value[0] <= 'z') || (value[0] >= 'A' && value[0] <= 'Z')) {
 		return ErrPathAbsolute
 	}
 
-	if strings.ContainsRune(value, '\\') {
+	if strings.Contains(value, `\`) {
 		return ErrPathContainsBackslash
 	}
 
-	normalized := filepath.ToSlash(filepath.Clean(value))
-	for _, component := range strings.Split(normalized, "/") {
+	normalized := filepath.Clean(value)
+	for _, component := range strings.Split(normalized, string(filepath.Separator)) {
 		if component == ".." {
 			return ErrDirectoryTraversal
 		}
@@ -59,8 +58,12 @@ func PathValidateCfs(value string) error {
 	return nil
 }
 
-func PathCfsToOs(cfs_path *PathCfs) (*PathOs, error) {
-	if err := PathValidateCfs(cfs_path.Value); err != nil {
+func PathCfsToOs(cfsPath *PathCfs) (*PathOs, error) {
+	if cfsPath == nil {
+		return nil, ErrPathEmpty
+	}
+
+	if err := PathValidateCfs(cfsPath.Value); err != nil {
 		return nil, err
 	}
 
@@ -69,36 +72,40 @@ func PathCfsToOs(cfs_path *PathCfs) (*PathOs, error) {
 		return nil, err
 	}
 
-	osRelative := filepath.FromSlash(cfs_path.Value)
+	osRelative := strings.ReplaceAll(cfsPath.Value, "/", string(filepath.Separator))
 	absPath := filepath.Join(root.Value, osRelative)
 
 	_, statErr := os.Stat(absPath)
 	if statErr == nil {
-		resolved, err := filepath.EvalSymlinks(absPath)
+		resolvedPath, err := filepath.EvalSymlinks(absPath)
 		if err != nil {
-			return nil, fmt.Errorf("resolving symlinks: %w", err)
+			return nil, fmt.Errorf("%w: %w", ErrResolvesOutsideRoot, err)
 		}
-		if !strings.HasPrefix(resolved, root.Value) {
+		if !strings.HasPrefix(resolvedPath, root.Value) {
 			return nil, ErrResolvesOutsideRoot
 		}
-		return &PathOs{Value: resolved}, nil
+		return &PathOs{Value: resolvedPath}, nil
 	}
 
 	return &PathOs{Value: absPath}, nil
 }
 
-func PathOsToCfs(os_path *PathOs) (*PathCfs, error) {
+func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
+	if osPath == nil {
+		return nil, ErrResolvesOutsideRoot
+	}
+
 	root, err := PathGetProjectRoot()
 	if err != nil {
 		return nil, err
 	}
 
-	resolvedPath := os_path.Value
-	_, statErr := os.Stat(os_path.Value)
+	resolvedPath := osPath.Value
+	_, statErr := os.Stat(osPath.Value)
 	if statErr == nil {
-		resolvedPath, err = filepath.EvalSymlinks(os_path.Value)
+		resolvedPath, err = filepath.EvalSymlinks(osPath.Value)
 		if err != nil {
-			return nil, fmt.Errorf("resolving symlinks: %w", err)
+			return nil, fmt.Errorf("%w: %w", ErrResolvesOutsideRoot, err)
 		}
 	}
 
@@ -106,10 +113,10 @@ func PathOsToCfs(os_path *PathOs) (*PathCfs, error) {
 		return nil, ErrResolvesOutsideRoot
 	}
 
-	relPath := resolvedPath[len(root.Value):]
+	relPath := strings.TrimPrefix(resolvedPath, root.Value)
 	relPath = strings.TrimPrefix(relPath, string(filepath.Separator))
 
-	cfsPath := filepath.ToSlash(relPath)
+	cfsValue := filepath.ToSlash(relPath)
 
-	return &PathCfs{Value: cfsPath}, nil
+	return &PathCfs{Value: cfsValue}, nil
 }

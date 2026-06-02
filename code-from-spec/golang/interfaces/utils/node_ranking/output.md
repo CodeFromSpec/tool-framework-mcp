@@ -1,12 +1,28 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/utils/node_ranking@A5P3QeZ1fkTeC2hNYAaKXZtGTY8)
+[//]: # (code-from-spec: ROOT/golang/interfaces/utils/node_ranking@BSR0ktuqdK91Lo8T8_8EZ_ggDss)
 
 # Package `noderanking`
 
-```go
-package noderanking
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/noderanking"
 ```
 
-Import path: `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/noderanking"`
+## Structs
+
+```go
+package noderanking
+
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+
+type NodeRankInput struct {
+	LogicalName string
+	Frontmatter *frontmatter.Frontmatter
+}
+
+type NodeRankEntry struct {
+	LogicalName string
+	Rank        int
+}
+```
 
 ## Error Sentinels
 
@@ -18,40 +34,14 @@ import "errors"
 var ErrUnresolvableReference = errors.New("unresolvable reference")
 ```
 
-## Struct Definitions
+## Functions
 
 ```go
 package noderanking
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-
-// NodeRankInput pairs a logical name with its parsed frontmatter, providing
-// the dependency information needed to compute a topological rank.
-type NodeRankInput struct {
-	LogicalName string
-	Frontmatter frontmatter.Frontmatter
-}
-
-// NodeRankEntry associates a logical name with its computed rank. Nodes with
-// no dependencies have rank 0; nodes that depend on others have a rank one
-// greater than the highest rank among their dependencies.
-type NodeRankEntry struct {
-	LogicalName string
-	Rank        int
-}
-```
-
-## Function Signatures
-
-```go
-package noderanking
-
-// NodeRankCompute computes a topological rank for each node and artifact in
-// the input set. Returns all ranked entries and a list of logical names
-// involved in dependency cycles (empty when no cycles exist).
-//
-// Returns ErrUnresolvableReference if a depends_on or input target cannot be
-// resolved within the known set of nodes.
+// NodeRankCompute takes the full set of discovered nodes with their parsed
+// frontmatter. Returns ranked entries (nodes and artifacts) and a list of
+// logical names involved in cycles (empty if no cycles).
 func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles []string, err error)
 ```
 
@@ -72,13 +62,13 @@ func main() {
 	entries := []*noderanking.NodeRankInput{
 		{
 			LogicalName: "ROOT/a",
-			Frontmatter: frontmatter.Frontmatter{},
+			Frontmatter: &frontmatter.Frontmatter{
+				DependsOn: []string{"ROOT/b"},
+			},
 		},
 		{
 			LogicalName: "ROOT/b",
-			Frontmatter: frontmatter.Frontmatter{
-				DependsOn: []string{"ROOT/a"},
-			},
+			Frontmatter: &frontmatter.Frontmatter{},
 		},
 	}
 
@@ -88,11 +78,11 @@ func main() {
 	}
 
 	if len(cycles) > 0 {
-		fmt.Println("cycles detected:", cycles)
+		fmt.Println("Cycles detected:", cycles)
 	}
 
-	for _, r := range ranked {
-		fmt.Printf("%s -> rank %d\n", r.LogicalName, r.Rank)
+	for _, entry := range ranked {
+		fmt.Printf("Node: %s, Rank: %d\n", entry.LogicalName, entry.Rank)
 	}
 }
 ```

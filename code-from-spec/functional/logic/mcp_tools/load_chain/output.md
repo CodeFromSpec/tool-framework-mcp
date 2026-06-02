@@ -1,6 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@8_kiyHf8lL8SJOPHcVE3G0VwFd0 -->
-
-# Public
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@JGEUbhQgMJONpjBHO0nuv26vdoI -->
 
 ## Namespace
 
@@ -27,134 +25,126 @@ function MCPLoadChain(logical_name: string) -> MCPLoadChainResult
     - (FileReader.*): propagated from FileOpen.
 ```
 
-MCPLoadChain validates the target, resolves the chain,
-computes the hash, and assembles the full context stream.
+### Input
+
+| Parameter | Required | Description |
+|---|---|---|
+| `logical_name` | yes | Logical name of the target node. |
+
+### Output
+
+| Field | Always present | Content |
+|---|---|---|
+| `chain_hash` | yes | The 27-character base64url chain hash. |
+| `context` | yes | All chain content concatenated as a single stream. |
+| `input` | only if `input` field exists | Content of the input artifact, excluding frontmatter. |
+
+## Behavior
 
 ### Step 1 — Validate and resolve
 
-1. Call LogicalNameToPath(logical_name).
-   If it raises an error, propagate it.
+Resolve the logical name to a file path using
+`LogicalNameToPath`. If it fails, propagate the error.
 
-2. Call FrontmatterParse with the resolved file path.
-   If it raises an error, propagate it.
+Read the target node's frontmatter using
+`FrontmatterParse`. If `frontmatter.output` is empty,
+raise NoOutputs. Validate the output path using
+`PathValidateCfs`. If it fails, raise
+InvalidOutputPath.
 
-3. If frontmatter.output is empty, raise error NoOutput.
-
-4. Call PathValidateCfs(frontmatter.output).
-   If it raises an error, raise InvalidOutputPath.
-
-5. Call ChainResolve(logical_name).
-   If it raises an error, propagate it.
-   Store the result as chain.
+Call `ChainResolve(logical_name)` to get the resolved
+`Chain`. If it fails, propagate the error.
 
 ### Step 2 — Compute chain hash
 
-6. Call ChainHashCompute(chain).
-   If it raises an error, propagate it.
-   Store the result as chain_hash.
+Call `ChainHashCompute(chain)` with the resolved Chain.
+If it fails, propagate the error. Store the result as
+`chain_hash`.
 
 ### Step 3 — Build context stream
 
-The context is a single continuous text block with no
-delimiters or file boundaries. Content is appended in
-chain assembly order. When reconstructing content from
-lines, append "\n" after each line, including the last.
+The context is a single continuous text block — no
+delimiters, no file boundaries. Content is concatenated
+in chain assembly order.
 
-**Ancestors** (from chain.ancestors)
+When reconstructing content from lines (whether from
+`NodeParse` content lists or `FileReadLine`), append
+`\n` after each line, including the last.
 
-7. For each ancestor in chain.ancestors:
-   a. Call NodeParse(ancestor.logical_name).
-   b. If node.public is absent, skip this ancestor.
-   c. If node.public has empty content and no
-      subsections, skip this ancestor.
-   d. Otherwise, append node.public.raw_heading + "\n".
-   e. For each line in node.public.content,
-      append line + "\n".
-   f. For each subsection in node.public.subsections:
-      append subsection.raw_heading + "\n".
-      For each line in subsection.content,
-        append line + "\n".
+For each position, use `NodeParse` for spec nodes and
+`file_reader` for artifacts and external files.
 
-**Dependencies** (from chain.dependencies)
+**Ancestors** (from `chain.ancestors`)
 
-8. For each dep in chain.dependencies:
-   a. If LogicalNameIsArtifact(dep.logical_name):
-      Open the file at dep.file_path with FileOpen.
-      Strip frontmatter if present (skip lines from
-      the first "---" to the closing "---" inclusive).
-      Append remaining lines, each followed by "\n".
-      Call FileClose.
-   b. Else if dep.qualifier is absent:
-      Call NodeParse(dep.logical_name).
-      Append node.public.raw_heading + "\n".
-      For each line in node.public.content,
-        append line + "\n".
-      For each subsection in node.public.subsections:
-        append subsection.raw_heading + "\n".
-        For each line in subsection.content,
-          append line + "\n".
-   c. Else (dep.qualifier is present):
-      Call NodeParse(dep.logical_name).
-      Find the subsection in node.public.subsections
-      whose heading matches
-      NormalizeText(dep.qualifier).
-      Append subsection.raw_heading + "\n".
-      For each line in subsection.content,
-        append line + "\n".
+For each ancestor, call `NodeParse` with
+`ancestor.logical_name`. If `node.public` is absent
+or has empty content and no subsections, skip.
+Otherwise, include the `# Public` raw heading, the
+public section content, all `## subsection` raw
+headings, and their content.
 
-**External** (from chain.external)
+**Dependencies** (from `chain.dependencies`)
 
-9. For each external entry in chain.external:
-   Create a PathCfs from entry.path.
-   Open with FileOpen.
-   For each line read with FileReadLine until
-   EndOfFile, append line + "\n".
-   Call FileClose.
+For each dependency:
+- If `LogicalNameIsArtifact(dep.logical_name)`: open
+  the file at `dep.file_path` with `FileOpen`, strip
+  frontmatter (if present), include remaining content.
+  Call `FileClose`.
+- Else if `dep.qualifier` is absent: call `NodeParse`
+  with `dep.logical_name`, include `# Public` raw
+  heading, section content, all `## subsection` raw
+  headings, and their content.
+- Else: call `NodeParse` with `dep.logical_name`, find
+  the subsection in `node.public` whose `heading`
+  matches `NormalizeText(dep.qualifier)`, include the
+  `## subsection` raw heading and its content.
 
-**Target Public** (from chain.target)
+**External** (from `chain.external`)
 
-10. Emit a reduced frontmatter block containing only
-    the output field:
-    Append "---\n".
-    Append "output: " + frontmatter.output + "\n".
-    Append "---\n".
+For each external entry, create a `PathCfs` from the
+entry's `path`. Open with `FileOpen`, read all content.
+Call `FileClose`.
 
-11. Call NodeParse(chain.target.logical_name).
-    Append node.public.raw_heading + "\n".
-    For each line in node.public.content,
-      append line + "\n".
-    For each subsection in node.public.subsections:
-      append subsection.raw_heading + "\n".
-      For each line in subsection.content,
-        append line + "\n".
+**Target Public** (from `chain.target`)
+
+First, emit a reduced frontmatter block containing only
+the `output` field (formatted as YAML between `---`
+delimiters). Then call `NodeParse` with
+`chain.target.logical_name`. If `node.public` is
+present, include `# Public` raw heading, section
+content, all `## subsection` raw headings, and their
+content. If absent, skip.
 
 **Target Agent**
 
-12. From the same NodeParse result:
-    If node.agent is absent, skip.
-    Otherwise, append node.agent.raw_heading + "\n".
-    For each line in node.agent.content,
-      append line + "\n".
-    For each subsection in node.agent.subsections:
-      append subsection.raw_heading + "\n".
-      For each line in subsection.content,
-        append line + "\n".
+From the same `NodeParse` result, include `# Agent`
+raw heading, section content, all `## subsection` raw
+headings, and their content. If absent, skip.
 
 ### Step 4 — Extract input
 
-13. If chain.input is absent, input is absent in the result.
+If `chain.input` is present, open the file at
+`chain.input.file_path` with `FileOpen`, strip
+frontmatter (if present), read remaining content.
+Call `FileClose`. Store as the `input` field of the
+result.
 
-14. If chain.input is present:
-    Open the file at chain.input.file_path with FileOpen.
-    Strip frontmatter if present (skip lines from the
-    first "---" to the closing "---" inclusive).
-    Collect remaining lines, each followed by "\n",
-    into the input string.
-    Call FileClose.
+If `chain.input` is absent, `input` is absent in the
+result.
 
 ### Step 5 — Return result
 
-15. Return MCPLoadChainResult with:
-    - chain_hash: the value from Step 2.
-    - context: the concatenated stream from Step 3.
-    - input: the value from Step 4, or absent.
+Return `MCPLoadChainResult` with `chain_hash`,
+`context` (the concatenated stream), and `input`.
+
+## Contracts
+
+- Returns everything in one call — no pagination.
+- If any file in the chain is unreadable, returns an
+  error (no partial results).
+- The context stream contains no metadata or structural
+  markers — only spec content, except for the target's
+  reduced frontmatter block.
+- Input is separated from context so the subagent can
+  distinguish context (what informs) from input (what
+  to transform).

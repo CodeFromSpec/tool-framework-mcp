@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/list_files@qRjmzOHjcCDF8bGi9SOCu4DMRp0
+// code-from-spec: ROOT/golang/implementation/os/list_files@GNmbtaGY0axw1PR1Qn7xRwyGO2M
 package listfiles
 
 import (
@@ -15,36 +15,44 @@ import (
 var ErrDirectoryNotFound = errors.New("directory not found")
 var ErrWalkError = errors.New("filesystem walk error")
 
-func ListFiles(cfs_path *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
-	osPath, err := pathutils.PathCfsToOs(cfs_path)
+func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
+	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
 		return nil, err
 	}
 
 	info, err := os.Stat(osPath.Value)
-	if err != nil || !info.IsDir() {
-		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, osPath.Value)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, ErrDirectoryNotFound
+		}
+		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, err)
+	}
+	if !info.IsDir() {
+		return nil, ErrDirectoryNotFound
 	}
 
 	var results []*pathutils.PathCfs
 
 	walkErr := filepath.WalkDir(osPath.Value, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("%w: %s", ErrWalkError, err)
 		}
 		if d.IsDir() {
 			return nil
 		}
-		cfsEntry, convErr := pathutils.PathOsToCfs(&pathutils.PathOs{Value: path})
-		if convErr != nil {
-			return convErr
+		cfs, convertErr := pathutils.PathOsToCfs(&pathutils.PathOs{Value: path})
+		if convertErr != nil {
+			return convertErr
 		}
-		results = append(results, cfsEntry)
+		results = append(results, cfs)
 		return nil
 	})
-
 	if walkErr != nil {
-		return nil, fmt.Errorf("%w: %s", ErrWalkError, walkErr)
+		if errors.Is(walkErr, ErrWalkError) {
+			return nil, walkErr
+		}
+		return nil, walkErr
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -52,8 +60,7 @@ func ListFiles(cfs_path *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 	})
 
 	if results == nil {
-		results = []*pathutils.PathCfs{}
+		return []*pathutils.PathCfs{}, nil
 	}
-
 	return results, nil
 }

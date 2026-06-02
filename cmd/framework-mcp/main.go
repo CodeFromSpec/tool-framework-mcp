@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/server@oNYmkB7A7BxxDPxMC5fFHW-W_f0
+// code-from-spec: ROOT/golang/implementation/server@l8n5xhu0_TRVCUxHFkrJ2HG5xIw
 package main
 
 import (
@@ -7,11 +7,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpchainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpvalidatespecs"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 var Version = "dev"
@@ -50,18 +51,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := mcp.NewServer(&mcp.Implementation{
+	s := mcp.NewServer(&mcp.Implementation{
 		Name: "framework-mcp",
 	}, nil)
 
-	type loadChainArgs struct {
+	type LoadChainArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to load the chain for"`
 	}
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "load_chain",
 		Description: "Load the spec chain context for a given logical name. Returns all relevant spec files concatenated in a single response.",
 		Meta:        mcp.Meta{"anthropic/maxResultSizeChars": 500000},
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args loadChainArgs) (*mcp.CallToolResult, any, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args LoadChainArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcploadchain.MCPLoadChain(args.LogicalName)
 		if err != nil {
 			return &mcp.CallToolResult{
@@ -70,25 +71,25 @@ func main() {
 			}, nil, nil
 		}
 		content := []mcp.Content{
-			&mcp.TextContent{Text: result.ChainHash},
+			&mcp.TextContent{Text: "chain_hash: " + result.ChainHash},
 			&mcp.TextContent{Text: result.Context},
 		}
 		if result.Input != nil {
-			content = append(content, &mcp.TextContent{Text: *result.Input})
+			content = append(content, &mcp.TextContent{Text: "--- input ---\n" + *result.Input})
 		}
 		return &mcp.CallToolResult{Content: content}, nil, nil
 	})
 
-	type writeFileArgs struct {
+	type WriteFileArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node whose outputs list authorizes the write"`
 		Path        string `json:"path" jsonschema:"relative file path from project root"`
 		Content     string `json:"content" jsonschema:"complete file content to write"`
 	}
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "write_file",
 		Description: "Write a generated source file to disk. The path must be one of the files declared in the node's outputs list. Overwrites existing content.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args writeFileArgs) (*mcp.CallToolResult, any, error) {
-		msg, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Path, args.Content)
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteFileArgs) (*mcp.CallToolResult, any, error) {
+		result, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Path, args.Content)
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
@@ -96,46 +97,41 @@ func main() {
 			}, nil, nil
 		}
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: msg}},
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
 		}, nil, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "validate_specs",
-		Description: "Validate the spec tree format, detect dependency cycles, and check artifact staleness.",
+		Description: "Validate the spec tree and check artifact staleness.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		report := mcpvalidatespecs.MCPValidateSpecs()
-
-		if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: "spec tree is valid and all artifacts are fresh"}},
-			}, nil, nil
-		}
-
 		var sb strings.Builder
-		for _, e := range report.FormatErrors {
-			sb.WriteString(fmt.Sprintf("format error: node=%s rule=%s detail=%s\n", e.Node, e.Rule, e.Detail))
+		if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
+			sb.WriteString("Spec tree is valid and all artifacts are up to date.")
+		} else {
+			for _, e := range report.FormatErrors {
+				fmt.Fprintf(&sb, "Format error — Node: %s | Rule: %s | Detail: %s\n", e.Node, e.Rule, e.Detail)
+			}
+			for _, name := range report.Cycles {
+				fmt.Fprintf(&sb, "Cycle detected — Node: %s\n", name)
+			}
+			for _, entry := range report.Staleness {
+				fmt.Fprintf(&sb, "Staleness [%s] (rank %d) — %s: %s\n", entry.Status, entry.Rank, entry.Node, entry.Detail)
+			}
 		}
-		for _, name := range report.Cycles {
-			sb.WriteString(fmt.Sprintf("cycle: %s\n", name))
-		}
-		for _, s := range report.Staleness {
-			sb.WriteString(fmt.Sprintf("staleness: node=%s path=%s status=%s rank=%d detail=%s\n",
-				s.Node, s.ArtifactPath, s.Status, s.Rank, s.Detail))
-		}
-
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
 		}, nil, nil
 	})
 
-	type chainHashArgs struct {
+	type ChainHashArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to compute the chain hash for"`
 	}
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "chain_hash",
-		Description: "Compute the 27-character base64url chain hash for a given logical name.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args chainHashArgs) (*mcp.CallToolResult, any, error) {
+		Description: "Compute the chain hash for a node.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args ChainHashArgs) (*mcp.CallToolResult, any, error) {
 		hash, err := mcpchainhash.MCPChainHash(args.LogicalName)
 		if err != nil {
 			return &mcp.CallToolResult{
@@ -148,7 +144,7 @@ func main() {
 		}, nil, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "version",
 		Description: "Print the tool version.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
@@ -157,10 +153,9 @@ func main() {
 		}, nil, nil
 	})
 
-	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+	if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
 	os.Exit(0)
 }

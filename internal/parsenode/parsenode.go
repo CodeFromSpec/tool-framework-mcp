@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/parsing/node_parsing@7V1G3qnvq9UEARrySqmLXP_5XdQ
+// code-from-spec: ROOT/golang/implementation/parsing/node_parsing@g8K4SlVAFNy_lRvz7EiomphORhk
 package parsenode
 
 import (
@@ -14,11 +14,11 @@ import (
 var ErrNotARootReference = errors.New("logical name does not start with ROOT/")
 var ErrHasQualifier = errors.New("logical name contains a parenthetical qualifier")
 var ErrFileUnreadable = errors.New("file cannot be opened or read")
-var ErrUnexpectedContentBeforeFirstHeading = errors.New("unexpected content before first heading")
-var ErrNodeNameDoesNotMatch = errors.New("first heading does not match logical name")
-var ErrDuplicatePublicSection = errors.New("more than one Public section")
-var ErrDuplicateAgentSection = errors.New("more than one Agent section")
-var ErrDuplicateSubsection = errors.New("duplicate subsection heading within section")
+var ErrUnexpectedContentBeforeFirstHeading = errors.New("file body has non-blank content before the first level-1 heading, or has no level-1 heading at all")
+var ErrNodeNameDoesNotMatch = errors.New("first heading does not match the logical name after normalization")
+var ErrDuplicatePublicSection = errors.New("more than one Public section exists")
+var ErrDuplicateAgentSection = errors.New("more than one Agent section exists")
+var ErrDuplicateSubsection = errors.New("two level-2 headings within the same section normalize to the same text")
 
 type NodeSubsection struct {
 	Heading    string
@@ -40,75 +40,64 @@ type Node struct {
 	Private     []*NodeSection
 }
 
-type fenceState struct {
-	open      bool
-	fenceChar byte
-	fenceLen  int
+type sectionKind int
+
+const (
+	kindName sectionKind = iota
+	kindPublic
+	kindAgent
+	kindPrivate
+)
+
+type parsedSection struct {
+	section *NodeSection
+	kind    sectionKind
 }
 
 func parseHeading(line string) (level int, text string, isHeading bool) {
-	if len(line) == 0 || line[0] != '#' {
-		return 0, "", false
-	}
-
 	i := 0
 	for i < len(line) && line[i] == '#' {
 		i++
 	}
-
-	if i >= len(line) || line[i] != ' ' {
+	if i == 0 || i >= len(line) || line[i] != ' ' {
 		return 0, "", false
 	}
-
-	level = i
-	text = strings.TrimSpace(line[i+1:])
-
-	for strings.HasSuffix(text, "#") {
-		trimmed := strings.TrimRight(text, "#")
+	raw := strings.TrimSpace(line[i+1:])
+	for strings.HasSuffix(raw, "#") {
+		trimmed := strings.TrimRight(raw, "#")
 		trimmed = strings.TrimRight(trimmed, " ")
-		if len(trimmed) < len(text) {
-			text = trimmed
-		} else {
+		if trimmed == raw {
 			break
 		}
+		raw = trimmed
 	}
-
-	return level, text, true
+	return i, raw, true
 }
 
-func detectFence(line string) (isFence bool, fenceChar byte, fenceLen int) {
+func isFenceOpener(line string) (bool, byte, int) {
 	if len(line) == 0 {
 		return false, 0, 0
 	}
-
 	ch := line[0]
 	if ch != '`' && ch != '~' {
 		return false, 0, 0
 	}
-
 	count := 0
 	for count < len(line) && line[count] == ch {
 		count++
 	}
-
-	if count < 3 {
-		return false, 0, 0
+	if count >= 3 {
+		return true, ch, count
 	}
-
-	rest := line[count:]
-	if strings.ContainsAny(rest, "`~") && ch == '`' {
-		return false, 0, 0
-	}
-
-	return true, ch, count
+	return false, 0, 0
 }
 
-func closingFence(line string, fenceChar byte, fenceLen int) bool {
+func isFenceCloser(line string, fenceChar byte, fenceLength int) bool {
 	count := 0
 	for count < len(line) && line[count] == fenceChar {
 		count++
 	}
-	if count < fenceLen {
+	if count < fenceLength {
 		return false
 	}
 	rest := strings.TrimSpace(line[count:])
@@ -117,220 +106,213 @@ func closingFence(line string, fenceChar byte, fenceLen int) bool {
 
 func NodeParse(logical_name string) (*Node, error) {
 	if logicalnames.LogicalNameIsArtifact(logical_name) {
-		return nil, ErrNotARootReference
+		return nil, fmt.Errorf("%w", ErrNotARootReference)
 	}
 
 	if logicalnames.LogicalNameHasQualifier(logical_name) {
-		return nil, ErrHasQualifier
+		return nil, fmt.Errorf("%w", ErrHasQualifier)
 	}
 
 	filePath, err := logicalnames.LogicalNameToPath(logical_name)
 	if err != nil {
-		if errors.Is(err, logicalnames.ErrUnsupportedReference) {
-			return nil, ErrNotARootReference
-		}
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	reader, err := filereader.FileOpen(filePath)
 	if err != nil {
-		if errors.Is(err, filereader.ErrFileUnreadable) {
-			return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+	}
+	defer filereader.FileClose(reader)
+
+	var pendingLine *string
+
+	readLine := func() (string, error) {
+		if pendingLine != nil {
+			line := *pendingLine
+			pendingLine = nil
+			return line, nil
 		}
-		return nil, err
+		return filereader.FileReadLine(reader)
 	}
 
-	firstLine, err := filereader.FileReadLine(reader)
+	firstLine, err := readLine()
 	if err != nil {
 		if errors.Is(err, filereader.ErrEndOfFile) {
-			filereader.FileClose(reader)
-			return nil, ErrUnexpectedContentBeforeFirstHeading
+			return nil, fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
 		}
-		filereader.FileClose(reader)
-		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
-	var heldLine *string
 	if firstLine == "---" {
 		for {
-			line, err := filereader.FileReadLine(reader)
+			line, err := readLine()
 			if err != nil {
 				if errors.Is(err, filereader.ErrEndOfFile) {
-					filereader.FileClose(reader)
-					return nil, ErrUnexpectedContentBeforeFirstHeading
+					return nil, fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
 				}
-				filereader.FileClose(reader)
-				return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+				return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 			}
 			if line == "---" {
 				break
 			}
 		}
-	} else {
-		heldLine = &firstLine
+	} else if firstLine != "" {
+		pendingLine = &firstLine
+	}
+
+	var sections []parsedSection
+	var currentSection *NodeSection
+	var currentSectionKind sectionKind
+	var currentSubsection *NodeSubsection
+	foundNameSection := false
+	publicCount := 0
+	agentCount := 0
+	inFence := false
+	var fenceChar byte
+	fenceLength := 0
+
+	for {
+		line, err := readLine()
+		if err != nil {
+			if errors.Is(err, filereader.ErrEndOfFile) {
+				break
+			}
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+		}
+
+		if !inFence {
+			if ok, ch, length := isFenceOpener(line); ok {
+				inFence = true
+				fenceChar = ch
+				fenceLength = length
+				if currentSection != nil {
+					if currentSubsection != nil {
+						currentSubsection.Content = append(currentSubsection.Content, line)
+					} else {
+						currentSection.Content = append(currentSection.Content, line)
+					}
+				}
+				continue
+			}
+		} else {
+			if isFenceCloser(line, fenceChar, fenceLength) {
+				inFence = false
+			}
+			if currentSection != nil {
+				if currentSubsection != nil {
+					currentSubsection.Content = append(currentSubsection.Content, line)
+				} else {
+					currentSection.Content = append(currentSection.Content, line)
+				}
+			}
+			continue
+		}
+
+		level, headingText, isHeading := parseHeading(line)
+		if !isHeading {
+			level = 0
+		}
+
+		if isHeading && level == 1 {
+			if currentSection != nil {
+				sections = append(sections, parsedSection{section: currentSection, kind: currentSectionKind})
+			}
+			normalized := textnormalization.NormalizeText(headingText)
+			newSection := &NodeSection{
+				Heading:     normalized,
+				RawHeading:  line,
+				Content:     []string{},
+				Subsections: []*NodeSubsection{},
+			}
+			currentSubsection = nil
+
+			if !foundNameSection {
+				foundNameSection = true
+				expected := textnormalization.NormalizeText(logical_name)
+				if normalized != expected {
+					return nil, fmt.Errorf("%w", ErrNodeNameDoesNotMatch)
+				}
+				currentSectionKind = kindName
+			} else if normalized == "public" {
+				publicCount++
+				if publicCount > 1 {
+					return nil, fmt.Errorf("%w", ErrDuplicatePublicSection)
+				}
+				currentSectionKind = kindPublic
+			} else if normalized == "agent" {
+				agentCount++
+				if agentCount > 1 {
+					return nil, fmt.Errorf("%w", ErrDuplicateAgentSection)
+				}
+				currentSectionKind = kindAgent
+			} else {
+				currentSectionKind = kindPrivate
+			}
+
+			currentSection = newSection
+			continue
+		}
+
+		if isHeading && level == 2 {
+			if currentSection == nil {
+				if strings.TrimSpace(line) != "" {
+					return nil, fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
+				}
+				continue
+			}
+			normalized := textnormalization.NormalizeText(headingText)
+			for _, sub := range currentSection.Subsections {
+				if sub.Heading == normalized {
+					return nil, fmt.Errorf("%w", ErrDuplicateSubsection)
+				}
+			}
+			newSub := &NodeSubsection{
+				Heading:    normalized,
+				RawHeading: line,
+				Content:    []string{},
+			}
+			currentSection.Subsections = append(currentSection.Subsections, newSub)
+			currentSubsection = newSub
+			continue
+		}
+
+		if currentSection == nil {
+			if strings.TrimSpace(line) != "" {
+				return nil, fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
+			}
+			continue
+		}
+
+		if currentSubsection != nil {
+			currentSubsection.Content = append(currentSubsection.Content, line)
+		} else {
+			currentSection.Content = append(currentSection.Content, line)
+		}
+	}
+
+	if currentSection != nil {
+		sections = append(sections, parsedSection{section: currentSection, kind: currentSectionKind})
+	}
+
+	if !foundNameSection {
+		return nil, fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
 	}
 
 	node := &Node{
 		Private: []*NodeSection{},
 	}
 
-	var currentSection *NodeSection
-	var currentSubsection *NodeSubsection
-	var fence fenceState
-
-	normalizedLogicalName := textnormalization.NormalizeText(logical_name)
-
-	processLine := func(line string) error {
-		if fence.open {
-			if closingFence(line, fence.fenceChar, fence.fenceLen) {
-				fence.open = false
-			}
-			if currentSection == nil {
-				return nil
-			}
-			if currentSubsection != nil {
-				currentSubsection.Content = append(currentSubsection.Content, line)
-			} else {
-				currentSection.Content = append(currentSection.Content, line)
-			}
-			return nil
+	for _, ps := range sections {
+		switch ps.kind {
+		case kindName:
+			node.NameSection = ps.section
+		case kindPublic:
+			node.Public = ps.section
+		case kindAgent:
+			node.Agent = ps.section
+		case kindPrivate:
+			node.Private = append(node.Private, ps.section)
 		}
-
-		isFence, fChar, fLen := detectFence(line)
-		if isFence {
-			fence.open = true
-			fence.fenceChar = fChar
-			fence.fenceLen = fLen
-			if currentSection == nil {
-				return nil
-			}
-			if currentSubsection != nil {
-				currentSubsection.Content = append(currentSubsection.Content, line)
-			} else {
-				currentSection.Content = append(currentSection.Content, line)
-			}
-			return nil
-		}
-
-		level, headingText, isHeading := parseHeading(line)
-
-		if !isHeading || level > 2 {
-			if currentSection == nil {
-				if strings.TrimSpace(line) != "" {
-					filereader.FileClose(reader)
-					return ErrUnexpectedContentBeforeFirstHeading
-				}
-				return nil
-			}
-			if currentSubsection != nil {
-				currentSubsection.Content = append(currentSubsection.Content, line)
-			} else {
-				currentSection.Content = append(currentSection.Content, line)
-			}
-			return nil
-		}
-
-		if level == 1 {
-			if currentSubsection != nil && currentSection != nil {
-				currentSection.Subsections = append(currentSection.Subsections, currentSubsection)
-				currentSubsection = nil
-			}
-
-			newSection := &NodeSection{
-				Heading:     textnormalization.NormalizeText(headingText),
-				RawHeading:  line,
-				Content:     []string{},
-				Subsections: []*NodeSubsection{},
-			}
-
-			if node.NameSection == nil {
-				if newSection.Heading != normalizedLogicalName {
-					filereader.FileClose(reader)
-					return ErrNodeNameDoesNotMatch
-				}
-				node.NameSection = newSection
-			} else if newSection.Heading == "public" {
-				if node.Public != nil {
-					filereader.FileClose(reader)
-					return ErrDuplicatePublicSection
-				}
-				node.Public = newSection
-			} else if newSection.Heading == "agent" {
-				if node.Agent != nil {
-					filereader.FileClose(reader)
-					return ErrDuplicateAgentSection
-				}
-				node.Agent = newSection
-			} else {
-				node.Private = append(node.Private, newSection)
-			}
-
-			currentSection = newSection
-			currentSubsection = nil
-			return nil
-		}
-
-		if level == 2 {
-			if currentSection == nil {
-				if strings.TrimSpace(line) != "" {
-					filereader.FileClose(reader)
-					return ErrUnexpectedContentBeforeFirstHeading
-				}
-				return nil
-			}
-
-			if currentSubsection != nil {
-				currentSection.Subsections = append(currentSection.Subsections, currentSubsection)
-				currentSubsection = nil
-			}
-
-			normalizedSub := textnormalization.NormalizeText(headingText)
-			for _, existing := range currentSection.Subsections {
-				if existing.Heading == normalizedSub {
-					filereader.FileClose(reader)
-					return ErrDuplicateSubsection
-				}
-			}
-
-			currentSubsection = &NodeSubsection{
-				Heading:    normalizedSub,
-				RawHeading: line,
-				Content:    []string{},
-			}
-			return nil
-		}
-
-		return nil
-	}
-
-	if heldLine != nil {
-		if err := processLine(*heldLine); err != nil {
-			return nil, err
-		}
-	}
-
-	for {
-		line, err := filereader.FileReadLine(reader)
-		if err != nil {
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				break
-			}
-			filereader.FileClose(reader)
-			return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
-		}
-		if err := processLine(line); err != nil {
-			return nil, err
-		}
-	}
-
-	if currentSubsection != nil && currentSection != nil {
-		currentSection.Subsections = append(currentSection.Subsections, currentSubsection)
-	}
-
-	filereader.FileClose(reader)
-
-	if node.NameSection == nil {
-		return nil, ErrUnexpectedContentBeforeFirstHeading
 	}
 
 	return node, nil

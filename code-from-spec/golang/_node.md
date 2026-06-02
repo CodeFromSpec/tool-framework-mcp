@@ -36,6 +36,14 @@ resolved against it.
 
 ## Constraints
 
+- When a functional spec lists `errors:` on a function,
+  the Go implementation must include `error` as the last
+  return value, following standard Go convention. This
+  applies even when the function already returns multiple
+  values.
+- Always check pointers for nil before dereferencing,
+  including struct fields that are pointers. Do not rely
+  on caller guarantees — defend at the point of use.
 - Every error return value must be checked.
 - Always compare errors with `errors.Is` or `errors.As`,
   never with `==`. Sentinel errors may be wrapped.

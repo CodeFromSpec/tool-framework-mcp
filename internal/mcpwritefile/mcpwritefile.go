@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/write_file@pzhvKhxxupxEOlTODMgzkDYg_vw
+// code-from-spec: ROOT/golang/implementation/mcp_tools/write_file@FC9jU3pZvXuw5g4En787KGGOk8o
 package mcpwritefile
 
 import (
@@ -12,36 +12,36 @@ import (
 )
 
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-var ErrNoOutput = errors.New("no output")
-var ErrPathNotInOutput = errors.New("path not in output")
+var ErrNoOutput = errors.New("target node has no output field")
+var ErrPathNotInOutput = errors.New("path is not declared in the node's output")
 
-func MCPWriteFile(logical_name string, path string, content string) (string, error) {
-	nodePath, err := logicalnames.LogicalNameToPath(logical_name)
+func MCPWriteFile(logicalName string, path string, content string) (string, error) {
+	nodePath, err := logicalnames.LogicalNameToPath(logicalName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("MCPWriteFile: %w", err)
 	}
 
 	fm, err := frontmatter.FrontmatterParse(nodePath)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
+		return "", fmt.Errorf("MCPWriteFile: %w: %w", ErrUnreadableFrontmatter, err)
 	}
 
 	if fm.Output == "" {
-		return "", fmt.Errorf("%w: node %s has no output field", ErrNoOutput, logical_name)
+		return "", fmt.Errorf("MCPWriteFile: %w", ErrNoOutput)
 	}
 
 	if err := pathutils.PathValidateCfs(path); err != nil {
-		return "", err
+		return "", fmt.Errorf("MCPWriteFile: %w", err)
 	}
 
 	if path != fm.Output {
-		return "", fmt.Errorf("%w: %s is not declared in output for %s", ErrPathNotInOutput, path, logical_name)
+		return "", fmt.Errorf("MCPWriteFile: %w", ErrPathNotInOutput)
 	}
 
 	cfsPath := &pathutils.PathCfs{Value: path}
 	if err := filewriter.FileWrite(cfsPath, content); err != nil {
-		return "", err
+		return "", fmt.Errorf("MCPWriteFile: %w", err)
 	}
 
-	return fmt.Sprintf("wrote %s", path), nil
+	return "wrote " + path, nil
 }

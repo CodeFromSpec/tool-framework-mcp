@@ -152,7 +152,9 @@ case with its setup, actions, and expected outcome.
 - Use the function name from the interface:
   `MCPValidateSpecs`.
 - Use the record names from the interface:
-  `ValidationReport`, `StalenessEntry`, `FormatError`.
+  `ValidationReport`, `StalenessEntry`,
+  `spectreevalidate.FormatError` (qualified — it is
+  declared in the `spectreevalidate` module).
 - Use formal error names and status values as defined
   in the interface.
 - Each test case creates a spec tree on disk, then

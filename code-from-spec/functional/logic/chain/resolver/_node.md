@@ -119,10 +119,13 @@ neither, raise "unresolvable artifact".
 3. Read the generating node's frontmatter using
    `FrontmatterParse`. If parsing fails, raise
    "unreadable frontmatter".
-4. The output path is `frontmatter.output`. No id lookup
+4. If `frontmatter.output` is empty, raise
+   "unresolvable artifact" — the generating node
+   declares no output.
+5. The output path is `frontmatter.output`. No id lookup
    needed. Do not verify existence — the artifact may
    not have been generated yet.
-5. Create a `ChainItem` with the `ARTIFACT/` logical
+6. Create a `ChainItem` with the `ARTIFACT/` logical
    name, the output path as `PathCfs`, and qualifier
    absent.
 
@@ -167,9 +170,12 @@ field (it is an `ARTIFACT/` reference):
 3. Read the generating node's frontmatter using
    `FrontmatterParse`. If parsing fails, raise
    "unreadable frontmatter".
-4. The output path is `frontmatter.output`. No id lookup
+4. If `frontmatter.output` is empty, raise
+   "unresolvable artifact" — the generating node
+   declares no output.
+5. The output path is `frontmatter.output`. No id lookup
    needed. Do not verify existence.
-5. Create a `ChainItem` with the `ARTIFACT/` logical
+6. Create a `ChainItem` with the `ARTIFACT/` logical
    name, the output path as `PathCfs`, and qualifier
    absent.
 

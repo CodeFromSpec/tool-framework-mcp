@@ -1,33 +1,20 @@
-// code-from-spec: ROOT/golang/implementation/utils/text_normalization@iKxTjSYfHkQgQ2j5X1cFJ48VeQw
+// code-from-spec: ROOT/golang/implementation/utils/text_normalization@NaKHQX_4U3f0rRtKRBk9SkguwcE
 package textnormalization
 
 import (
 	"strings"
-	"unicode"
 
 	"golang.org/x/text/cases"
 )
 
-func NormalizeText(raw string) string {
-	trimmed := strings.TrimFunc(raw, unicode.IsSpace)
+func NormalizeText(raw_string string) string {
+	trimmed := strings.TrimSpace(raw_string)
 	if trimmed == "" {
 		return ""
 	}
 
-	var builder strings.Builder
-	inSpace := false
-	for _, r := range trimmed {
-		if unicode.IsSpace(r) {
-			if !inSpace {
-				builder.WriteRune(' ')
-				inSpace = true
-			}
-		} else {
-			builder.WriteRune(r)
-			inSpace = false
-		}
-	}
-	collapsed := builder.String()
+	fields := strings.Fields(trimmed)
+	collapsed := strings.Join(fields, " ")
 
 	caser := cases.Fold()
 	return caser.String(collapsed)

@@ -1,16 +1,12 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/node_parsing@PwYvAUI0iOaeg9vI3OeLilwQJ4Y)
+[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/node_parsing@I5G2Pp2V_3-14RDQ-PZpCX_zIM0)
 
 # Package `parsenode`
 
-Import path: `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"`
-
-## Package Declaration
-
-```go
-package parsenode
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
 ```
 
-## Struct Definitions
+## Structs
 
 ```go
 package parsenode
@@ -43,21 +39,24 @@ package parsenode
 
 import "errors"
 
-var ErrNotARootReference                    = errors.New("logical name does not start with ROOT/")
-var ErrHasQualifier                         = errors.New("logical name contains a parenthetical qualifier")
-var ErrFileUnreadable                       = errors.New("file cannot be opened or read")
-var ErrUnexpectedContentBeforeFirstHeading  = errors.New("unexpected content before first heading")
-var ErrNodeNameDoesNotMatch                 = errors.New("first heading does not match logical name")
-var ErrDuplicatePublicSection               = errors.New("more than one Public section")
-var ErrDuplicateAgentSection                = errors.New("more than one Agent section")
-var ErrDuplicateSubsection                  = errors.New("duplicate subsection heading within section")
+var ErrNotARootReference = errors.New("logical name does not start with ROOT/")
+var ErrHasQualifier = errors.New("logical name contains a parenthetical qualifier")
+var ErrFileUnreadable = errors.New("file cannot be opened or read")
+var ErrUnexpectedContentBeforeFirstHeading = errors.New("file body has non-blank content before the first level-1 heading, or has no level-1 heading at all")
+var ErrNodeNameDoesNotMatch = errors.New("first heading does not match the logical name after normalization")
+var ErrDuplicatePublicSection = errors.New("more than one Public section exists")
+var ErrDuplicateAgentSection = errors.New("more than one Agent section exists")
+var ErrDuplicateSubsection = errors.New("two level-2 headings within the same section normalize to the same text")
 ```
 
-## Function Signatures
+## Functions
 
 ```go
 package parsenode
 
+// NodeParse reads and parses the node file identified by the given logical name.
+// It returns a Node containing the name section, optional Public and Agent sections,
+// and any additional private sections in file order.
 func NodeParse(logical_name string) (*Node, error)
 ```
 
@@ -74,18 +73,26 @@ import (
 )
 
 func main() {
-	node, err := parsenode.NodeParse("ROOT/golang/interfaces/os/file_reader")
+	node, err := parsenode.NodeParse("ROOT/golang/interfaces/parsing/node_parsing")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("name section heading:", node.NameSection.Heading)
+	fmt.Println("Node name:", node.NameSection.Heading)
 
 	if node.Public != nil {
-		fmt.Println("public section subsections:", len(node.Public.Subsections))
+		fmt.Println("Public section found")
 		for _, sub := range node.Public.Subsections {
-			fmt.Println("  subsection:", sub.Heading)
+			fmt.Println("  Subsection:", sub.Heading)
 		}
+	}
+
+	if node.Agent != nil {
+		fmt.Println("Agent section found")
+	}
+
+	for _, priv := range node.Private {
+		fmt.Println("Private section:", priv.Heading)
 	}
 }
 ```
