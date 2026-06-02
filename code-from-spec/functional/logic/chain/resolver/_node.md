@@ -36,8 +36,8 @@ function ChainResolve(target_logical_name: string) -> Chain
   errors:
     - UnreadableFrontmatter: a node's frontmatter
       cannot be parsed.
-    - UnresolvableArtifact: an ARTIFACT/ reference's
-      output id does not match any declared output.
+    - UnresolvableArtifact: an ARTIFACT/ reference
+      cannot be resolved.
     - (LogicalNames.*): propagated from
       LogicalNameToPath, LogicalNameGetParent.
     - (Frontmatter.*): propagated from
@@ -111,26 +111,20 @@ neither, raise "unresolvable artifact".
    resolved file path, and the qualifier (if any).
 
 **`ARTIFACT/` references:**
-1. Extract the qualifier (artifact id) using
-   `LogicalNameGetQualifier`. If absent, raise
-   "unresolvable artifact" — `ARTIFACT/` references
-   must include an id.
-2. Derive the generating node's logical name using
+1. Derive the generating node's logical name using
    `LogicalNameGetArtifactGenerator`. If it fails,
    propagate the error.
-3. Resolve the generating node's logical name to a file
+2. Resolve the generating node's logical name to a file
    path using `LogicalNameToPath`.
-4. Read the generating node's frontmatter using
+3. Read the generating node's frontmatter using
    `FrontmatterParse`. If parsing fails, raise
    "unreadable frontmatter".
-5. Find the output entry whose `id` matches the
-   qualifier. If no match, raise "unresolvable artifact".
-   The output's `path` is the artifact file path. Do not
-   verify existence — the artifact may not have been
-   generated yet.
-6. Create a `ChainItem` with the original `ARTIFACT/`
-   logical name, the artifact file path as `PathCfs`,
-   and the qualifier.
+4. The output path is `frontmatter.output`. No id lookup
+   needed. Do not verify existence — the artifact may
+   not have been generated yet.
+5. Create a `ChainItem` with the `ARTIFACT/` logical
+   name, the output path as `PathCfs`, and qualifier
+   absent.
 
 Sort dependencies alphabetically by file path value,
 then by qualifier (absent sorts before present).
@@ -151,11 +145,8 @@ For `ROOT/` entries:
   is redundant — the full section already includes
   every subsection. Remove the redundant entry.
 
-For `ARTIFACT/` entries: two entries are duplicates only
-when they have the exact same logical name (including
-qualifier). The qualifier is the artifact id and is
-always present — there is no "without qualifier"
-subsumption for artifacts.
+For `ARTIFACT/` entries: two entries are duplicates when
+they have the same logical name.
 
 Keep the first occurrence when removing duplicates.
 
@@ -168,24 +159,19 @@ into the chain. Sort entries alphabetically by `path`.
 
 If the target's frontmatter has a non-empty `input`
 field (it is an `ARTIFACT/` reference):
-1. Extract the qualifier (artifact id) using
-   `LogicalNameGetQualifier`. If absent, raise
-   "unresolvable artifact".
-2. Derive the generating node's logical name using
+1. Derive the generating node's logical name using
    `LogicalNameGetArtifactGenerator`. If it fails,
    propagate the error.
-3. Resolve the generating node's logical name to a file
+2. Resolve the generating node's logical name to a file
    path using `LogicalNameToPath`.
-4. Read the generating node's frontmatter using
+3. Read the generating node's frontmatter using
    `FrontmatterParse`. If parsing fails, raise
    "unreadable frontmatter".
-5. Find the output entry whose `id` matches the
-   qualifier. If no match, raise "unresolvable artifact".
-   The output's `path` is the artifact file path. Do not
-   verify existence.
-6. Create a `ChainItem` with the original `ARTIFACT/`
-   logical name, the artifact file path as `PathCfs`,
-   and the qualifier.
+4. The output path is `frontmatter.output`. No id lookup
+   needed. Do not verify existence.
+5. Create a `ChainItem` with the `ARTIFACT/` logical
+   name, the output path as `PathCfs`, and qualifier
+   absent.
 
 If `input` is empty, the `input` field in the returned
 `Chain` is absent.

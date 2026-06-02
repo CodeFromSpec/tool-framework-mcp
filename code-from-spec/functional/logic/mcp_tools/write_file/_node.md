@@ -10,7 +10,7 @@ output: code-from-spec/functional/logic/mcp_tools/write_file/output.md
 # ROOT/functional/logic/mcp_tools/write_file
 
 Writes a generated source file to disk after validating
-the path against the node's declared outputs.
+the path against the node's declared output.
 
 # Public
 
@@ -21,9 +21,9 @@ function MCPWriteFile(logical_name: string, path: string, content: string) -> st
   errors:
     - UnreadableFrontmatter: the node's frontmatter
       cannot be parsed.
-    - NoOutputs: target node has no outputs field.
-    - PathNotInOutputs: path is not declared in the
-      node's outputs.
+    - NoOutput: target node has no output field.
+    - PathNotInOutput: path is not declared in the
+      node's output.
     - (LogicalNames.*): propagated from
       LogicalNameToPath.
     - (PathUtils.*): propagated from PathValidateCfs.
@@ -34,7 +34,7 @@ function MCPWriteFile(logical_name: string, path: string, content: string) -> st
 
 | Parameter | Required | Description |
 |---|---|---|
-| `logical_name` | yes | Logical name of the node whose outputs authorize the write. |
+| `logical_name` | yes | Logical name of the node whose output authorizes the write. |
 | `path` | yes | Relative file path from project root (forward slashes). |
 | `content` | yes | Complete file content (UTF-8 text). |
 
@@ -55,7 +55,7 @@ This rejects non-ROOT/ references and qualifiers.
 Call `FrontmatterParse` with the resolved path. If
 parsing fails, raise "unreadable frontmatter".
 
-If `frontmatter.outputs` is empty, raise "no outputs".
+If `frontmatter.output` is empty, raise "no output".
 
 ### Step 2 — Validate path
 
@@ -63,12 +63,10 @@ Construct a `PathCfs` from the `path` string. Call
 `PathValidateCfs` on the path string. If it fails,
 propagate the error.
 
-### Step 3 — Check path against outputs
+### Step 3 — Check path against output
 
-Compare `path` against each entry in
-`frontmatter.outputs`. The path must match the `path`
-field of at least one output entry (exact string match).
-If no match, raise "path not in outputs".
+Compare `path` against `frontmatter.output` (exact
+string match). If no match, raise "path not in output".
 
 ### Step 4 — Write file
 
@@ -80,7 +78,7 @@ string.
 
 ## Contracts
 
-- Only writes to paths declared in the node's `outputs`.
+- Only writes to paths declared in the node's `output`.
 - Path validation uses `PathValidateCfs` — same rules
   as the OS layer.
 - File writing uses `FileWrite` — creates intermediate

@@ -28,7 +28,6 @@ references, and artifact staleness.
 ```
 record StalenessEntry
   node: string
-  output_id: string
   artifact_path: string
   status: string
   detail: string
@@ -113,23 +112,22 @@ participants.
 
 ### Step 5 — Staleness detection
 
-For each node that has `outputs` in its frontmatter,
+For each node that has `output` in its frontmatter,
 in rank order (lowest rank first; alphabetical if no
 ranking available):
 
 1. Call `ChainResolve(logical_name)` to get the
    resolved Chain. If it fails, record a StalenessEntry
-   with status = "missing" and detail = error message
-   for each output, and continue.
+   with status = "missing" and detail = error message,
+   and continue.
 
 2. Call `ChainHashCompute(chain)` to get the current
    chain hash. If it fails, record a StalenessEntry
-   with status = "missing" and detail = error message
-   for each output, and continue.
+   with status = "missing" and detail = error message,
+   and continue.
 
-3. For each output in `frontmatter.outputs`:
-   - Construct a `PathCfs` from the output's `path`.
-   - Call `ArtifactTagExtract` with the path.
+3. Construct a `PathCfs` from `frontmatter.output`.
+   Call `ArtifactTagExtract` with the path.
    - If FileUnreadable: record StalenessEntry with
      status = "missing", detail describing the reason.
    - If NoTagFound or MalformedTag: record
@@ -140,7 +138,7 @@ ranking available):
      detail showing file hash vs expected hash.
    - If the hash matches: skip (not included).
 
-   Set `output_id` from the output entry's `id` field.
+   Set `artifact_path` from `frontmatter.output`.
    Set `rank` from the node's rank (from Step 4, or 0
    if no ranking available).
 
@@ -158,7 +156,7 @@ Return `ValidationReport` with:
 - Always returns a report — never raises an error.
 - Reports all problems found — does not stop at the
   first.
-- Staleness check runs for all nodes with outputs,
+- Staleness check runs for all nodes with output,
   even if format errors exist for other nodes.
 - Staleness entries include rank for parallel processing.
 - Each node is parsed at most once.
