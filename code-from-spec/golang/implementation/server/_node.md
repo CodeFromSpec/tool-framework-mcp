@@ -4,6 +4,7 @@ depends_on:
   - ARTIFACT/golang/interfaces/mcp_tools/load_chain(interface)
   - ARTIFACT/golang/interfaces/mcp_tools/write_file(interface)
   - ARTIFACT/golang/interfaces/mcp_tools/validate_specs(interface)
+  - ARTIFACT/golang/interfaces/mcp_tools/chain_hash(interface)
 outputs:
   - id: main
     path: cmd/framework-mcp/main.go
@@ -43,6 +44,8 @@ the server.
      `write_file`.
    - `mcpvalidatespecs.MCPValidateSpecs` — tool name
      `validate_specs`.
+   - `mcpchainhash.MCPChainHash` — tool name
+     `chain_hash`.
    - `version` — tool name `version`. Takes no parameters.
      Returns the value of a package-level variable
      `var Version = "dev"`. This variable is overridden
@@ -65,6 +68,7 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
+  chain_hash       Compute the chain hash for a node.
   version          Print the tool version.
 
 MCP configuration example:
@@ -89,8 +93,9 @@ MCP configuration example:
 
 ## Go-specific guidance
 
-- Import the three MCP tool packages:
-  `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`.
+- Import the four MCP tool packages:
+  `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`,
+  `mcpchainhash`.
 - Each tool handler receives MCP request parameters and
   calls the corresponding package function.
 - The handler wraps the function result into an MCP
@@ -101,8 +106,8 @@ MCP configuration example:
   (if present).
 - For `MCPValidateSpecs`, the result is
   `ValidationReport` — format as human-readable text.
-- For `MCPWriteFile`, the result is a string — return
-  directly as text content.
+- For `MCPWriteFile` and `MCPChainHash`, the result
+  is a string — return directly as text content.
 - For `version`, return `Version` directly as text
   content. No external package needed — the handler
   is inline.

@@ -107,7 +107,8 @@ Cross-tree dependencies. Each entry uses a `ROOT/` or
 - `ROOT/x/y(z)` — imports only the `## z` subsection of
   `# Public` of the referenced node.
 - `ARTIFACT/x/y` — imports the content of the referenced
-  artifact, excluding frontmatter and the artifact tag line,
+  artifact, excluding frontmatter (the artifact tag hash is
+  neutralized before hashing — see CHAIN_HASH.md),
   as context (not as material to transform; see `input` for
   that).
 
@@ -147,8 +148,9 @@ external:
 A single artifact consumed as input for generation. Uses an
 `ARTIFACT/` logical name. The content of the artifact is
 included in the chain as the material to be transformed,
-excluding frontmatter and the artifact tag line. While
-`depends_on` brings in context
+excluding frontmatter (the artifact tag hash is neutralized
+before hashing — see CHAIN_HASH.md). While `depends_on`
+brings in context
 that informs generation, `input` brings in content that the
 generation subagent transforms into a new artifact.
 
@@ -310,7 +312,9 @@ building the **chain**:
    reference:
    - `ROOT/x/y` — `# Public` section of the referenced node.
    - `ROOT/x/y(z)` — `## z` subsection of `# Public` only.
-   - `ARTIFACT/x/y` — full content of the referenced artifact, excluding frontmatter and the artifact tag line.
+   - `ARTIFACT/x/y` — full content of the referenced artifact,
+     excluding frontmatter (artifact tag hash neutralized —
+     see CHAIN_HASH.md).
 3. The target node's `external` content, appended in
    alphabetical order by path. The full file content of
    each entry is included.

@@ -26,17 +26,35 @@ artifact file content (referenced via `depends_on` or `input`).
 
 ---
 
-## Artifact tag exclusion
+## Artifact tag neutralization
 
 When hashing artifact file content (for `depends_on: ARTIFACT/`
-or `input:`), the line containing the artifact tag
-(`code-from-spec: <name>@<hash>`) is excluded. The entire line
-is skipped — it does not contribute to the content hash.
+or `input:`), the 27-character hash in the artifact tag is
+replaced with 27 hyphens (`---------------------------`) before
+hashing. The rest of the line — including the logical name — is
+hashed normally.
 
-The artifact tag is generation metadata, not content. Including
-it would cause unnecessary staleness propagation: any change to
-an ancestor's chain hash would cascade through every downstream
-artifact, even when the actual content did not change.
+For example, the line:
+
+```
+// code-from-spec: ROOT/x/y@k4Xz9pQ1rLmN3vB7wY2tHsJ8dFa
+```
+
+is hashed as:
+
+```
+// code-from-spec: ROOT/x/y@---------------------------
+```
+
+This prevents unnecessary staleness propagation: a change to
+an ancestor's chain hash updates the tag in downstream artifacts,
+but the neutralized hash produces the same content hash — so
+further downstream artifacts are not affected unless their
+actual content changed.
+
+The logical name in the tag still participates in the hash. If
+an artifact is moved to a different node and the tag is updated,
+the content hash changes correctly.
 
 ---
 
@@ -54,9 +72,9 @@ hashed content.
 | Target `# Agent` | `# Agent` section |
 | `depends_on: ROOT/x/y` | `# Public` section of the referenced node |
 | `depends_on: ROOT/x/y(z)` | `## z` subsection of `# Public` of the referenced node |
-| `depends_on: ARTIFACT/x/y` | Full content of the referenced artifact, excluding frontmatter and the artifact tag line |
+| `depends_on: ARTIFACT/x/y` | Full content of the referenced artifact, excluding frontmatter, with artifact tag hash neutralized |
 | `external` | Full content of the referenced file |
-| `input: ARTIFACT/x/y` | Full content of the artifact file, excluding frontmatter and the artifact tag line |
+| `input: ARTIFACT/x/y` | Full content of the artifact file, excluding frontmatter, with artifact tag hash neutralized |
 
 ---
 
