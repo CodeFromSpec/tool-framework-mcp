@@ -54,7 +54,7 @@ Resolve the logical name to a file path using
 `LogicalNameToPath`. If it fails, propagate the error.
 
 Read the target node's frontmatter using
-`FrontmatterParse`. If `frontmatter.outputs` is empty,
+`FrontmatterParse`. If `frontmatter.output` is empty,
 raise NoOutput.
 
 ### Step 2 — Resolve chain

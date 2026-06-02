@@ -13,15 +13,14 @@ Test cases for the write file tool.
 ## Test cases
 
 All tests create a spec tree on disk with `_node.md`
-files containing frontmatter with outputs declarations,
+files containing frontmatter with output declarations,
 then call `MCPWriteFile`.
 
 ### Happy path
 
 #### Writes file successfully
 
-Create a spec tree with ROOT/a having outputs =
-[{id: "code", path: "output/file.go"}]. Call
+Create a spec tree with ROOT/a having output = "output/file.go". Call
 MCPWriteFile with logical_name = "ROOT/a", path =
 "output/file.go", content = "package main".
 
@@ -30,8 +29,7 @@ the file exists on disk with content "package main".
 
 #### Creates intermediate directories
 
-Create a spec tree with ROOT/a having outputs =
-[{id: "code", path: "deep/nested/dir/file.go"}]. Call
+Create a spec tree with ROOT/a having output = "deep/nested/dir/file.go". Call
 MCPWriteFile with path = "deep/nested/dir/file.go",
 content = "package main".
 
@@ -40,8 +38,7 @@ Verify the file exists.
 
 #### Overwrites existing file
 
-Create a spec tree with ROOT/a having outputs =
-[{id: "code", path: "output/file.go"}]. Create
+Create a spec tree with ROOT/a having output = "output/file.go". Create
 "output/file.go" on disk with initial content "old".
 Call MCPWriteFile with path = "output/file.go",
 content = "new".
@@ -52,7 +49,7 @@ Expect success. Verify file content is "new".
 
 #### Invalid logical name — ARTIFACT reference
 
-Call MCPWriteFile with logical_name = "ARTIFACT/x(y)",
+Call MCPWriteFile with logical_name = "ARTIFACT/x",
 path = "out.go", content = "". Expect error UnsupportedReference (propagated from
 LogicalNames via LogicalNameToPath).
 
@@ -70,27 +67,27 @@ Call MCPWriteFile with logical_name = "ROOT/missing"
 (no _node.md file on disk), path = "out.go",
 content = "". Expect error UnreadableFrontmatter.
 
-#### No outputs declared
+#### No output declared
 
 Create a spec tree with ROOT/a having empty frontmatter
-(no outputs). Call MCPWriteFile with logical_name =
+(no output). Call MCPWriteFile with logical_name =
 "ROOT/a", path = "out.go", content = "".
 
-Expect error NoOutputs.
+Expect error NoOutput.
 
-#### Path not in outputs
+#### Path not in output
 
-Create a spec tree with ROOT/a having outputs =
-[{id: "code", path: "allowed/file.go"}]. Call
+Create a spec tree with ROOT/a having output =
+"allowed/file.go". Call
 MCPWriteFile with logical_name = "ROOT/a", path =
 "other/file.go", content = "".
 
-Expect error PathNotInOutputs.
+Expect error PathNotInOutput.
 
 #### Path validation — empty path
 
-Create a spec tree with ROOT/a having outputs =
-[{id: "code", path: "out.go"}]. Call MCPWriteFile
+Create a spec tree with ROOT/a having output =
+"out.go". Call MCPWriteFile
 with logical_name = "ROOT/a", path = "", content = "".
 
 Expect error PathEmpty (propagated from PathUtils
@@ -98,8 +95,8 @@ via PathValidateCfs).
 
 #### Path validation — traversal
 
-Create a spec tree with ROOT/a having outputs =
-[{id: "code", path: "out.go"}]. Call MCPWriteFile
+Create a spec tree with ROOT/a having output =
+"out.go". Call MCPWriteFile
 with logical_name = "ROOT/a", path =
 "../../etc/passwd", content = "".
 
@@ -108,8 +105,8 @@ PathUtils via PathValidateCfs).
 
 #### Path validation — backslash
 
-Create a spec tree with ROOT/a having outputs =
-[{id: "code", path: "out.go"}]. Call MCPWriteFile
+Create a spec tree with ROOT/a having output =
+"out.go". Call MCPWriteFile
 with logical_name = "ROOT/a", path =
 "output\\file.go", content = "".
 

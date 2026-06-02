@@ -65,13 +65,12 @@ rank.
 
 For each `NodeRankInput`:
 - Add a spec node entry keyed by `logical_name`.
-- For each output in `frontmatter.outputs`, add an
-  artifact entry keyed by its `ARTIFACT/` logical name.
-  Construct the artifact logical name by stripping the
-  `ROOT/` prefix from the node's logical name, prepending
-  `ARTIFACT/`, and appending `(id)` where `id` is the
-  output's id field. Example: node `ROOT/a/b` with
-  output id `foo` → `ARTIFACT/a/b(foo)`.
+- If `frontmatter.output` is non-empty, add an artifact
+  entry keyed by its `ARTIFACT/` logical name. Construct
+  the artifact logical name by stripping the `ROOT/`
+  prefix from the node's logical name and prepending
+  `ARTIFACT/`. Example: node `ROOT/a/b` with an output
+  → `ARTIFACT/a/b`.
 
 ### Step 2 — Build dependency edges
 
@@ -98,7 +97,7 @@ For each spec node entry:
 
 For each artifact entry:
 - Depends on the node that generates it (the node whose
-  `outputs` produced this artifact).
+  `output` produced this artifact).
 
 If any dependency target is not found in the entry map,
 return the "unresolvable reference" error.

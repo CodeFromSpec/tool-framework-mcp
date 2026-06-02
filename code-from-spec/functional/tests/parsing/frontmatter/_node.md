@@ -17,21 +17,21 @@ Test cases for the frontmatter component.
 #### Parses complete frontmatter (all fields)
 
 Create a file with all fields: `depends_on`, `external`,
-`input`, and `outputs`. Call `FrontmatterParse`.
+`input`, and `output`. Call `FrontmatterParse`.
 
 Expect `depends_on` contains the listed dependencies.
 `external` has two entries each with `path`. `input`
-matches the specified value. `outputs` has two entries
-each with `id` and `path`. No error.
+matches the specified value. `output` matches the
+specified path. No error.
 
-#### Parses frontmatter with only outputs
+#### Parses frontmatter with only output
 
-Create a file with only `outputs` in frontmatter. Call
+Create a file with only `output` in frontmatter. Call
 `FrontmatterParse`.
 
 Expect `depends_on` is empty, `external` is empty,
-`input` is empty. `outputs` has one entry with the
-correct `id` and `path`. No error.
+`input` is empty. `output` matches the specified path.
+No error.
 
 #### Parses frontmatter with only depends_on
 
@@ -129,13 +129,6 @@ Expect error MalformedYAML.
 
 Create a file with an `external` entry that has no
 `path` field. Call `FrontmatterParse`.
-
-Expect error MalformedYAML.
-
-#### Missing required field in output entry
-
-Create a file with an `outputs` entry that has `id`
-but no `path`. Call `FrontmatterParse`.
 
 Expect error MalformedYAML.
 

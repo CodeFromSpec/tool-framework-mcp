@@ -16,7 +16,7 @@ output: internal/mcpwritefile/mcpwritefile_test.go
 ## Test setup guidance
 
 `MCPWriteFile` reads the node's frontmatter from disk
-to validate the path against declared outputs. Tests
+to validate the path against the declared output. Tests
 must create `_node.md` files with frontmatter containing
-outputs declarations. Use `testChdir` and create the
+an output declaration. Use `testChdir` and create the
 spec tree structure (`code-from-spec/.../_node.md`).

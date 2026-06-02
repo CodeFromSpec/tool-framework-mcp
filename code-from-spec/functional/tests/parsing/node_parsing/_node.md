@@ -250,7 +250,7 @@ Expect error UnexpectedContentBeforeFirstHeading.
 
 #### ARTIFACT reference rejected
 
-Call `NodeParse` with `"ARTIFACT/x(y)"`.
+Call `NodeParse` with `"ARTIFACT/x"`.
 Expect error NotARootReference.
 
 #### Qualifier rejected

@@ -61,7 +61,7 @@ A path in the Code from Spec standard format:
   no backslashes.
 
 This is the only path format used in the framework's
-public API — in frontmatter fields (`outputs`, `external`,
+public API — in frontmatter fields (`output`, `external`,
 `input`), in logical names, and in tool parameters.
 
 Examples:

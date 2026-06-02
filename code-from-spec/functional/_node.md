@@ -56,7 +56,7 @@ function ParseFrontmatter(file_path) -> frontmatter
      - depends_on: list of strings
      - external: list of external records
      - input: string
-     - outputs: list of output records
+     - output: string
      Ignore unknown fields.
 
   5. Return the frontmatter record.
@@ -94,7 +94,7 @@ file access, a subagent will compensate for perceived gaps in
 its context by exploring the repository rather than stopping to
 report ambiguity. This produces hallucinated or inconsistent
 output. The server prevents this by exposing only the assembled
-chain and restricting writes to declared outputs.
+chain and restricting writes to the declared output.
 
 For validation, the server provides a single tool that checks
 the entire spec tree for format errors, circular references,
@@ -115,7 +115,7 @@ Any argument causes the tool to print a usage message and exit.
 ### Project root
 
 The working directory of the MCP server process is the
-project root. All relative paths — `outputs`, `external`,
+project root. All relative paths — `output`, `external`,
 artifact file paths — are resolved relative to this
 directory. The server does not search for the project root;
 it is the caller's responsibility to start the server from

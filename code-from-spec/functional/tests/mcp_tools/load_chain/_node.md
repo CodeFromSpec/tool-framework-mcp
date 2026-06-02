@@ -20,14 +20,14 @@ files, then call `MCPLoadChain`.
 #### Simple leaf node — context and hash
 
 Create a spec tree: ROOT (with public section containing
-one line of content) and ROOT/a (leaf with outputs,
+one line of content) and ROOT/a (leaf with output,
 public section with content, agent section with content).
 Call MCPLoadChain with logical_name = "ROOT/a".
 
 Expect result has:
 - `chain_hash`: a 27-character string
 - `context`: contains ROOT's `# Public` heading and
-  public content, the reduced frontmatter (outputs
+  public content, the reduced frontmatter (output
   only, between `---` delimiters), ROOT/a's `# Public`
   heading and public content, and ROOT/a's `# Agent`
   heading and agent content
@@ -36,7 +36,7 @@ Expect result has:
 #### Ancestor public content included
 
 Create a spec tree: ROOT (with public section), ROOT/a
-(with public section), ROOT/a/b (leaf with outputs).
+(with public section), ROOT/a/b (leaf with output).
 Call MCPLoadChain with "ROOT/a/b".
 
 Expect context contains ROOT's `# Public` heading and
@@ -46,7 +46,7 @@ and public content.
 #### Ancestor without public section skipped
 
 Create a spec tree: ROOT (no public section, only name
-section) and ROOT/a (leaf with outputs and public
+section) and ROOT/a (leaf with output and public
 section). Call MCPLoadChain with "ROOT/a".
 
 Expect context does not contain ROOT's content — it
@@ -56,14 +56,14 @@ was skipped because it has no public section.
 
 Create a spec tree: ROOT (public section present but
 empty — no content, no subsections) and ROOT/a (leaf
-with outputs and public section). Call MCPLoadChain
+with output and public section). Call MCPLoadChain
 with "ROOT/a".
 
 Expect context does not contain ROOT's content.
 
 #### Dependency without qualifier — public included
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
+Create a spec tree: ROOT, ROOT/a (leaf with output,
 depends_on = ["ROOT/b"]), ROOT/b (with public section
 containing Interface and Constraints subsections). Call
 MCPLoadChain with "ROOT/a".
@@ -73,7 +73,7 @@ including both subsections and their `## ` headings.
 
 #### Dependency with qualifier — subsection only
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
+Create a spec tree: ROOT, ROOT/a (leaf with output,
 depends_on = ["ROOT/b(interface)"]), ROOT/b (with
 public section containing Interface and Constraints
 subsections). Call MCPLoadChain with "ROOT/a".
@@ -84,18 +84,18 @@ heading or its content.
 
 #### ARTIFACT dependency — content minus frontmatter
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
-depends_on = ["ARTIFACT/b(code)"]), ROOT/b (with
-outputs = [{id: "code", path: "out/b.go"}]). Create
-"out/b.go" with frontmatter and body content. Call
-MCPLoadChain with "ROOT/a".
+Create a spec tree: ROOT, ROOT/a (leaf with output,
+depends_on = ["ARTIFACT/b"]), ROOT/b (with
+output = "out/b.go"). Create "out/b.go" with
+frontmatter and body content. Call MCPLoadChain with
+"ROOT/a".
 
 Expect context contains the body of "out/b.go" without
 frontmatter.
 
 #### External file — full content
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
+Create a spec tree: ROOT, ROOT/a (leaf with output,
 external = [{path: "data/config.yaml"}]). Create
 "data/config.yaml" with known content. Call
 MCPLoadChain with "ROOT/a".
@@ -103,18 +103,18 @@ MCPLoadChain with "ROOT/a".
 Expect context contains the full content of
 "data/config.yaml".
 
-#### Target has reduced frontmatter with outputs only
+#### Target has reduced frontmatter with output only
 
 Create a spec tree: ROOT, ROOT/a (leaf with depends_on
-and outputs). Call MCPLoadChain with "ROOT/a".
+and output). Call MCPLoadChain with "ROOT/a".
 
 Expect context contains a frontmatter block between
-`---` delimiters with only the `outputs` field. The
+`---` delimiters with only the `output` field. The
 `depends_on` field is not present.
 
 #### Target agent section included
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
+Create a spec tree: ROOT, ROOT/a (leaf with output,
 public section, agent section with content). Call
 MCPLoadChain with "ROOT/a".
 
@@ -124,7 +124,7 @@ and agent content.
 
 #### Target without agent section — skipped
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
+Create a spec tree: ROOT, ROOT/a (leaf with output,
 public section, no agent section). Call MCPLoadChain
 with "ROOT/a".
 
@@ -132,11 +132,10 @@ Expect no error. Context contains only public content.
 
 #### Input separated from context
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
-input = "ARTIFACT/b(data)"), ROOT/b (with outputs =
-[{id: "data", path: "out/data.json"}]). Create
-"out/data.json" with frontmatter and body. Call
-MCPLoadChain with "ROOT/a".
+Create a spec tree: ROOT, ROOT/a (leaf with output,
+input = "ARTIFACT/b"), ROOT/b (with output =
+"out/data.json"). Create "out/data.json" with
+frontmatter and body. Call MCPLoadChain with "ROOT/a".
 
 Expect result.input contains the body of "out/data.json"
 without frontmatter. The input content does not appear
@@ -144,7 +143,7 @@ in result.context.
 
 #### No input — field absent
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
+Create a spec tree: ROOT, ROOT/a (leaf with output,
 no input field). Call MCPLoadChain with "ROOT/a".
 
 Expect result.input is absent.
@@ -168,21 +167,21 @@ Call MCPLoadChain with "ROOT/nonexistent" (no _node.md
 on disk). Expect error propagated from
 FrontmatterParse (FileUnreadable).
 
-#### No outputs declared
+#### No output declared
 
 Create a spec tree: ROOT, ROOT/a (leaf without
-outputs). Call MCPLoadChain with "ROOT/a". Expect
-error NoOutputs.
+output). Call MCPLoadChain with "ROOT/a". Expect
+error NoOutput.
 
 #### Invalid output path — traversal
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs
-pointing to "../../etc/passwd"). Call MCPLoadChain
-with "ROOT/a". Expect error InvalidOutputPath.
+Create a spec tree: ROOT, ROOT/a (leaf with output =
+"../../etc/passwd"). Call MCPLoadChain with "ROOT/a".
+Expect error InvalidOutputPath.
 
 #### Unresolvable dependency
 
-Create a spec tree: ROOT, ROOT/a (leaf with outputs,
+Create a spec tree: ROOT, ROOT/a (leaf with output,
 depends_on = ["ROOT/missing"]). Do not create
 ROOT/missing. Call MCPLoadChain with "ROOT/a". Expect
 an error — the missing node will be detected when the

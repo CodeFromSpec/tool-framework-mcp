@@ -75,55 +75,38 @@ Expect dependencies sorted alphabetically by file path.
 #### ARTIFACT dependency resolved from generating node
 
 Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b(lib)"]), ROOT/b (with outputs = [{id:
-"lib", path: "out/lib.go"}]). Call ChainResolve with
-"ROOT/a".
+["ARTIFACT/b"]), ROOT/b (with output = "out/lib.go").
+Call ChainResolve with "ROOT/a".
 
 Expect dependencies contains one ChainItem with
-logical_name = "ARTIFACT/b(lib)", file_path =
-"out/lib.go", qualifier = "lib".
+logical_name = "ARTIFACT/b", file_path =
+"out/lib.go".
 
-#### ARTIFACT without qualifier — error
-
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b"]). Call ChainResolve with "ROOT/a".
-
-Expect error UnresolvableArtifact.
-
-#### ARTIFACT — generating node has no outputs
+#### ARTIFACT — generating node has no output
 
 Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b(lib)"]), ROOT/b (with empty frontmatter,
-no outputs). Call ChainResolve with "ROOT/a".
+["ARTIFACT/b"]), ROOT/b (with empty frontmatter,
+no output). Call ChainResolve with "ROOT/a".
 
 Expect error UnresolvableArtifact.
 
 #### ARTIFACT — artifact file does not exist on disk
 
 Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b(lib)"]), ROOT/b (with outputs = [{id:
-"lib", path: "out/lib.go"}]). Do NOT create
-"out/lib.go" on disk. Call ChainResolve with "ROOT/a".
+["ARTIFACT/b"]), ROOT/b (with output = "out/lib.go").
+Do NOT create "out/lib.go" on disk. Call ChainResolve
+with "ROOT/a".
 
 Expect no error. Dependencies contains one ChainItem
 with file_path = "out/lib.go". Existence is not
 verified by the resolver.
 
-#### ARTIFACT with non-existent output id — error
-
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b(missing)"]), ROOT/b (with outputs =
-[{id: "lib", path: "out/lib.go"}]). Call ChainResolve
-with "ROOT/a".
-
-Expect error UnresolvableArtifact.
-
 #### Mixed ROOT/ and ARTIFACT/ dependencies
 
 Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/c", "ARTIFACT/b(lib)"]), ROOT/b (with outputs =
-[{id: "lib", path: "out/lib.go"}]), ROOT/c. Call
-ChainResolve with "ROOT/a".
+["ROOT/c", "ARTIFACT/b"]), ROOT/b (with output =
+"out/lib.go"), ROOT/c. Call ChainResolve with
+"ROOT/a".
 
 Expect dependencies contains both entries, sorted by
 file path value.
@@ -171,9 +154,8 @@ qualifier = "constraints", one with "interface"
 #### Duplicate ARTIFACT — same logical name
 
 Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b(lib)", "ARTIFACT/b(lib)"]), ROOT/b (with
-outputs = [{id: "lib", path: "out/lib.go"}]). Call
-ChainResolve with "ROOT/a".
+["ARTIFACT/b", "ARTIFACT/b"]), ROOT/b (with output =
+"out/lib.go"). Call ChainResolve with "ROOT/a".
 
 Expect dependencies contains one ARTIFACT entry
 (not two).
@@ -201,13 +183,11 @@ Expect external list is empty.
 #### Input resolved from generating node
 
 Create spec tree: ROOT, ROOT/a (leaf, input =
-"ARTIFACT/b(data)"), ROOT/b (with outputs = [{id:
-"data", path: "out/data.json"}]). Call ChainResolve
-with "ROOT/a".
+"ARTIFACT/b"), ROOT/b (with output =
+"out/data.json"). Call ChainResolve with "ROOT/a".
 
 Expect input = ChainItem with logical_name =
-"ARTIFACT/b(data)", file_path = "out/data.json",
-qualifier = "data".
+"ARTIFACT/b", file_path = "out/data.json".
 
 #### No input — absent
 
@@ -215,22 +195,6 @@ Create spec tree: ROOT, ROOT/a (leaf, no input). Call
 ChainResolve with "ROOT/a".
 
 Expect input is absent.
-
-#### Input without qualifier — error
-
-Create spec tree: ROOT, ROOT/a (leaf, input =
-"ARTIFACT/b"). Call ChainResolve with "ROOT/a".
-
-Expect error UnresolvableArtifact.
-
-#### Input with non-existent output id — error
-
-Create spec tree: ROOT, ROOT/a (leaf, input =
-"ARTIFACT/b(missing)"), ROOT/b (with outputs = [{id:
-"data", path: "out/data.json"}]). Call ChainResolve
-with "ROOT/a".
-
-Expect error UnresolvableArtifact.
 
 ### Error cases
 

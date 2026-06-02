@@ -31,7 +31,7 @@ Expect: `code-from-spec/x/y/_node.md`.
 
 #### Rejects ARTIFACT reference
 
-Input: `"ARTIFACT/x(y)"`.
+Input: `"ARTIFACT/x"`.
 Expect error UnsupportedReference.
 
 #### Rejects unrecognized prefix
@@ -90,7 +90,7 @@ Expect error NoParent.
 
 #### Rejects ARTIFACT reference
 
-Input: `"ARTIFACT/x(y)"`.
+Input: `"ARTIFACT/x"`.
 Expect error NotARootReference.
 
 ### LogicalNameGetQualifier
@@ -100,10 +100,10 @@ Expect error NotARootReference.
 Input: `"ROOT/x/y(interface)"`.
 Expect: `"interface"`.
 
-#### Extracts qualifier from ARTIFACT reference
+#### ARTIFACT without qualifier returns absent
 
-Input: `"ARTIFACT/x/y(id)"`.
-Expect: `"id"`.
+Input: `"ARTIFACT/x/y"`.
+Expect: absent.
 
 #### Returns absent when no qualifier
 
@@ -122,9 +122,9 @@ Expect: absent.
 Input: `"ROOT/x/y(interface)"`.
 Expect: `"ROOT/x/y"`.
 
-#### Strips qualifier from ARTIFACT reference
+#### ARTIFACT without qualifier — returns unchanged
 
-Input: `"ARTIFACT/x/y(id)"`.
+Input: `"ARTIFACT/x/y"`.
 Expect: `"ARTIFACT/x/y"`.
 
 #### No qualifier — returns unchanged
@@ -161,7 +161,7 @@ Expect: true.
 
 #### ARTIFACT reference
 
-Input: `"ARTIFACT/x(y)"`.
+Input: `"ARTIFACT/x"`.
 Expect: false.
 
 #### Empty string
@@ -181,10 +181,10 @@ Expect: false.
 Input: `"ROOT/x(y)"`.
 Expect: true.
 
-#### ARTIFACT with qualifier
+#### ARTIFACT without qualifier
 
-Input: `"ARTIFACT/x(y)"`.
-Expect: true.
+Input: `"ARTIFACT/x"`.
+Expect: false.
 
 #### ROOT alone
 
@@ -200,7 +200,7 @@ Expect: false.
 
 #### ARTIFACT reference
 
-Input: `"ARTIFACT/x(y)"`.
+Input: `"ARTIFACT/x"`.
 Expect: true.
 
 #### ROOT reference
@@ -217,23 +217,20 @@ Expect: false.
 
 #### Simple artifact
 
-Input: `"ARTIFACT/x(y)"`.
+Input: `"ARTIFACT/x"`.
 Expect: `"ROOT/x"`.
+
+ARTIFACT/ references no longer have qualifiers.
 
 #### Nested artifact
 
-Input: `"ARTIFACT/x/y/z(id)"`.
+Input: `"ARTIFACT/x/y/z"`.
 Expect: `"ROOT/x/y/z"`.
 
 #### Rejects ROOT reference
 
 Input: `"ROOT/x(y)"`.
 Expect error NotAnArtifactReference.
-
-#### Rejects reference without qualifier
-
-Input: `"ARTIFACT/x"`.
-Expect: `"ROOT/x"`.
 
 # Agent
 

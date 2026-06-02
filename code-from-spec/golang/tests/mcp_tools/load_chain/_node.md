@@ -27,7 +27,7 @@ frontmatter and body content matching the test setup.
 
 Node files must have valid structure for `NodeParse`:
 at minimum a `# <logical_name>` heading as the first
-heading. Leaf nodes need frontmatter with `outputs`.
+heading. Leaf nodes need frontmatter with `output`.
 
 For ARTIFACT and external file tests, create the
 referenced files on disk at the declared paths.

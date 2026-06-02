@@ -18,8 +18,8 @@ Test cases for the spec tree validation component.
 
 Input: ROOT (intermediate, has children ROOT/a and
 ROOT/b), ROOT/a (leaf, node.name_section.heading =
-"ROOT/a", depends_on = ["ROOT/b"], outputs = [{id:
-"out", path: "internal/out.go"}]), ROOT/b (leaf,
+"ROOT/a", depends_on = ["ROOT/b"], output =
+"internal/out.go"), ROOT/b (leaf,
 node.name_section.heading = "ROOT/b"). Call
 SpecTreeValidate. Expect no format errors.
 
@@ -62,17 +62,17 @@ ROOT/a/b, depends_on = ["ROOT/b"]), ROOT/a/b (leaf).
 Call SpecTreeValidate. Expect a FormatError with rule
 = "leaf_only_fields" for ROOT/a.
 
-#### Intermediate node with outputs
+#### Intermediate node with output
 
 Input: ROOT, ROOT/a (intermediate, has child
-ROOT/a/b, outputs = [{id: "x", path: "x.go"}]),
+ROOT/a/b, output = "x.go"),
 ROOT/a/b (leaf). Call SpecTreeValidate. Expect a
 FormatError with rule = "leaf_only_fields" for ROOT/a.
 
 #### Intermediate node with input
 
 Input: ROOT, ROOT/a (intermediate, has child
-ROOT/a/b, input = "ARTIFACT/c(id)"), ROOT/a/b (leaf).
+ROOT/a/b, input = "ARTIFACT/c"), ROOT/a/b (leaf).
 Call SpecTreeValidate. Expect a FormatError with rule
 = "leaf_only_fields" for ROOT/a.
 
@@ -86,10 +86,10 @@ FormatError with rule = "leaf_only_fields" for ROOT/a.
 #### Intermediate node with multiple restricted fields
 
 Input: ROOT, ROOT/a (intermediate, has child
-ROOT/a/b, depends_on = ["ROOT/b"], outputs = [{id:
-"x", path: "x.go"}]), ROOT/a/b (leaf). Call
-SpecTreeValidate. Expect two FormatErrors with rule =
-"leaf_only_fields" for ROOT/a (one per field).
+ROOT/a/b, depends_on = ["ROOT/b"], output = "x.go"),
+ROOT/a/b (leaf). Call SpecTreeValidate. Expect two
+FormatErrors with rule = "leaf_only_fields" for ROOT/a
+(one per field).
 
 ### leaf_only_agent
 
@@ -148,15 +148,14 @@ ancestor/descendant/self).
 
 #### depends_on with valid ARTIFACT reference
 
-Input: ROOT, ROOT/a (leaf, outputs = [{id: "lib",
-path: "lib.go"}]), ROOT/b (leaf, depends_on =
-["ARTIFACT/a(lib)"]). Call SpecTreeValidate. Expect
-no dependency_targets error.
+Input: ROOT, ROOT/a (leaf, output = "lib.go"), ROOT/b
+(leaf, depends_on = ["ARTIFACT/a"]). Call
+SpecTreeValidate. Expect no dependency_targets error.
 
 #### depends_on with non-existent ARTIFACT reference
 
 Input: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/missing(id)"]). Call SpecTreeValidate.
+["ARTIFACT/missing"]). Call SpecTreeValidate.
 Expect a FormatError with rule = "dependency_targets"
 for ROOT/a.
 
@@ -171,10 +170,9 @@ SpecTreeValidate. Expect two FormatErrors with rule =
 
 #### Valid input reference
 
-Input: ROOT, ROOT/a (leaf, outputs = [{id: "out",
-path: "a.go"}]), ROOT/b (leaf, input =
-"ARTIFACT/a(out)"). Call SpecTreeValidate. Expect no
-input_target error.
+Input: ROOT, ROOT/a (leaf, output = "a.go"), ROOT/b
+(leaf, input = "ARTIFACT/a"). Call SpecTreeValidate.
+Expect no input_target error.
 
 #### Input not starting with ARTIFACT/
 
@@ -185,7 +183,7 @@ Call SpecTreeValidate. Expect a FormatError with rule
 #### Input references non-existent artifact
 
 Input: ROOT, ROOT/a (leaf, input =
-"ARTIFACT/missing(id)"). Call SpecTreeValidate.
+"ARTIFACT/missing"). Call SpecTreeValidate.
 Expect a FormatError with rule = "input_target" for
 ROOT/a.
 
@@ -209,23 +207,20 @@ SpecTreeValidate. Expect a FormatError with rule =
 
 #### Valid output path
 
-Input: ROOT, ROOT/a (leaf, outputs = [{id: "x",
-path: "internal/x.go"}]). Call SpecTreeValidate.
-Expect no output_paths error.
+Input: ROOT, ROOT/a (leaf, output = "internal/x.go").
+Call SpecTreeValidate. Expect no output_paths error.
 
 #### Output path with traversal
 
-Input: ROOT, ROOT/a (leaf, outputs = [{id: "x",
-path: "../../etc/passwd"}]). Call SpecTreeValidate.
-Expect a FormatError with rule = "output_paths" for
-ROOT/a.
+Input: ROOT, ROOT/a (leaf, output =
+"../../etc/passwd"). Call SpecTreeValidate. Expect a
+FormatError with rule = "output_paths" for ROOT/a.
 
 #### Output path with backslash
 
-Input: ROOT, ROOT/a (leaf, outputs = [{id: "x",
-path: "internal\\x.go"}]). Call SpecTreeValidate.
-Expect a FormatError with rule = "output_paths" for
-ROOT/a.
+Input: ROOT, ROOT/a (leaf, output =
+"internal\\x.go"). Call SpecTreeValidate. Expect a
+FormatError with rule = "output_paths" for ROOT/a.
 
 ### duplicate_subsections
 
