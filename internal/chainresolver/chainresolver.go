@@ -167,11 +167,6 @@ func resolveRootDependency(entry string) (*ChainItem, error) {
 }
 
 func resolveArtifactDependency(entry string) (*ChainItem, error) {
-	qualifier, present := logicalnames.LogicalNameGetQualifier(entry)
-	if !present {
-		return nil, fmt.Errorf("%w: ARTIFACT/ reference %q is missing a qualifier", ErrUnresolvableArtifact, entry)
-	}
-
 	generatorName, err := logicalnames.LogicalNameGetArtifactGenerator(entry)
 	if err != nil {
 		return nil, err
@@ -187,26 +182,14 @@ func resolveArtifactDependency(entry string) (*ChainItem, error) {
 		return nil, fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
 	}
 
-	outputPath, err := findOutputPath(generatorFrontmatter, qualifier, entry)
-	if err != nil {
-		return nil, err
+	if generatorFrontmatter.Output == "" {
+		return nil, fmt.Errorf("%w: node %q has no output", ErrUnresolvableArtifact, generatorName)
 	}
 
-	q := qualifier
 	return &ChainItem{
 		LogicalName: entry,
-		FilePath:    pathutils.PathCfs{Value: outputPath},
-		Qualifier:   &q,
+		FilePath:    pathutils.PathCfs{Value: generatorFrontmatter.Output},
 	}, nil
-}
-
-func findOutputPath(fm *frontmatter.Frontmatter, qualifier string, ref string) (string, error) {
-	for _, o := range fm.Outputs {
-		if o.ID == qualifier {
-			return o.Path, nil
-		}
-	}
-	return "", fmt.Errorf("%w: no output with id %q in %q", ErrUnresolvableArtifact, qualifier, ref)
 }
 
 func deduplicateDependencies(dependencies []*ChainItem) []*ChainItem {
@@ -269,11 +252,6 @@ func resolveInput(targetFrontmatter *frontmatter.Frontmatter) (*ChainItem, error
 
 	entry := targetFrontmatter.Input
 
-	qualifier, present := logicalnames.LogicalNameGetQualifier(entry)
-	if !present {
-		return nil, fmt.Errorf("%w: input reference %q is missing a qualifier", ErrUnresolvableArtifact, entry)
-	}
-
 	generatorName, err := logicalnames.LogicalNameGetArtifactGenerator(entry)
 	if err != nil {
 		return nil, err
@@ -289,15 +267,12 @@ func resolveInput(targetFrontmatter *frontmatter.Frontmatter) (*ChainItem, error
 		return nil, fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
 	}
 
-	outputPath, err := findOutputPath(generatorFrontmatter, qualifier, entry)
-	if err != nil {
-		return nil, err
+	if generatorFrontmatter.Output == "" {
+		return nil, fmt.Errorf("%w: node %q has no output", ErrUnresolvableArtifact, generatorName)
 	}
 
-	q := qualifier
 	return &ChainItem{
 		LogicalName: entry,
-		FilePath:    pathutils.PathCfs{Value: outputPath},
-		Qualifier:   &q,
+		FilePath:    pathutils.PathCfs{Value: generatorFrontmatter.Output},
 	}, nil
 }

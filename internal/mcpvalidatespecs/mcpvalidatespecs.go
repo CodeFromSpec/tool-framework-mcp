@@ -19,7 +19,6 @@ import (
 
 type StalenessEntry struct {
 	Node         string
-	OutputID     string
 	ArtifactPath string
 	Status       string
 	Rank         int
@@ -136,7 +135,7 @@ func MCPValidateSpecs() *ValidationReport {
 
 	var workList []workItem
 	for logicalName, pn := range parsedNodes {
-		if len(pn.fm.Outputs) == 0 {
+		if pn.fm.Output == "" {
 			continue
 		}
 		rank := 0
@@ -169,79 +168,53 @@ func MCPValidateSpecs() *ValidationReport {
 
 		chain, err := chainresolver.ChainResolve(item.logicalName)
 		if err != nil {
-			for _, output := range pn.fm.Outputs {
-				staleness = append(staleness, &StalenessEntry{
-					Node:         item.logicalName,
-					OutputID:     output.ID,
-					ArtifactPath: output.Path,
-					Status:       "missing",
-					Detail:       err.Error(),
-					Rank:         rank,
-				})
-			}
+			staleness = append(staleness, &StalenessEntry{
+				Node:         item.logicalName,
+				ArtifactPath: pn.fm.Output,
+				Status:       "missing",
+				Detail:       err.Error(),
+				Rank:         rank,
+			})
 			continue
 		}
 
 		chainHash, err := chainhash.ChainHashCompute(chain)
 		if err != nil {
-			for _, output := range pn.fm.Outputs {
-				staleness = append(staleness, &StalenessEntry{
-					Node:         item.logicalName,
-					OutputID:     output.ID,
-					ArtifactPath: output.Path,
-					Status:       "missing",
-					Detail:       err.Error(),
-					Rank:         rank,
-				})
-			}
+			staleness = append(staleness, &StalenessEntry{
+				Node:         item.logicalName,
+				ArtifactPath: pn.fm.Output,
+				Status:       "missing",
+				Detail:       err.Error(),
+				Rank:         rank,
+			})
 			continue
 		}
 
-		for _, output := range pn.fm.Outputs {
-			cfsPath := &pathutils.PathCfs{Value: output.Path}
-			tag, err := artifacttag.ArtifactTagExtract(cfsPath)
-			if err != nil {
-				if errors.Is(err, artifacttag.ErrFileUnreadable) {
-					staleness = append(staleness, &StalenessEntry{
-						Node:         item.logicalName,
-						OutputID:     output.ID,
-						ArtifactPath: output.Path,
-						Status:       "missing",
-						Detail:       err.Error(),
-						Rank:         rank,
-					})
-				} else if errors.Is(err, artifacttag.ErrNoTagFound) || errors.Is(err, artifacttag.ErrMalformedTag) {
-					staleness = append(staleness, &StalenessEntry{
-						Node:         item.logicalName,
-						OutputID:     output.ID,
-						ArtifactPath: output.Path,
-						Status:       "malformed tag",
-						Detail:       err.Error(),
-						Rank:         rank,
-					})
-				} else {
-					staleness = append(staleness, &StalenessEntry{
-						Node:         item.logicalName,
-						OutputID:     output.ID,
-						ArtifactPath: output.Path,
-						Status:       "malformed tag",
-						Detail:       err.Error(),
-						Rank:         rank,
-					})
-				}
-				continue
+		cfsPath := &pathutils.PathCfs{Value: pn.fm.Output}
+		tag, err := artifacttag.ArtifactTagExtract(cfsPath)
+		if err != nil {
+			status := "malformed tag"
+			if errors.Is(err, artifacttag.ErrFileUnreadable) {
+				status = "missing"
 			}
+			staleness = append(staleness, &StalenessEntry{
+				Node:         item.logicalName,
+				ArtifactPath: pn.fm.Output,
+				Status:       status,
+				Detail:       err.Error(),
+				Rank:         rank,
+			})
+			continue
+		}
 
-			if tag.Hash != chainHash {
-				staleness = append(staleness, &StalenessEntry{
-					Node:         item.logicalName,
-					OutputID:     output.ID,
-					ArtifactPath: output.Path,
-					Status:       "stale",
-					Detail:       fmt.Sprintf("file hash: %s, expected: %s", tag.Hash, chainHash),
-					Rank:         rank,
-				})
-			}
+		if tag.Hash != chainHash {
+			staleness = append(staleness, &StalenessEntry{
+				Node:         item.logicalName,
+				ArtifactPath: pn.fm.Output,
+				Status:       "stale",
+				Detail:       fmt.Sprintf("file hash %s, expected %s", tag.Hash, chainHash),
+				Rank:         rank,
+			})
 		}
 	}
 

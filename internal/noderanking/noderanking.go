@@ -40,9 +40,9 @@ func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, erro
 			rank:         0,
 		}
 
-		for _, output := range item.Frontmatter.Outputs {
+		if item.Frontmatter.Output != "" {
 			stripped := strings.TrimPrefix(item.LogicalName, "ROOT/")
-			artifactKey := "ARTIFACT/" + stripped + "(" + output.ID + ")"
+			artifactKey := "ARTIFACT/" + stripped
 			entryMap[artifactKey] = &rankEntry{
 				logicalName:  artifactKey,
 				dependencies: []string{},

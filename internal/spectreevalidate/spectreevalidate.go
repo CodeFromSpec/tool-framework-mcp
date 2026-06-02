@@ -42,9 +42,9 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput) []*FormatError {
 	knownNames := make(map[string]bool)
 	for _, entry := range entries {
 		knownNames[entry.LogicalName] = true
-		suffix := strings.TrimPrefix(entry.LogicalName, "ROOT/")
-		for _, output := range entry.Frontmatter.Outputs {
-			artifactName := "ARTIFACT/" + suffix + "(" + output.ID + ")"
+		if entry.Frontmatter.Output != "" {
+			suffix := strings.TrimPrefix(entry.LogicalName, "ROOT/")
+			artifactName := "ARTIFACT/" + suffix
 			knownNames[artifactName] = true
 		}
 	}
@@ -95,11 +95,11 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput) []*FormatError {
 					Detail: "non-leaf node has input",
 				})
 			}
-			if len(entry.Frontmatter.Outputs) > 0 {
+			if entry.Frontmatter.Output != "" {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "leaf_only_fields",
-					Detail: "non-leaf node has outputs",
+					Detail: "non-leaf node has output",
 				})
 			}
 		}
@@ -199,12 +199,12 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput) []*FormatError {
 		}
 
 		// Rule: output_paths
-		for _, output := range entry.Frontmatter.Outputs {
-			if err := pathutils.PathValidateCfs(output.Path); err != nil {
+		if entry.Frontmatter.Output != "" {
+			if err := pathutils.PathValidateCfs(entry.Frontmatter.Output); err != nil {
 				errs = append(errs, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "output_paths",
-					Detail: "output path " + output.Path + " is invalid: " + err.Error(),
+					Detail: "output path " + entry.Frontmatter.Output + " is invalid: " + err.Error(),
 				})
 			}
 		}

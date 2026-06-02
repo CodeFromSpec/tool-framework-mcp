@@ -18,24 +18,14 @@ type FrontmatterExternal struct {
 	Path string
 }
 
-type FrontmatterOutput struct {
-	ID   string
-	Path string
-}
-
 type Frontmatter struct {
 	DependsOn []string
 	External  []*FrontmatterExternal
 	Input     string
-	Outputs   []*FrontmatterOutput
+	Output    string
 }
 
 type rawExternal struct {
-	Path string `yaml:"path"`
-}
-
-type rawOutput struct {
-	ID   string `yaml:"id"`
 	Path string `yaml:"path"`
 }
 
@@ -43,7 +33,7 @@ type rawFrontmatter struct {
 	DependsOn []string      `yaml:"depends_on"`
 	External  []rawExternal `yaml:"external"`
 	Input     string        `yaml:"input"`
-	Outputs   []rawOutput   `yaml:"outputs"`
+	Output    string        `yaml:"output"`
 }
 
 func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
@@ -115,16 +105,7 @@ func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
 		fm.External = append(fm.External, &FrontmatterExternal{Path: e.Path})
 	}
 
-	fm.Outputs = make([]*FrontmatterOutput, 0, len(raw.Outputs))
-	for _, o := range raw.Outputs {
-		if o.ID == "" {
-			return nil, fmt.Errorf("%w: outputs entry missing required field: id", ErrMalformedYAML)
-		}
-		if o.Path == "" {
-			return nil, fmt.Errorf("%w: outputs entry missing required field: path", ErrMalformedYAML)
-		}
-		fm.Outputs = append(fm.Outputs, &FrontmatterOutput{ID: o.ID, Path: o.Path})
-	}
+	fm.Output = raw.Output
 
 	return fm, nil
 }
@@ -134,6 +115,6 @@ func emptyFrontmatter() *Frontmatter {
 		DependsOn: []string{},
 		External:  []*FrontmatterExternal{},
 		Input:     "",
-		Outputs:   []*FrontmatterOutput{},
+		Output:    "",
 	}
 }

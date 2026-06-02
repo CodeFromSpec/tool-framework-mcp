@@ -122,8 +122,8 @@ func main() {
 				text += fmt.Sprintf("cycle detected: %s\n", name)
 			}
 			for _, se := range report.Staleness {
-				text += fmt.Sprintf("staleness: node=%s output=%s path=%s status=%s rank=%d detail=%s\n",
-					se.Node, se.OutputID, se.ArtifactPath, se.Status, se.Rank, se.Detail)
+				text += fmt.Sprintf("staleness | node: %s | path: %s | status: %s | rank: %d | detail: %s\n",
+					se.Node, se.ArtifactPath, se.Status, se.Rank, se.Detail)
 			}
 		}
 

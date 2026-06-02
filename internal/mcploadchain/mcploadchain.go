@@ -16,7 +16,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 )
 
-var ErrNoOutputs = errors.New("no outputs")
+var ErrNoOutput = errors.New("no output")
 var ErrInvalidOutputPath = errors.New("invalid output path")
 
 type MCPLoadChainResult struct {
@@ -36,14 +36,12 @@ func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error) {
 		return nil, fmt.Errorf("MCPLoadChain: %w", err)
 	}
 
-	if len(fm.Outputs) == 0 {
-		return nil, fmt.Errorf("MCPLoadChain: %w", ErrNoOutputs)
+	if fm.Output == "" {
+		return nil, fmt.Errorf("MCPLoadChain: %w", ErrNoOutput)
 	}
 
-	for _, output := range fm.Outputs {
-		if err := pathutils.PathValidateCfs(output.Path); err != nil {
-			return nil, fmt.Errorf("MCPLoadChain: %w: %w", ErrInvalidOutputPath, err)
-		}
+	if err := pathutils.PathValidateCfs(fm.Output); err != nil {
+		return nil, fmt.Errorf("MCPLoadChain: %w: %w", ErrInvalidOutputPath, err)
 	}
 
 	chain, err := chainresolver.ChainResolve(logical_name)
@@ -147,15 +145,9 @@ func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error) {
 	}
 
 	contextBuilder.WriteString("---\n")
-	contextBuilder.WriteString("outputs:\n")
-	for _, output := range fm.Outputs {
-		contextBuilder.WriteString("  - id: ")
-		contextBuilder.WriteString(output.ID)
-		contextBuilder.WriteString("\n")
-		contextBuilder.WriteString("    path: ")
-		contextBuilder.WriteString(output.Path)
-		contextBuilder.WriteString("\n")
-	}
+	contextBuilder.WriteString("output: ")
+	contextBuilder.WriteString(fm.Output)
+	contextBuilder.WriteString("\n")
 	contextBuilder.WriteString("---\n")
 
 	targetNode, err := parsenode.NodeParse(chain.Target.LogicalName)

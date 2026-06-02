@@ -13,9 +13,9 @@ import (
 
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
 
-var ErrNoOutputs = errors.New("no outputs")
+var ErrNoOutput = errors.New("no output")
 
-var ErrPathNotInOutputs = errors.New("path not in outputs")
+var ErrPathNotInOutput = errors.New("path not in output")
 
 func MCPWriteFile(logical_name string, path string, content string) (string, error) {
 	nodePath, err := logicalnames.LogicalNameToPath(logical_name)
@@ -28,23 +28,16 @@ func MCPWriteFile(logical_name string, path string, content string) (string, err
 		return "", fmt.Errorf("MCPWriteFile: %w: %w", ErrUnreadableFrontmatter, err)
 	}
 
-	if len(fm.Outputs) == 0 {
-		return "", fmt.Errorf("MCPWriteFile: %w", ErrNoOutputs)
+	if fm.Output == "" {
+		return "", fmt.Errorf("MCPWriteFile: %w", ErrNoOutput)
 	}
 
 	if err := pathutils.PathValidateCfs(path); err != nil {
 		return "", fmt.Errorf("MCPWriteFile: %w", err)
 	}
 
-	found := false
-	for _, output := range fm.Outputs {
-		if output.Path == path {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return "", fmt.Errorf("MCPWriteFile: %w", ErrPathNotInOutputs)
+	if fm.Output != path {
+		return "", fmt.Errorf("MCPWriteFile: %w", ErrPathNotInOutput)
 	}
 
 	cfsPath := &pathutils.PathCfs{Value: path}
