@@ -26,6 +26,20 @@ artifact file content (referenced via `depends_on` or `input`).
 
 ---
 
+## Artifact tag exclusion
+
+When hashing artifact file content (for `depends_on: ARTIFACT/`
+or `input:`), the line containing the artifact tag
+(`code-from-spec: <name>@<hash>`) is excluded. The entire line
+is skipped — it does not contribute to the content hash.
+
+The artifact tag is generation metadata, not content. Including
+it would cause unnecessary staleness propagation: any change to
+an ancestor's chain hash would cascade through every downstream
+artifact, even when the actual content did not change.
+
+---
+
 ## Content hash
 
 Each position in the chain contributes a **content hash** — the
@@ -40,9 +54,9 @@ hashed content.
 | Target `# Agent` | `# Agent` section |
 | `depends_on: ROOT/x/y` | `# Public` section of the referenced node |
 | `depends_on: ROOT/x/y(z)` | `## z` subsection of `# Public` of the referenced node |
-| `depends_on: ARTIFACT/x/y(id)` | Full content of the referenced artifact, excluding any frontmatter |
+| `depends_on: ARTIFACT/x/y` | Full content of the referenced artifact, excluding frontmatter and the artifact tag line |
 | `external` | Full content of the referenced file |
-| `input: ARTIFACT/x/y(id)` | Full content of the artifact file, excluding any frontmatter |
+| `input: ARTIFACT/x/y` | Full content of the artifact file, excluding frontmatter and the artifact tag line |
 
 ---
 
@@ -90,7 +104,7 @@ ROOT/external/database         [# Public]            → content hash D  (depend
 proto/payments/v1/transfers.proto [full]             → content hash E  (external)
 ROOT/payments/fees/calculation [# Public]            → content hash F  (target)
 ROOT/payments/fees/calculation [# Agent]             → content hash G  (target)
-ARTIFACT/functional/calc(calc) [file content]        → content hash H  (input)
+ARTIFACT/functional/calc       [file content]        → content hash H  (input)
 ```
 
 The chain hash is:
