@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/spec_tree/validate@Kiq-tzjPdJ0lj-yJtehxYDZLfYo -->
+<!-- code-from-spec: ROOT/functional/logic/spec_tree/validate@L55DnW6zEZJDzhXjAh0GpIi90Yg -->
 
 ## Namespace
 
@@ -59,9 +59,9 @@ function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of For
            detail: describing that only leaf nodes may have an Agent section
 
      Rule: dependency_targets
-       For each entry in frontmatter.depends_on:
-         If the entry starts with "ROOT/":
-           Call LogicalNameStripQualifier to get the bare logical name.
+       For each dep in frontmatter.depends_on:
+         If dep is exactly "ROOT" or starts with "ROOT/":
+           Call LogicalNameStripQualifier on dep to get the bare logical name.
            If the bare logical name is not in the known logical names set:
              Add a FormatError with rule "dependency_targets" and detail describing the unknown reference.
            Else if the bare logical name equals entry.logical_name:
@@ -71,8 +71,8 @@ function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of For
            Else if bare_name starts with entry.logical_name followed by "/":
              Add a FormatError with rule "dependency_targets" and detail describing descendant reference.
 
-         If the entry starts with "ARTIFACT/":
-           Call LogicalNameStripQualifier to get the bare reference (defensive).
+         If dep starts with "ARTIFACT/":
+           Call LogicalNameStripQualifier on dep to get the bare reference (defensive).
            If the bare reference is not in the known logical names set:
              Add a FormatError with rule "dependency_targets" and detail describing the unknown artifact reference.
 

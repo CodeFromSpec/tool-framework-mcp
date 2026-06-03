@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/chain/hash@HC4yv-CWM43-d7R-jNS7CmshI08 -->
+<!-- code-from-spec: ROOT/functional/logic/chain/hash@khtf1BKa4CXTPvv1qMLPsEb2w7c -->
 
 function ChainHashCompute(chain: chainresolver.Chain) -> string
   errors:

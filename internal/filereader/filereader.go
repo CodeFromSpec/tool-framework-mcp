@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_reader@5IQrGChGNsogWRfbLFUFWWBSJOI
+// code-from-spec: ROOT/golang/implementation/os/file_reader@JVDMwiL2goVNQ--e9eF_BIz7W5A
 package filereader
 
 import (
@@ -11,7 +11,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-var ErrFileUnreadable = errors.New("file cannot be opened")
+var ErrFileUnreadable = errors.New("file unreadable")
 var ErrEndOfFile = errors.New("end of file")
 
 type FileReader struct {
@@ -21,8 +21,12 @@ type FileReader struct {
 	closed  bool
 }
 
-func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error) {
-	osPath, err := pathutils.PathCfsToOs(cfs_path)
+func FileOpen(cfsPath *pathutils.PathCfs) (*FileReader, error) {
+	if cfsPath == nil {
+		return nil, fmt.Errorf("%w: nil path", ErrFileUnreadable)
+	}
+
+	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +39,7 @@ func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error) {
 	scanner := bufio.NewScanner(f)
 
 	return &FileReader{
-		CfsPath: *cfs_path,
+		CfsPath: *cfsPath,
 		file:    f,
 		scanner: scanner,
 		closed:  false,
@@ -43,14 +47,11 @@ func FileOpen(cfs_path *pathutils.PathCfs) (*FileReader, error) {
 }
 
 func FileReadLine(reader *FileReader) (string, error) {
-	if reader.closed {
+	if reader == nil || reader.closed {
 		return "", ErrEndOfFile
 	}
 
 	if !reader.scanner.Scan() {
-		if err := reader.scanner.Err(); err != nil {
-			return "", fmt.Errorf("%w: %s", ErrEndOfFile, err)
-		}
 		return "", ErrEndOfFile
 	}
 
@@ -60,22 +61,26 @@ func FileReadLine(reader *FileReader) (string, error) {
 }
 
 func FileSkipLines(reader *FileReader, count int) {
-	if reader.closed {
+	if reader == nil || reader.closed {
 		return
 	}
 
 	for i := 0; i < count; i++ {
 		_, err := FileReadLine(reader)
 		if err != nil {
+			if errors.Is(err, ErrEndOfFile) {
+				return
+			}
 			return
 		}
 	}
 }
 
 func FileClose(reader *FileReader) {
-	if reader.closed {
+	if reader == nil || reader.closed {
 		return
 	}
+
 	reader.file.Close()
 	reader.closed = true
 }

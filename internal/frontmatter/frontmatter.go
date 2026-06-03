@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/parsing/frontmatter@b6FiWCzdItRlxB2jEWdAjKb3Pn4
+// code-from-spec: ROOT/golang/implementation/parsing/frontmatter@qTNGMpnpZnYkFN_W0OaI0M5gI3U
 package frontmatter
 
 import (
@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/goccy/go-yaml"
-
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/goccy/go-yaml"
 )
 
 var ErrFileUnreadable = errors.New("file unreadable")
@@ -27,7 +26,7 @@ type Frontmatter struct {
 }
 
 type rawExternal struct {
-	Path *string `yaml:"path"`
+	Path string `yaml:"path"`
 }
 
 type rawFrontmatter struct {
@@ -37,13 +36,10 @@ type rawFrontmatter struct {
 	Output    string        `yaml:"output"`
 }
 
-func FrontmatterParse(file_path *pathutils.PathCfs) (*Frontmatter, error) {
-	reader, err := filereader.FileOpen(file_path)
+func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
+	reader, err := filereader.FileOpen(filePath)
 	if err != nil {
-		if errors.Is(err, filereader.ErrFileUnreadable) {
-			return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
-		}
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	firstLine, err := filereader.FileReadLine(reader)
@@ -53,7 +49,7 @@ func FrontmatterParse(file_path *pathutils.PathCfs) (*Frontmatter, error) {
 			return &Frontmatter{}, nil
 		}
 		filereader.FileClose(reader)
-		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	if firstLine != "---" {
@@ -67,10 +63,10 @@ func FrontmatterParse(file_path *pathutils.PathCfs) (*Frontmatter, error) {
 		if err != nil {
 			if errors.Is(err, filereader.ErrEndOfFile) {
 				filereader.FileClose(reader)
-				return nil, fmt.Errorf("%w: frontmatter not closed", ErrMalformedYAML)
+				return nil, fmt.Errorf("%w: unterminated frontmatter block", ErrMalformedYAML)
 			}
 			filereader.FileClose(reader)
-			return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
 		if line == "---" {
 			break
@@ -80,11 +76,9 @@ func FrontmatterParse(file_path *pathutils.PathCfs) (*Frontmatter, error) {
 
 	filereader.FileClose(reader)
 
-	yamlContent := strings.Join(lines, "\n")
-
-	var raw rawFrontmatter
-	if err := yaml.Unmarshal([]byte(yamlContent), &raw); err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrMalformedYAML, err)
+	raw := rawFrontmatter{}
+	if err := yaml.Unmarshal([]byte(strings.Join(lines, "\n")), &raw); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrMalformedYAML, err)
 	}
 
 	fm := &Frontmatter{
@@ -97,11 +91,11 @@ func FrontmatterParse(file_path *pathutils.PathCfs) (*Frontmatter, error) {
 		fm.DependsOn = []string{}
 	}
 
-	for _, ext := range raw.External {
-		if ext.Path == nil {
-			return nil, fmt.Errorf("%w: external entry missing path field", ErrMalformedYAML)
+	for _, e := range raw.External {
+		if e.Path == "" {
+			return nil, fmt.Errorf("%w: external entry missing required path field", ErrMalformedYAML)
 		}
-		fm.External = append(fm.External, &FrontmatterExternal{Path: *ext.Path})
+		fm.External = append(fm.External, &FrontmatterExternal{Path: e.Path})
 	}
 
 	if fm.External == nil {

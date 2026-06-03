@@ -112,11 +112,23 @@ at `file_path` with `FileOpen`. If `FileOpen` fails,
 raise "file unreadable". Check if the first line is
 exactly `---`. If so, read lines until the next `---`
 line (closing delimiter), discarding the frontmatter.
-Read the remaining lines. Append `\n` after each line.
-Compute SHA-1. Call `FileClose`.
+Read the remaining lines.
 
-If the first line is not `---`, read all lines, append
-`\n` after each, compute SHA-1. Call `FileClose`.
+Before computing the hash, neutralize the artifact tag:
+for any line matching the pattern
+`code-from-spec: <anything>@<27 base64url chars>`,
+replace the 27-character hash with 27 hyphens
+(`---------------------------`). The rest of the line
+(including the logical name) is preserved. This prevents
+staleness cascading when an upstream artifact is
+regenerated but its meaningful content has not changed.
+
+Append `\n` after each line. Compute SHA-1. Call
+`FileClose`.
+
+If the first line is not `---`, read all lines, apply
+the same artifact tag neutralization, append `\n` after
+each, compute SHA-1. Call `FileClose`.
 
 Call `FileClose` in all cases — including error paths.
 

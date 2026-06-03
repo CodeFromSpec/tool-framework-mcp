@@ -1,32 +1,31 @@
-// code-from-spec: ROOT/golang/implementation/utils/text_normalization@iKxTjSYfHkQgQ2j5X1cFJ48VeQw
+// code-from-spec: ROOT/golang/implementation/utils/text_normalization@UUHpkG5CZyXrXLRxIJQS3uCKZ1c
 package textnormalization
 
 import (
 	"strings"
-	"unicode"
 
 	"golang.org/x/text/cases"
 )
 
-func NormalizeText(raw string) string {
-	trimmed := strings.TrimFunc(raw, unicode.IsSpace)
-	if trimmed == "" {
-		return ""
-	}
+func NormalizeText(raw_string string) string {
+	trimmed := strings.TrimFunc(raw_string, func(r rune) bool {
+		return r == ' ' || r == '\t'
+	})
 
 	var builder strings.Builder
-	inSpace := false
+	inWhitespace := false
 	for _, r := range trimmed {
-		if unicode.IsSpace(r) {
-			if !inSpace {
+		if r == ' ' || r == '\t' {
+			if !inWhitespace {
 				builder.WriteRune(' ')
-				inSpace = true
+				inWhitespace = true
 			}
 		} else {
 			builder.WriteRune(r)
-			inSpace = false
+			inWhitespace = false
 		}
 	}
+
 	collapsed := builder.String()
 
 	caser := cases.Fold()

@@ -1,4 +1,5 @@
-// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@HVkKJ-4EvWuVLelTQy7EJKo5Wjg
+// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@NhcKg9teavpiFA3aHe-hus7vtBQ
+
 package artifacttag
 
 import (
@@ -11,8 +12,8 @@ import (
 )
 
 var ErrFileUnreadable = errors.New("file cannot be opened or read")
-var ErrNoTagFound = errors.New("no code-from-spec tag found")
-var ErrMalformedTag = errors.New("tag is malformed")
+var ErrNoTagFound = errors.New("file has no code-from-spec: substring")
+var ErrMalformedTag = errors.New("tag exists but cannot be parsed")
 
 type ArtifactTag struct {
 	LogicalName string
@@ -21,13 +22,10 @@ type ArtifactTag struct {
 
 const tagPrefix = "code-from-spec: "
 
-func ArtifactTagExtract(file_path *pathutils.PathCfs) (*ArtifactTag, error) {
-	reader, err := filereader.FileOpen(file_path)
+func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
+	reader, err := filereader.FileOpen(filePath)
 	if err != nil {
-		if errors.Is(err, filereader.ErrFileUnreadable) {
-			return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
-		}
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	var matchedLine string
@@ -39,34 +37,33 @@ func ArtifactTagExtract(file_path *pathutils.PathCfs) (*ArtifactTag, error) {
 				return nil, ErrNoTagFound
 			}
 			filereader.FileClose(reader)
-			return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
-
-		idx := strings.Index(line, tagPrefix)
-		if idx >= 0 {
-			matchedLine = line[idx+len(tagPrefix):]
+		if strings.Contains(line, tagPrefix) {
+			matchedLine = line
 			filereader.FileClose(reader)
 			break
 		}
 	}
 
-	portion := strings.TrimLeft(matchedLine, " \t")
+	idx := strings.Index(matchedLine, tagPrefix)
+	portion := matchedLine[idx+len(tagPrefix):]
+	portion = strings.TrimLeft(portion, " \t")
 
 	atIdx := strings.Index(portion, "@")
 	if atIdx < 0 {
-		return nil, fmt.Errorf("%w: missing @", ErrMalformedTag)
+		return nil, ErrMalformedTag
 	}
 
 	logicalName := portion[:atIdx]
 	if logicalName == "" {
-		return nil, fmt.Errorf("%w: empty logical name", ErrMalformedTag)
+		return nil, ErrMalformedTag
 	}
 
 	afterAt := portion[atIdx+1:]
 	if len(afterAt) < 27 {
-		return nil, fmt.Errorf("%w: hash too short", ErrMalformedTag)
+		return nil, ErrMalformedTag
 	}
-
 	hash := afterAt[:27]
 
 	return &ArtifactTag{

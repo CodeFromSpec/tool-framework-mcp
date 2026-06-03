@@ -117,6 +117,17 @@ Create an artifact file with frontmatter and body.
 Compute hash. Modify only the frontmatter. Recompute.
 Expect hashes are identical — frontmatter is stripped.
 
+#### ARTIFACT dependency — tag hash change ignored
+
+Create an artifact file with body containing an artifact
+tag line `// code-from-spec: ROOT/x/y@aAbBcCdDeEfFgGhHiIjJkKlLmMn`.
+Build Chain with ARTIFACT dependency pointing to that
+file. Compute hash. Change only the 27-character hash
+in the tag to a different value (e.g.
+`zZyYxXwWvVuUtTsSrRqQpPoOnNm`). Recompute. Expect
+hashes are identical — the tag hash is neutralized
+before hashing.
+
 ### External files
 
 #### External file — hashes all content

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/spec_tree/scan@7UOLI9wruaZK4ij7Fb6_ZPPlgLY
+// code-from-spec: ROOT/golang/tests/spec_tree/scan@DqZw5cidIDsrhn5q00PRMWLBgdM
 package spectree_test
 
 import (
@@ -29,59 +29,68 @@ func testChdir(t *testing.T, dir string) {
 func testMkdirAll(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(path, 0755); err != nil {
-		t.Fatalf("MkdirAll %q: %v", path, err)
+		t.Fatalf("testMkdirAll: %v", err)
 	}
 }
 
-func testWriteFile(t *testing.T, path string, content string) {
+func testWriteFile(t *testing.T, path string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("WriteFile %q: %v", path, err)
+	dir := path[:len(path)-len("/"+lastSegment(path))]
+	if dir != path {
+		testMkdirAll(t, dir)
 	}
+	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+		t.Fatalf("testWriteFile: %v", err)
+	}
+}
+
+func lastSegment(path string) string {
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '/' {
+			return path[i+1:]
+		}
+	}
+	return path
 }
 
 func TestSpecTreeScan_RootNodeOnly(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testMkdirAll(t, "code-from-spec")
-	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
+	testWriteFile(t, "code-from-spec/_node.md")
 
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 1 {
-		t.Fatalf("len = %d, want 1", len(nodes))
+		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("LogicalName = %q, want %q", nodes[0].LogicalName, "ROOT")
+		t.Errorf("expected logical_name=ROOT, got %q", nodes[0].LogicalName)
 	}
 	if nodes[0].FilePath.Value != "code-from-spec/_node.md" {
-		t.Errorf("FilePath = %q, want %q", nodes[0].FilePath.Value, "code-from-spec/_node.md")
+		t.Errorf("expected file_path=code-from-spec/_node.md, got %q", nodes[0].FilePath.Value)
 	}
 }
 
 func TestSpecTreeScan_RootAndNestedNodes(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testMkdirAll(t, "code-from-spec/a/b")
-	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "# ROOT/a\n")
-	testWriteFile(t, "code-from-spec/a/b/_node.md", "# ROOT/a/b\n")
+	testWriteFile(t, "code-from-spec/_node.md")
+	testWriteFile(t, "code-from-spec/a/_node.md")
+	testWriteFile(t, "code-from-spec/a/b/_node.md")
 
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 3 {
-		t.Fatalf("len = %d, want 3", len(nodes))
+		t.Fatalf("expected 3 nodes, got %d", len(nodes))
 	}
 
-	cases := []struct {
+	expected := []struct {
 		logicalName string
 		filePath    string
 	}{
@@ -89,77 +98,72 @@ func TestSpecTreeScan_RootAndNestedNodes(t *testing.T) {
 		{"ROOT/a", "code-from-spec/a/_node.md"},
 		{"ROOT/a/b", "code-from-spec/a/b/_node.md"},
 	}
-	for i, c := range cases {
-		if nodes[i].LogicalName != c.logicalName {
-			t.Errorf("nodes[%d].LogicalName = %q, want %q", i, nodes[i].LogicalName, c.logicalName)
+
+	for i, exp := range expected {
+		if nodes[i].LogicalName != exp.logicalName {
+			t.Errorf("nodes[%d].LogicalName: expected %q, got %q", i, exp.logicalName, nodes[i].LogicalName)
 		}
-		if nodes[i].FilePath.Value != c.filePath {
-			t.Errorf("nodes[%d].FilePath = %q, want %q", i, nodes[i].FilePath.Value, c.filePath)
+		if nodes[i].FilePath.Value != exp.filePath {
+			t.Errorf("nodes[%d].FilePath.Value: expected %q, got %q", i, exp.filePath, nodes[i].FilePath.Value)
 		}
 	}
 }
 
 func TestSpecTreeScan_IgnoresNonNodeFiles(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testMkdirAll(t, "code-from-spec/x")
-	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
-	testWriteFile(t, "code-from-spec/x/output.md", "some output\n")
+	testWriteFile(t, "code-from-spec/_node.md")
+	testWriteFile(t, "code-from-spec/x/output.md")
 
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 1 {
-		t.Fatalf("len = %d, want 1", len(nodes))
+		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("LogicalName = %q, want %q", nodes[0].LogicalName, "ROOT")
+		t.Errorf("expected logical_name=ROOT, got %q", nodes[0].LogicalName)
 	}
 }
 
 func TestSpecTreeScan_IgnoresDirectoriesWithoutNodeMd(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
+	testWriteFile(t, "code-from-spec/_node.md")
 	testMkdirAll(t, "code-from-spec/x/y")
-	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
 
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 1 {
-		t.Fatalf("len = %d, want 1", len(nodes))
+		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
 	if nodes[0].LogicalName != "ROOT" {
-		t.Errorf("LogicalName = %q, want %q", nodes[0].LogicalName, "ROOT")
+		t.Errorf("expected logical_name=ROOT, got %q", nodes[0].LogicalName)
 	}
 }
 
-func TestSpecTreeScan_ResultIsSortedByLogicalName(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestSpecTreeScan_ResultSortedByLogicalName(t *testing.T) {
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testMkdirAll(t, "code-from-spec/z")
-	testMkdirAll(t, "code-from-spec/a/b")
-	testWriteFile(t, "code-from-spec/z/_node.md", "# ROOT/z\n")
-	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
-	testWriteFile(t, "code-from-spec/a/b/_node.md", "# ROOT/a/b\n")
+	testWriteFile(t, "code-from-spec/z/_node.md")
+	testWriteFile(t, "code-from-spec/_node.md")
+	testWriteFile(t, "code-from-spec/a/b/_node.md")
 
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(nodes) != 3 {
-		t.Fatalf("len = %d, want 3", len(nodes))
+		t.Fatalf("expected 3 nodes, got %d", len(nodes))
 	}
 
-	cases := []struct {
+	expected := []struct {
 		logicalName string
 		filePath    string
 	}{
@@ -167,51 +171,57 @@ func TestSpecTreeScan_ResultIsSortedByLogicalName(t *testing.T) {
 		{"ROOT/a/b", "code-from-spec/a/b/_node.md"},
 		{"ROOT/z", "code-from-spec/z/_node.md"},
 	}
-	for i, c := range cases {
-		if nodes[i].LogicalName != c.logicalName {
-			t.Errorf("nodes[%d].LogicalName = %q, want %q", i, nodes[i].LogicalName, c.logicalName)
+
+	for i, exp := range expected {
+		if nodes[i].LogicalName != exp.logicalName {
+			t.Errorf("nodes[%d].LogicalName: expected %q, got %q", i, exp.logicalName, nodes[i].LogicalName)
 		}
-		if nodes[i].FilePath.Value != c.filePath {
-			t.Errorf("nodes[%d].FilePath = %q, want %q", i, nodes[i].FilePath.Value, c.filePath)
+		if nodes[i].FilePath.Value != exp.filePath {
+			t.Errorf("nodes[%d].FilePath.Value: expected %q, got %q", i, exp.filePath, nodes[i].FilePath.Value)
 		}
 	}
 }
 
 func TestSpecTreeScan_NoCodeFromSpecDirectory(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	_, err := spectree.SpecTreeScan()
 	if err == nil {
-		t.Fatalf("expected error, got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, listfiles.ErrDirectoryNotFound) {
-		t.Errorf("error = %v, want ErrDirectoryNotFound", err)
+		t.Errorf("expected ErrDirectoryNotFound, got %v", err)
 	}
 }
 
 func TestSpecTreeScan_EmptyCodeFromSpecDirectory(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	testMkdirAll(t, "code-from-spec")
 
 	_, err := spectree.SpecTreeScan()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
 	if !errors.Is(err, spectree.ErrNoNodesFound) {
-		t.Errorf("error = %v, want ErrNoNodesFound", err)
+		t.Errorf("expected ErrNoNodesFound, got %v", err)
 	}
 }
 
-func TestSpecTreeScan_OnlyNonNodeFilesInCodeFromSpec(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestSpecTreeScan_OnlyNonNodeFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testMkdirAll(t, "code-from-spec/x")
-	testWriteFile(t, "code-from-spec/README.md", "readme\n")
-	testWriteFile(t, "code-from-spec/x/output.md", "output\n")
+	testWriteFile(t, "code-from-spec/README.md")
+	testWriteFile(t, "code-from-spec/x/output.md")
 
 	_, err := spectree.SpecTreeScan()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
 	if !errors.Is(err, spectree.ErrNoNodesFound) {
-		t.Errorf("error = %v, want ErrNoNodesFound", err)
+		t.Errorf("expected ErrNoNodesFound, got %v", err)
 	}
 }

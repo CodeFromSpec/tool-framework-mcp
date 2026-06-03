@@ -131,9 +131,10 @@ Call `FileClose`.
 First, emit a reduced frontmatter block containing only
 the `output` field (formatted as YAML between `---`
 delimiters). Then call `NodeParse` with
-`chain.target.logical_name`. Include `# Public` raw
-heading, section content, all `## subsection` raw
-headings, and their content.
+`chain.target.logical_name`. If `node.public` is
+present, include `# Public` raw heading, section
+content, all `## subsection` raw headings, and their
+content. If absent, skip.
 
 **Target Agent**
 

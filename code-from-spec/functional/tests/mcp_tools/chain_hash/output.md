@@ -1,95 +1,104 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/chain_hash@nCwCkeTnF8A1_a5ZWLXyzsNMyH4 -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/chain_hash@0O8kf-roEzZ7-P94-oyYGqaqsrw -->
 
-# Test Specification: MCPChainHash
-
-## Test cases
-
-All tests create a spec tree on disk with `_node.md` files, then call `MCPChainHash`.
+## Test suite: MCPChainHash
 
 ---
 
 ### Happy path
 
+---
+
 #### Returns a 27-character hash
 
 Setup:
-- Create ROOT/_node.md with a public section.
-- Create ROOT/a/_node.md as a leaf with an output field.
+- Create a spec tree on disk:
+  - `ROOT/_node.md` with a public section.
+  - `ROOT/a/_node.md` as a leaf node with an output field.
 
-Action:
-- Call MCPChainHash with logical_name = "ROOT/a".
+Actions:
+1. Call `MCPChainHash` with `logical_name` = `"ROOT/a"`.
 
 Expected outcome:
-- Result is a string of exactly 27 characters.
+- The result is a string with exactly 27 characters.
 
 ---
 
 #### Hash is deterministic
 
 Setup:
-- Create ROOT/_node.md with a public section containing known content.
-- Create ROOT/a/_node.md as a leaf with an output field and known content.
+- Create a spec tree on disk with known, fixed content:
+  - `ROOT/_node.md` with a public section.
+  - `ROOT/a/_node.md` as a leaf node with an output field.
 
-Action:
-- Call MCPChainHash with logical_name = "ROOT/a".
-- Call MCPChainHash again with the same logical_name = "ROOT/a".
+Actions:
+1. Call `MCPChainHash` with `logical_name` = `"ROOT/a"`. Record the result as `hash1`.
+2. Call `MCPChainHash` again with `logical_name` = `"ROOT/a"`. Record the result as `hash2`.
 
 Expected outcome:
-- Both calls return the same string.
+- `hash1` equals `hash2`.
 
 ---
 
 #### Hash matches load_chain hash
 
 Setup:
-- Create ROOT/_node.md with a public section.
-- Create ROOT/a/_node.md as a leaf with an output field.
+- Create a spec tree on disk:
+  - `ROOT/_node.md` with a public section.
+  - `ROOT/a/_node.md` as a leaf node with an output field.
 
-Action:
-- Call MCPChainHash with logical_name = "ROOT/a" — capture result as hash_a.
-- Call MCPLoadChain with logical_name = "ROOT/a" — capture result.chain_hash as hash_b.
+Actions:
+1. Call `MCPChainHash` with `logical_name` = `"ROOT/a"`. Record the result as `chain_hash_result`.
+2. Call `MCPLoadChain` with `logical_name` = `"ROOT/a"`. Extract the `chain_hash` value from the returned document's first line.
 
 Expected outcome:
-- hash_a equals hash_b.
+- `chain_hash_result` equals the `chain_hash` extracted from `MCPLoadChain`.
 
 ---
 
 ### Error cases
 
+---
+
 #### Invalid logical name — not ROOT/
 
 Setup:
-- None.
+- No special disk setup required.
 
-Action:
-- Call MCPChainHash with logical_name = "INVALID/something".
+Actions:
+1. Call `MCPChainHash` with `logical_name` = `"INVALID/something"`.
 
 Expected outcome:
-- Error UnsupportedReference is raised (propagated from LogicalNameToPath).
+- An error is returned.
+- The error is `UnsupportedReference`, propagated from `LogicalNameToPath`.
 
 ---
 
 #### Nonexistent node file
 
 Setup:
-- No _node.md file exists at ROOT/nonexistent/.
+- Create a spec tree on disk:
+  - `ROOT/_node.md` with a public section.
+  - No `ROOT/nonexistent/_node.md` file exists.
 
-Action:
-- Call MCPChainHash with logical_name = "ROOT/nonexistent".
+Actions:
+1. Call `MCPChainHash` with `logical_name` = `"ROOT/nonexistent"`.
 
 Expected outcome:
-- Error FileUnreadable is raised (propagated from FrontmatterParse via FileReader).
+- An error is returned.
+- The error is `FileUnreadable`, propagated from `FrontmatterParse` via `FileReader`.
 
 ---
 
 #### No output declared
 
 Setup:
-- Create ROOT/_node.md with a public section.
-- Create ROOT/a/_node.md as a leaf with no output field.
+- Create a spec tree on disk:
+  - `ROOT/_node.md` with a public section.
+  - `ROOT/a/_node.md` as a leaf node without an output field.
 
-Action:
-- Call MCPChainHash with logical_name = "ROOT/a".
+Actions:
+1. Call `MCPChainHash` with `logical_name` = `"ROOT/a"`.
 
 Expected outcome:
-- Error NoOutput is raised.
+- An error is returned.
+- The error is `NoOutput`.

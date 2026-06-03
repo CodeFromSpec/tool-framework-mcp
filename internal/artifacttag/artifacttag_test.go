@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/parsing/artifact_tag@4RBjx-_GCCHGtpN4DTN_3AH1wzA
+// code-from-spec: ROOT/golang/tests/parsing/artifact_tag@n-eZ2EVyOJS_SOFdcUqaO371Z30
 package artifacttag_test
 
 import (
@@ -40,10 +40,10 @@ func TestArtifactTagExtract_SlashSlashComment(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if tag.LogicalName != "ROOT/golang/implementation/internal/foo/code(bar)" {
-		t.Errorf("logical name = %q, want %q", tag.LogicalName, "ROOT/golang/implementation/internal/foo/code(bar)")
+		t.Errorf("LogicalName = %q, want %q", tag.LogicalName, "ROOT/golang/implementation/internal/foo/code(bar)")
 	}
 	if tag.Hash != "abcdefghijklmnopqrstuvwxyza" {
-		t.Errorf("hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
+		t.Errorf("Hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
 	}
 }
 
@@ -61,10 +61,10 @@ func TestArtifactTagExtract_HashComment(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if tag.LogicalName != "ROOT/some/node(id)" {
-		t.Errorf("logical name = %q, want %q", tag.LogicalName, "ROOT/some/node(id)")
+		t.Errorf("LogicalName = %q, want %q", tag.LogicalName, "ROOT/some/node(id)")
 	}
 	if tag.Hash != "123456789012345678901234567" {
-		t.Errorf("hash = %q, want %q", tag.Hash, "123456789012345678901234567")
+		t.Errorf("Hash = %q, want %q", tag.Hash, "123456789012345678901234567")
 	}
 }
 
@@ -82,10 +82,10 @@ func TestArtifactTagExtract_HTMLComment(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if tag.LogicalName != "ROOT/docs/readme" {
-		t.Errorf("logical name = %q, want %q", tag.LogicalName, "ROOT/docs/readme")
+		t.Errorf("LogicalName = %q, want %q", tag.LogicalName, "ROOT/docs/readme")
 	}
 	if tag.Hash != "abcdefghijklmnopqrstuvwxyza" {
-		t.Errorf("hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
+		t.Errorf("Hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
 	}
 }
 
@@ -93,7 +93,7 @@ func TestArtifactTagExtract_StopsAtFirstMatch(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := "// code-from-spec: ROOT/first/node@abcdefghijklmnopqrstuvwxyza\n// code-from-spec: ROOT/second/node@bcdefghijklmnopqrstuvwxyzab\n"
+	content := "// code-from-spec: ROOT/first/node@abcdefghijklmnopqrstuvwxyza\n// code-from-spec: ROOT/second/node@zyxwvutsrqponmlkjihgfedcbaa\n"
 	if err := os.WriteFile("file.go", []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -103,10 +103,10 @@ func TestArtifactTagExtract_StopsAtFirstMatch(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if tag.LogicalName != "ROOT/first/node" {
-		t.Errorf("logical name = %q, want %q", tag.LogicalName, "ROOT/first/node")
+		t.Errorf("LogicalName = %q, want %q", tag.LogicalName, "ROOT/first/node")
 	}
 	if tag.Hash != "abcdefghijklmnopqrstuvwxyza" {
-		t.Errorf("hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
+		t.Errorf("Hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
 	}
 }
 
@@ -114,7 +114,7 @@ func TestArtifactTagExtract_TagOnNonFirstLine(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := "line one\nline two\n// code-from-spec: ROOT/x/y@abcdefghijklmnopqrstuvwxyza\n"
+	content := "line one\nline two\n// code-from-spec: ROOT/some/node@abcdefghijklmnopqrstuvwxyza\n"
 	if err := os.WriteFile("file.go", []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -123,15 +123,15 @@ func TestArtifactTagExtract_TagOnNonFirstLine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tag.LogicalName != "ROOT/x/y" {
-		t.Errorf("logical name = %q, want %q", tag.LogicalName, "ROOT/x/y")
+	if tag.LogicalName != "ROOT/some/node" {
+		t.Errorf("LogicalName = %q, want %q", tag.LogicalName, "ROOT/some/node")
 	}
 	if tag.Hash != "abcdefghijklmnopqrstuvwxyza" {
-		t.Errorf("hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
+		t.Errorf("Hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
 	}
 }
 
-func TestArtifactTagExtract_ExtraWhitespaceBeforeLogicalName(t *testing.T) {
+func TestArtifactTagExtract_ExtraWhitespace(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
@@ -145,10 +145,10 @@ func TestArtifactTagExtract_ExtraWhitespaceBeforeLogicalName(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if tag.LogicalName != "ROOT/x(y)" {
-		t.Errorf("logical name = %q, want %q", tag.LogicalName, "ROOT/x(y)")
+		t.Errorf("LogicalName = %q, want %q", tag.LogicalName, "ROOT/x(y)")
 	}
 	if tag.Hash != "abcdefghijklmnopqrstuvwxyza" {
-		t.Errorf("hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
+		t.Errorf("Hash = %q, want %q", tag.Hash, "abcdefghijklmnopqrstuvwxyza")
 	}
 }
 
@@ -156,13 +156,13 @@ func TestArtifactTagExtract_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	if err := os.WriteFile("empty.go", []byte(""), 0644); err != nil {
+	if err := os.WriteFile("empty.go", []byte{}, 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
 	_, err := artifacttag.ArtifactTagExtract(&pathutils.PathCfs{Value: "empty.go"})
 	if !errors.Is(err, artifacttag.ErrNoTagFound) {
-		t.Errorf("error = %v, want ErrNoTagFound", err)
+		t.Errorf("expected ErrNoTagFound, got %v", err)
 	}
 }
 
@@ -172,7 +172,7 @@ func TestArtifactTagExtract_FileDoesNotExist(t *testing.T) {
 
 	_, err := artifacttag.ArtifactTagExtract(&pathutils.PathCfs{Value: "nonexistent/file.go"})
 	if !errors.Is(err, artifacttag.ErrFileUnreadable) {
-		t.Errorf("error = %v, want ErrFileUnreadable", err)
+		t.Errorf("expected ErrFileUnreadable, got %v", err)
 	}
 }
 
@@ -182,7 +182,7 @@ func TestArtifactTagExtract_PropagatesPathErrors(t *testing.T) {
 
 	_, err := artifacttag.ArtifactTagExtract(&pathutils.PathCfs{Value: "../../outside"})
 	if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
-		t.Errorf("error = %v, want ErrDirectoryTraversal", err)
+		t.Errorf("expected ErrDirectoryTraversal, got %v", err)
 	}
 }
 
@@ -190,14 +190,14 @@ func TestArtifactTagExtract_NoTagInFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := "This is just a regular file.\nNo artifact tag here.\n"
+	content := "this file has no artifact tag\njust plain text\n"
 	if err := os.WriteFile("file.go", []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
 	_, err := artifacttag.ArtifactTagExtract(&pathutils.PathCfs{Value: "file.go"})
 	if !errors.Is(err, artifacttag.ErrNoTagFound) {
-		t.Errorf("error = %v, want ErrNoTagFound", err)
+		t.Errorf("expected ErrNoTagFound, got %v", err)
 	}
 }
 
@@ -212,7 +212,7 @@ func TestArtifactTagExtract_MalformedTag_NoAtSeparator(t *testing.T) {
 
 	_, err := artifacttag.ArtifactTagExtract(&pathutils.PathCfs{Value: "file.go"})
 	if !errors.Is(err, artifacttag.ErrMalformedTag) {
-		t.Errorf("error = %v, want ErrMalformedTag", err)
+		t.Errorf("expected ErrMalformedTag, got %v", err)
 	}
 }
 
@@ -227,7 +227,7 @@ func TestArtifactTagExtract_MalformedTag_EmptyLogicalName(t *testing.T) {
 
 	_, err := artifacttag.ArtifactTagExtract(&pathutils.PathCfs{Value: "file.go"})
 	if !errors.Is(err, artifacttag.ErrMalformedTag) {
-		t.Errorf("error = %v, want ErrMalformedTag", err)
+		t.Errorf("expected ErrMalformedTag, got %v", err)
 	}
 }
 
@@ -242,6 +242,6 @@ func TestArtifactTagExtract_MalformedTag_WrongHashLength(t *testing.T) {
 
 	_, err := artifacttag.ArtifactTagExtract(&pathutils.PathCfs{Value: "file.go"})
 	if !errors.Is(err, artifacttag.ErrMalformedTag) {
-		t.Errorf("error = %v, want ErrMalformedTag", err)
+		t.Errorf("expected ErrMalformedTag, got %v", err)
 	}
 }

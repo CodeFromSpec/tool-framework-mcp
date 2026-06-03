@@ -10,6 +10,11 @@ Language-agnostic: describes what to test, not how.
 
 - Use function names and error names from the interface,
   not language-specific constructs.
+- When referencing a record type defined in another
+  module, qualify it with the source namespace (e.g.
+  `spectreevalidate.FormatError`, not `FormatError`).
+  Records defined in the module under test are used
+  without qualifier.
 - Each test case has: setup (if needed), actions (what
   functions to call), and expected outcome.
 - Do not prescribe how to create test files, temp

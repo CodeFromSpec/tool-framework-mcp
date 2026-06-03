@@ -1,23 +1,18 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/scan@MXeKn6ZuauiO6hGkh_lSkQapD4A)
+[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/scan@Spp10luT63GO7Py3TN23dOfazk8)
 
 # Package `spectree`
 
-Import path: `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"`
-
-## Package Declaration
-
-```go
-package spectree
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"
 ```
 
-## Struct Definitions
+## Structs
 
 ```go
 package spectree
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// SpecTreeNode associates a logical name with the PathCfs of its _node.md file.
 type SpecTreeNode struct {
 	LogicalName string
 	FilePath    pathutils.PathCfs
@@ -34,14 +29,13 @@ import "errors"
 var ErrNoNodesFound = errors.New("no _node.md files found under code-from-spec/")
 ```
 
-## Function Signatures
+## Functions
 
 ```go
 package spectree
 
-// SpecTreeScan scans the code-from-spec/ directory for all _node.md files
-// and returns a SpecTreeNode for each one, sorted alphabetically by logical
-// name.
+// SpecTreeScan scans the code-from-spec/ directory relative to the project
+// root and returns all discovered nodes sorted alphabetically by logical name.
 func SpecTreeScan() ([]*SpecTreeNode, error)
 ```
 
@@ -62,9 +56,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	for _, n := range nodes {
-		fmt.Printf("%s -> %s\n", n.LogicalName, n.FilePath.Value)
+	for _, node := range nodes {
+		fmt.Printf("logical_name=%s file_path=%s\n", node.LogicalName, node.FilePath.Value)
 	}
 }
 ```

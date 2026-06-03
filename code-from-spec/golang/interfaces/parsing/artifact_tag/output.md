@@ -1,22 +1,16 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/artifact_tag@s9VIuXEVdYf5c4OCPW029VCSIdc)
+[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/artifact_tag@2MoMJHo8CjlhjeL-0_j6bt5izp4)
 
 # Package `artifacttag`
 
-Import path: `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/artifacttag"`
-
-## Package Declaration
-
-```go
-package artifacttag
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/artifacttag"
 ```
 
-## Struct Definitions
+## Structs
 
 ```go
 package artifacttag
 
-// ArtifactTag holds the parsed contents of a code-from-spec tag found
-// inside a generated file.
 type ArtifactTag struct {
 	LogicalName string
 	Hash        string
@@ -31,21 +25,25 @@ package artifacttag
 import "errors"
 
 var ErrFileUnreadable = errors.New("file cannot be opened or read")
-var ErrNoTagFound     = errors.New("no code-from-spec tag found")
-var ErrMalformedTag   = errors.New("tag is malformed")
+var ErrNoTagFound = errors.New("file has no code-from-spec: substring")
+var ErrMalformedTag = errors.New("tag exists but cannot be parsed")
 ```
 
-## Function Signatures
+## Functions
 
 ```go
 package artifacttag
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
-// ArtifactTagExtract scans the file at file_path line by line for a
-// code-from-spec: <logical-name>@<hash> tag. The tag may appear inside
-// any comment syntax. Returns the parsed ArtifactTag on success.
-func ArtifactTagExtract(file_path *pathutils.PathCfs) (*ArtifactTag, error)
+// ArtifactTagExtract scans the file at file_path for a code-from-spec tag
+// and returns the parsed ArtifactTag. The tag format is:
+//
+//	code-from-spec: <logical-name>@<hash>
+//
+// The tag may appear inside any comment syntax. Each line is scanned
+// for the pattern regardless of context.
+func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error)
 ```
 
 ## Usage Example
@@ -62,14 +60,14 @@ import (
 )
 
 func main() {
-	file := &pathutils.PathCfs{Value: "internal/filereader/filereader.go"}
+	cfsPath := &pathutils.PathCfs{Value: "internal/mypackage/myfile.go"}
 
-	tag, err := artifacttag.ArtifactTagExtract(file)
+	tag, err := artifacttag.ArtifactTagExtract(cfsPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("logical name:", tag.LogicalName)
-	fmt.Println("hash:", tag.Hash)
+	fmt.Println("Logical name:", tag.LogicalName)
+	fmt.Println("Hash:", tag.Hash)
 }
 ```

@@ -1,13 +1,9 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/list_files@E6eVzTLIZItumtyB5mMVu_kkLyM)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/list_files@tOSkxnqkn2xs472iabKReoSJgOc)
 
 # Package `listfiles`
 
-Import path: `import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/listfiles"`
-
-## Package Declaration
-
-```go
-package listfiles
+```
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/listfiles"
 ```
 
 ## Error Sentinels
@@ -18,10 +14,10 @@ package listfiles
 import "errors"
 
 var ErrDirectoryNotFound = errors.New("directory not found")
-var ErrWalkError         = errors.New("filesystem walk error")
+var ErrWalkError = errors.New("filesystem walk error")
 ```
 
-## Function Signatures
+## Functions
 
 ```go
 package listfiles
@@ -29,9 +25,9 @@ package listfiles
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
 // ListFiles returns all files (not directories) found recursively under
-// cfs_path, as PathCfs values sorted alphabetically. Returns an empty
-// slice if the directory exists but contains no files.
-func ListFiles(cfs_path *pathutils.PathCfs) ([]*pathutils.PathCfs, error)
+// the given directory, as PathCfs values sorted alphabetically.
+// Returns an empty list if the directory exists but contains no files.
+func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error)
 ```
 
 ## Usage Example
@@ -48,7 +44,7 @@ import (
 )
 
 func main() {
-	dir := &pathutils.PathCfs{Value: "code-from-spec"}
+	dir := &pathutils.PathCfs{Value: "internal/listfiles"}
 
 	files, err := listfiles.ListFiles(dir)
 	if err != nil {

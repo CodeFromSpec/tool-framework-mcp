@@ -1,269 +1,153 @@
-<!-- code-from-spec: ROOT/functional/tests/os/path_utils@nkiJhkS9B_zGsrPndTktR1KktHY -->
+<!-- code-from-spec: ROOT/functional/tests/os/path_utils@AGeNGnfMwkR78gBlmZ1kic4RMhM -->
 
 ## PathValidateCfs
 
-### valid simple relative path
+### Valid simple relative path
 
-Setup: none.
+Actions: Call `PathValidateCfs` with `"internal/config/config.go"`.
+Expected: No error.
 
-Action: call `PathValidateCfs` with `"internal/config/config.go"`.
+### Valid nested path
 
-Expected: no error is returned.
+Actions: Call `PathValidateCfs` with `"cmd/framework-mcp/main.go"`.
+Expected: No error.
 
----
+### Valid single filename
 
-### valid nested path
+Actions: Call `PathValidateCfs` with `"main.go"`.
+Expected: No error.
 
-Setup: none.
+### Accepts path with dot segment
 
-Action: call `PathValidateCfs` with `"cmd/framework-mcp/main.go"`.
+Actions: Call `PathValidateCfs` with `"internal/./config/config.go"`.
+Expected: No error — dot resolves harmlessly.
 
-Expected: no error is returned.
+### Accepts traversal that resolves within root
 
----
+Actions: Call `PathValidateCfs` with `"a/b/../c"`.
+Expected: No error — after normalization this becomes `"a/c"` which has no `..` components.
 
-### valid single filename
+### Accepts path with trailing slash
 
-Setup: none.
+Actions: Call `PathValidateCfs` with `"internal/config/"`.
+Expected: No error.
 
-Action: call `PathValidateCfs` with `"main.go"`.
+### Accepts path with duplicate slashes
 
-Expected: no error is returned.
+Actions: Call `PathValidateCfs` with `"internal//config//file.go"`.
+Expected: No error.
 
----
+### Rejects empty string
 
-### accepts path with dot segment
+Actions: Call `PathValidateCfs` with `""`.
+Expected: Error PathEmpty.
 
-Setup: none.
+### Rejects absolute path with leading slash
 
-Action: call `PathValidateCfs` with `"internal/./config/config.go"`.
+Actions: Call `PathValidateCfs` with `"/etc/passwd"`.
+Expected: Error PathAbsolute.
 
-Expected: no error is returned — a single dot resolves harmlessly.
+### Rejects absolute path with drive letter
 
----
+Actions: Call `PathValidateCfs` with `"C:/Windows/system32"`.
+Expected: Error PathAbsolute.
 
-### accepts traversal that resolves within root
+### Rejects backslash
 
-Setup: none.
+Actions: Call `PathValidateCfs` with `"internal\config\config.go"`.
+Expected: Error PathContainsBackslash.
 
-Action: call `PathValidateCfs` with `"a/b/../c"`.
+### Rejects simple traversal
 
-Expected: no error is returned — after normalization the path becomes `"a/c"`, which contains no `..` components.
+Actions: Call `PathValidateCfs` with `"../../etc/passwd"`.
+Expected: Error DirectoryTraversal.
 
----
+### Rejects embedded traversal
 
-### accepts path with trailing slash
-
-Setup: none.
-
-Action: call `PathValidateCfs` with `"internal/config/"`.
-
-Expected: no error is returned.
-
----
-
-### accepts path with duplicate slashes
-
-Setup: none.
-
-Action: call `PathValidateCfs` with `"internal//config//file.go"`.
-
-Expected: no error is returned.
-
----
-
-### rejects empty string
-
-Setup: none.
-
-Action: call `PathValidateCfs` with `""`.
-
-Expected: error PathEmpty is returned.
-
----
-
-### rejects absolute path with leading slash
-
-Setup: none.
-
-Action: call `PathValidateCfs` with `"/etc/passwd"`.
-
-Expected: error PathAbsolute is returned.
-
----
-
-### rejects absolute path with drive letter
-
-Setup: none.
-
-Action: call `PathValidateCfs` with `"C:/Windows/system32"`.
-
-Expected: error PathAbsolute is returned.
-
----
-
-### rejects backslash
-
-Setup: none.
-
-Action: call `PathValidateCfs` with `"internal\config\config.go"`.
-
-Expected: error PathContainsBackslash is returned.
-
----
-
-### rejects simple traversal
-
-Setup: none.
-
-Action: call `PathValidateCfs` with `"../../etc/passwd"`.
-
-Expected: error DirectoryTraversal is returned.
-
----
-
-### rejects embedded traversal
-
-Setup: none.
-
-Action: call `PathValidateCfs` with `"internal/../../outside/file.go"`.
-
-Expected: error DirectoryTraversal is returned.
+Actions: Call `PathValidateCfs` with `"internal/../../outside/file.go"`.
+Expected: Error DirectoryTraversal.
 
 ---
 
 ## PathCfsToOs
 
-### converts valid path that exists
+### Converts valid path that exists
 
-Setup: a file exists at `"internal/config/config.go"` inside the project root.
+Setup: Create a file at `"internal/config/config.go"` inside the project root.
+Actions: Call `PathCfsToOs` with `"internal/config/config.go"`.
+Expected: Success — a `PathOs` that is absolute and ends with the OS-specific equivalent of that path.
 
-Action: call `PathCfsToOs` with `"internal/config/config.go"`.
+### Converts valid path that does not exist
 
-Expected: no error is returned. The result is a `PathOs` that is absolute and ends with the OS-specific equivalent of `internal/config/config.go`.
+Setup: No file at `"internal/newdir/newfile.go"`.
+Actions: Call `PathCfsToOs` with `"internal/newdir/newfile.go"`.
+Expected: Success — a `PathOs` that is absolute and ends with the OS-specific equivalent of that path.
 
----
+### Converts path with duplicate slashes
 
-### converts valid path that does not exist
+Actions: Call `PathCfsToOs` with `"internal//config.go"`.
+Expected: Success — the path is normalized.
 
-Setup: no file exists at `"internal/newdir/newfile.go"`.
+### Rejects invalid CfsPath
 
-Action: call `PathCfsToOs` with `"internal/newdir/newfile.go"`.
+Actions: Call `PathCfsToOs` with `"../../etc/passwd"`.
+Expected: Error DirectoryTraversal.
 
-Expected: no error is returned. The result is a `PathOs` that is absolute and ends with the OS-specific equivalent of `internal/newdir/newfile.go`.
+### Rejects symlink escaping project root
 
----
+Setup: Create a directory outside the project root with a file inside it. Create a symlink inside the project root pointing to that outside file.
+Actions: Call `PathCfsToOs` with a path through the symlink.
+Expected: Error ResolvesOutsideRoot.
 
-### converts path with duplicate slashes
+### Roundtrip: CfsToOs then OsToCfs
 
-Setup: none.
-
-Action: call `PathCfsToOs` with `"internal//config.go"`.
-
-Expected: no error is returned. The path is normalized before conversion.
-
----
-
-### rejects invalid CfsPath
-
-Setup: none.
-
-Action: call `PathCfsToOs` with `"../../etc/passwd"`.
-
-Expected: error DirectoryTraversal is returned. No conversion is attempted.
-
----
-
-### rejects symlink escaping project root
-
-Setup: a symlink exists inside the project root whose target resolves to a directory outside the project root.
-
-Action: call `PathCfsToOs` with a path that traverses through that symlink.
-
-Expected: error ResolvesOutsideRoot is returned.
-
----
-
-### roundtrip: CfsToOs then OsToCfs
-
-Setup: none.
-
-Action:
-1. Call `PathCfsToOs` with `"internal/config/config.go"` to obtain a `PathOs`.
-2. Call `PathOsToCfs` with that `PathOs`.
-
-Expected: no error at either step. The final `PathCfs` value equals `"internal/config/config.go"`.
+Actions:
+  1. Call `PathCfsToOs` with `"internal/config/config.go"` to get a `PathOs`.
+  2. Call `PathOsToCfs` with that `PathOs`.
+Expected: The final `PathCfs` value equals `"internal/config/config.go"`.
 
 ---
 
 ## PathOsToCfs
 
-### converts valid OS path that exists
+### Converts valid OS path that exists
 
-Setup: a file exists inside the project root. Its absolute OS path is known.
+Setup: Create a file inside the project root. Construct its absolute OS path.
+Actions: Call `PathOsToCfs` with that absolute OS path.
+Expected: Success — a `PathCfs` with forward slashes, relative to the project root.
 
-Action: call `PathOsToCfs` with that absolute OS path.
+### Converts valid OS path that does not exist
 
-Expected: no error is returned. The result is a `PathCfs` using forward slashes, relative to the project root, matching the file's location.
+Setup: Construct an absolute OS path to a file that does not exist but is within the project root.
+Actions: Call `PathOsToCfs` with that path.
+Expected: Success — a `PathCfs` with forward slashes relative to the project root.
 
----
+### Result uses forward slashes
 
-### converts valid OS path that does not exist
+Actions: Call `PathOsToCfs` with a valid absolute OS path within the project root.
+Expected: The resulting `PathCfs` contains no backslashes.
 
-Setup: an absolute OS path is constructed for a file that does not exist but is within the project root.
+### Symlink within root resolving within root
 
-Action: call `PathOsToCfs` with that path.
+Setup: Create a file inside the project root. Create a symlink inside the project root pointing to that file.
+Actions: Call `PathOsToCfs` with the symlink path.
+Expected: Success.
 
-Expected: no error is returned. The result is a `PathCfs` using forward slashes, relative to the project root.
+### Rejects path outside project root
 
----
-
-### result uses forward slashes
-
-Setup: none.
-
-Action: call `PathOsToCfs` with any valid absolute OS path within the project root.
-
-Expected: no error is returned. The resulting `PathCfs` value contains no backslash characters, regardless of the operating system.
-
----
-
-### symlink within root resolving within root
-
-Setup: a symlink exists inside the project root pointing to another location that is also inside the project root.
-
-Action: call `PathOsToCfs` with the absolute OS path of that symlink.
-
-Expected: no error is returned. The result is a valid `PathCfs`.
-
----
-
-### rejects path outside project root
-
-Setup: none.
-
-Action: call `PathOsToCfs` with an absolute OS path that is not within the project root.
-
-Expected: error ResolvesOutsideRoot is returned.
+Actions: Call `PathOsToCfs` with an absolute OS path that is outside the project root.
+Expected: Error ResolvesOutsideRoot.
 
 ---
 
 ## PathGetProjectRoot
 
-### returns an absolute path
+### Returns an absolute path
 
-Setup: none.
+Actions: Call `PathGetProjectRoot`.
+Expected: The result is a `PathOs` that is a non-empty absolute path.
 
-Action: call `PathGetProjectRoot`.
+### Matches working directory
 
-Expected: no error is returned. The result is a `PathOs` that is non-empty and absolute.
-
----
-
-### matches working directory
-
-Setup: none.
-
-Action: call `PathGetProjectRoot`.
-
-Expected: no error is returned. The result corresponds to the current working directory of the process.
+Actions: Call `PathGetProjectRoot`.
+Expected: The result corresponds to the current working directory of the process.

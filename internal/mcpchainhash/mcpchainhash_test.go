@@ -1,10 +1,10 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/chain_hash@rSsNU-IeOTc4OOiKANTvrT3fw9I
+// code-from-spec: ROOT/golang/tests/mcp_tools/chain_hash@DeP64QBrGm3Z7mSSo7AAkpGNMoA
 package mcpchainhash_test
 
 import (
 	"errors"
 	"os"
-	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
@@ -29,118 +29,112 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func testWriteFile(t *testing.T, name string, content string) {
+func testWriteFile(t *testing.T, path string, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(name), 0755); err != nil {
-		t.Fatalf("testWriteFile mkdir: %v", err)
+	dir := path[:strings.LastIndex(path, "/")]
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("testWriteFile MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(name, []byte(content), 0644); err != nil {
-		t.Fatalf("testWriteFile write: %v", err)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteFile WriteFile: %v", err)
 	}
 }
 
-func testWriteNode(t *testing.T, logicalName string, content string) {
+func testSetupBasicTree(t *testing.T) {
 	t.Helper()
-	path := filepath.Join("code-from-spec", filepath.FromSlash(logicalName[len("ROOT"):]), "_node.md")
-	testWriteFile(t, path, content)
+	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# ROOT\n\nPublic section.\n")
+	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: some/output.go\n---\n# ROOT/a\n\nLeaf node.\n")
 }
 
-func TestMCPChainHash_Returns27CharacterHash(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPChainHash_Returns27CharHash(t *testing.T) {
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
+	testSetupBasicTree(t)
 
-	testWriteNode(t, "ROOT", "# ROOT\n\n# Public\n\nPublic content.\n")
-	testWriteNode(t, "ROOT/a", "---\noutput: out/a.go\n---\n# ROOT/a\n\n# Public\n\nLeaf content.\n")
-
-	hash, err := mcpchainhash.MCPChainHash("ROOT/a")
+	result, err := mcpchainhash.MCPChainHash("ROOT/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(hash) != 27 {
-		t.Errorf("expected 27-character hash, got %d characters: %q", len(hash), hash)
+	if len(result) != 27 {
+		t.Errorf("expected 27-character hash, got %d characters: %q", len(result), result)
 	}
 }
 
 func TestMCPChainHash_IsDeterministic(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	testWriteNode(t, "ROOT", "# ROOT\n\n# Public\n\nKnown public content.\n")
-	testWriteNode(t, "ROOT/a", "---\noutput: out/a.go\n---\n# ROOT/a\n\n# Public\n\nKnown leaf content.\n")
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
+	testSetupBasicTree(t)
 
 	hash1, err := mcpchainhash.MCPChainHash("ROOT/a")
 	if err != nil {
-		t.Fatalf("first call unexpected error: %v", err)
+		t.Fatalf("unexpected error on first call: %v", err)
 	}
+
 	hash2, err := mcpchainhash.MCPChainHash("ROOT/a")
 	if err != nil {
-		t.Fatalf("second call unexpected error: %v", err)
+		t.Fatalf("unexpected error on second call: %v", err)
 	}
+
 	if hash1 != hash2 {
-		t.Errorf("expected deterministic hash, got %q and %q", hash1, hash2)
+		t.Errorf("hash is not deterministic: %q != %q", hash1, hash2)
 	}
 }
 
 func TestMCPChainHash_MatchesLoadChainHash(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
+	testSetupBasicTree(t)
 
-	testWriteNode(t, "ROOT", "# ROOT\n\n# Public\n\nPublic content.\n")
-	testWriteNode(t, "ROOT/a", "---\noutput: out/a.go\n---\n# ROOT/a\n\n# Public\n\nLeaf content.\n")
-
-	hashA, err := mcpchainhash.MCPChainHash("ROOT/a")
+	chainHashResult, err := mcpchainhash.MCPChainHash("ROOT/a")
 	if err != nil {
-		t.Fatalf("MCPChainHash unexpected error: %v", err)
+		t.Fatalf("MCPChainHash error: %v", err)
 	}
 
-	result, err := mcploadchain.MCPLoadChain("ROOT/a")
+	loadChainResult, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
-		t.Fatalf("MCPLoadChain unexpected error: %v", err)
+		t.Fatalf("MCPLoadChain error: %v", err)
 	}
 
-	if hashA != result.ChainHash {
-		t.Errorf("hash mismatch: MCPChainHash=%q, MCPLoadChain.ChainHash=%q", hashA, result.ChainHash)
+	if chainHashResult != loadChainResult.ChainHash {
+		t.Errorf("hash mismatch: MCPChainHash=%q, MCPLoadChain.ChainHash=%q", chainHashResult, loadChainResult.ChainHash)
 	}
 }
 
 func TestMCPChainHash_InvalidLogicalName(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
 	_, err := mcpchainhash.MCPChainHash("INVALID/something")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
-		t.Errorf("expected ErrUnsupportedReference, got %v", err)
+		t.Errorf("expected ErrUnsupportedReference, got: %v", err)
 	}
 }
 
 func TestMCPChainHash_NonexistentNodeFile(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
+	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# ROOT\n\nPublic section.\n")
 
 	_, err := mcpchainhash.MCPChainHash("ROOT/nonexistent")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, frontmatter.ErrFileUnreadable) {
-		t.Errorf("expected frontmatter.ErrFileUnreadable, got %v", err)
+		t.Errorf("expected ErrFileUnreadable, got: %v", err)
 	}
 }
 
 func TestMCPChainHash_NoOutputDeclared(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	testWriteNode(t, "ROOT", "# ROOT\n\n# Public\n\nPublic content.\n")
-	testWriteNode(t, "ROOT/a", "# ROOT/a\n\n# Public\n\nLeaf content.\n")
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
+	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# ROOT\n\nPublic section.\n")
+	testWriteFile(t, "code-from-spec/a/_node.md", "---\n---\n# ROOT/a\n\nLeaf node without output.\n")
 
 	_, err := mcpchainhash.MCPChainHash("ROOT/a")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, mcpchainhash.ErrNoOutput) {
-		t.Errorf("expected ErrNoOutput, got %v", err)
+		t.Errorf("expected ErrNoOutput, got: %v", err)
 	}
 }
