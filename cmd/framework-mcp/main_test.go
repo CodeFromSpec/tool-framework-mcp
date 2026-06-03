@@ -1,8 +1,9 @@
-// code-from-spec: ROOT/golang/tests/server@20pHBROsnbKM0AEsiPVAWLEmq6Q
+// code-from-spec: ROOT/golang/tests/server@VFEb0ev5LZzbIlGkTYaWqOSLBoo
 package main_test
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,64 +17,64 @@ import (
 var testBinaryPath string
 
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "framework-mcp-test-*")
+	tmpDir, err := os.MkdirTemp("", "framework-mcp-test-*")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "TestMain: create temp dir: %v\n", err)
+		fmt.Fprintln(os.Stderr, "failed to create temp dir:", err)
 		os.Exit(1)
 	}
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(tmpDir)
 
 	binaryName := "framework-mcp"
 	if runtime.GOOS == "windows" {
 		binaryName += ".exe"
 	}
-	testBinaryPath = filepath.Join(dir, binaryName)
+	testBinaryPath = filepath.Join(tmpDir, binaryName)
 
 	cmd := exec.Command("go", "build", "-o", testBinaryPath, ".")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "TestMain: build binary: %v\n", err)
+		fmt.Fprintln(os.Stderr, "failed to build binary:", err)
 		os.Exit(1)
 	}
 
 	os.Exit(m.Run())
 }
 
-func TestHelpFlagPrintsUsageToStdout(t *testing.T) {
+func TestHelpFlag(t *testing.T) {
 	cmd := exec.Command(testBinaryPath, "--help")
-	out, err := cmd.Output()
+	stdout, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("expected exit 0, got: %v", err)
+		t.Fatalf("expected exit 0, got error: %v", err)
 	}
-	if !strings.Contains(string(out), "Usage:") {
-		t.Errorf("stdout does not contain usage message, got: %s", string(out))
+	if !strings.Contains(string(stdout), "Usage:") {
+		t.Errorf("expected usage message in stdout, got: %s", stdout)
 	}
 }
 
-func TestHelpWordPrintsUsageToStdout(t *testing.T) {
+func TestHelpWord(t *testing.T) {
 	cmd := exec.Command(testBinaryPath, "help")
-	out, err := cmd.Output()
+	stdout, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("expected exit 0, got: %v", err)
+		t.Fatalf("expected exit 0, got error: %v", err)
 	}
-	if !strings.Contains(string(out), "Usage:") {
-		t.Errorf("stdout does not contain usage message, got: %s", string(out))
+	if !strings.Contains(string(stdout), "Usage:") {
+		t.Errorf("expected usage message in stdout, got: %s", stdout)
 	}
 }
 
-func TestShortHelpFlagPrintsUsageToStdout(t *testing.T) {
+func TestShortHelpFlag(t *testing.T) {
 	cmd := exec.Command(testBinaryPath, "-h")
-	out, err := cmd.Output()
+	stdout, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("expected exit 0, got: %v", err)
+		t.Fatalf("expected exit 0, got error: %v", err)
 	}
-	if !strings.Contains(string(out), "Usage:") {
-		t.Errorf("stdout does not contain usage message, got: %s", string(out))
+	if !strings.Contains(string(stdout), "Usage:") {
+		t.Errorf("expected usage message in stdout, got: %s", stdout)
 	}
 }
 
-func TestUnrecognizedArgumentPrintsUsageToStderr(t *testing.T) {
+func TestUnrecognizedArgument(t *testing.T) {
 	cmd := exec.Command(testBinaryPath, "something")
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
@@ -86,11 +87,11 @@ func TestUnrecognizedArgumentPrintsUsageToStderr(t *testing.T) {
 		t.Fatalf("expected exit code 1, got: %v", err)
 	}
 	if !strings.Contains(stderr.String(), "Usage:") {
-		t.Errorf("stderr does not contain usage message, got: %s", stderr.String())
+		t.Errorf("expected usage message in stderr, got: %s", stderr.String())
 	}
 }
 
-func TestMultipleArgumentsPrintsUsageToStderr(t *testing.T) {
+func TestMultipleArguments(t *testing.T) {
 	cmd := exec.Command(testBinaryPath, "foo", "bar")
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
@@ -103,81 +104,16 @@ func TestMultipleArgumentsPrintsUsageToStderr(t *testing.T) {
 		t.Fatalf("expected exit code 1, got: %v", err)
 	}
 	if !strings.Contains(stderr.String(), "Usage:") {
-		t.Errorf("stderr does not contain usage message, got: %s", stderr.String())
+		t.Errorf("expected usage message in stderr, got: %s", stderr.String())
 	}
 }
 
-type testMCPProcess struct {
-	cmd    *exec.Cmd
-	stdin  *os.File
-	stdout *bufio.Reader
-	nextID int
-}
-
-func testStartMCPProcess(t *testing.T) *testMCPProcess {
+func testMCPHandshake(t *testing.T, stdin *bufio.Writer, stdout *bufio.Reader) {
 	t.Helper()
-
-	stdinR, stdinW, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("testStartMCPProcess: create stdin pipe: %v", err)
-	}
-	stdoutR, stdoutW, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("testStartMCPProcess: create stdout pipe: %v", err)
-	}
-
-	cmd := exec.Command(testBinaryPath)
-	cmd.Stdin = stdinR
-	cmd.Stdout = stdoutW
-
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("testStartMCPProcess: start binary: %v", err)
-	}
-
-	stdinR.Close()
-	stdoutW.Close()
-
-	p := &testMCPProcess{
-		cmd:    cmd,
-		stdin:  stdinW,
-		stdout: bufio.NewReader(stdoutR),
-		nextID: 1,
-	}
-
-	t.Cleanup(func() {
-		p.stdin.Close()
-		cmd.Wait()
-	})
-
-	return p
-}
-
-func (p *testMCPProcess) testSendLine(t *testing.T, line string) {
-	t.Helper()
-	_, err := fmt.Fprintln(p.stdin, line)
-	if err != nil {
-		t.Fatalf("testSendLine: %v", err)
-	}
-}
-
-func (p *testMCPProcess) testReadLine(t *testing.T) string {
-	t.Helper()
-	line, err := p.stdout.ReadString('\n')
-	if err != nil {
-		t.Fatalf("testReadLine: %v", err)
-	}
-	return strings.TrimRight(line, "\r\n")
-}
-
-func (p *testMCPProcess) testHandshake(t *testing.T) {
-	t.Helper()
-
-	id := p.nextID
-	p.nextID++
 
 	initReq := map[string]any{
 		"jsonrpc": "2.0",
-		"id":      id,
+		"id":      1,
 		"method":  "initialize",
 		"params": map[string]any{
 			"protocolVersion": "2024-11-05",
@@ -187,116 +123,178 @@ func (p *testMCPProcess) testHandshake(t *testing.T) {
 			},
 		},
 	}
-	b, err := json.Marshal(initReq)
+	line, err := json.Marshal(initReq)
 	if err != nil {
-		t.Fatalf("testHandshake: marshal initialize: %v", err)
+		t.Fatalf("marshal initialize: %v", err)
 	}
-	p.testSendLine(t, string(b))
-	p.testReadLine(t)
+	if _, err := fmt.Fprintf(stdin, "%s\n", line); err != nil {
+		t.Fatalf("write initialize: %v", err)
+	}
+	if err := stdin.Flush(); err != nil {
+		t.Fatalf("flush initialize: %v", err)
+	}
+
+	respLine, err := stdout.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read initialize response: %v", err)
+	}
+	var initResp map[string]any
+	if err := json.Unmarshal([]byte(respLine), &initResp); err != nil {
+		t.Fatalf("unmarshal initialize response: %v", err)
+	}
 
 	notif := map[string]any{
 		"jsonrpc": "2.0",
 		"method":  "notifications/initialized",
 	}
-	b, err = json.Marshal(notif)
+	notifLine, err := json.Marshal(notif)
 	if err != nil {
-		t.Fatalf("testHandshake: marshal initialized notification: %v", err)
+		t.Fatalf("marshal initialized notification: %v", err)
 	}
-	p.testSendLine(t, string(b))
+	if _, err := fmt.Fprintf(stdin, "%s\n", notifLine); err != nil {
+		t.Fatalf("write initialized notification: %v", err)
+	}
+	if err := stdin.Flush(); err != nil {
+		t.Fatalf("flush initialized notification: %v", err)
+	}
 }
 
-func (p *testMCPProcess) testSendRequest(t *testing.T, method string, params any) map[string]any {
+func testStartMCPServer(t *testing.T) (*bufio.Writer, *bufio.Reader, context.CancelFunc) {
 	t.Helper()
 
-	id := p.nextID
-	p.nextID++
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd := exec.CommandContext(ctx, testBinaryPath)
 
-	req := map[string]any{
-		"jsonrpc": "2.0",
-		"id":      id,
-		"method":  method,
-	}
-	if params != nil {
-		req["params"] = params
-	}
-	b, err := json.Marshal(req)
+	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
-		t.Fatalf("testSendRequest: marshal request: %v", err)
+		cancel()
+		t.Fatalf("stdin pipe: %v", err)
 	}
-	p.testSendLine(t, string(b))
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		cancel()
+		t.Fatalf("stdout pipe: %v", err)
+	}
 
-	line := p.testReadLine(t)
-	var resp map[string]any
-	if err := json.Unmarshal([]byte(line), &resp); err != nil {
-		t.Fatalf("testSendRequest: unmarshal response: %v\nline: %s", err, line)
+	if err := cmd.Start(); err != nil {
+		cancel()
+		t.Fatalf("start binary: %v", err)
 	}
-	return resp
+
+	t.Cleanup(func() {
+		cancel()
+		cmd.Wait()
+	})
+
+	return bufio.NewWriter(stdinPipe), bufio.NewReader(stdoutPipe), cancel
 }
 
-func TestToolsListAdvertisesMaxResultSizeCharsForLoadChain(t *testing.T) {
-	p := testStartMCPProcess(t)
-	p.testHandshake(t)
+func TestToolsListMaxResultSizeChars(t *testing.T) {
+	stdin, stdout, _ := testStartMCPServer(t)
+	testMCPHandshake(t, stdin, stdout)
 
-	resp := p.testSendRequest(t, "tools/list", nil)
+	listReq := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      2,
+		"method":  "tools/list",
+	}
+	line, err := json.Marshal(listReq)
+	if err != nil {
+		t.Fatalf("marshal tools/list: %v", err)
+	}
+	if _, err := fmt.Fprintf(stdin, "%s\n", line); err != nil {
+		t.Fatalf("write tools/list: %v", err)
+	}
+	if err := stdin.Flush(); err != nil {
+		t.Fatalf("flush tools/list: %v", err)
+	}
+
+	respLine, err := stdout.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read tools/list response: %v", err)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal([]byte(respLine), &resp); err != nil {
+		t.Fatalf("unmarshal tools/list response: %v", err)
+	}
 
 	result, ok := resp["result"].(map[string]any)
 	if !ok {
-		t.Fatalf("response has no result field: %v", resp)
+		t.Fatalf("expected result object, got: %v", resp)
 	}
 	tools, ok := result["tools"].([]any)
 	if !ok {
-		t.Fatalf("result has no tools field: %v", result)
+		t.Fatalf("expected tools array, got: %v", result)
 	}
 
-	var loadChainTool map[string]any
 	for _, tool := range tools {
 		toolMap, ok := tool.(map[string]any)
 		if !ok {
 			continue
 		}
 		if toolMap["name"] == "load_chain" {
-			loadChainTool = toolMap
-			break
+			meta, ok := toolMap["_meta"].(map[string]any)
+			if !ok {
+				t.Fatalf("load_chain tool missing _meta field")
+			}
+			val, ok := meta["anthropic/maxResultSizeChars"]
+			if !ok {
+				t.Fatalf("load_chain _meta missing anthropic/maxResultSizeChars")
+			}
+			numVal, ok := val.(float64)
+			if !ok {
+				t.Fatalf("anthropic/maxResultSizeChars is not a number: %T", val)
+			}
+			if int(numVal) != 500000 {
+				t.Errorf("expected anthropic/maxResultSizeChars = 500000, got %v", numVal)
+			}
+			return
 		}
 	}
-	if loadChainTool == nil {
-		t.Fatal("load_chain tool not found in tools/list response")
-	}
-
-	meta, ok := loadChainTool["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("load_chain tool has no _meta field: %v", loadChainTool)
-	}
-
-	maxSize, ok := meta["anthropic/maxResultSizeChars"]
-	if !ok {
-		t.Fatal("load_chain _meta missing anthropic/maxResultSizeChars")
-	}
-
-	maxSizeFloat, ok := maxSize.(float64)
-	if !ok {
-		t.Fatalf("anthropic/maxResultSizeChars is not a number: %T %v", maxSize, maxSize)
-	}
-	if maxSizeFloat != 500000 {
-		t.Errorf("expected anthropic/maxResultSizeChars = 500000, got %v", maxSizeFloat)
-	}
+	t.Error("load_chain tool not found in tools/list response")
 }
 
 func TestToolsListAdvertisesAllTools(t *testing.T) {
-	p := testStartMCPProcess(t)
-	p.testHandshake(t)
+	stdin, stdout, _ := testStartMCPServer(t)
+	testMCPHandshake(t, stdin, stdout)
 
-	resp := p.testSendRequest(t, "tools/list", nil)
+	listReq := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      2,
+		"method":  "tools/list",
+	}
+	line, err := json.Marshal(listReq)
+	if err != nil {
+		t.Fatalf("marshal tools/list: %v", err)
+	}
+	if _, err := fmt.Fprintf(stdin, "%s\n", line); err != nil {
+		t.Fatalf("write tools/list: %v", err)
+	}
+	if err := stdin.Flush(); err != nil {
+		t.Fatalf("flush tools/list: %v", err)
+	}
+
+	respLine, err := stdout.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read tools/list response: %v", err)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal([]byte(respLine), &resp); err != nil {
+		t.Fatalf("unmarshal tools/list response: %v", err)
+	}
 
 	result, ok := resp["result"].(map[string]any)
 	if !ok {
-		t.Fatalf("response has no result field: %v", resp)
+		t.Fatalf("expected result object, got: %v", resp)
 	}
 	tools, ok := result["tools"].([]any)
 	if !ok {
-		t.Fatalf("result has no tools field: %v", result)
+		t.Fatalf("expected tools array, got: %v", result)
 	}
 
+	expected := []string{"load_chain", "write_file", "validate_specs", "chain_hash", "version"}
 	found := map[string]bool{}
 	for _, tool := range tools {
 		toolMap, ok := tool.(map[string]any)
@@ -308,10 +306,9 @@ func TestToolsListAdvertisesAllTools(t *testing.T) {
 		}
 	}
 
-	expected := []string{"load_chain", "write_file", "validate_specs", "chain_hash", "version"}
 	for _, name := range expected {
 		if !found[name] {
-			t.Errorf("tool %q not found in tools/list response", name)
+			t.Errorf("expected tool %q not found in tools/list response", name)
 		}
 	}
 }

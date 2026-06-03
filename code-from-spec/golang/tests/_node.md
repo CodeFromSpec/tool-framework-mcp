@@ -104,6 +104,16 @@ producers would generate:
 - `ChainItem.FilePath` is a `PathCfs` with forward
   slashes.
 
+## Creating _node.md files in tests
+
+When tests create `_node.md` files on disk, the first
+heading in the file body must be `# <logical-name>`
+(e.g. `# ROOT` for the root node, `# ROOT/a` for a
+child node). `NodeParse` validates that the first
+heading matches the logical name — tests that omit it
+or use a different heading (e.g. `# Public`) will fail
+with `ErrNodeNameDoesNotMatch`.
+
 ## Error and style conventions
 
 - Use `errors.Is` to check error sentinels.

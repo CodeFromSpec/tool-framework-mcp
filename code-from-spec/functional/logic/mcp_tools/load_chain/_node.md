@@ -14,8 +14,8 @@ output: code-from-spec/functional/logic/mcp_tools/load_chain/output.md
 # ROOT/functional/logic/mcp_tools/load_chain
 
 Loads the complete spec chain for a given node and
-returns the chain hash, context, and input as a
-structured result.
+returns everything the subagent needs in a single
+formatted string.
 
 # Public
 
@@ -26,12 +26,7 @@ structured result.
 ## Interface
 
 ```
-record MCPLoadChainResult
-  chain_hash: string
-  context: string
-  input: optional string
-
-function MCPLoadChain(logical_name: string) -> MCPLoadChainResult
+function MCPLoadChain(logical_name: string) -> string
   errors:
     - NoOutput: target node has no output field.
     - InvalidOutputPath: the output path fails path
@@ -52,11 +47,24 @@ function MCPLoadChain(logical_name: string) -> MCPLoadChainResult
 
 ### Output
 
-| Field | Always present | Content |
-|---|---|---|
-| `chain_hash` | yes | The 27-character base64url chain hash. |
-| `context` | yes | All chain content concatenated as a single stream. |
-| `input` | only if `input` field exists | Content of the input artifact, excluding frontmatter. |
+A single string with sections separated by delimiter
+lines. The format is:
+
+```
+chain_hash: <27-character hash>
+--- context ---
+<context content>
+--- input ---
+<input content>
+--- existing artifact ---
+<existing artifact content>
+```
+
+The `--- input ---` section is only present when the
+target node's frontmatter has a non-empty `input` field.
+
+The `--- existing artifact ---` section is only present
+when the output file exists on disk and is readable.
 
 # Agent
 
@@ -142,30 +150,43 @@ From the same `NodeParse` result, include `# Agent`
 raw heading, section content, all `## subsection` raw
 headings, and their content. If absent, skip.
 
-### Step 4 — Extract input
+### Step 4 — Assemble output string
 
-If `chain.input` is present, open the file at
-`chain.input.file_path` with `FileOpen`, strip
-frontmatter (if present), read remaining content.
-Call `FileClose`. Store as the `input` field of the
-result.
+Build the output string by concatenating sections with
+delimiter lines:
 
-If `chain.input` is absent, `input` is absent in the
-result.
+1. First line: `chain_hash: <hash>` (the 27-character
+   hash from Step 2).
 
-### Step 5 — Return result
+2. A line containing exactly `--- context ---`.
 
-Return `MCPLoadChainResult` with `chain_hash`,
-`context` (the concatenated stream), and `input`.
+3. The context stream from Step 3.
+
+4. If `chain.input` is present: a line containing
+   exactly `--- input ---`, followed by the content of
+   the input artifact file (frontmatter stripped, read
+   with `FileOpen`/`FileReadLine`/`FileClose`).
+
+5. If the output file (at `frontmatter.output`) exists
+   on disk and is readable: a line containing exactly
+   `--- existing artifact ---`, followed by the full
+   file content (read with `FileOpen`/`FileReadLine`/
+   `FileClose`, no frontmatter stripping). If the file
+   does not exist or cannot be read, omit this section
+   silently (no error).
+
+Return the assembled string.
 
 ## Contracts
 
 - Returns everything in one call — no pagination.
 - If any file in the chain is unreadable, returns an
-  error (no partial results).
+  error (no partial results). The existing artifact is
+  the exception: if it is unreadable or absent, its
+  section is simply omitted.
 - The context stream contains no metadata or structural
   markers — only spec content, except for the target's
   reduced frontmatter block.
-- Input is separated from context so the subagent can
-  distinguish context (what informs) from input (what
-  to transform).
+- Delimiter lines separate sections so the consumer can
+  parse them: `--- context ---`, `--- input ---`,
+  `--- existing artifact ---`.

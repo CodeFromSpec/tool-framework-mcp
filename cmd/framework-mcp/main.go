@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/server@l8n5xhu0_TRVCUxHFkrJ2HG5xIw
+// code-from-spec: ROOT/golang/implementation/server@geEN35HSbxEn-TRiomoPqw8LQ9o
 package main
 
 import (
@@ -58,6 +58,7 @@ func main() {
 	type LoadChainArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to load the chain for"`
 	}
+
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "load_chain",
 		Description: "Load the spec chain context for a given logical name. Returns all relevant spec files concatenated in a single response.",
@@ -70,14 +71,9 @@ func main() {
 				IsError: true,
 			}, nil, nil
 		}
-		content := []mcp.Content{
-			&mcp.TextContent{Text: "chain_hash: " + result.ChainHash},
-			&mcp.TextContent{Text: result.Context},
-		}
-		if result.Input != nil {
-			content = append(content, &mcp.TextContent{Text: "--- input ---\n" + *result.Input})
-		}
-		return &mcp.CallToolResult{Content: content}, nil, nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
+		}, nil, nil
 	})
 
 	type WriteFileArgs struct {
@@ -85,6 +81,7 @@ func main() {
 		Path        string `json:"path" jsonschema:"relative file path from project root"`
 		Content     string `json:"content" jsonschema:"complete file content to write"`
 	}
+
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "write_file",
 		Description: "Write a generated source file to disk. The path must be one of the files declared in the node's outputs list. Overwrites existing content.",
@@ -103,23 +100,27 @@ func main() {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "validate_specs",
-		Description: "Validate the spec tree and check artifact staleness.",
+		Description: "Validate all spec nodes for formatting errors, dependency cycles, and artifact staleness.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		report := mcpvalidatespecs.MCPValidateSpecs()
-		var sb strings.Builder
+
 		if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
-			sb.WriteString("Spec tree is valid and all artifacts are up to date.")
-		} else {
-			for _, e := range report.FormatErrors {
-				fmt.Fprintf(&sb, "Format error — Node: %s | Rule: %s | Detail: %s\n", e.Node, e.Rule, e.Detail)
-			}
-			for _, name := range report.Cycles {
-				fmt.Fprintf(&sb, "Cycle detected — Node: %s\n", name)
-			}
-			for _, entry := range report.Staleness {
-				fmt.Fprintf(&sb, "Staleness [%s] (rank %d) — %s: %s\n", entry.Status, entry.Rank, entry.Node, entry.Detail)
-			}
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: "Spec tree is valid and all artifacts are up to date."}},
+			}, nil, nil
 		}
+
+		var sb strings.Builder
+		for _, e := range report.FormatErrors {
+			fmt.Fprintf(&sb, "Format error — Node: %s | Rule: %s | Detail: %s\n", e.Node, e.Rule, e.Detail)
+		}
+		for _, name := range report.Cycles {
+			fmt.Fprintf(&sb, "Cycle detected — Node: %s\n", name)
+		}
+		for _, entry := range report.Staleness {
+			fmt.Fprintf(&sb, "Staleness [%s] (rank %d) — %s: %s\n", entry.Status, entry.Rank, entry.Node, entry.Detail)
+		}
+
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
 		}, nil, nil
@@ -128,11 +129,12 @@ func main() {
 	type ChainHashArgs struct {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to compute the chain hash for"`
 	}
+
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "chain_hash",
-		Description: "Compute the chain hash for a node.",
+		Description: "Compute the 27-character base64url chain hash for a given node.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args ChainHashArgs) (*mcp.CallToolResult, any, error) {
-		hash, err := mcpchainhash.MCPChainHash(args.LogicalName)
+		result, err := mcpchainhash.MCPChainHash(args.LogicalName)
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
@@ -140,7 +142,7 @@ func main() {
 			}, nil, nil
 		}
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: hash}},
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
 		}, nil, nil
 	})
 
@@ -157,5 +159,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
 	os.Exit(0)
 }

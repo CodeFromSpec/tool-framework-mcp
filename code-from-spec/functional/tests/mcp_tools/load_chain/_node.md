@@ -13,7 +13,11 @@ Test cases for the load chain tool.
 ## Test cases
 
 All tests create a spec tree on disk with `_node.md`
-files, then call `MCPLoadChain`.
+files, then call `MCPLoadChain`. The result is a single
+formatted string. Tests parse sections by splitting on
+delimiter lines (`--- context ---`, `--- input ---`,
+`--- existing artifact ---`). The first line is always
+`chain_hash: <hash>`.
 
 ### Happy path
 
@@ -22,16 +26,17 @@ files, then call `MCPLoadChain`.
 Create a spec tree: ROOT (with public section containing
 one line of content) and ROOT/a (leaf with output,
 public section with content, agent section with content).
-Call MCPLoadChain with logical_name = "ROOT/a".
+Do not create the output file. Call MCPLoadChain with
+logical_name = "ROOT/a".
 
-Expect result has:
-- `chain_hash`: a 27-character string
-- `context`: contains ROOT's `# Public` heading and
-  public content, the reduced frontmatter (output
-  only, between `---` delimiters), ROOT/a's `# Public`
-  heading and public content, and ROOT/a's `# Agent`
-  heading and agent content
-- `input`: absent
+Expect result starts with `chain_hash: ` followed by a
+27-character string. After `--- context ---`, the
+context contains ROOT's `# Public` heading and public
+content, the reduced frontmatter (output only, between
+`---` delimiters), ROOT/a's `# Public` heading and
+public content, and ROOT/a's `# Agent` heading and
+agent content. No `--- input ---` section. No
+`--- existing artifact ---` section.
 
 #### Ancestor public content included
 
@@ -130,23 +135,41 @@ with "ROOT/a".
 
 Expect no error. Context contains only public content.
 
-#### Input separated from context
+#### Input present — in separate section
 
 Create a spec tree: ROOT, ROOT/a (leaf with output,
 input = "ARTIFACT/b"), ROOT/b (with output =
 "out/data.json"). Create "out/data.json" with
 frontmatter and body. Call MCPLoadChain with "ROOT/a".
 
-Expect result.input contains the body of "out/data.json"
-without frontmatter. The input content does not appear
-in result.context.
+Expect result contains `--- input ---` section with
+the body of "out/data.json" without frontmatter. The
+input content does not appear in the context section.
 
-#### No input — field absent
+#### No input — section absent
 
 Create a spec tree: ROOT, ROOT/a (leaf with output,
 no input field). Call MCPLoadChain with "ROOT/a".
 
-Expect result.input is absent.
+Expect result does not contain `--- input ---`.
+
+#### Existing artifact present — in separate section
+
+Create a spec tree: ROOT, ROOT/a (leaf with
+output = "out/a.go"). Create "out/a.go" with known
+content. Call MCPLoadChain with "ROOT/a".
+
+Expect result contains `--- existing artifact ---`
+section with the full content of "out/a.go".
+
+#### Existing artifact absent — section omitted
+
+Create a spec tree: ROOT, ROOT/a (leaf with
+output = "out/a.go"). Do not create "out/a.go". Call
+MCPLoadChain with "ROOT/a".
+
+Expect result does not contain
+`--- existing artifact ---`.
 
 #### Hash is deterministic
 
@@ -197,8 +220,8 @@ case with its setup, actions, and expected outcome.
 
 - Use the function name from the interface:
   `MCPLoadChain`.
-- Use the record name from the interface:
-  `MCPLoadChainResult`.
+- The function returns a single string. Parse sections
+  by splitting on delimiter lines.
 - Each test case creates a spec tree on disk with
   `_node.md` files, then calls `MCPLoadChain`.
 - Describe setup as files to create with their

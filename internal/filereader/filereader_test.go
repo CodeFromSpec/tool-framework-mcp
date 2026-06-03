@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/os/file_reader@ey7Rz_Ozp3gFb2gNklMlSFApQ1Y
+// code-from-spec: ROOT/golang/tests/os/file_reader@01LvdE_8T5Dmq7UYOW5MtE3UKVk
 package filereader_test
 
 import (
@@ -26,317 +26,321 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func TestFileOpenAndReadLines(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
-
-	content := "alpha\nbeta\ngamma\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+func testWriteFile(t *testing.T, name string, content []byte) {
+	t.Helper()
+	if err := os.WriteFile(name, content, 0600); err != nil {
+		t.Fatalf("testWriteFile: %v", err)
 	}
+}
 
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+func TestFileOpenAndReadAllLines(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("alpha\nbeta\ngamma\n"))
+
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "alpha")
-	testReadExpect(t, reader, "beta")
-	testReadExpect(t, reader, "gamma")
-	testReadExpectEOF(t, reader)
+	for _, want := range []string{"alpha", "beta", "gamma"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: %v", err)
+		}
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
+
+	_, err = filereader.FileReadLine(reader)
+	if !errors.Is(err, filereader.ErrEndOfFile) {
+		t.Errorf("expected ErrEndOfFile, got %v", err)
+	}
 }
 
 func TestFileReadLineNormalizesCRLF(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("alpha\r\nbeta\r\n"))
 
-	content := "alpha\r\nbeta\r\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "alpha")
-	testReadExpect(t, reader, "beta")
+	for _, want := range []string{"alpha", "beta"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: %v", err)
+		}
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
 }
 
 func TestFileReadLineNoTrailingNewline(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("alpha\nbeta"))
 
-	content := "alpha\nbeta"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "alpha")
-	testReadExpect(t, reader, "beta")
-	testReadExpectEOF(t, reader)
+	for _, want := range []string{"alpha", "beta"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: %v", err)
+		}
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
+
+	_, err = filereader.FileReadLine(reader)
+	if !errors.Is(err, filereader.ErrEndOfFile) {
+		t.Errorf("expected ErrEndOfFile, got %v", err)
+	}
 }
 
 func TestFileSkipLinesAdvancesReader(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("one\ntwo\nthree\nfour\nfive\n"))
 
-	content := "one\ntwo\nthree\nfour\nfive\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
 	filereader.FileSkipLines(reader, 2)
-	testReadExpect(t, reader, "three")
+
+	got, err := filereader.FileReadLine(reader)
+	if err != nil {
+		t.Fatalf("FileReadLine: %v", err)
+	}
+	if got != "three" {
+		t.Errorf("got %q, want %q", got, "three")
+	}
 }
 
 func TestFileSkipLinesPastEndOfFile(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("one\ntwo\n"))
 
-	content := "one\ntwo\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
 	filereader.FileSkipLines(reader, 10)
-	testReadExpectEOF(t, reader)
+
+	_, err = filereader.FileReadLine(reader)
+	if !errors.Is(err, filereader.ErrEndOfFile) {
+		t.Errorf("expected ErrEndOfFile, got %v", err)
+	}
 }
 
 func TestFileReadLinePreservesLeadingWhitespace(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("  alpha\n    beta\n"))
 
-	content := "  alpha\n    beta\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "  alpha")
-	testReadExpect(t, reader, "    beta")
+	for _, want := range []string{"  alpha", "    beta"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: %v", err)
+		}
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
 }
 
 func TestFileReadLinePreservesTrailingWhitespace(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("alpha  \nbeta   \n"))
 
-	content := "alpha  \nbeta   \n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "alpha  ")
-	testReadExpect(t, reader, "beta   ")
+	for _, want := range []string{"alpha  ", "beta   "} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: %v", err)
+		}
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
 }
 
 func TestFileReadLinePreservesInternalWhitespace(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("alpha   beta\none\ttwo\n"))
 
-	content := "alpha   beta\none\ttwo\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "alpha   beta")
-	testReadExpect(t, reader, "one\ttwo")
+	for _, want := range []string{"alpha   beta", "one\ttwo"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: %v", err)
+		}
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
 }
 
 func TestFileReadLinePreservesEmptyLines(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("alpha\n\n\nbeta\n"))
 
-	content := "alpha\n\n\nbeta\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "alpha")
-	testReadExpect(t, reader, "")
-	testReadExpect(t, reader, "")
-	testReadExpect(t, reader, "beta")
+	for _, want := range []string{"alpha", "", "", "beta"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: %v", err)
+		}
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
 }
 
 func TestFileReadLinePreservesNonASCII(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("café\n日本語\n🎉🚀\n"))
 
-	content := "café\n日本語\n🎉🚀\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "café")
-	testReadExpect(t, reader, "日本語")
-	testReadExpect(t, reader, "🎉🚀")
+	for _, want := range []string{"café", "日本語", "🎉🚀"} {
+		got, err := filereader.FileReadLine(reader)
+		if err != nil {
+			t.Fatalf("FileReadLine: %v", err)
+		}
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
 }
 
 func TestFileOpenEmptyFile(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte(""))
 
-	if err := os.WriteFile("file.txt", []byte(""), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpectEOF(t, reader)
+	_, err = filereader.FileReadLine(reader)
+	if !errors.Is(err, filereader.ErrEndOfFile) {
+		t.Errorf("expected ErrEndOfFile, got %v", err)
+	}
 }
 
 func TestFileReadLineSingleLineNoNewline(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("hello"))
 
-	if err := os.WriteFile("file.txt", []byte("hello"), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 	defer filereader.FileClose(reader)
 
-	testReadExpect(t, reader, "hello")
-	testReadExpectEOF(t, reader)
+	got, err := filereader.FileReadLine(reader)
+	if err != nil {
+		t.Fatalf("FileReadLine: %v", err)
+	}
+	if got != "hello" {
+		t.Errorf("got %q, want %q", got, "hello")
+	}
+
+	_, err = filereader.FileReadLine(reader)
+	if !errors.Is(err, filereader.ErrEndOfFile) {
+		t.Errorf("expected ErrEndOfFile, got %v", err)
+	}
 }
 
-func TestFileOpenNonExistent(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestFileOpenNonExistentFile(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	cfsPath := &pathutils.PathCfs{Value: "nonexistent/file.txt"}
-	_, err := filereader.FileOpen(cfsPath)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
+	_, err := filereader.FileOpen(&pathutils.PathCfs{Value: "nonexistent/file.txt"})
 	if !errors.Is(err, filereader.ErrFileUnreadable) {
-		t.Fatalf("expected ErrFileUnreadable, got %v", err)
+		t.Errorf("expected ErrFileUnreadable, got %v", err)
 	}
 }
 
 func TestFileReadLineAfterClose(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("alpha\n"))
 
-	if err := os.WriteFile("file.txt", []byte("alpha\n"), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 
 	filereader.FileClose(reader)
-	testReadExpectEOF(t, reader)
+
+	_, err = filereader.FileReadLine(reader)
+	if !errors.Is(err, filereader.ErrEndOfFile) {
+		t.Errorf("expected ErrEndOfFile, got %v", err)
+	}
 }
 
 func TestFileSkipLinesAfterClose(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
+	testWriteFile(t, "file.txt", []byte("alpha\n"))
 
-	if err := os.WriteFile("file.txt", []byte("alpha\n"), 0600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
-	reader, err := filereader.FileOpen(cfsPath)
+	reader, err := filereader.FileOpen(&pathutils.PathCfs{Value: "file.txt"})
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
 
 	filereader.FileClose(reader)
+
 	filereader.FileSkipLines(reader, 1)
-}
-
-func testReadExpect(t *testing.T, reader *filereader.FileReader, want string) {
-	t.Helper()
-	got, err := filereader.FileReadLine(reader)
-	if err != nil {
-		t.Fatalf("FileReadLine: unexpected error: %v", err)
-	}
-	if got != want {
-		t.Fatalf("FileReadLine: got %q, want %q", got, want)
-	}
-}
-
-func testReadExpectEOF(t *testing.T, reader *filereader.FileReader) {
-	t.Helper()
-	_, err := filereader.FileReadLine(reader)
-	if err == nil {
-		t.Fatal("FileReadLine: expected ErrEndOfFile, got nil")
-	}
-	if !errors.Is(err, filereader.ErrEndOfFile) {
-		t.Fatalf("FileReadLine: expected ErrEndOfFile, got %v", err)
-	}
 }

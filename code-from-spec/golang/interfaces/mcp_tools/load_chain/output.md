@@ -1,21 +1,9 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@350bZfPnmiBNaqdl691iII5gdEM)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@_VBYJnq_9OxGjs0nW76YYhKC-Ck)
 
 # Package `mcploadchain`
 
 ```
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
-```
-
-## Structs
-
-```go
-package mcploadchain
-
-type MCPLoadChainResult struct {
-	ChainHash string
-	Context   string
-	Input     *string
-}
 ```
 
 ## Error Sentinels
@@ -34,15 +22,24 @@ var ErrInvalidOutputPath = errors.New("invalid output path")
 ```go
 package mcploadchain
 
-// MCPLoadChain resolves the spec chain for the given logical name, computes
-// its hash, and returns the concatenated chain context along with an optional
-// input artifact body.
+// MCPLoadChain resolves the spec chain for the given logical name and returns
+// a formatted string containing the chain hash, context, optional input, and
+// optional existing artifact sections.
 //
-// ErrNoOutput is returned when the target node has no output field.
-// ErrInvalidOutputPath is returned when the output path fails path validation.
-// Errors from LogicalNameToPath, ChainResolve, ChainHashCompute, NodeParse,
-// and FileOpen are propagated directly.
-func MCPLoadChain(logical_name string) (*MCPLoadChainResult, error)
+// The returned string has the following format:
+//
+//	chain_hash: <27-character hash>
+//	--- context ---
+//	<context content>
+//	--- input ---
+//	<input content>
+//	--- existing artifact ---
+//	<existing artifact content>
+//
+// The "--- input ---" section is only present when the target node's
+// frontmatter has a non-empty input field. The "--- existing artifact ---"
+// section is only present when the output file exists on disk and is readable.
+func MCPLoadChain(logical_name string) (string, error)
 ```
 
 ## Usage Example
@@ -63,11 +60,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Hash:", result.ChainHash)
-	fmt.Println("Context:", result.Context)
-
-	if result.Input != nil {
-		fmt.Println("Input:", *result.Input)
-	}
+	fmt.Println(result)
 }
 ```
