@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v1.0.0...v1.1.0) (2026-06-03)
+
+
+### Features
+
+* load_chain single response ([#10](https://github.com/CodeFromSpec/tool-framework-mcp/issues/10)) ([b5f2ad7](https://github.com/CodeFromSpec/tool-framework-mcp/commit/b5f2ad7dd0e6c1d79612e1ab01a138534ac98cd1))
+* remove fragments and hash_fragment tool ([#7](https://github.com/CodeFromSpec/tool-framework-mcp/issues/7)) ([cbd90d9](https://github.com/CodeFromSpec/tool-framework-mcp/commit/cbd90d9c8e47b7e496863002ae09fda807555221))
+* single output, remove fragments, add chain_hash and version tools ([#8](https://github.com/CodeFromSpec/tool-framework-mcp/issues/8)) ([7b55dda](https://github.com/CodeFromSpec/tool-framework-mcp/commit/7b55dda99912b598e3ac9bc3afedd667531d39a9))
+* spec hardening, artifact tag neutralization, and full regeneration ([#9](https://github.com/CodeFromSpec/tool-framework-mcp/issues/9)) ([aed04bd](https://github.com/CodeFromSpec/tool-framework-mcp/commit/aed04bd5fdeff9db4a64ff18336fcb6324431974))
+
+
+### Bug Fixes
+
+* release_please files ([#5](https://github.com/CodeFromSpec/tool-framework-mcp/issues/5)) ([7cb1906](https://github.com/CodeFromSpec/tool-framework-mcp/commit/7cb19060faec2517031626b4e799c6b405b76969))
+
 ## 1.0.0 (2026-06-01)
 
 
