@@ -106,13 +106,20 @@ producers would generate:
 
 ## Creating _node.md files in tests
 
-When tests create `_node.md` files on disk, the first
-heading in the file body must be `# <logical-name>`
-(e.g. `# ROOT` for the root node, `# ROOT/a` for a
-child node). `NodeParse` validates that the first
-heading matches the logical name — tests that omit it
-or use a different heading (e.g. `# Public`) will fail
-with `ErrNodeNameDoesNotMatch`.
+When tests create `_node.md` files on disk:
+
+- The first heading in the file body must be
+  `# <logical-name>` (e.g. `# ROOT` for the root node,
+  `# ROOT/a` for a child). `NodeParse` validates that the
+  first heading matches the logical name — tests that omit
+  it or use a different heading (e.g. `# Public`) will
+  fail with `ErrNodeNameDoesNotMatch`.
+- `ROOT` (without a trailing slash) is a valid logical
+  name — it refers to the root node. Its file path is
+  `code-from-spec/_node.md`. For `ROOT/x/y`, the path
+  is `code-from-spec/x/y/_node.md`. Helper functions
+  that convert logical names to paths must handle the
+  bare `ROOT` case.
 
 ## Error and style conventions
 

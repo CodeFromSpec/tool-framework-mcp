@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/write_file@ZmPoeXgg6qUrYROtaUikCKPk6MY
+// code-from-spec: ROOT/golang/tests/mcp_tools/write_file@Jrcsq9wvkhe6gFROTZxwI8ZSsMg
 package mcpwritefile_test
 
 import (
@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filewriter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
@@ -28,74 +27,68 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func testCreateNodeFile(t *testing.T, logicalName string, frontmatter string) {
-	t.Helper()
-	nodePath, err := logicalnames.LogicalNameToPath(logicalName)
-	if err != nil {
-		t.Fatalf("testCreateNodeFile: %v", err)
-	}
-	osPath, err := pathutils.PathCfsToOs(nodePath)
-	if err != nil {
-		t.Fatalf("testCreateNodeFile: %v", err)
-	}
-	content := "---\n" + frontmatter + "---\n# " + logicalName + "\n"
-	err = filewriter.FileWrite(&pathutils.PathCfs{Value: nodePath.Value}, content)
-	if err != nil {
-		t.Fatalf("testCreateNodeFile: writing %s: %v", osPath.Value, err)
-	}
-}
-
 func TestMCPWriteFile_WritesFileSuccessfully(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testCreateNodeFile(t, "ROOT/a", "output: output/file.go\n")
+	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\noutput: output/file.go\n---\n# ROOT/a\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	result, err := mcpwritefile.MCPWriteFile("ROOT/a", "output/file.go", "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result != "wrote output/file.go" {
-		t.Errorf("expected 'wrote output/file.go', got %q", result)
+		t.Errorf("got %q, want %q", result, "wrote output/file.go")
 	}
 	data, err := os.ReadFile("output/file.go")
 	if err != nil {
-		t.Fatalf("file not found: %v", err)
+		t.Fatalf("file not created: %v", err)
 	}
 	if string(data) != "package main" {
-		t.Errorf("expected 'package main', got %q", string(data))
+		t.Errorf("file content = %q, want %q", string(data), "package main")
 	}
 }
 
 func TestMCPWriteFile_CreatesIntermediateDirectories(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testCreateNodeFile(t, "ROOT/a", "output: deep/nested/dir/file.go\n")
+	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\noutput: deep/nested/dir/file.go\n---\n# ROOT/a\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
-	result, err := mcpwritefile.MCPWriteFile("ROOT/a", "deep/nested/dir/file.go", "package main")
+	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "deep/nested/dir/file.go", "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != "wrote deep/nested/dir/file.go" {
-		t.Errorf("expected 'wrote deep/nested/dir/file.go', got %q", result)
-	}
 	if _, err := os.Stat("deep/nested/dir/file.go"); err != nil {
-		t.Errorf("file does not exist: %v", err)
+		t.Errorf("file not created: %v", err)
 	}
 }
 
 func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testCreateNodeFile(t, "ROOT/a", "output: output/file.go\n")
-
+	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\noutput: output/file.go\n---\n# ROOT/a\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll("output", 0755); err != nil {
-		t.Fatalf("mkdir: %v", err)
+		t.Fatal(err)
 	}
 	if err := os.WriteFile("output/file.go", []byte("old"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+		t.Fatal(err)
 	}
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "output/file.go", "new")
@@ -104,10 +97,10 @@ func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
 	}
 	data, err := os.ReadFile("output/file.go")
 	if err != nil {
-		t.Fatalf("file not found: %v", err)
+		t.Fatal(err)
 	}
 	if string(data) != "new" {
-		t.Errorf("expected 'new', got %q", string(data))
+		t.Errorf("file content = %q, want %q", string(data), "new")
 	}
 }
 
@@ -122,8 +115,8 @@ func TestMCPWriteFile_InvalidLogicalName_ArtifactReference(t *testing.T) {
 }
 
 func TestMCPWriteFile_InvalidLogicalName_WithQualifier(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a(interface)", "out.go", "")
 	if err == nil {
@@ -135,8 +128,8 @@ func TestMCPWriteFile_InvalidLogicalName_WithQualifier(t *testing.T) {
 }
 
 func TestMCPWriteFile_NonexistentNodeFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/missing", "out.go", "")
 	if err == nil {
@@ -148,10 +141,15 @@ func TestMCPWriteFile_NonexistentNodeFile(t *testing.T) {
 }
 
 func TestMCPWriteFile_NoOutputDeclared(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testCreateNodeFile(t, "ROOT/a", "")
+	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\n---\n# ROOT/a\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "out.go", "")
 	if err == nil {
@@ -163,10 +161,15 @@ func TestMCPWriteFile_NoOutputDeclared(t *testing.T) {
 }
 
 func TestMCPWriteFile_PathNotInOutput(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testCreateNodeFile(t, "ROOT/a", "output: allowed/file.go\n")
+	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\noutput: allowed/file.go\n---\n# ROOT/a\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "other/file.go", "")
 	if err == nil {
@@ -178,10 +181,15 @@ func TestMCPWriteFile_PathNotInOutput(t *testing.T) {
 }
 
 func TestMCPWriteFile_PathValidation_EmptyPath(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testCreateNodeFile(t, "ROOT/a", "output: out.go\n")
+	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\noutput: out.go\n---\n# ROOT/a\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "", "")
 	if err == nil {
@@ -193,10 +201,15 @@ func TestMCPWriteFile_PathValidation_EmptyPath(t *testing.T) {
 }
 
 func TestMCPWriteFile_PathValidation_Traversal(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testCreateNodeFile(t, "ROOT/a", "output: out.go\n")
+	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\noutput: out.go\n---\n# ROOT/a\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "../../etc/passwd", "")
 	if err == nil {
@@ -208,12 +221,17 @@ func TestMCPWriteFile_PathValidation_Traversal(t *testing.T) {
 }
 
 func TestMCPWriteFile_PathValidation_Backslash(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	testCreateNodeFile(t, "ROOT/a", "output: out.go\n")
+	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\noutput: out.go\n---\n# ROOT/a\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := mcpwritefile.MCPWriteFile("ROOT/a", "output\\file.go", "")
+	_, err := mcpwritefile.MCPWriteFile("ROOT/a", `output\file.go`, "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

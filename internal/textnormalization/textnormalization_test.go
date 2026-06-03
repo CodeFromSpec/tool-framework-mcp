@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/text_normalization@eQ_FYLibUd2PiPpLozCA43irUcQ
+// code-from-spec: ROOT/golang/tests/utils/text_normalization@PrGmze9LH8IVurD4jByWkZHhbFo
 package textnormalization_test
 
 import (
@@ -8,7 +8,7 @@ import (
 )
 
 func TestNormalizeText(t *testing.T) {
-	nbsString := "hello" + " " + "world"
+	nonBreakingSpace := " "
 
 	tests := []struct {
 		name  string
@@ -32,7 +32,7 @@ func TestNormalizeText(t *testing.T) {
 		{"tabs and mixed case", "\tROOT/payments/fees\t", "root/payments/fees"},
 		{"empty string", "", ""},
 		{"only whitespace", "   \t  ", ""},
-		{"non-breaking space is not whitespace", nbsString, "hello" + " " + "world"},
+		{"non-breaking space is not whitespace", "hello" + nonBreakingSpace + "world", "hello" + nonBreakingSpace + "world"},
 		{"single character", "X", "x"},
 	}
 

@@ -181,8 +181,8 @@ twice. Expect both results have identical chain_hash.
 #### Invalid logical name — not ROOT/
 
 Call MCPLoadChain with "INVALID/something". Expect
-error UnsupportedReference (propagated from
-LogicalNames via LogicalNameToPath).
+error logicalnames.UnsupportedReference (propagated
+from LogicalNameToPath).
 
 #### Nonexistent node file
 
