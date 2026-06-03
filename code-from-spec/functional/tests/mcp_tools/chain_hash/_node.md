@@ -45,14 +45,14 @@ chain_hash from MCPLoadChain.
 #### Invalid logical name — not ROOT/
 
 Call MCPChainHash with "INVALID/something". Expect
-error UnsupportedReference (propagated from
-LogicalNameToPath).
+error logicalnames.UnsupportedReference (propagated
+from LogicalNameToPath).
 
 #### Nonexistent node file
 
 Call MCPChainHash with "ROOT/nonexistent" (no _node.md
-on disk). Expect error propagated from
-FrontmatterParse (FileUnreadable).
+on disk). Expect error filereader.FileUnreadable
+(propagated from FrontmatterParse).
 
 #### No output declared
 

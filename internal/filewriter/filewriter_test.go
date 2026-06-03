@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/os/file_writer@HucF8YqLiiagCx0fbCkzjVoRXsI
+// code-from-spec: ROOT/golang/tests/os/file_writer@e_haNkaaoQszatS6rEQSNu3CPyY
 package filewriter_test
 
 import (
@@ -49,17 +49,17 @@ func TestFileWrite_OverwritesExistingFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	if err := os.WriteFile("file.txt", []byte("old"), 0o644); err != nil {
+	if err := os.WriteFile("existing.txt", []byte("old"), 0o644); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
-	cfsPath := &pathutils.PathCfs{Value: "file.txt"}
+	cfsPath := &pathutils.PathCfs{Value: "existing.txt"}
 	err := filewriter.FileWrite(cfsPath, "new")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, err := os.ReadFile("file.txt")
+	got, err := os.ReadFile("existing.txt")
 	if err != nil {
 		t.Fatalf("reading file: %v", err)
 	}
@@ -92,13 +92,13 @@ func TestFileWrite_PreservesUTF8Content(t *testing.T) {
 	testChdir(t, dir)
 
 	content := "café 日本語 🎉"
-	cfsPath := &pathutils.PathCfs{Value: "utf8file.txt"}
+	cfsPath := &pathutils.PathCfs{Value: "utf8.txt"}
 	err := filewriter.FileWrite(cfsPath, content)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, err := os.ReadFile("utf8file.txt")
+	got, err := os.ReadFile("utf8.txt")
 	if err != nil {
 		t.Fatalf("reading file: %v", err)
 	}
@@ -137,16 +137,16 @@ func TestFileWrite_WritesEmptyContent(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	info, err := os.Stat("empty.txt")
+	got, err := os.ReadFile("empty.txt")
 	if err != nil {
-		t.Fatalf("stat file: %v", err)
+		t.Fatalf("reading file: %v", err)
 	}
-	if info.Size() != 0 {
-		t.Errorf("expected 0 bytes, got %d", info.Size())
+	if len(got) != 0 {
+		t.Errorf("expected empty file, got %d bytes", len(got))
 	}
 }
 
-func TestFileWrite_PropagatesValidationError(t *testing.T) {
+func TestFileWrite_PropagatesValidationErrors(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 

@@ -35,12 +35,7 @@ artifacts, or when stale artifacts exist.
    them. Process ranks in ascending order. Within the same
    rank, artifacts are independent and should be dispatched
    in parallel. For each artifact, dispatch a
-   `code-from-spec-artifact-generation` subagent. If the
-   artifact file already exists on disk, read its content
-   and include it in the prompt as the existing artifact.
-   This lets the subagent produce minimal changes instead
-   of rewriting from scratch. If the file does not exist
-   (missing artifact), omit the existing artifact section.
+   `code-from-spec-artifact-generation` subagent.
 
    Prompt:
 
@@ -50,33 +45,33 @@ artifacts, or when stale artifacts exist.
    >
    > Steps:
    > 1. Call `load_chain` with logical_name `<logical-name>` to
-   >    receive the complete spec chain. The first line of the
-   >    response is `chain_hash: <hash>` — extract this hash.
-   > 2. Read the chain carefully. Identify the target node's
-   >    spec (its intent, contracts, and interface), the
-   >    constraints from ancestor nodes, and any dependency
-   >    specs.
-   > 2b. If an existing artifact is provided below, use it
+   >    receive the complete spec chain. The response is a
+   >    single formatted string. The first line is
+   >    `chain_hash: <hash>` — extract this hash. After
+   >    `--- context ---` is the spec chain. If
+   >    `--- input ---` is present, it contains the input
+   >    artifact. If `--- existing artifact ---` is present,
+   >    it contains the current file on disk.
+   > 2. Read the context carefully. Identify the target
+   >    node's spec (its intent, contracts, and interface),
+   >    the constraints from ancestor nodes, and any
+   >    dependency specs.
+   > 3. If an existing artifact section is present, use it
    >    as a starting point. Compare it against the spec
    >    and make only the changes needed. If no existing
-   >    artifact is provided, generate from scratch.
-   >
-   > <If existing artifact exists, include here:>
-   > --- existing artifact ---
-   > <content of the existing file>
-   > --- end existing artifact ---
-   > 3. Generate the artifact content. The artifact must
+   >    artifact section is present, generate from scratch.
+   > 4. Generate the artifact content. The artifact must
    >    contain the artifact tag:
    >    `code-from-spec: <logical-name>@<chain-hash>`
    >    where `<chain-hash>` is the hash extracted in step 1.
    >    Place the tag as early in the file as practical, inside
    >    a comment appropriate for the file type.
-   > 4. Call `write_file` with the complete file content
+   > 5. Call `write_file` with the complete file content
    >    (including the artifact tag with the correct hash).
-   > 5. If the spec has gaps or contradictions that prevent
+   > 6. If the spec has gaps or contradictions that prevent
    >    generation, do not guess — report the problem clearly
    >    instead of writing a file.
-   > 6. After generating, list any assumptions you made where
+   > 7. After generating, list any assumptions you made where
    >    the spec was silent or ambiguous. Label this section
    >    `## Assumptions`. Include: format choices, field
    >    mappings you inferred, interpretations of ambiguous

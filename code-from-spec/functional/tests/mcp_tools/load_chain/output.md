@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@mCGe3SyrwZEGestcEAgtmVH2WqA -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@6zMrgGQ7JQF7MjwKF_hDRoFxbtM -->
 
 ## Happy path
 
@@ -6,33 +6,30 @@
 
 Setup:
 - Create ROOT/_node.md with a `# Public` section containing one line of content.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go`, a `# Public` section with content, and a `# Agent` section with content.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go`, a `# Public` section with content, and a `# Agent` section with content.
+- Do not create "out/a.go".
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- Result is an MCPLoadChainResult.
-- `chain_hash` is a 27-character string.
-- `context` contains, in order:
-  - ROOT's `# Public` heading and its public content.
-  - A frontmatter block between `---` delimiters containing only the `output` field.
-  - ROOT/a's `# Public` heading and its public content.
-  - ROOT/a's `# Agent` heading and its agent content.
-- `input` is absent.
+Expected:
+- Result starts with `chain_hash: ` followed by exactly 27 characters.
+- After `--- context ---`: context contains ROOT's `# Public` heading and its content, a reduced frontmatter block between `---` delimiters containing only `output: out/a.go`, ROOT/a's `# Public` heading and its content, ROOT/a's `# Agent` heading and its content.
+- Result does not contain `--- input ---`.
+- Result does not contain `--- existing artifact ---`.
 
 ---
 
 ### Ancestor public content included
 
 Setup:
-- Create ROOT/_node.md with a `# Public` section with content.
-- Create ROOT/a/_node.md with a `# Public` section with content.
-- Create ROOT/a/b/_node.md with frontmatter `output: some/output.go`.
+- Create ROOT/_node.md with a `# Public` section.
+- Create ROOT/a/_node.md with a `# Public` section.
+- Create ROOT/a/b/_node.md with frontmatter `output: out/b.go` and a `# Public` section.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a/b".
+Action: call MCPLoadChain with logical_name = "ROOT/a/b".
 
-Expected outcome:
-- `context` contains ROOT's `# Public` heading and public content followed by ROOT/a's `# Public` heading and public content.
+Expected:
+- Context contains ROOT's `# Public` heading and content followed by ROOT/a's `# Public` heading and content.
 
 ---
 
@@ -40,25 +37,25 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md with only a `# Name` section (no `# Public` section).
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and a `# Public` section with content.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and a `# Public` section with content.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `context` does not contain any content from ROOT's `_node.md`.
+Expected:
+- Context does not contain ROOT's heading or content.
 
 ---
 
 ### Ancestor with empty public section skipped
 
 Setup:
-- Create ROOT/_node.md with a `# Public` section that is present but contains no content and no subsections.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and a `# Public` section with content.
+- Create ROOT/_node.md with a `# Public` section that has no content, no subsections.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and a `# Public` section with content.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `context` does not contain any content from ROOT's `_node.md`.
+Expected:
+- Context does not contain ROOT's content.
 
 ---
 
@@ -66,13 +63,13 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and `depends_on: ["ROOT/b"]`.
-- Create ROOT/b/_node.md with a `# Public` section containing an `## Interface` subsection and a `## Constraints` subsection, each with content.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `depends_on: ["ROOT/b"]`.
+- Create ROOT/b/_node.md with a `# Public` section containing `## Interface` and `## Constraints` subsections with content.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `context` contains ROOT/b's `# Public` content including both the `## Interface` heading and content and the `## Constraints` heading and content.
+Expected:
+- Context contains ROOT/b's `# Public` heading, its `## Interface` heading and content, and its `## Constraints` heading and content.
 
 ---
 
@@ -80,14 +77,14 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and `depends_on: ["ROOT/b(interface)"]`.
-- Create ROOT/b/_node.md with a `# Public` section containing an `## Interface` subsection and a `## Constraints` subsection, each with content.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `depends_on: ["ROOT/b(interface)"]`.
+- Create ROOT/b/_node.md with a `# Public` section containing `## Interface` and `## Constraints` subsections with content.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `context` contains the `## Interface` heading and its content from ROOT/b.
-- `context` does not contain the `## Constraints` heading or its content.
+Expected:
+- Context contains the `## Interface` heading and its content from ROOT/b.
+- Context does not contain the `## Constraints` heading or its content.
 
 ---
 
@@ -95,14 +92,14 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and `depends_on: ["ARTIFACT/b"]`.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `depends_on: ["ARTIFACT/b"]`.
 - Create ROOT/b/_node.md with frontmatter `output: out/b.go`.
-- Create "out/b.go" with frontmatter and body content.
+- Create "out/b.go" with a frontmatter block followed by body content.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `context` contains the body of "out/b.go" without its frontmatter.
+Expected:
+- Context contains the body of "out/b.go" without the frontmatter block.
 
 ---
 
@@ -110,13 +107,13 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and `external: [{path: "data/config.yaml"}]`.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `external: [{path: "data/config.yaml"}]`.
 - Create "data/config.yaml" with known content.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `context` contains the full content of "data/config.yaml".
+Expected:
+- Context contains the full content of "data/config.yaml".
 
 ---
 
@@ -124,13 +121,13 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and `depends_on: ["ROOT/b"]`.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `depends_on: ["ROOT/b"]`.
 - Create ROOT/b/_node.md with a `# Public` section.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `context` contains a frontmatter block between `---` delimiters with only the `output` field.
+Expected:
+- Context contains a frontmatter block between `---` delimiters with only `output: out/a.go`.
 - The `depends_on` field is not present in the frontmatter block.
 
 ---
@@ -139,13 +136,13 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go`, a `# Public` section with content, and a `# Agent` section with content.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go`, a `# Public` section with content, and a `# Agent` section with content.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `context` contains ROOT/a's `# Public` heading and public content.
-- `context` contains ROOT/a's `# Agent` heading and agent content.
+Expected:
+- Context contains ROOT/a's `# Public` heading and content.
+- Context contains ROOT/a's `# Agent` heading and content.
 
 ---
 
@@ -153,54 +150,85 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and a `# Public` section with content. No `# Agent` section.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and a `# Public` section with content. No `# Agent` section.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- No error is returned.
-- `context` contains only the public content. No `# Agent` heading is present.
+Expected:
+- No error.
+- Context contains the public content.
+- Context does not contain a `# Agent` heading.
 
 ---
 
-### Input separated from context
+### Input present — in separate section
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and `input: "ARTIFACT/b"`.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `input: ARTIFACT/b`.
 - Create ROOT/b/_node.md with frontmatter `output: out/data.json`.
-- Create "out/data.json" with frontmatter and body content.
+- Create "out/data.json" with a frontmatter block followed by body content.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `result.input` contains the body of "out/data.json" without frontmatter.
-- The input content does not appear in `result.context`.
+Expected:
+- Result contains `--- input ---` section.
+- Content after `--- input ---` is the body of "out/data.json" without its frontmatter.
+- The input content does not appear in the context section (before `--- input ---`).
 
 ---
 
-### No input — field absent
+### No input — section absent
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go`. No `input` field.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go`. No `input` field.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- `result.input` is absent.
+Expected:
+- Result does not contain `--- input ---`.
+
+---
+
+### Existing artifact present — in separate section
+
+Setup:
+- Create ROOT/_node.md.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go`.
+- Create "out/a.go" with known content.
+
+Action: call MCPLoadChain with logical_name = "ROOT/a".
+
+Expected:
+- Result contains `--- existing artifact ---` section.
+- Content after `--- existing artifact ---` is the full content of "out/a.go".
+
+---
+
+### Existing artifact absent — section omitted
+
+Setup:
+- Create ROOT/_node.md.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go`.
+- Do not create "out/a.go".
+
+Action: call MCPLoadChain with logical_name = "ROOT/a".
+
+Expected:
+- Result does not contain `--- existing artifact ---`.
 
 ---
 
 ### Hash is deterministic
 
 Setup:
-- Create a spec tree with known content: ROOT/_node.md with a `# Public` section, ROOT/a/_node.md with frontmatter `output: some/output.go` and a `# Public` section.
+- Create a spec tree with known, fixed content: ROOT/_node.md with a `# Public` section and ROOT/a/_node.md with frontmatter `output: out/a.go` and a `# Public` section.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a" twice.
+Action: call MCPLoadChain with logical_name = "ROOT/a" twice.
 
-Expected outcome:
-- Both results have identical `chain_hash` values.
+Expected:
+- Both calls return results with identical `chain_hash` values.
 
 ---
 
@@ -208,19 +236,23 @@ Expected outcome:
 
 ### Invalid logical name — not ROOT/
 
-Action: Call MCPLoadChain with logical_name = "INVALID/something".
+Setup: none.
 
-Expected outcome:
-- Error UnsupportedReference is returned (propagated from LogicalNames via LogicalNameToPath).
+Action: call MCPLoadChain with logical_name = "INVALID/something".
+
+Expected:
+- Error logicalnames.UnsupportedReference (propagated from LogicalNameToPath).
 
 ---
 
 ### Nonexistent node file
 
-Action: Call MCPLoadChain with logical_name = "ROOT/nonexistent" where no `_node.md` exists on disk.
+Setup: none (no _node.md on disk for ROOT/nonexistent).
 
-Expected outcome:
-- Error FileUnreadable is returned (propagated from FrontmatterParse).
+Action: call MCPLoadChain with logical_name = "ROOT/nonexistent".
+
+Expected:
+- Error propagated from FrontmatterParse indicating the file is unreadable (FileUnreadable).
 
 ---
 
@@ -228,12 +260,12 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with a `# Public` section but no `output` field in frontmatter.
+- Create ROOT/a/_node.md with a `# Public` section and no `output` field in frontmatter.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- Error NoOutput is returned.
+Expected:
+- Error NoOutput.
 
 ---
 
@@ -241,12 +273,12 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: "../../etc/passwd"`.
+- Create ROOT/a/_node.md with frontmatter `output: ../../etc/passwd`.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
-- Error InvalidOutputPath is returned.
+Expected:
+- Error InvalidOutputPath.
 
 ---
 
@@ -254,10 +286,10 @@ Expected outcome:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: some/output.go` and `depends_on: ["ROOT/missing"]`.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `depends_on: ["ROOT/missing"]`.
 - Do not create ROOT/missing/_node.md.
 
-Action: Call MCPLoadChain with logical_name = "ROOT/a".
+Action: call MCPLoadChain with logical_name = "ROOT/a".
 
-Expected outcome:
+Expected:
 - An error is returned. The missing node is detected during chain processing (hash computation or context building).

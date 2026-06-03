@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/logical_names@_usSKmUSLkcD_dKb8IDAHnWITaI
+// code-from-spec: ROOT/golang/tests/utils/logical_names@v2nCX6ksJpS41B2WLXKsO_nSjrM
 package logicalnames_test
 
 import (
@@ -172,13 +172,13 @@ func TestLogicalNameGetQualifier(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
-		wantQ     string
+		wantQual  string
 		wantFound bool
 	}{
 		{
 			name:      "Extracts qualifier from ROOT reference",
 			input:     "ROOT/x/y(interface)",
-			wantQ:     "interface",
+			wantQual:  "interface",
 			wantFound: true,
 		},
 		{
@@ -204,8 +204,8 @@ func TestLogicalNameGetQualifier(t *testing.T) {
 			if found != tc.wantFound {
 				t.Fatalf("expected found=%v, got found=%v", tc.wantFound, found)
 			}
-			if found && got != tc.wantQ {
-				t.Fatalf("expected qualifier %q, got %q", tc.wantQ, got)
+			if found && got != tc.wantQual {
+				t.Fatalf("expected qualifier %q, got %q", tc.wantQual, got)
 			}
 		})
 	}
