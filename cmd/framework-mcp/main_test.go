@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/server@KpzoRCoEociPvVhzCaPlgb9v3oU
+// code-from-spec: ROOT/golang/tests/server@da-jvw5gKNVPJuYdc3JQKWnrFps
 package main_test
 
 import (

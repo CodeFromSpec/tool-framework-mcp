@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/resolver@V5oBoUTGEzMTMy8ZiPBRRb4Ou_Y -->
+<!-- code-from-spec: ROOT/functional/tests/chain/resolver@ArqYyjNQEWZO-OdJaB1D069UDVY -->
 
 ## Ancestors and target
 

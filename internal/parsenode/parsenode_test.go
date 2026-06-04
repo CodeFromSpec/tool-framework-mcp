@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/parsing/node_parsing@f5spQEaA2qs9RGLl1fevOx8IuO0
+// code-from-spec: ROOT/golang/tests/parsing/node_parsing@5mJaa35O8OuhaciheEbRL8gPZzE
 package parsenode_test
 
 import (

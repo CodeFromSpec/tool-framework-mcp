@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/parsing/frontmatter@_UI1sSfMN20Dp4h89IXMptrgR2w -->
+<!-- code-from-spec: ROOT/functional/tests/parsing/frontmatter@aHDP0XkeMvEU5eg-VTP1lkiAAkY -->
 
 ## Happy path
 

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/utils/text_normalization@UUHpkG5CZyXrXLRxIJQS3uCKZ1c
+// code-from-spec: ROOT/golang/implementation/utils/text_normalization@kUfhykeEcp92BFauQejgW0jsAQo
 package textnormalization
 
 import (

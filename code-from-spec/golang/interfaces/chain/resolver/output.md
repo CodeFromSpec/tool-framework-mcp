@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/resolver@DBcbnssMbfih0A7nqbH39Vg8WSU)
+[//]: # (code-from-spec: ROOT/golang/interfaces/chain/resolver@1vyBydvlA8YOr4IIR1H7jifm2YE)
 
 # Package `chainresolver`
 

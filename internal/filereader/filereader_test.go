@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/os/file_reader@zJdWIu5JD2x-Y4CwuOClOxoltCc
+// code-from-spec: ROOT/golang/tests/os/file_reader@ztrLoj1ruOqJmr-gvRlbAyBxE3g
 package filereader_test
 
 import (

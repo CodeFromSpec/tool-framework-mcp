@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/chain_hash@gV6LCfMu26LY46qAA4Xaz4Gw_Nc
+// code-from-spec: ROOT/golang/implementation/mcp_tools/chain_hash@YouuCEEGImk0toGSuKdyTykaSS0
 package mcpchainhash
 
 import (

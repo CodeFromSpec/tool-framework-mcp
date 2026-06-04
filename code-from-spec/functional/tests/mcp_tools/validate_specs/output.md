@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/validate_specs@NKT7VlCb2GRu9RcBzzndjiLa5oo -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/validate_specs@snH3sVUFyT_ar3eClft6x_SBsJo -->
 
 ## Test cases for MCPValidateSpecs
 

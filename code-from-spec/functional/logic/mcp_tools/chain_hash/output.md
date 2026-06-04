@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/chain_hash@ElxqWNhLA604LUl3bOsmSY3aCFc -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/chain_hash@-NhQ1arOBLGCKMGTZSsFLIDg-2c -->
 
 # Public
 

@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@isW6n_1MY7Qj_mWaMwIbw4up2kU -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@v6XFjxNwmNUBxelHFd1nDhMFDAI -->
 
 ## Happy path
 

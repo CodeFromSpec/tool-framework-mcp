@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/chain_hash@--pK5Xp1NE0dYdmssJIrCOE8s1c -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/chain_hash@AyXXygIrXC2K1-OZ0u7-Ld6RTFA -->
 
 ## Test: Returns a 27-character hash
 

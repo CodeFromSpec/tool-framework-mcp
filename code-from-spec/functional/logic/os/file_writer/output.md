@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/os/file_writer@fwciNcR78Bu3hFD1k-Mvx5DBnqo -->
+<!-- code-from-spec: ROOT/functional/logic/os/file_writer@sFm-01WUZeYLiW0lmoZWSjWkNPk -->
 
 function FileWrite(cfs_path: pathutils.PathCfs, content: string)
 

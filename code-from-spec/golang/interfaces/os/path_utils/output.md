@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/path_utils@rxryHhnN67zbfCJeeTT_3PrBZhQ)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/path_utils@l4Cf-tdOGsA7MT4SfDQxVy2JD3Y)
 
 # Package `pathutils`
 

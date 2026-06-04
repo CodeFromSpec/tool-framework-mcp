@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/parsing/node_parsing@g8K4SlVAFNy_lRvz7EiomphORhk
+// code-from-spec: ROOT/golang/implementation/parsing/node_parsing@VTTi_qZ-Rm28JENJTeqsmCTaErs
 package parsenode
 
 import (

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/parsing/frontmatter@_VENUMBYismAmhybnAI2kYHP3xw
+// code-from-spec: ROOT/golang/tests/parsing/frontmatter@dnYATPGwktyUnU4ofuxFOXbGwzA
 package frontmatter_test
 
 import (

@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/os/file_reader@cnJu1DD18EWvwvKwNd_YLzklnro -->
+<!-- code-from-spec: ROOT/functional/tests/os/file_reader@w1yuyvgj2R6VENNYMxUo4MM7ppA -->
 
 ## Test cases
 

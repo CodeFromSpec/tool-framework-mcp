@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/logical_names@SqBOYKAbQLc8vwQ5EGf3U2UtNHo -->
+<!-- code-from-spec: ROOT/functional/logic/utils/logical_names@ECEfoTk6UpRmTPeuffCweNu2NmM -->
 
 function LogicalNameToPath(logical_name: string) -> pathutils.PathCfs
   errors:

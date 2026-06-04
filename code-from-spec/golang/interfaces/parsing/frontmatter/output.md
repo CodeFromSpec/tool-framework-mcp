@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/frontmatter@KHJ8aXZzfpjNoWzn3H7znblEQXw)
+[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/frontmatter@QLwobF5jj6bQdL_90NtWu4rMNfw)
 
 # Package `frontmatter`
 

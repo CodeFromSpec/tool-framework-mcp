@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/os/list_files@i9F73iNerpUO9BDqrLpdEpBEf4Y -->
+<!-- code-from-spec: ROOT/functional/logic/os/list_files@sVEU6SIgoJIbOWDXvKdabXnLSVw -->
 
 function ListFiles(cfs_path: pathutils.PathCfs) -> list of pathutils.PathCfs
 

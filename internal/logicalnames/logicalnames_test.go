@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/logical_names@v2nCX6ksJpS41B2WLXKsO_nSjrM
+// code-from-spec: ROOT/golang/tests/utils/logical_names@erBVg2XCRBA2f8gKxXBzIxNR_Sg
 package logicalnames_test
 
 import (

@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@_VBYJnq_9OxGjs0nW76YYhKC-Ck)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@Wb5Aoo5Gv5B0rF5enMl8RT2D3ak)
 
 # Package `mcploadchain`
 

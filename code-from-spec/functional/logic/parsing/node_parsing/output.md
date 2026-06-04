@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/parsing/node_parsing@HXvIqhI-KPH4zXQyPw0qj9uWh_4 -->
+<!-- code-from-spec: ROOT/functional/logic/parsing/node_parsing@mt2k3Nh5JcpO4Gm_MsUgqEC33Q8 -->
 
 ## Namespace
 

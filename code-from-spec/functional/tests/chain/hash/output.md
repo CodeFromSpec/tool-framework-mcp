@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/hash@GwYrSGY0yLbq4eFdtxE6EaUwDHw -->
+<!-- code-from-spec: ROOT/functional/tests/chain/hash@UUm9mxSshx3VVv-Sr-CDDtgPP6o -->
 
 ## ChainHashCompute — Test Specification
 

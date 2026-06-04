@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_writer@93f9AEmffmdI1xXyNzujeifaqp0
+// code-from-spec: ROOT/golang/implementation/os/file_writer@XLhW0xpWsSNavwHPS_x56X84gvk
 package filewriter
 
 import (

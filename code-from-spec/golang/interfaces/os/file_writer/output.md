@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_writer@i1batGJSZKWbwhnFm1ohFHpF3X4)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_writer@LEyqN9xS7bLRWMlaQrI503t809A)
 
 # Package `filewriter`
 

@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@EUHMU3tWYjg3PK6YwgC6QZDVuE0 -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@jGjEcpo0LMi6LldKKmBLXC8vQGI -->
 
 function MCPLoadChain(logical_name: string) -> string
 

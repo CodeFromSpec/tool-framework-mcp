@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/spec_tree/scan@o5zywBGePnW68eCf3RxajBMkVXg -->
+<!-- code-from-spec: ROOT/functional/logic/spec_tree/scan@UNAF3DfYDp1Hwr4FlgpLIuR-Eyk -->
 
 ## Namespace
 

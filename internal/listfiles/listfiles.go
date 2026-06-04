@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/list_files@GNmbtaGY0axw1PR1Qn7xRwyGO2M
+// code-from-spec: ROOT/golang/implementation/os/list_files@t4INp3r6dn2_G0BOg-9SaZUY-Ps
 package listfiles
 
 import (
