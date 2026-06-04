@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/write_file@44TJN42_jm-gdLALK1p-zpCfAl4 -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/write_file@OKKODpT5rilOy3Br3VX3k1c9974 -->
 
 ## Test cases for MCPWriteFile
 

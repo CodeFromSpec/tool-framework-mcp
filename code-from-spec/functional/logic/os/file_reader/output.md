@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/os/file_reader@FF5xIsQm_48TE3-NcYsfT3k_Ke8 -->
+<!-- code-from-spec: ROOT/functional/logic/os/file_reader@JnDhXaXPtHJJuac5F21bT0mXuBo -->
 
 function FileOpen(cfs_path: pathutils.PathCfs) -> FileReader
   errors:

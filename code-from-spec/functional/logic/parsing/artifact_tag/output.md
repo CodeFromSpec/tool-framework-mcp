@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/parsing/artifact_tag@OgAUE8S-b0AXBnNjvW2stFWNMhk -->
+<!-- code-from-spec: ROOT/functional/logic/parsing/artifact_tag@Xv5QUPzwOPFkfkqnOshNUAT6k2o -->
 
 ## Records
 

@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_reader@os7sRZ84rFe2RDbTyOXnBJKEkBw)
+[//]: # (code-from-spec: ROOT/golang/interfaces/os/file_reader@JyU8eWCM3tbMYzCIndLG_W-4wRI)
 
 # Package `filereader`
 

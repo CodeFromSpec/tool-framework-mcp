@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@2u9bAusD_uVqBCUrABlRJKwDfQo)
+[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@Kh6FeDbVu3H4umwPnrwWiySlRM8)
 
 # Package `textnormalization`
 

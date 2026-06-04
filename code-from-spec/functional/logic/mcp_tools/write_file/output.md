@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/write_file@0iSq1AP_GCbR5K4gOHqdrm7d4WQ -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/write_file@87JEQZ7dhsfoSGYzMqDCdqtkH44 -->
 
 ## Functions
 

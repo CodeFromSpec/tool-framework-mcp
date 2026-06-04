@@ -152,6 +152,19 @@ Rule name: `output_paths`.
 The output path must pass `PathValidateCfs` (no traversal,
 no absolute paths, no backslashes, within project root).
 
+#### public_subsection_required
+
+Rule name: `public_subsection_required`.
+
+If `node.public` is present, all content must be under
+a `##` subsection. If `node.public.content` is
+non-empty (has any non-blank line), report a format
+error with detail: "content in # Public must be under
+a ## subsection". If `node.public` is absent, skip.
+
+A line is blank if it contains only whitespace or is
+empty.
+
 #### duplicate_subsections
 
 Rule name: `duplicate_subsections`.

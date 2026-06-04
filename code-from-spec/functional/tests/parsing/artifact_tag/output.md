@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/parsing/artifact_tag@Uu7Q0T6R7DoMUh5oJCkAYHa1oGw -->
+<!-- code-from-spec: ROOT/functional/tests/parsing/artifact_tag@AX-BgwUs8W6hak5YdCE4oVqG8sI -->
 
 ## Test cases for ArtifactTagExtract
 

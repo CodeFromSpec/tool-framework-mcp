@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@blWHTmeue6tvnTZUcSm7JzYXgi8 -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@yR6BFQKNDtyBA58mJMjZz7etK7g -->
 
 function MCPLoadChain(logical_name: string) -> string
 
@@ -22,10 +22,8 @@ function MCPLoadChain(logical_name: string) -> string
 
      For each ancestor in `chain.ancestors`:
        Call `NodeParse(ancestor.logical_name)`.
-       If `node.public` is absent, or has empty content and no subsections, skip.
+       If `node.public` is absent or has no subsections, skip.
        Otherwise:
-         Append the `# Public` raw heading followed by "\n".
-         For each line in `node.public.content`, append line + "\n".
          For each subsection in `node.public.subsections`:
            Append the subsection `raw_heading` + "\n".
            For each line in `subsection.content`, append line + "\n".
@@ -33,16 +31,14 @@ function MCPLoadChain(logical_name: string) -> string
      For each dependency in `chain.dependencies`:
        If `LogicalNameIsArtifact(dep.logical_name)` is true:
          Call `FileOpen(dep.file_path)`.
-         Read lines with `FileReadLine` until EndOfFile.
-         Strip frontmatter: if the first non-blank line is "---",
-           skip all lines up to and including the closing "---".
+         Read all lines with `FileReadLine` until EndOfFile.
+         Remove the artifact tag line: skip the line that contains
+           "code-from-spec: <name>@<hash>" (the pattern "code-from-spec:").
          For each remaining line, append line + "\n".
          Call `FileClose`.
        Else if `dep.qualifier` is absent:
          Call `NodeParse(dep.logical_name)`.
-         If `node.public` is present:
-           Append the `# Public` raw heading + "\n".
-           For each line in `node.public.content`, append line + "\n".
+         If `node.public` is present and has subsections:
            For each subsection in `node.public.subsections`:
              Append the subsection `raw_heading` + "\n".
              For each line in `subsection.content`, append line + "\n".
@@ -67,9 +63,7 @@ function MCPLoadChain(logical_name: string) -> string
          Append "output: " + frontmatter.output + "\n".
          Append "---\n".
        Call `NodeParse(chain.target.logical_name)`.
-       If `node.public` is present:
-         Append the `# Public` raw heading + "\n".
-         For each line in `node.public.content`, append line + "\n".
+       If `node.public` is present and has subsections:
          For each subsection in `node.public.subsections`:
            Append the subsection `raw_heading` + "\n".
            For each line in `subsection.content`, append line + "\n".
@@ -89,9 +83,9 @@ function MCPLoadChain(logical_name: string) -> string
      If `chain.input` is present:
        Append: "--- input ---\n".
        Call `FileOpen(chain.input.file_path)`.
-       Read lines with `FileReadLine` until EndOfFile.
-       Strip frontmatter: if the first non-blank line is "---",
-         skip all lines up to and including the closing "---".
+       Read all lines with `FileReadLine` until EndOfFile.
+       Remove the artifact tag line: skip the line that contains
+         "code-from-spec: <name>@<hash>" (the pattern "code-from-spec:").
        For each remaining line, append line + "\n".
        Call `FileClose`.
 

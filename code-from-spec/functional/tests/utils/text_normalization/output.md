@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/text_normalization@mMpLKq5zzzK4qFUsDXCcERVwNJg -->
+<!-- code-from-spec: ROOT/functional/tests/utils/text_normalization@Kl0fpKwpdky-twBLNB2Y40EGPiY -->
 
 ## Identity
 

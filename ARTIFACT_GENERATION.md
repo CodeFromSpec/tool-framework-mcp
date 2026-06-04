@@ -19,28 +19,58 @@ generates the artifacts or reports gaps.
 
 Ideally, a subagent should only have access to the spec chain
 for the target node and the ability to write the declared output
-files. It should not explore the filesystem, read unrelated
+file. It should not explore the filesystem, read unrelated
 files, or fetch external information. If the chain is
 insufficient, the correct action is to report what is missing.
 
-The `subagent-mcp` tool (see Resources in
+The `framework-mcp` tool (see Resources in
 [CODE_FROM_SPEC.md](CODE_FROM_SPEC.md)) enforces this
 confinement. Its tools include:
 
 - `load_chain` — returns the complete spec chain for a logical
   name, including the current chain hash
 - `write_file` — writes a file to disk, validated against the
-  node's `outputs` list
+  node's `output` path
 
-When `subagent-mcp` is available, the orchestrator should
+When `framework-mcp` is available, the orchestrator should
 configure the subagent with access to only these tools and no
 other filesystem access. A reference subagent definition is
-provided at [subagents/code-from-spec-code-generation.md](../subagents/code-from-spec-code-generation.md).
+provided at [subagents/cfs-artifact-generation.md](../subagents/cfs-artifact-generation.md).
 
 When it is not available, the orchestrator is responsible for
 assembling the chain and delivering it to the subagent by other
 means (e.g., in the prompt), and for restricting the subagent's
 write access (if possible).
+
+---
+
+## Existing artifact as reference
+
+When regenerating a stale artifact, the subagent should
+receive the existing artifact content alongside the spec
+chain. The `load_chain` tool includes the existing artifact
+automatically when the output file exists on disk — the
+orchestrator does not need to read or relay it.
+
+The subagent compares the spec with the existing code and
+produces minimal changes — preserving what already satisfies
+the spec and modifying only what needs to change.
+
+This reduces diff noise, avoids unnecessary churn, and makes
+code review practical. Without the existing artifact, the
+subagent generates from scratch every time, producing
+different variable names, function ordering, and formatting
+even when the behavior is identical.
+
+The existing artifact is **not** part of the chain and does
+**not** participate in the chain hash. It is delivered
+alongside the chain but does not affect staleness detection.
+
+If the subagent anchors on a bug in the existing artifact
+(reproducing it instead of following the spec), delete the
+artifact and regenerate from scratch. The decision to include
+or exclude the existing artifact is the human's, case by
+case.
 
 ---
 

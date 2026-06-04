@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@NhcKg9teavpiFA3aHe-hus7vtBQ
+// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@rBmxcHMV3mbhtQoInaImRQyax-w
 
 package artifacttag
 

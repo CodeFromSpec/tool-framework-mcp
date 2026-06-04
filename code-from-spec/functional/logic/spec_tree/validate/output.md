@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/spec_tree/validate@L55DnW6zEZJDzhXjAh0GpIi90Yg -->
+<!-- code-from-spec: ROOT/functional/logic/spec_tree/validate@V5ls1ehYX1OP3s4gIEmelzebD-Q -->
 
 ## Namespace
 
@@ -114,6 +114,17 @@ function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of For
              node: entry.logical_name
              rule: "output_paths"
              detail: describing the validation failure
+
+     Rule: public_subsection_required
+       If node.public is absent, skip this rule.
+       If node.public is present:
+         For each line in node.public.content:
+           If the line is non-blank (contains at least one non-whitespace character):
+             Add a FormatError with:
+               node: entry.logical_name
+               rule: "public_subsection_required"
+               detail: "content in # Public must be under a ## subsection"
+             Stop checking further lines for this entry (one error is sufficient).
 
      Rule: duplicate_subsections
        If node.public is absent, skip this rule.

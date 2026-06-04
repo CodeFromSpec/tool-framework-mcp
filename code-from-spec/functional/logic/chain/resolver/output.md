@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/chain/resolver@6mQ-AhKXvN9XWXHB3I-xfGKp7OM -->
+<!-- code-from-spec: ROOT/functional/logic/chain/resolver@xGyVynsSHl4al9XU9MtCKTkjytg -->
 
 ## Namespace
 

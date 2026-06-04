@@ -19,9 +19,9 @@ files, then call `MCPChainHash`.
 
 #### Returns a 27-character hash
 
-Create a spec tree: ROOT (with public section) and
-ROOT/a (leaf with output). Call MCPChainHash with
-logical_name = "ROOT/a".
+Create a spec tree: ROOT (with `# Public` containing a
+`## Context` subsection) and ROOT/a (leaf with output).
+Call MCPChainHash with logical_name = "ROOT/a".
 
 Expect result is a 27-character string.
 
@@ -33,9 +33,10 @@ Expect both results are identical.
 
 #### Hash matches load_chain hash
 
-Create a spec tree: ROOT (with public section) and
-ROOT/a (leaf with output). Call MCPChainHash with
-"ROOT/a" and call MCPLoadChain with "ROOT/a".
+Create a spec tree: ROOT (with `# Public` containing a
+`## Context` subsection) and ROOT/a (leaf with output).
+Call MCPChainHash with "ROOT/a" and call MCPLoadChain
+with "ROOT/a".
 
 Expect the hash from MCPChainHash equals the
 chain_hash from MCPLoadChain.
@@ -71,3 +72,8 @@ case with its setup, actions, and expected outcome.
   `MCPChainHash`.
 - Each test case creates a spec tree on disk with
   `_node.md` files, then calls `MCPChainHash`.
+- When creating `_node.md` files with `# Public`
+  content, all content must be under `##` subsections.
+  Never place content directly under `# Public`
+  without a subsection heading — this is a format
+  error.

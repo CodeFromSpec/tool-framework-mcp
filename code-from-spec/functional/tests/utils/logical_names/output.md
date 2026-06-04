@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/logical_names@b-toYsrf3HRP9DvI95V5iULXJuw -->
+<!-- code-from-spec: ROOT/functional/tests/utils/logical_names@V9fMike3JJ33iGfXHUD2S87dPCE -->
 
 ## LogicalNameToPath
 

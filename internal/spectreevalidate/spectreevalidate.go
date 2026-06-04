@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/spec_tree/validate@wjwNmX46oaJ-_nl5M-_Eqmwcv0w
+// code-from-spec: ROOT/golang/implementation/spec_tree/validate@E_RibfITegOdcTknVl7WxBmN-Jk
 package spectreevalidate
 
 import (
@@ -191,6 +191,19 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput) []*FormatError {
 					Rule:   "output_paths",
 					Detail: fmt.Sprintf("invalid output path %q: %s", entry.Frontmatter.Output, err.Error()),
 				})
+			}
+		}
+
+		if entry.Node.Public != nil {
+			for _, line := range entry.Node.Public.Content {
+				if strings.TrimSpace(line) != "" {
+					errs = append(errs, &FormatError{
+						Node:   entry.LogicalName,
+						Rule:   "public_subsection_required",
+						Detail: "content in # Public must be under a ## subsection",
+					})
+					break
+				}
 			}
 		}
 

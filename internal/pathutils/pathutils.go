@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/path_utils@9a0fakjwXxM-tc20PeRF_AD8Chc
+// code-from-spec: ROOT/golang/implementation/os/path_utils@TtGD8rP-2d-_oWbo1IF4jwD6mn4
 package pathutils
 
 import (

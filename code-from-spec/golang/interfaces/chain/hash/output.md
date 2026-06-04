@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@e45-GBOuHZDNvR0RFyU0l8hZNvQ)
+[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@Y4_hlDtkJsqYUdugfeH39kMUTfk)
 
 # Package `chainhash`
 

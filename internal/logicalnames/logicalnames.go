@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/utils/logical_names@h0XziMDumd760iq_ENkmE6GtcKw
+// code-from-spec: ROOT/golang/implementation/utils/logical_names@taVqVCT3ahewU7h2YL1TE_colWg
 package logicalnames
 
 import (

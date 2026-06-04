@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/os/file_writer@e_haNkaaoQszatS6rEQSNu3CPyY
+// code-from-spec: ROOT/golang/tests/os/file_writer@hUxmpzZ6hfg5oqPWcTIqeND0ceg
 package filewriter_test
 
 import (

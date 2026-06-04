@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/spec_tree/validate@7nqdF5RS8bbLuvgavFGlD4XHUz8 -->
+<!-- code-from-spec: ROOT/functional/tests/spec_tree/validate@G1xGSsYFHGgr2AF4tdXkDQZOlUI -->
 
 ## Test cases for SpecTreeValidate
 
@@ -430,6 +430,80 @@ Actions: call `SpecTreeValidate` with the input list.
 Expected outcome: returns exactly one `FormatError` with:
 - node = "ROOT/a"
 - rule = "output_paths"
+
+---
+
+### public_subsection_required
+
+#### Public with content before first subsection
+
+Setup: input list with two entries:
+- logical_name = "ROOT", no frontmatter fields
+- logical_name = "ROOT/a", node with public section present,
+  content = ["Some loose content."],
+  subsections = [{heading: "interface", raw_heading: "## Interface", content: ["Types."]}]
+
+Actions: call `SpecTreeValidate` with the input list.
+
+Expected outcome: returns exactly one `FormatError` with:
+- node = "ROOT/a"
+- rule = "public_subsection_required"
+- detail = "content in # Public must be under a ## subsection"
+
+---
+
+#### Public with only blank lines before subsection — no error
+
+Setup: input list with two entries:
+- logical_name = "ROOT", no frontmatter fields
+- logical_name = "ROOT/a", node with public section present,
+  content = ["", "  ", ""],
+  subsections = [{heading: "interface", raw_heading: "## Interface", content: ["Types."]}]
+
+Actions: call `SpecTreeValidate` with the input list.
+
+Expected outcome: returns no `FormatError` with rule = "public_subsection_required".
+
+---
+
+#### Public with content and no subsections
+
+Setup: input list with two entries:
+- logical_name = "ROOT", no frontmatter fields
+- logical_name = "ROOT/a", node with public section present,
+  content = ["Some content."], subsections = []
+
+Actions: call `SpecTreeValidate` with the input list.
+
+Expected outcome: returns exactly one `FormatError` with:
+- node = "ROOT/a"
+- rule = "public_subsection_required"
+
+---
+
+#### Public with only subsections — no error
+
+Setup: input list with two entries:
+- logical_name = "ROOT", no frontmatter fields
+- logical_name = "ROOT/a", node with public section present,
+  content = [],
+  subsections = [{heading: "interface", raw_heading: "## Interface", content: ["Types."]}]
+
+Actions: call `SpecTreeValidate` with the input list.
+
+Expected outcome: returns no `FormatError` with rule = "public_subsection_required".
+
+---
+
+#### No public section — skip
+
+Setup: input list with two entries:
+- logical_name = "ROOT", no frontmatter fields
+- logical_name = "ROOT/a", node with public section absent
+
+Actions: call `SpecTreeValidate` with the input list.
+
+Expected outcome: returns no `FormatError` with rule = "public_subsection_required".
 
 ---
 

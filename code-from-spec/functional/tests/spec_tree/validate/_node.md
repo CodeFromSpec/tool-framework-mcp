@@ -222,6 +222,47 @@ Input: ROOT, ROOT/a (leaf, output =
 "internal\\x.go"). Call SpecTreeValidate. Expect a
 FormatError with rule = "output_paths" for ROOT/a.
 
+### public_subsection_required
+
+#### Public with content before first subsection
+
+Input: ROOT, ROOT/a (leaf, node.public present with
+content = ["Some loose content."], subsections =
+[{heading: "interface", raw_heading: "## Interface",
+content: ["Types."]}]). Call SpecTreeValidate. Expect
+a FormatError with rule = "public_subsection_required"
+for ROOT/a with detail "content in # Public must be
+under a ## subsection".
+
+#### Public with only blank lines before subsection — no error
+
+Input: ROOT, ROOT/a (leaf, node.public present with
+content = ["", "  ", ""], subsections =
+[{heading: "interface", raw_heading: "## Interface",
+content: ["Types."]}]). Call SpecTreeValidate. Expect
+no public_subsection_required error.
+
+#### Public with content and no subsections
+
+Input: ROOT, ROOT/a (leaf, node.public present with
+content = ["Some content."], subsections = []). Call
+SpecTreeValidate. Expect a FormatError with rule =
+"public_subsection_required" for ROOT/a.
+
+#### Public with only subsections — no error
+
+Input: ROOT, ROOT/a (leaf, node.public present with
+content = [], subsections = [{heading: "interface",
+raw_heading: "## Interface", content: ["Types."]}]).
+Call SpecTreeValidate. Expect no
+public_subsection_required error.
+
+#### No public section — skip
+
+Input: ROOT, ROOT/a (leaf, node.public absent). Call
+SpecTreeValidate. Expect no public_subsection_required
+error.
+
 ### duplicate_subsections
 
 #### Unique subsection headings — no error

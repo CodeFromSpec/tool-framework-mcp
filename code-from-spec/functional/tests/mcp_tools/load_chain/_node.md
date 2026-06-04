@@ -24,19 +24,21 @@ delimiter lines (`--- context ---`, `--- input ---`,
 #### Simple leaf node — context and hash
 
 Create a spec tree: ROOT (with public section containing
-one line of content) and ROOT/a (leaf with output,
-public section with content, agent section with content).
+a `## Context` subsection with one line of content) and
+ROOT/a (leaf with output, public section with a
+`## Interface` subsection, agent section with content).
 Do not create the output file. Call MCPLoadChain with
 logical_name = "ROOT/a".
 
 Expect result starts with `chain_hash: ` followed by a
 27-character string. After `--- context ---`, the
-context contains ROOT's `# Public` heading and public
-content, the reduced frontmatter (output only, between
-`---` delimiters), ROOT/a's `# Public` heading and
-public content, and ROOT/a's `# Agent` heading and
-agent content. No `--- input ---` section. No
-`--- existing artifact ---` section.
+context contains ROOT's `## subsection` headings and
+their content (no `# Public` heading), the reduced
+frontmatter (output only, between `---` delimiters),
+ROOT/a's `## subsection` headings and their content
+(no `# Public` heading), and ROOT/a's `# Agent`
+heading and agent content. No `--- input ---` section.
+No `--- existing artifact ---` section.
 
 #### Ancestor public content included
 
@@ -44,9 +46,10 @@ Create a spec tree: ROOT (with public section), ROOT/a
 (with public section), ROOT/a/b (leaf with output).
 Call MCPLoadChain with "ROOT/a/b".
 
-Expect context contains ROOT's `# Public` heading and
-public content followed by ROOT/a's `# Public` heading
-and public content.
+Expect context contains ROOT's `## subsection` headings
+and their content, followed by ROOT/a's `## subsection`
+headings and their content. No `# Public` headings
+appear.
 
 #### Ancestor without public section skipped
 
@@ -87,16 +90,17 @@ Expect context contains the `## Interface` heading and
 its content from ROOT/b, but not the `## Constraints`
 heading or its content.
 
-#### ARTIFACT dependency — content minus frontmatter
+#### ARTIFACT dependency — artifact tag line removed
 
 Create a spec tree: ROOT, ROOT/a (leaf with output,
 depends_on = ["ARTIFACT/b"]), ROOT/b (with
-output = "out/b.go"). Create "out/b.go" with
-frontmatter and body content. Call MCPLoadChain with
-"ROOT/a".
+output = "out/b.go"). Create "out/b.go" with an
+artifact tag line
+(`// code-from-spec: ROOT/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa`)
+and body content. Call MCPLoadChain with "ROOT/a".
 
 Expect context contains the body of "out/b.go" without
-frontmatter.
+the artifact tag line.
 
 #### External file — full content
 
@@ -123,9 +127,9 @@ Create a spec tree: ROOT, ROOT/a (leaf with output,
 public section, agent section with content). Call
 MCPLoadChain with "ROOT/a".
 
-Expect context contains ROOT/a's `# Public` heading
-and public content, and ROOT/a's `# Agent` heading
-and agent content.
+Expect context contains ROOT/a's `## subsection`
+headings and their content (no `# Public` heading),
+and ROOT/a's `# Agent` heading and agent content.
 
 #### Target without agent section — skipped
 
@@ -139,12 +143,14 @@ Expect no error. Context contains only public content.
 
 Create a spec tree: ROOT, ROOT/a (leaf with output,
 input = "ARTIFACT/b"), ROOT/b (with output =
-"out/data.json"). Create "out/data.json" with
-frontmatter and body. Call MCPLoadChain with "ROOT/a".
+"out/data.json"). Create "out/data.json" with an
+artifact tag line and body content. Call MCPLoadChain
+with "ROOT/a".
 
 Expect result contains `--- input ---` section with
-the body of "out/data.json" without frontmatter. The
-input content does not appear in the context section.
+the body of "out/data.json" without the artifact tag
+line. The input content does not appear in the context
+section.
 
 #### No input — section absent
 
@@ -228,3 +234,8 @@ case with its setup, actions, and expected outcome.
   frontmatter content.
 - Use formal error names (PascalCase) as defined in the
   interface.
+- When creating `_node.md` files with `# Public`
+  content, all content must be under `##` subsections.
+  Never place content directly under `# Public`
+  without a subsection heading — this is a format
+  error.

@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/validate_specs@6KRmZ0BNke1rfsHrp3e_16fL5J4 -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/validate_specs@yR4nq6kp4jlcH-nM_7H1qVbwu9w -->
 
 # Public
 

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@HCWgtEqSPkvXJrya2Uat7kjTozA
+// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@BrNaVhdDMuXkyhjty67pOmdl3uo
 package mcploadchain
 
 import (
@@ -53,15 +53,8 @@ func MCPLoadChain(logical_name string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("MCPLoadChain: %w", err)
 		}
-		if node.Public == nil {
+		if node.Public == nil || len(node.Public.Subsections) == 0 {
 			continue
-		}
-		if len(node.Public.Content) == 0 && len(node.Public.Subsections) == 0 {
-			continue
-		}
-		ctx.WriteString(node.Public.RawHeading + "\n")
-		for _, line := range node.Public.Content {
-			ctx.WriteString(line + "\n")
 		}
 		for _, sub := range node.Public.Subsections {
 			ctx.WriteString(sub.RawHeading + "\n")
@@ -83,7 +76,7 @@ func MCPLoadChain(logical_name string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("MCPLoadChain: %w", err)
 			}
-			lines = stripFrontmatter(lines)
+			lines = removeArtifactTagLine(lines)
 			for _, line := range lines {
 				ctx.WriteString(line + "\n")
 			}
@@ -92,11 +85,7 @@ func MCPLoadChain(logical_name string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("MCPLoadChain: %w", err)
 			}
-			if node.Public != nil {
-				ctx.WriteString(node.Public.RawHeading + "\n")
-				for _, line := range node.Public.Content {
-					ctx.WriteString(line + "\n")
-				}
+			if node.Public != nil && len(node.Public.Subsections) > 0 {
 				for _, sub := range node.Public.Subsections {
 					ctx.WriteString(sub.RawHeading + "\n")
 					for _, line := range sub.Content {
@@ -149,11 +138,7 @@ func MCPLoadChain(logical_name string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("MCPLoadChain: %w", err)
 		}
-		if node.Public != nil {
-			ctx.WriteString(node.Public.RawHeading + "\n")
-			for _, line := range node.Public.Content {
-				ctx.WriteString(line + "\n")
-			}
+		if node.Public != nil && len(node.Public.Subsections) > 0 {
 			for _, sub := range node.Public.Subsections {
 				ctx.WriteString(sub.RawHeading + "\n")
 				for _, line := range sub.Content {
@@ -192,7 +177,7 @@ func MCPLoadChain(logical_name string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("MCPLoadChain: %w", err)
 		}
-		lines = stripFrontmatter(lines)
+		lines = removeArtifactTagLine(lines)
 		for _, line := range lines {
 			result.WriteString(line + "\n")
 		}
@@ -229,21 +214,13 @@ func readAllLines(reader *filereader.FileReader) ([]string, error) {
 	return lines, nil
 }
 
-func stripFrontmatter(lines []string) []string {
-	firstNonBlank := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			firstNonBlank = i
-			break
+func removeArtifactTagLine(lines []string) []string {
+	result := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if strings.Contains(line, "code-from-spec:") {
+			continue
 		}
+		result = append(result, line)
 	}
-	if firstNonBlank == -1 || lines[firstNonBlank] != "---" {
-		return lines
-	}
-	for i := firstNonBlank + 1; i < len(lines); i++ {
-		if lines[i] == "---" {
-			return lines[i+1:]
-		}
-	}
-	return lines
+	return result
 }

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/validate_specs@aqroS5IbACfmky8FnEggMQQGpJc
+// code-from-spec: ROOT/golang/tests/mcp_tools/validate_specs@fXbc-bfhjvieuHP0Nljrtyeesl8
 package mcpvalidatespecs_test
 
 import (
@@ -47,7 +47,7 @@ func testDirOf(path string) string {
 }
 
 func testRootNode() string {
-	return "# ROOT\n\n# Public\n\nPublic content.\n"
+	return "# ROOT\n\n# Public\n\n## Context\n\nPublic content.\n"
 }
 
 func testLeafNode(logicalName string) string {

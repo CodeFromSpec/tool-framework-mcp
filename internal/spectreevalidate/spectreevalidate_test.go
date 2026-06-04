@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/spec_tree/validate@60DsOoOwZTF95zOfmwDt5915se0
+// code-from-spec: ROOT/golang/tests/spec_tree/validate@nhNcAsw44zHYl7y4E2HKOLFHzMs
 package spectreevalidate_test
 
 import (
@@ -43,19 +43,20 @@ func testPublicSection(subsections []*parsenode.NodeSubsection) *parsenode.NodeS
 	}
 }
 
+func testPublicSectionWithContent(content []string, subsections []*parsenode.NodeSubsection) *parsenode.NodeSection {
+	return &parsenode.NodeSection{
+		Heading:     "public",
+		RawHeading:  "# Public",
+		Content:     content,
+		Subsections: subsections,
+	}
+}
+
 func testAgentSection(content []string) *parsenode.NodeSection {
 	return &parsenode.NodeSection{
 		Heading:    "agent",
 		RawHeading: "# Agent",
 		Content:    content,
-	}
-}
-
-func testEntry(logicalName string, fm frontmatter.Frontmatter, node parsenode.Node) *spectreevalidate.SpecTreeValidateInput {
-	return &spectreevalidate.SpecTreeValidateInput{
-		LogicalName: logicalName,
-		Frontmatter: fm,
-		Node:        node,
 	}
 }
 
@@ -800,6 +801,151 @@ func TestOutputPathWithBackslash(t *testing.T) {
 	}
 	if testCountErrors(errs, "output_paths") != 1 {
 		t.Errorf("expected exactly 1 output_paths error, got %d", testCountErrors(errs, "output_paths"))
+	}
+}
+
+func TestPublicWithContentBeforeFirstSubsection(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		{
+			LogicalName: "ROOT",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node:        parsenode.Node{NameSection: testNameSection("root")},
+		},
+		{
+			LogicalName: "ROOT/a",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node: parsenode.Node{
+				NameSection: testNameSection("root/a"),
+				Public: testPublicSectionWithContent(
+					[]string{"Some loose content."},
+					[]*parsenode.NodeSubsection{
+						{Heading: "interface", RawHeading: "## Interface", Content: []string{"Types."}},
+					},
+				),
+			},
+		},
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	if !testHasError(errs, "ROOT/a", "public_subsection_required") {
+		t.Errorf("expected public_subsection_required error for ROOT/a, got: %+v", errs)
+	}
+	if testCountErrors(errs, "public_subsection_required") != 1 {
+		t.Errorf("expected exactly 1 public_subsection_required error, got %d", testCountErrors(errs, "public_subsection_required"))
+	}
+	for _, e := range errs {
+		if e.Node == "ROOT/a" && e.Rule == "public_subsection_required" {
+			if e.Detail != "content in # Public must be under a ## subsection" {
+				t.Errorf("unexpected detail: %q", e.Detail)
+			}
+		}
+	}
+}
+
+func TestPublicWithOnlyBlankLinesBeforeSubsectionNoError(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		{
+			LogicalName: "ROOT",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node:        parsenode.Node{NameSection: testNameSection("root")},
+		},
+		{
+			LogicalName: "ROOT/a",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node: parsenode.Node{
+				NameSection: testNameSection("root/a"),
+				Public: testPublicSectionWithContent(
+					[]string{"", "  ", ""},
+					[]*parsenode.NodeSubsection{
+						{Heading: "interface", RawHeading: "## Interface", Content: []string{"Types."}},
+					},
+				),
+			},
+		},
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	if testCountErrors(errs, "public_subsection_required") != 0 {
+		t.Errorf("expected no public_subsection_required errors, got some: %+v", errs)
+	}
+}
+
+func TestPublicWithContentAndNoSubsections(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		{
+			LogicalName: "ROOT",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node:        parsenode.Node{NameSection: testNameSection("root")},
+		},
+		{
+			LogicalName: "ROOT/a",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node: parsenode.Node{
+				NameSection: testNameSection("root/a"),
+				Public: testPublicSectionWithContent(
+					[]string{"Some content."},
+					[]*parsenode.NodeSubsection{},
+				),
+			},
+		},
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	if !testHasError(errs, "ROOT/a", "public_subsection_required") {
+		t.Errorf("expected public_subsection_required error for ROOT/a, got: %+v", errs)
+	}
+	if testCountErrors(errs, "public_subsection_required") != 1 {
+		t.Errorf("expected exactly 1 public_subsection_required error, got %d", testCountErrors(errs, "public_subsection_required"))
+	}
+}
+
+func TestPublicWithOnlySubsectionsNoError(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		{
+			LogicalName: "ROOT",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node:        parsenode.Node{NameSection: testNameSection("root")},
+		},
+		{
+			LogicalName: "ROOT/a",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node: parsenode.Node{
+				NameSection: testNameSection("root/a"),
+				Public: testPublicSectionWithContent(
+					[]string{},
+					[]*parsenode.NodeSubsection{
+						{Heading: "interface", RawHeading: "## Interface", Content: []string{"Types."}},
+					},
+				),
+			},
+		},
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	if testCountErrors(errs, "public_subsection_required") != 0 {
+		t.Errorf("expected no public_subsection_required errors, got some: %+v", errs)
+	}
+}
+
+func TestNoPublicSectionSkipSubsectionRequiredCheck(t *testing.T) {
+	entries := []*spectreevalidate.SpecTreeValidateInput{
+		{
+			LogicalName: "ROOT",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node:        parsenode.Node{NameSection: testNameSection("root")},
+		},
+		{
+			LogicalName: "ROOT/a",
+			Frontmatter: frontmatter.Frontmatter{},
+			Node: parsenode.Node{
+				NameSection: testNameSection("root/a"),
+			},
+		},
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries)
+	if testCountErrors(errs, "public_subsection_required") != 0 {
+		t.Errorf("expected no public_subsection_required errors, got some: %+v", errs)
 	}
 }
 

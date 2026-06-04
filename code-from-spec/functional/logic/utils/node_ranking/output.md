@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/node_ranking@aLH7TZCwl_1ZHf3iPfEHnu8kCvQ -->
+<!-- code-from-spec: ROOT/functional/logic/utils/node_ranking@1LHYK3wAj0SBRJf7rXOeXM3a-no -->
 
 ## Records
 
