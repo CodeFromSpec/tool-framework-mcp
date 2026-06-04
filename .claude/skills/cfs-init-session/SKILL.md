@@ -12,13 +12,17 @@ working on a project that uses Code from Spec.
 
 ## What to do
 
-Read the guidelines below and follow them for the
-remainder of the session. Do not output the guidelines
-to the user — just acknowledge:
+1. Read `CODE_FROM_SPEC.md` from the project root.
+   This is the methodology specification — understand
+   it and follow it for the remainder of the session.
 
-> Code from Spec session initialized.
+2. Read the guidelines below.
 
-Then continue normally.
+3. Acknowledge:
+
+   > Code from Spec session initialized.
+
+   Then continue normally.
 
 ---
 
