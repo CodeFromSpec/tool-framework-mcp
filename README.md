@@ -7,9 +7,9 @@ artifact management.
 ## Tools
 
 - **load_chain** — returns the complete spec chain for a given
-  logical name, with frontmatter stripped from ancestors and
-  dependencies, duplicate files removed, existing source files
-  included, and the chain hash for the artifact tag
+  logical name, with artifact tag lines removed from artifact
+  dependencies and input, existing source files included, and
+  the chain hash for the artifact tag
 - **write_file** — writes a generated file to disk, validated
   against the node's declared `output`
 - **validate_specs** — validates the spec tree for format errors,
@@ -79,5 +79,3 @@ MCP configuration example:
 ## Documentation
 
 - [Code from Spec framework](https://github.com/CodeFromSpec/framework)
-- [Getting Started](https://github.com/CodeFromSpec/framework/blob/main/docs/GETTING_STARTED.md)
-- [Code Generation with Subagents](https://github.com/CodeFromSpec/framework/blob/main/rules/CODE_GENERATION.md)
