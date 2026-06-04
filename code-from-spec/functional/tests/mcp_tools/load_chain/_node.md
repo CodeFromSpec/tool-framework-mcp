@@ -24,19 +24,21 @@ delimiter lines (`--- context ---`, `--- input ---`,
 #### Simple leaf node — context and hash
 
 Create a spec tree: ROOT (with public section containing
-one line of content) and ROOT/a (leaf with output,
-public section with content, agent section with content).
+a `## Context` subsection with one line of content) and
+ROOT/a (leaf with output, public section with a
+`## Interface` subsection, agent section with content).
 Do not create the output file. Call MCPLoadChain with
 logical_name = "ROOT/a".
 
 Expect result starts with `chain_hash: ` followed by a
 27-character string. After `--- context ---`, the
-context contains ROOT's `# Public` heading and public
-content, the reduced frontmatter (output only, between
-`---` delimiters), ROOT/a's `# Public` heading and
-public content, and ROOT/a's `# Agent` heading and
-agent content. No `--- input ---` section. No
-`--- existing artifact ---` section.
+context contains ROOT's `## subsection` headings and
+their content (no `# Public` heading), the reduced
+frontmatter (output only, between `---` delimiters),
+ROOT/a's `## subsection` headings and their content
+(no `# Public` heading), and ROOT/a's `# Agent`
+heading and agent content. No `--- input ---` section.
+No `--- existing artifact ---` section.
 
 #### Ancestor public content included
 
@@ -44,9 +46,10 @@ Create a spec tree: ROOT (with public section), ROOT/a
 (with public section), ROOT/a/b (leaf with output).
 Call MCPLoadChain with "ROOT/a/b".
 
-Expect context contains ROOT's `# Public` heading and
-public content followed by ROOT/a's `# Public` heading
-and public content.
+Expect context contains ROOT's `## subsection` headings
+and their content, followed by ROOT/a's `## subsection`
+headings and their content. No `# Public` headings
+appear.
 
 #### Ancestor without public section skipped
 
@@ -123,9 +126,9 @@ Create a spec tree: ROOT, ROOT/a (leaf with output,
 public section, agent section with content). Call
 MCPLoadChain with "ROOT/a".
 
-Expect context contains ROOT/a's `# Public` heading
-and public content, and ROOT/a's `# Agent` heading
-and agent content.
+Expect context contains ROOT/a's `## subsection`
+headings and their content (no `# Public` heading),
+and ROOT/a's `# Agent` heading and agent content.
 
 #### Target without agent section — skipped
 
@@ -228,3 +231,8 @@ case with its setup, actions, and expected outcome.
   frontmatter content.
 - Use formal error names (PascalCase) as defined in the
   interface.
+- When creating `_node.md` files with `# Public`
+  content, all content must be under `##` subsections.
+  Never place content directly under `# Public`
+  without a subsection heading — this is a format
+  error.

@@ -21,10 +21,11 @@ returns a `ValidationReport` — it never raises an error.
 
 #### Clean tree — no errors
 
-Create a spec tree with ROOT (with public section) and
-ROOT/a (leaf with output = "out/a.go"). Create
-"out/a.go" with a valid artifact tag whose hash matches
-the current chain hash. Call MCPValidateSpecs.
+Create a spec tree with ROOT (with `# Public` containing
+a `## Context` subsection) and ROOT/a (leaf with
+output = "out/a.go"). Create "out/a.go" with a valid
+artifact tag whose hash matches the current chain hash.
+Call MCPValidateSpecs.
 
 Expect report with empty format_errors, empty cycles,
 and empty staleness.
@@ -166,3 +167,8 @@ case with its setup, actions, and expected outcome.
   module) and use it in the tag. When a test needs a
   stale artifact tag, use any 27-character base64url
   string that differs from the current chain hash.
+- When creating `_node.md` files with `# Public`
+  content, all content must be under `##` subsections.
+  Never place content directly under `# Public`
+  without a subsection heading — this is a format
+  error.

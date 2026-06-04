@@ -1,11 +1,11 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/chain_hash@EaMoRn_pOxik8U0Ao7d4aSKenf8 -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/chain_hash@--pK5Xp1NE0dYdmssJIrCOE8s1c -->
 
 ## Test: Returns a 27-character hash
 
 Setup:
   Create a spec tree on disk:
-    ROOT/_node.md — contains a public section
-    ROOT/a/_node.md — leaf node with an output field
+    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
+    ROOT/a/_node.md — leaf node with an output field; any "# Public" content under "##" subsections
 
 Actions:
   1. Call MCPChainHash with logical_name = "ROOT/a".
@@ -19,8 +19,8 @@ Expected outcome:
 
 Setup:
   Create a spec tree on disk with known, fixed content:
-    ROOT/_node.md — contains a public section
-    ROOT/a/_node.md — leaf node with an output field
+    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
+    ROOT/a/_node.md — leaf node with an output field; any "# Public" content under "##" subsections
 
 Actions:
   1. Call MCPChainHash with logical_name = "ROOT/a". Record result as first_hash.
@@ -35,8 +35,8 @@ Expected outcome:
 
 Setup:
   Create a spec tree on disk:
-    ROOT/_node.md — contains a public section
-    ROOT/a/_node.md — leaf node with an output field
+    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
+    ROOT/a/_node.md — leaf node with an output field; any "# Public" content under "##" subsections
 
 Actions:
   1. Call MCPChainHash with logical_name = "ROOT/a". Record result as chain_hash_result.
@@ -65,7 +65,7 @@ Expected outcome:
 
 Setup:
   Create a spec tree on disk:
-    ROOT/_node.md — contains a public section
+    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
   Do not create ROOT/nonexistent/_node.md.
 
 Actions:
@@ -80,8 +80,8 @@ Expected outcome:
 
 Setup:
   Create a spec tree on disk:
-    ROOT/_node.md — contains a public section
-    ROOT/a/_node.md — leaf node without an output field
+    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
+    ROOT/a/_node.md — leaf node without an output field; any "# Public" content under "##" subsections
 
 Actions:
   1. Call MCPChainHash with logical_name = "ROOT/a".

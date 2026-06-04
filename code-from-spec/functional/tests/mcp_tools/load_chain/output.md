@@ -1,19 +1,19 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@6zMrgGQ7JQF7MjwKF_hDRoFxbtM -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@isW6n_1MY7Qj_mWaMwIbw4up2kU -->
 
 ## Happy path
 
 ### Simple leaf node — context and hash
 
 Setup:
-- Create ROOT/_node.md with a `# Public` section containing one line of content.
-- Create ROOT/a/_node.md with frontmatter `output: out/a.go`, a `# Public` section with content, and a `# Agent` section with content.
+- Create ROOT/_node.md with a `# Public` section containing a `## Context` subsection with one line of content.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go`, a `# Public` section with a `## Interface` subsection and content, and a `# Agent` section with content.
 - Do not create "out/a.go".
 
 Action: call MCPLoadChain with logical_name = "ROOT/a".
 
 Expected:
 - Result starts with `chain_hash: ` followed by exactly 27 characters.
-- After `--- context ---`: context contains ROOT's `# Public` heading and its content, a reduced frontmatter block between `---` delimiters containing only `output: out/a.go`, ROOT/a's `# Public` heading and its content, ROOT/a's `# Agent` heading and its content.
+- After `--- context ---`: context contains ROOT's `## Context` heading and its content (no `# Public` heading appears), a reduced frontmatter block between `---` delimiters containing only `output: out/a.go`, ROOT/a's `## Interface` heading and its content (no `# Public` heading appears), and ROOT/a's `# Agent` heading and its content.
 - Result does not contain `--- input ---`.
 - Result does not contain `--- existing artifact ---`.
 
@@ -22,14 +22,14 @@ Expected:
 ### Ancestor public content included
 
 Setup:
-- Create ROOT/_node.md with a `# Public` section.
-- Create ROOT/a/_node.md with a `# Public` section.
-- Create ROOT/a/b/_node.md with frontmatter `output: out/b.go` and a `# Public` section.
+- Create ROOT/_node.md with a `# Public` section containing subsections with content.
+- Create ROOT/a/_node.md with a `# Public` section containing subsections with content.
+- Create ROOT/a/b/_node.md with frontmatter `output: out/b.go` and a `# Public` section with subsections.
 
 Action: call MCPLoadChain with logical_name = "ROOT/a/b".
 
 Expected:
-- Context contains ROOT's `# Public` heading and content followed by ROOT/a's `# Public` heading and content.
+- Context contains ROOT's `## subsection` headings and their content (no `# Public` heading) followed by ROOT/a's `## subsection` headings and their content (no `# Public` heading).
 
 ---
 
@@ -69,7 +69,7 @@ Setup:
 Action: call MCPLoadChain with logical_name = "ROOT/a".
 
 Expected:
-- Context contains ROOT/b's `# Public` heading, its `## Interface` heading and content, and its `## Constraints` heading and content.
+- Context contains ROOT/b's `## Interface` heading and content, and `## Constraints` heading and content (no `# Public` heading appears).
 
 ---
 
@@ -136,12 +136,12 @@ Expected:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: out/a.go`, a `# Public` section with content, and a `# Agent` section with content.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go`, a `# Public` section with `## subsection` headings and content, and a `# Agent` section with content.
 
 Action: call MCPLoadChain with logical_name = "ROOT/a".
 
 Expected:
-- Context contains ROOT/a's `# Public` heading and content.
+- Context contains ROOT/a's `## subsection` headings and their content (no `# Public` heading appears).
 - Context contains ROOT/a's `# Agent` heading and content.
 
 ---
@@ -150,13 +150,13 @@ Expected:
 
 Setup:
 - Create ROOT/_node.md.
-- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and a `# Public` section with content. No `# Agent` section.
+- Create ROOT/a/_node.md with frontmatter `output: out/a.go` and a `# Public` section with `## subsection` headings and content. No `# Agent` section.
 
 Action: call MCPLoadChain with logical_name = "ROOT/a".
 
 Expected:
 - No error.
-- Context contains the public content.
+- Context contains the `## subsection` headings and their content (no `# Public` heading appears).
 - Context does not contain a `# Agent` heading.
 
 ---

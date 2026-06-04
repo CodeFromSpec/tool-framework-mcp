@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/chain/hash@xPtfCgKZo6dhvBdbe7pmfxdkshI
+// code-from-spec: ROOT/golang/implementation/chain/hash@OQExKjV0E6kYyQKTtW3Giq50ZZc
 package chainhash
 
 import (
@@ -36,7 +36,7 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
 		}
-		h := hashFullSection(node.Public)
+		h := hashPublicSubsections(node.Public)
 		if h != nil {
 			contentHashes = append(contentHashes, h)
 		}
@@ -57,7 +57,7 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
 			}
-			h := hashFullSection(node.Public)
+			h := hashPublicSubsections(node.Public)
 			if h != nil {
 				contentHashes = append(contentHashes, h)
 			}
@@ -101,14 +101,14 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 		return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
 	}
 
-	h := hashFullSection(targetNode.Public)
-	if h != nil {
-		contentHashes = append(contentHashes, h)
+	publicHash := hashPublicSubsections(targetNode.Public)
+	if publicHash != nil {
+		contentHashes = append(contentHashes, publicHash)
 	}
 
-	h = hashFullSection(targetNode.Agent)
-	if h != nil {
-		contentHashes = append(contentHashes, h)
+	agentHash := hashAgentSection(targetNode.Agent)
+	if agentHash != nil {
+		contentHashes = append(contentHashes, agentHash)
 	}
 
 	if chain.Input != nil {
@@ -128,7 +128,36 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(finalHash[:]), nil
 }
 
-func hashFullSection(section *parsenode.NodeSection) []byte {
+func hashPublicSubsections(section *parsenode.NodeSection) []byte {
+	if section == nil {
+		return nil
+	}
+	if len(section.Subsections) == 0 {
+		return nil
+	}
+
+	var acc []byte
+	for _, sub := range section.Subsections {
+		if sub == nil {
+			continue
+		}
+		acc = append(acc, []byte(sub.RawHeading+"\n")...)
+		for _, line := range sub.Content {
+			acc = append(acc, []byte(line+"\n")...)
+		}
+	}
+
+	if len(acc) == 0 {
+		return nil
+	}
+
+	h := sha1.Sum(acc)
+	result := make([]byte, 20)
+	copy(result, h[:])
+	return result
+}
+
+func hashAgentSection(section *parsenode.NodeSection) []byte {
 	if section == nil {
 		return nil
 	}

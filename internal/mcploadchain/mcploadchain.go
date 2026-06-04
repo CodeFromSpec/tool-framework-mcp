@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@HCWgtEqSPkvXJrya2Uat7kjTozA
+// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@siw5T6wsSdlJELSoEnbrgU7iYrc
 package mcploadchain
 
 import (
@@ -53,15 +53,8 @@ func MCPLoadChain(logical_name string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("MCPLoadChain: %w", err)
 		}
-		if node.Public == nil {
+		if node.Public == nil || len(node.Public.Subsections) == 0 {
 			continue
-		}
-		if len(node.Public.Content) == 0 && len(node.Public.Subsections) == 0 {
-			continue
-		}
-		ctx.WriteString(node.Public.RawHeading + "\n")
-		for _, line := range node.Public.Content {
-			ctx.WriteString(line + "\n")
 		}
 		for _, sub := range node.Public.Subsections {
 			ctx.WriteString(sub.RawHeading + "\n")
@@ -92,11 +85,7 @@ func MCPLoadChain(logical_name string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("MCPLoadChain: %w", err)
 			}
-			if node.Public != nil {
-				ctx.WriteString(node.Public.RawHeading + "\n")
-				for _, line := range node.Public.Content {
-					ctx.WriteString(line + "\n")
-				}
+			if node.Public != nil && len(node.Public.Subsections) > 0 {
 				for _, sub := range node.Public.Subsections {
 					ctx.WriteString(sub.RawHeading + "\n")
 					for _, line := range sub.Content {
@@ -149,11 +138,7 @@ func MCPLoadChain(logical_name string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("MCPLoadChain: %w", err)
 		}
-		if node.Public != nil {
-			ctx.WriteString(node.Public.RawHeading + "\n")
-			for _, line := range node.Public.Content {
-				ctx.WriteString(line + "\n")
-			}
+		if node.Public != nil && len(node.Public.Subsections) > 0 {
 			for _, sub := range node.Public.Subsections {
 				ctx.WriteString(sub.RawHeading + "\n")
 				for _, line := range sub.Content {

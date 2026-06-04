@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/validate_specs@QQUT06e0n7X-MBuFHgztj6S0XiM -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/validate_specs@NKT7VlCb2GRu9RcBzzndjiLa5oo -->
 
 ## Test cases for MCPValidateSpecs
 
@@ -13,8 +13,8 @@ it never raises an error.
 #### Clean tree — no errors
 
 Setup:
-- Create a spec tree with ROOT (with public section) and ROOT/a (leaf
-  with output = "out/a.go").
+- Create a spec tree with ROOT (with `# Public` section containing a
+  `## Context` subsection) and ROOT/a (leaf with output = "out/a.go").
 - Compute the chain hash for ROOT/a using `ChainHashCompute`.
 - Create "out/a.go" with a valid artifact tag containing that hash.
 
@@ -116,7 +116,7 @@ Action: Call `MCPValidateSpecs`.
 
 Expected outcome:
 - `ValidationReport.format_errors` contains a
-  `spectreevalidate.FormatError` for ROOT/a with rule = "dependency_targets".
+  `spectreevalidate.FormatError` for ROOT/a with rule = `"dependency_targets"`.
 
 ---
 

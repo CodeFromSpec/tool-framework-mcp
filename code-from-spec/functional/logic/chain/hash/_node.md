@@ -68,9 +68,10 @@ the content that position injects into the chain.
 
 | Position | Content hashed |
 |---|---|
-| Ancestor | `# Public` section |
-| Target | `# Public` section, then `# Agent` section |
-| `ROOT/` dep, no qualifier | `# Public` section of the referenced node |
+| Ancestor | `##` subsections of `# Public`, concatenated in order |
+| Target `# Public` | `##` subsections of `# Public`, concatenated in order |
+| Target `# Agent` | `# Agent` section (heading, content, subsections) |
+| `ROOT/` dep, no qualifier | `##` subsections of `# Public` of the referenced node, concatenated in order |
 | `ROOT/` dep, with qualifier | `## <qualifier>` subsection of `# Public` |
 | `ARTIFACT/` dep | Full file content, excluding frontmatter |
 | External | Full file content |
@@ -83,7 +84,23 @@ target, ROOT/ dependencies), call `NodeParse` with the
 logical name from the `ChainItem`. Then extract the
 relevant content:
 
-**Hashing a full section** (# Public or # Agent):
+**Hashing `# Public`** (ancestors, target, ROOT/ deps
+without qualifier):
+
+Collect only the `##` subsections, in document order.
+For each subsection: the subsection's `raw_heading`
+line followed by all lines in its `content`. Append
+`\n` after each line (per hashing convention). Compute
+SHA-1 of the concatenation.
+
+The `# Public` heading itself is not included. Content
+directly under `# Public` (before the first `##`
+subsection) is not included.
+
+If the section is absent or has no subsections, skip
+(no hash contributed).
+
+**Hashing `# Agent`** (target only):
 
 Collect the section's `raw_heading` line, then all lines
 in `content`, then for each subsection: the subsection's
@@ -149,16 +166,17 @@ SHA-1 for each:
 
 1. For each ancestor in `chain.ancestors`: call
    `NodeParse` with `ancestor.logical_name`. If it
-   fails, raise "parse failure". Hash the `# Public`
-   section (full section). If absent or empty, skip.
+   fails, raise "parse failure". Hash `# Public`
+   (subsections only). If absent or no subsections,
+   skip.
 
 2. For each dependency in `chain.dependencies`:
    - If `LogicalNameIsArtifact(dep.logical_name)`:
      hash the artifact file (frontmatter stripped).
    - Else if `dep.qualifier` is absent: call `NodeParse`
      with `dep.logical_name`. If it fails, raise
-     "parse failure". Hash the `# Public` section
-     (full section).
+     "parse failure". Hash `# Public` (subsections
+     only).
    - Else: call `NodeParse` with `dep.logical_name`.
      If it fails, raise "parse failure". Hash the
      `## <dep.qualifier>` subsection within `# Public`.
@@ -168,8 +186,8 @@ SHA-1 for each:
 
 4. Target `# Public`: call `NodeParse` with
    `chain.target.logical_name`. If it fails, raise
-   "parse failure". Hash the `# Public` section
-   (full section).
+   "parse failure". Hash `# Public` (subsections
+   only). If absent or no subsections, skip.
 
 5. Target `# Agent`: from the same `NodeParse` result,
    hash the `# Agent` section. If absent, skip.

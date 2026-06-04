@@ -107,10 +107,11 @@ For each position, use `NodeParse` for spec nodes and
 
 For each ancestor, call `NodeParse` with
 `ancestor.logical_name`. If `node.public` is absent
-or has empty content and no subsections, skip.
-Otherwise, include the `# Public` raw heading, the
-public section content, all `## subsection` raw
-headings, and their content.
+or has no subsections, skip. Otherwise, include each
+`## subsection` raw heading and its content, in
+document order. Do not include the `# Public` heading
+or any content directly under `# Public` (before the
+first `##`).
 
 **Dependencies** (from `chain.dependencies`)
 
@@ -120,9 +121,10 @@ For each dependency:
   frontmatter (if present), include remaining content.
   Call `FileClose`.
 - Else if `dep.qualifier` is absent: call `NodeParse`
-  with `dep.logical_name`, include `# Public` raw
-  heading, section content, all `## subsection` raw
-  headings, and their content.
+  with `dep.logical_name`, include each `## subsection`
+  raw heading and its content, in document order. Do
+  not include the `# Public` heading or content
+  directly under `# Public`.
 - Else: call `NodeParse` with `dep.logical_name`, find
   the subsection in `node.public` whose `heading`
   matches `NormalizeText(dep.qualifier)`, include the
@@ -140,9 +142,11 @@ First, emit a reduced frontmatter block containing only
 the `output` field (formatted as YAML between `---`
 delimiters). Then call `NodeParse` with
 `chain.target.logical_name`. If `node.public` is
-present, include `# Public` raw heading, section
-content, all `## subsection` raw headings, and their
-content. If absent, skip.
+present and has subsections, include each
+`## subsection` raw heading and its content, in
+document order. Do not include the `# Public` heading
+or content directly under `# Public`. If absent or no
+subsections, skip.
 
 **Target Agent**
 

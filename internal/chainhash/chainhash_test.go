@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/chain/hash@hqjE0Rx8n-Hj1NV5_qy3PQI4Swo
+// code-from-spec: ROOT/golang/tests/chain/hash@kbiIdMMTDmdKB1uRwCpREYqEpyQ
 package chainhash_test
 
 import (
@@ -31,7 +31,8 @@ func testChdir(t *testing.T, dir string) {
 
 func testWriteNodeFile(t *testing.T, path string, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath_dir(path), 0755); err != nil {
+	dir := testDirOf(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatalf("testWriteNodeFile mkdir: %v", err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -39,7 +40,7 @@ func testWriteNodeFile(t *testing.T, path string, content string) {
 	}
 }
 
-func filepath_dir(path string) string {
+func testDirOf(path string) string {
 	for i := len(path) - 1; i >= 0; i-- {
 		if path[i] == '/' {
 			return path[:i]
@@ -71,8 +72,8 @@ func TestChainHashCompute_Deterministic(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\nsome content\n"))
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget content\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\n\n## Context\nsome content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget content\n"))
 
 	chain := &chainresolver.Chain{
 		Ancestors: []*chainresolver.ChainItem{
@@ -100,8 +101,8 @@ func TestChainHashCompute_Is27Characters(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\nsome content\n"))
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget content\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\n\n## Context\nsome content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget content\n"))
 
 	chain := &chainresolver.Chain{
 		Ancestors: []*chainresolver.ChainItem{
@@ -124,8 +125,8 @@ func TestChainHashCompute_ChangesWhenAncestorContentChanges(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\noriginal content\n"))
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget content\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\n\n## Context\noriginal content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget content\n"))
 
 	chain := &chainresolver.Chain{
 		Ancestors: []*chainresolver.ChainItem{
@@ -139,7 +140,7 @@ func TestChainHashCompute_ChangesWhenAncestorContentChanges(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\nmodified content\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\n\n## Context\nmodified content\n"))
 
 	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
@@ -156,8 +157,8 @@ func TestChainHashCompute_ChangesWhenDependencyContentChanges(t *testing.T) {
 	testChdir(t, tempDir)
 
 	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", ""))
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
-	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\ndep content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n\n## Interface\ndep content\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -171,7 +172,7 @@ func TestChainHashCompute_ChangesWhenDependencyContentChanges(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\nmodified dep content\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n\n## Interface\nmodified dep content\n"))
 
 	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
@@ -187,7 +188,7 @@ func TestChainHashCompute_ChangesWhenTargetPublicChanges(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\noriginal public\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Interface\noriginal public\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -198,7 +199,7 @@ func TestChainHashCompute_ChangesWhenTargetPublicChanges(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\nmodified public\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Interface\nmodified public\n"))
 
 	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
@@ -214,7 +215,7 @@ func TestChainHashCompute_ChangesWhenTargetAgentChanges(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\nsome public\n# Agent\noriginal agent\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Interface\nsome public\n# Agent\noriginal agent\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -225,7 +226,7 @@ func TestChainHashCompute_ChangesWhenTargetAgentChanges(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\nsome public\n# Agent\nmodified agent\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Interface\nsome public\n# Agent\nmodified agent\n"))
 
 	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
@@ -241,8 +242,8 @@ func TestChainHashCompute_AncestorWithPublicContributesHash(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\nsome public content\n"))
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget content\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\n\n## Context\nsome public content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget content\n"))
 
 	chain := &chainresolver.Chain{
 		Ancestors: []*chainresolver.ChainItem{
@@ -266,8 +267,8 @@ func TestChainHashCompute_AncestorWithoutPublicSkipped(t *testing.T) {
 	testChdir(t, tempDir)
 
 	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", ""))
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget content\n"))
-	testWriteNodeFile(t, "code-from-spec/z/_node.md", testNodeContent("ROOT/z", "# Public\nsome z content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget content\n"))
+	testWriteNodeFile(t, "code-from-spec/z/_node.md", testNodeContent("ROOT/z", "# Public\n\n## Context\nsome z content\n"))
 
 	chainA := &chainresolver.Chain{
 		Ancestors: []*chainresolver.ChainItem{
@@ -302,9 +303,9 @@ func TestChainHashCompute_MultipleAncestorsOrderMatters(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\nroot public\n"))
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\na public\n"))
-	testWriteNodeFile(t, "code-from-spec/a/b/_node.md", testNodeContent("ROOT/a/b", "# Public\nab target\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testNodeContent("ROOT", "# Public\n\n## Context\nroot public\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\na public\n"))
+	testWriteNodeFile(t, "code-from-spec/a/b/_node.md", testNodeContent("ROOT/a/b", "# Public\n\n## Context\nab target\n"))
 
 	chainX := &chainresolver.Chain{
 		Ancestors: []*chainresolver.ChainItem{
@@ -341,8 +342,8 @@ func TestChainHashCompute_RootDependencyWithoutQualifierHashesPublic(t *testing.
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
-	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\ndep public\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n\n## Interface\ndep public\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -356,7 +357,7 @@ func TestChainHashCompute_RootDependencyWithoutQualifierHashesPublic(t *testing.
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\nmodified dep public\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n\n## Interface\nmodified dep public\n"))
 
 	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
@@ -372,8 +373,8 @@ func TestChainHashCompute_RootDependencyWithQualifierHashesSubsection(t *testing
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
-	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n## Interface\ninterface content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n\n## Interface\ninterface content\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -387,7 +388,7 @@ func TestChainHashCompute_RootDependencyWithQualifierHashesSubsection(t *testing
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n## Interface\nmodified interface content\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n\n## Interface\nmodified interface content\n"))
 
 	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
@@ -403,8 +404,8 @@ func TestChainHashCompute_QualifierCaseNormalization(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
-	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n## Interface\ninterface content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeContent("ROOT/b", "# Public\n\n## Interface\ninterface content\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -423,7 +424,7 @@ func TestChainHashCompute_ArtifactDependencyHashesBodyNotFrontmatter(t *testing.
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
 
 	artifactContent := "---\noutput: some/path.go\n---\nbody content line one\nbody content line two\n"
 	if err := os.WriteFile("artifact.md", []byte(artifactContent), 0644); err != nil {
@@ -433,10 +434,12 @@ func TestChainHashCompute_ArtifactDependencyHashesBodyNotFrontmatter(t *testing.
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
 		Dependencies: []*chainresolver.ChainItem{
-			testChainItemWithQualifier("ARTIFACT/a", "artifact.md", ""),
+			{
+				LogicalName: "ARTIFACT/a",
+				FilePath:    pathutils.PathCfs{Value: "artifact.md"},
+			},
 		},
 	}
-	chain.Dependencies[0].LogicalName = "ARTIFACT/a"
 
 	hash1, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
@@ -462,7 +465,7 @@ func TestChainHashCompute_ArtifactDependencyFrontmatterChangeIgnored(t *testing.
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
 
 	artifactContent := "---\noutput: some/path.go\n---\nbody content\n"
 	if err := os.WriteFile("artifact.md", []byte(artifactContent), 0644); err != nil {
@@ -503,7 +506,7 @@ func TestChainHashCompute_ArtifactDependencyTagHashChangeIgnored(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
 
 	artifactContent := "---\noutput: some/path.go\n---\n// code-from-spec: ROOT/x/y@aAbBcCdDeEfFgGhHiIjJkKlLmMn\nbody content\n"
 	if err := os.WriteFile("artifact.md", []byte(artifactContent), 0644); err != nil {
@@ -544,7 +547,7 @@ func TestChainHashCompute_ExternalFileHashesAllContent(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
 
 	if err := os.WriteFile("external.txt", []byte("external content\n"), 0644); err != nil {
 		t.Fatalf("write external: %v", err)
@@ -580,7 +583,7 @@ func TestChainHashCompute_TargetPublicAndAgentBothContribute(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\npublic content\n# Agent\nagent content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Interface\npublic content\n# Agent\nagent content\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -591,7 +594,7 @@ func TestChainHashCompute_TargetPublicAndAgentBothContribute(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\npublic content\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Interface\npublic content\n"))
 
 	hash2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
@@ -607,7 +610,7 @@ func TestChainHashCompute_TargetWithoutAgentSucceeds(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\npublic only\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Interface\npublic only\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -623,7 +626,7 @@ func TestChainHashCompute_InputHashesBodyNotFrontmatter(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
 
 	inputContent := "---\noutput: some/path.go\n---\ninput body content\n"
 	if err := os.WriteFile("input.md", []byte(inputContent), 0644); err != nil {
@@ -662,7 +665,7 @@ func TestChainHashCompute_NoInputSkipped(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -697,7 +700,7 @@ func TestChainHashCompute_UnreadableArtifactFileReturnsFileUnreadable(t *testing
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),
@@ -723,7 +726,7 @@ func TestChainHashCompute_UnreadableExternalFileReturnsFileUnreadable(t *testing
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\ntarget\n"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeContent("ROOT/a", "# Public\n\n## Context\ntarget\n"))
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("ROOT/a", "code-from-spec/a/_node.md"),

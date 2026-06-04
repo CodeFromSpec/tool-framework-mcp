@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/hash@MnOivbwb2dExRAceSn13XKRyIdw -->
+<!-- code-from-spec: ROOT/functional/tests/chain/hash@GwYrSGY0yLbq4eFdtxE6EaUwDHw -->
 
 ## ChainHashCompute — Test Specification
 
@@ -30,13 +30,13 @@ Expected: The returned string is exactly 27 characters long.
 #### Hash changes when ancestor content changes
 
 Setup:
-- Create a ROOT node file on disk with `# Public` content.
+- Create a ROOT node file on disk with `# Public` containing a `## Context` subsection.
 - Create a ROOT/a node file as the target.
 - Build a Chain with ancestors = [ChainItem for ROOT], target = ChainItem for ROOT/a.
 
 Actions:
 1. Call ChainHashCompute. Record result as hash1.
-2. Modify ROOT's `# Public` content on disk.
+2. Modify ROOT's `## Context` subsection content on disk.
 3. Call ChainHashCompute again. Record result as hash2.
 
 Expected: hash1 and hash2 differ.
@@ -46,12 +46,12 @@ Expected: hash1 and hash2 differ.
 #### Hash changes when dependency content changes
 
 Setup:
-- Create ROOT, ROOT/a, ROOT/b node files on disk.
+- Create ROOT, ROOT/a, ROOT/b node files on disk. ROOT/b has `# Public` containing a `## Interface` subsection.
 - Build a Chain with target = ChainItem for ROOT/a, dependencies = [ChainItem for ROOT/b (no qualifier)].
 
 Actions:
 1. Call ChainHashCompute. Record result as hash1.
-2. Modify ROOT/b's `# Public` content on disk.
+2. Modify ROOT/b's `## Interface` subsection content on disk.
 3. Call ChainHashCompute again. Record result as hash2.
 
 Expected: hash1 and hash2 differ.
@@ -61,12 +61,12 @@ Expected: hash1 and hash2 differ.
 #### Hash changes when target Public changes
 
 Setup:
-- Create ROOT and ROOT/a node files. ROOT/a has `# Public` content.
+- Create ROOT and ROOT/a node files. ROOT/a has `# Public` containing a `## Interface` subsection.
 - Build a Chain with target = ChainItem for ROOT/a.
 
 Actions:
 1. Call ChainHashCompute. Record result as hash1.
-2. Modify ROOT/a's `# Public` content on disk.
+2. Modify ROOT/a's `## Interface` subsection content on disk.
 3. Call ChainHashCompute again. Record result as hash2.
 
 Expected: hash1 and hash2 differ.
@@ -90,10 +90,10 @@ Expected: hash1 and hash2 differ.
 
 ### Ancestors
 
-#### Ancestor with Public section contributes hash
+#### Ancestor with Public subsections contributes hash
 
 Setup:
-- Create ROOT node file with `# Public` content.
+- Create ROOT node file with `# Public` containing a `## Context` subsection.
 - Create ROOT/a node file as target.
 - Build a Chain with ancestors = [ChainItem for ROOT], target = ChainItem for ROOT/a.
 
@@ -108,9 +108,9 @@ Expected: Returns a 27-character non-empty string with no error.
 
 Setup:
 - Create ROOT node file with no `# Public` section (only a name section or empty body).
-- Create ROOT/a node file as target (with `# Public`).
+- Create ROOT/a node file as target with `# Public` containing a `## Context` subsection.
 - Build Chain A with ancestors = [ChainItem for ROOT].
-- Create ROOT/z node file with `# Public` content.
+- Create ROOT/z node file with `# Public` containing a `## Context` subsection.
 - Build Chain B with ancestors = [ChainItem for ROOT/z].
 
 Actions:
@@ -124,7 +124,7 @@ Expected: hashA and hashB differ (the ancestor without `# Public` contributes no
 #### Multiple ancestors — order matters
 
 Setup:
-- Create ROOT, ROOT/a, ROOT/a/b node files. ROOT and ROOT/a both have `# Public` content.
+- Create ROOT, ROOT/a, ROOT/a/b node files. ROOT and ROOT/a both have `# Public` with `## Context` subsections.
 - Build Chain X with ancestors = [ChainItem for ROOT, ChainItem for ROOT/a] (root-first order), target = ChainItem for ROOT/a/b.
 - Build Chain Y with ancestors = [ChainItem for ROOT/a, ChainItem for ROOT] (swapped order), target = ChainItem for ROOT/a/b.
 
@@ -138,15 +138,15 @@ Expected: hashX and hashY differ.
 
 ### Dependencies
 
-#### ROOT dependency without qualifier — hashes Public
+#### ROOT dependency without qualifier — hashes Public subsections
 
 Setup:
-- Create ROOT/b node file with `# Public` content.
+- Create ROOT/b node file with `# Public` containing a `## Interface` subsection.
 - Build Chain with target = ChainItem for ROOT/a, dependencies = [ChainItem for ROOT/b, qualifier absent].
 
 Actions:
 1. Call ChainHashCompute. Record result as hash1.
-2. Modify ROOT/b's `# Public` content on disk.
+2. Modify ROOT/b's `## Interface` subsection content on disk.
 3. Call ChainHashCompute again. Record result as hash2.
 
 Expected: hash1 and hash2 differ.
@@ -249,7 +249,7 @@ Expected: hash1 and hash2 differ.
 #### Target Public and Agent both contribute
 
 Setup:
-- Create ROOT/a node file as target with both `# Public` and `# Agent` sections.
+- Create ROOT/a node file as target with `# Public` containing a `## Interface` subsection and `# Agent` with content.
 - Build Chain with target = ChainItem for ROOT/a.
 
 Actions:
@@ -264,7 +264,7 @@ Expected: hash1 and hash2 differ.
 #### Target without Agent — Agent skipped
 
 Setup:
-- Create ROOT/a node file as target with `# Public` only (no `# Agent` section).
+- Create ROOT/a node file as target with `# Public` containing a `## Interface` subsection (no `# Agent` section).
 - Build Chain with target = ChainItem for ROOT/a.
 
 Actions:

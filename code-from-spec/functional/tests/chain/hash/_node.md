@@ -32,24 +32,27 @@ result is exactly 27 characters long.
 
 #### Hash changes when ancestor content changes
 
-Create a spec tree: ROOT with `# Public` content,
-ROOT/a as target. Build a Chain with ROOT as ancestor.
-Compute hash. Modify ROOT's `# Public` content on
-disk. Recompute. Expect hashes differ.
+Create a spec tree: ROOT with `# Public` containing a
+`## Context` subsection, ROOT/a as target. Build a
+Chain with ROOT as ancestor. Compute hash. Modify
+ROOT's `## Context` subsection content on disk.
+Recompute. Expect hashes differ.
 
 #### Hash changes when dependency content changes
 
-Create a spec tree: ROOT, ROOT/a, ROOT/b. ROOT/a is
-target with dependency on ROOT/b. Build Chain. Compute
-hash. Modify ROOT/b's `# Public` content. Recompute.
-Expect hashes differ.
+Create a spec tree: ROOT, ROOT/a, ROOT/b with
+`# Public` containing a `## Interface` subsection.
+ROOT/a is target with dependency on ROOT/b. Build
+Chain. Compute hash. Modify ROOT/b's `## Interface`
+subsection content. Recompute. Expect hashes differ.
 
 #### Hash changes when target Public changes
 
 Create a spec tree: ROOT, ROOT/a as target with
-`# Public` content. Build Chain. Compute hash. Modify
-ROOT/a's `# Public` on disk. Recompute. Expect hashes
-differ.
+`# Public` containing a `## Interface` subsection.
+Build Chain. Compute hash. Modify ROOT/a's
+`## Interface` subsection content on disk. Recompute.
+Expect hashes differ.
 
 #### Hash changes when target Agent changes
 
@@ -60,35 +63,37 @@ differ.
 
 ### Ancestors
 
-#### Ancestor with Public section contributes hash
+#### Ancestor with Public subsections contributes hash
 
-Create ROOT with `# Public` content, ROOT/a as target.
-Build Chain with ancestors = [ROOT]. Compute hash.
-Expect a non-empty result (27 chars).
+Create ROOT with `# Public` containing a `## Context`
+subsection, ROOT/a as target. Build Chain with
+ancestors = [ROOT]. Compute hash. Expect a non-empty
+result (27 chars).
 
 #### Ancestor without Public section — skipped
 
 Create ROOT with no `# Public` section (only name
 section). Build Chain with ancestors = [ROOT]. Compute
 hash. The result should differ from a chain with an
-ancestor that has `# Public`.
+ancestor that has `# Public` with subsections.
 
 #### Multiple ancestors — order matters
 
 Create ROOT, ROOT/a, ROOT/a/b as target. ROOT and
-ROOT/a both have `# Public`. Build Chain with
-ancestors = [ROOT, ROOT/a] in root-first order.
-Compute hash. Swap ancestor order and recompute.
-Expect hashes differ.
+ROOT/a both have `# Public` with `## Context`
+subsections. Build Chain with ancestors = [ROOT,
+ROOT/a] in root-first order. Compute hash. Swap
+ancestor order and recompute. Expect hashes differ.
 
 ### Dependencies
 
-#### ROOT dependency without qualifier — hashes Public
+#### ROOT dependency without qualifier — hashes Public subsections
 
-Create ROOT/b with `# Public` content. Build Chain
-with dependency on ROOT/b (qualifier absent). Compute
-hash. Modify ROOT/b's `# Public`. Recompute. Expect
-hashes differ.
+Create ROOT/b with `# Public` containing a
+`## Interface` subsection. Build Chain with dependency
+on ROOT/b (qualifier absent). Compute hash. Modify
+ROOT/b's `## Interface` subsection content. Recompute.
+Expect hashes differ.
 
 #### ROOT dependency with qualifier — hashes subsection
 
@@ -140,14 +145,16 @@ Expect hashes differ.
 
 #### Target Public and Agent both contribute
 
-Create ROOT/a as target with `# Public` and `# Agent`.
+Create ROOT/a as target with `# Public` containing a
+`## Interface` subsection and `# Agent` with content.
 Build Chain. Compute hash. Remove `# Agent` from file.
 Recompute. Expect hashes differ.
 
 #### Target without Agent — Agent skipped
 
-Create ROOT/a as target with `# Public` only, no
-`# Agent`. Build Chain. Compute hash. Expect no error.
+Create ROOT/a as target with `# Public` containing a
+`## Interface` subsection, no `# Agent`. Build Chain.
+Compute hash. Expect no error.
 
 ### Input
 
@@ -196,3 +203,8 @@ case with its setup, actions, and expected outcome.
 - Tests build `Chain` records directly — they do not
   call `ChainResolve`.
 - Each test creates files on disk as needed.
+- When creating `_node.md` files with `# Public`
+  content, all content must be under `##` subsections.
+  Never place content directly under `# Public`
+  without a subsection heading — this is a format
+  error.
