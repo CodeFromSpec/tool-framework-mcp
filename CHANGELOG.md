@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v1.1.0...v1.2.0) (2026-06-04)
+
+
+### Features
+
+* enforce #Public subsection rule and strip artifact tag from chain ([#11](https://github.com/CodeFromSpec/tool-framework-mcp/issues/11)) ([a90690a](https://github.com/CodeFromSpec/tool-framework-mcp/commit/a90690aa99b011756ccf9497e65be663e04d2009))
+
 ## [1.1.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v1.0.0...v1.1.0) (2026-06-03)
 
 
