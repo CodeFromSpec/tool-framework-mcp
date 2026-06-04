@@ -61,16 +61,22 @@ the content hash changes correctly.
 ## Content hash
 
 Each position in the chain contributes a **content hash** — the
-SHA-1 of the content that position injects into the chain. The
-heading itself (e.g. `# Public`, `## Interface`) is part of the
-hashed content.
+SHA-1 of the content that position injects into the chain.
+
+When a `# Public` section is included (from an ancestor, the
+target, or a `depends_on: ROOT/x/y` reference), the hashed
+content is the concatenation of all `##` subsections in
+document order. Each subsection's heading (e.g.
+`## Interface`) is part of the hashed content. The
+`# Public` heading itself is not included — only the
+subsection headings and their content.
 
 | Position | Content hashed |
 |---|---|
-| Ancestor | `# Public` section |
-| Target `# Public` | `# Public` section |
+| Ancestor | `##` subsections of `# Public`, concatenated in order |
+| Target `# Public` | `##` subsections of `# Public`, concatenated in order |
 | Target `# Agent` | `# Agent` section |
-| `depends_on: ROOT/x/y` | `# Public` section of the referenced node |
+| `depends_on: ROOT/x/y` | `##` subsections of `# Public` of the referenced node, concatenated in order |
 | `depends_on: ROOT/x/y(z)` | `## z` subsection of `# Public` of the referenced node |
 | `depends_on: ARTIFACT/x/y` | Full content of the referenced artifact, excluding frontmatter, with artifact tag hash neutralized |
 | `external` | Full content of the referenced file |
@@ -83,8 +89,9 @@ hashed content.
 The chain hash is the SHA-1 of the concatenation of all content
 hashes (as raw bytes, not encoded) in chain assembly order:
 
-1. Each ancestor from root to the target's parent — `# Public`
-   content hash of each.
+1. Each ancestor from root to the target's parent — content
+   hash of `##` subsections of `# Public`, concatenated in
+   document order.
 2. `depends_on` entries — content hash of each, in alphabetical
    order by path.
 3. `external` entries — content hash of each, in alphabetical
