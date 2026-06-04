@@ -117,9 +117,10 @@ first `##`).
 
 For each dependency:
 - If `LogicalNameIsArtifact(dep.logical_name)`: open
-  the file at `dep.file_path` with `FileOpen`, strip
-  frontmatter (if present), include remaining content.
-  Call `FileClose`.
+  the file at `dep.file_path` with `FileOpen`, read all
+  lines, remove the artifact tag line (the line
+  containing `code-from-spec: <name>@<hash>`), include
+  remaining content. Call `FileClose`.
 - Else if `dep.qualifier` is absent: call `NodeParse`
   with `dep.logical_name`, include each `## subsection`
   raw heading and its content, in document order. Do
@@ -168,8 +169,8 @@ delimiter lines:
 
 4. If `chain.input` is present: a line containing
    exactly `--- input ---`, followed by the content of
-   the input artifact file (frontmatter stripped, read
-   with `FileOpen`/`FileReadLine`/`FileClose`).
+   the input artifact file (artifact tag line removed,
+   read with `FileOpen`/`FileReadLine`/`FileClose`).
 
 5. If the output file (at `frontmatter.output`) exists
    on disk and is readable: a line containing exactly

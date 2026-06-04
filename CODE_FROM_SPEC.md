@@ -107,10 +107,10 @@ Cross-tree dependencies. Each entry uses a `ROOT/` or
 - `ROOT/x/y(z)` — imports only the `## z` subsection of
   `# Public` of the referenced node.
 - `ARTIFACT/x/y` — imports the content of the referenced
-  artifact, excluding frontmatter (the artifact tag hash is
-  neutralized before hashing — see CHAIN_HASH.md),
-  as context (not as material to transform; see `input` for
-  that).
+  artifact, excluding the artifact tag line (the artifact
+  tag hash is neutralized before hashing — see
+  CHAIN_HASH.md), as context (not as material to transform;
+  see `input` for that).
 
 `ROOT/` references may only point to nodes in other branches of
 the tree. Pointing to an ancestor would be redundant — its
@@ -148,11 +148,11 @@ external:
 A single artifact consumed as input for generation. Uses an
 `ARTIFACT/` logical name. The content of the artifact is
 included in the chain as the material to be transformed,
-excluding frontmatter (the artifact tag hash is neutralized
-before hashing — see CHAIN_HASH.md). While `depends_on`
-brings in context
-that informs generation, `input` brings in content that the
-generation subagent transforms into a new artifact.
+excluding the artifact tag line (the artifact tag hash is
+neutralized before hashing — see CHAIN_HASH.md). While
+`depends_on` brings in context that informs generation,
+`input` brings in content that the generation subagent
+transforms into a new artifact.
 
 ```yaml
 ---
@@ -326,16 +326,16 @@ building the **chain**:
      referenced node, concatenated in document order.
    - `ROOT/x/y(z)` — `## z` subsection of `# Public` only.
    - `ARTIFACT/x/y` — full content of the referenced artifact,
-     excluding frontmatter (artifact tag hash neutralized —
-     see CHAIN_HASH.md).
+     excluding the artifact tag line (artifact tag hash
+     neutralized for hashing — see CHAIN_HASH.md).
 3. The target node's `external` content, appended in
    alphabetical order by path. The full file content of
    each entry is included.
 4. The target node's `# Public` section.
 5. The target node's `# Agent` section.
 6. If the target node has an `input` field, the content of the
-   referenced artifact, excluding frontmatter and the artifact
-   tag line, is included as the input to transform.
+   referenced artifact, excluding the artifact tag line, is
+   included as the input to transform.
 
 Example — generating an artifact for
 `ROOT/payments/fees/calculation`:

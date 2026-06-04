@@ -90,16 +90,17 @@ Expect context contains the `## Interface` heading and
 its content from ROOT/b, but not the `## Constraints`
 heading or its content.
 
-#### ARTIFACT dependency — content minus frontmatter
+#### ARTIFACT dependency — artifact tag line removed
 
 Create a spec tree: ROOT, ROOT/a (leaf with output,
 depends_on = ["ARTIFACT/b"]), ROOT/b (with
-output = "out/b.go"). Create "out/b.go" with
-frontmatter and body content. Call MCPLoadChain with
-"ROOT/a".
+output = "out/b.go"). Create "out/b.go" with an
+artifact tag line
+(`// code-from-spec: ROOT/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa`)
+and body content. Call MCPLoadChain with "ROOT/a".
 
 Expect context contains the body of "out/b.go" without
-frontmatter.
+the artifact tag line.
 
 #### External file — full content
 
@@ -142,12 +143,14 @@ Expect no error. Context contains only public content.
 
 Create a spec tree: ROOT, ROOT/a (leaf with output,
 input = "ARTIFACT/b"), ROOT/b (with output =
-"out/data.json"). Create "out/data.json" with
-frontmatter and body. Call MCPLoadChain with "ROOT/a".
+"out/data.json"). Create "out/data.json" with an
+artifact tag line and body content. Call MCPLoadChain
+with "ROOT/a".
 
 Expect result contains `--- input ---` section with
-the body of "out/data.json" without frontmatter. The
-input content does not appear in the context section.
+the body of "out/data.json" without the artifact tag
+line. The input content does not appear in the context
+section.
 
 #### No input — section absent
 
