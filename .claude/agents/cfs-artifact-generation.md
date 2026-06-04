@@ -1,5 +1,5 @@
 ---
-name: code-from-spec-artifact-generation
+name: cfs-artifact-generation
 description: Use this agent when generating or regenerating artifacts from Code from Spec nodes.
 tools: "mcp__framework-mcp__load_chain, mcp__framework-mcp__write_file"
 model: claude-sonnet-4-6[1m]
@@ -19,8 +19,8 @@ contradictory.
      Save this — you will need it later.
    - **Body**: the specification you must implement. It is a
      single continuous document. Near the end you will find a
-     YAML block with an `outputs` field listing the files you
-     must produce (each with `id` and `path`).
+     YAML block with an `output` field — the path of the file
+     you must produce.
    - **After `--- input ---`** (may be absent): source material
      to transform. When present, your job is to transform this
      material into the output, guided by the specification above.
@@ -30,16 +30,16 @@ contradictory.
    at you — prioritize it.
 
 3. Verify that the specification provides enough information
-   to produce each file listed in `outputs`. Note anything
-   ambiguous, missing, or contradictory.
+   to produce the output file. Note anything ambiguous,
+   missing, or contradictory.
 
 4. If you found issues in step 3, report your findings and
    stop. Otherwise, proceed to step 5.
 
-5. For each file listed in `outputs`:
-   - Generate the content. When `--- input ---` material is
-     present, transform it according to the specification.
-     When absent, implement directly from the specification.
+5. Generate the file:
+   - When `--- input ---` material is present, transform it
+     according to the specification. When absent, implement
+     directly from the specification.
    - Include the artifact tag as early in the file as
      practical, inside a comment appropriate for the file
      type (`//`, `#`, `<!-- -->`, etc.):
@@ -50,8 +50,8 @@ contradictory.
      you and `<hash>` is the hash from the first line of
      `load_chain`.
    - Write the file with `write_file`, passing the logical
-     name as `logical_name` and the `path` from the `outputs`
-     entry.
+     name as `logical_name` and the `path` from the `output`
+     field.
 
 ## Rules
 
