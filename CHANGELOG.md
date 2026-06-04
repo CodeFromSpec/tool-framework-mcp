@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v1.2.0...v1.2.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* update README.md ([#13](https://github.com/CodeFromSpec/tool-framework-mcp/issues/13)) ([9dfee49](https://github.com/CodeFromSpec/tool-framework-mcp/commit/9dfee49d80a6371e1ace1ea2635624ced2b3d3df))
+
 ## [1.2.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v1.1.0...v1.2.0) (2026-06-04)
 
 
