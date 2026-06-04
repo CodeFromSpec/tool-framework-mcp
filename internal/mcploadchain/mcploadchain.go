@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@RlQzIhRbaFbHVyOez94Sck0B_T0
+// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@BrNaVhdDMuXkyhjty67pOmdl3uo
 package mcploadchain
 
 import (
@@ -76,7 +76,7 @@ func MCPLoadChain(logical_name string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("MCPLoadChain: %w", err)
 			}
-			lines = stripFrontmatter(lines)
+			lines = removeArtifactTagLine(lines)
 			for _, line := range lines {
 				ctx.WriteString(line + "\n")
 			}
@@ -177,7 +177,7 @@ func MCPLoadChain(logical_name string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("MCPLoadChain: %w", err)
 		}
-		lines = stripFrontmatter(lines)
+		lines = removeArtifactTagLine(lines)
 		for _, line := range lines {
 			result.WriteString(line + "\n")
 		}
@@ -214,21 +214,13 @@ func readAllLines(reader *filereader.FileReader) ([]string, error) {
 	return lines, nil
 }
 
-func stripFrontmatter(lines []string) []string {
-	firstNonBlank := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			firstNonBlank = i
-			break
+func removeArtifactTagLine(lines []string) []string {
+	result := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if strings.Contains(line, "code-from-spec:") {
+			continue
 		}
+		result = append(result, line)
 	}
-	if firstNonBlank == -1 || lines[firstNonBlank] != "---" {
-		return lines
-	}
-	for i := firstNonBlank + 1; i < len(lines); i++ {
-		if lines[i] == "---" {
-			return lines[i+1:]
-		}
-	}
-	return lines
+	return result
 }

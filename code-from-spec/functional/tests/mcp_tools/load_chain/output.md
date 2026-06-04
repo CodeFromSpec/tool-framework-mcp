@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@v6XFjxNwmNUBxelHFd1nDhMFDAI -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@TduEKSWcHwdjeNN-Mw5a6kAcHH0 -->
 
 ## Happy path
 
@@ -88,18 +88,18 @@ Expected:
 
 ---
 
-### ARTIFACT dependency — content minus frontmatter
+### ARTIFACT dependency — artifact tag line removed
 
 Setup:
 - Create ROOT/_node.md.
 - Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `depends_on: ["ARTIFACT/b"]`.
 - Create ROOT/b/_node.md with frontmatter `output: out/b.go`.
-- Create "out/b.go" with a frontmatter block followed by body content.
+- Create "out/b.go" with an artifact tag line (`// code-from-spec: ROOT/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa`) as the first line, followed by body content.
 
 Action: call MCPLoadChain with logical_name = "ROOT/a".
 
 Expected:
-- Context contains the body of "out/b.go" without the frontmatter block.
+- Context contains the body of "out/b.go" without the artifact tag line.
 
 ---
 
@@ -167,13 +167,13 @@ Setup:
 - Create ROOT/_node.md.
 - Create ROOT/a/_node.md with frontmatter `output: out/a.go` and `input: ARTIFACT/b`.
 - Create ROOT/b/_node.md with frontmatter `output: out/data.json`.
-- Create "out/data.json" with a frontmatter block followed by body content.
+- Create "out/data.json" with an artifact tag line (`// code-from-spec: ROOT/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa`) as the first line, followed by body content.
 
 Action: call MCPLoadChain with logical_name = "ROOT/a".
 
 Expected:
 - Result contains `--- input ---` section.
-- Content after `--- input ---` is the body of "out/data.json" without its frontmatter.
+- Content after `--- input ---` is the body of "out/data.json" without the artifact tag line.
 - The input content does not appear in the context section (before `--- input ---`).
 
 ---

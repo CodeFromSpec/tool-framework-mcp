@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/load_chain@78L3RMYaSU81t9-3HanmDIiyR_E
+// code-from-spec: ROOT/golang/tests/mcp_tools/load_chain@eaRsfX1w0hJIL2705xpGtcNcjXM
 package mcploadchain_test
 
 import (
@@ -221,14 +221,14 @@ func TestMCPLoadChain_DependencyWithQualifierSubsectionOnly(t *testing.T) {
 	}
 }
 
-func TestMCPLoadChain_ArtifactDependencyContentMinusFrontmatter(t *testing.T) {
+func TestMCPLoadChain_ArtifactDependencyArtifactTagLineRemoved(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
 	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
 	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\ndepends_on:\n  - ARTIFACT/b\n---\n# ROOT/a\n")
 	testWriteFile(t, "code-from-spec/b/_node.md", "---\noutput: out/b.go\n---\n# ROOT/b\n")
-	testWriteFile(t, "out/b.go", "---\nsome: frontmatter\n---\nBody content of b.\n")
+	testWriteFile(t, "out/b.go", "// code-from-spec: ROOT/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa\nBody content of b.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
@@ -238,8 +238,8 @@ func TestMCPLoadChain_ArtifactDependencyContentMinusFrontmatter(t *testing.T) {
 	if !strings.Contains(result, "Body content of b.") {
 		t.Errorf("result missing body content of artifact dependency")
 	}
-	if strings.Contains(result, "some: frontmatter") {
-		t.Errorf("result should not contain frontmatter of artifact dependency")
+	if strings.Contains(result, "code-from-spec: ROOT/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa") {
+		t.Errorf("result should not contain the artifact tag line of artifact dependency")
 	}
 }
 
@@ -341,7 +341,7 @@ func TestMCPLoadChain_InputPresentInSeparateSection(t *testing.T) {
 	testWriteFile(t, "code-from-spec/_node.md", "# ROOT\n")
 	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\ninput: ARTIFACT/b\n---\n# ROOT/a\n")
 	testWriteFile(t, "code-from-spec/b/_node.md", "---\noutput: out/data.json\n---\n# ROOT/b\n")
-	testWriteFile(t, "out/data.json", "---\nsome: meta\n---\nJSON body content.\n")
+	testWriteFile(t, "out/data.json", "// code-from-spec: ROOT/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa\nJSON body content.\n")
 
 	result, err := mcploadchain.MCPLoadChain("ROOT/a")
 	if err != nil {
@@ -358,8 +358,8 @@ func TestMCPLoadChain_InputPresentInSeparateSection(t *testing.T) {
 	if !strings.Contains(afterInput, "JSON body content.") {
 		t.Errorf("result missing input body content after '--- input ---'")
 	}
-	if strings.Contains(afterInput, "some: meta") {
-		t.Errorf("result should not contain frontmatter of input file after '--- input ---'")
+	if strings.Contains(afterInput, "code-from-spec: ROOT/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa") {
+		t.Errorf("result should not contain the artifact tag line of input file after '--- input ---'")
 	}
 
 	contextSection := result[:inputIdx]
