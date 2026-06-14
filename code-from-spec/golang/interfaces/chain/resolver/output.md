@@ -1,35 +1,35 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/resolver@1vyBydvlA8YOr4IIR1H7jifm2YE)
+# code-from-spec: ROOT/golang/interfaces/chain/resolver@HX0dS1xcAcsBeMpISQVe4hpRz3c
 
 # Package `chainresolver`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
-```
+**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver`
+
+---
 
 ## Structs
 
 ```go
 package chainresolver
 
-import (
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
-)
+import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 
+// ChainItem represents a single node position in a resolved chain.
 type ChainItem struct {
-	LogicalName string
-	FilePath    pathutils.PathCfs
-	Qualifier   string
+	UnqualifiedLogicalName string
+	FilePath               pathutils.PathCfs
+	Qualifier              *string
 }
 
+// Chain holds the fully resolved chain for a target node.
 type Chain struct {
 	Ancestors    []*ChainItem
 	Dependencies []*ChainItem
-	External     []*frontmatter.FrontmatterExternal
 	Target       *ChainItem
 	Input        *ChainItem
 }
 ```
+
+---
 
 ## Error Sentinels
 
@@ -38,30 +38,25 @@ package chainresolver
 
 import "errors"
 
-var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-var ErrUnresolvableArtifact = errors.New("unresolvable artifact")
+var ErrUnreadableFrontmatter = errors.New("a node's frontmatter cannot be parsed")
+var ErrUnresolvableArtifact  = errors.New("an ARTIFACT/ reference cannot be resolved")
 ```
+
+---
 
 ## Functions
 
 ```go
 package chainresolver
 
-// ChainResolve returns the chain for a target logical name — the ordered
-// list of positions that a downstream tool needs to assemble context for
-// artifact generation or to compute the chain hash.
-//
-// Chain assembly order:
-//  1. Ancestors — from root down to (but not including) the target node.
-//  2. Dependencies — entries from the target's depends_on, sorted
-//     alphabetically by file path then by qualifier, each with its
-//     resolved file path and an optional qualifier.
-//  3. External — files from the target's external, sorted alphabetically
-//     by path.
-//  4. Target — the target node itself.
-//  5. Input — the target's input artifact, if present.
+// ChainResolve returns the chain for the given target logical name.
+// The chain contains ancestors (root down to but not including the target),
+// dependencies (all depends_on entries sorted alphabetically), the target
+// itself, and optionally the target's input node.
 func ChainResolve(targetLogicalName string) (*Chain, error)
 ```
+
+---
 
 ## Usage Example
 
@@ -76,27 +71,28 @@ import (
 )
 
 func main() {
-	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/resolver")
+	chain, err := chainresolver.ChainResolve("SPEC/payments/invoices")
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	fmt.Println("Target:", chain.Target.UnqualifiedLogicalName)
+	fmt.Println("Target file:", chain.Target.FilePath.Value)
+
 	for _, ancestor := range chain.Ancestors {
-		fmt.Println("Ancestor:", ancestor.LogicalName, ancestor.FilePath.Value)
+		fmt.Println("Ancestor:", ancestor.UnqualifiedLogicalName)
 	}
 
 	for _, dep := range chain.Dependencies {
-		fmt.Println("Dependency:", dep.LogicalName, dep.FilePath.Value, dep.Qualifier)
+		qualifier := ""
+		if dep.Qualifier != nil {
+			qualifier = " (" + *dep.Qualifier + ")"
+		}
+		fmt.Printf("Dependency: %s%s -> %s\n", dep.UnqualifiedLogicalName, qualifier, dep.FilePath.Value)
 	}
-
-	for _, ext := range chain.External {
-		fmt.Println("External:", ext.Path)
-	}
-
-	fmt.Println("Target:", chain.Target.LogicalName, chain.Target.FilePath.Value)
 
 	if chain.Input != nil {
-		fmt.Println("Input:", chain.Input.LogicalName, chain.Input.FilePath.Value)
+		fmt.Println("Input:", chain.Input.UnqualifiedLogicalName)
 	}
 }
 ```

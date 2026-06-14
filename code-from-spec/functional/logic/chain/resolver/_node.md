@@ -21,7 +21,7 @@ chain for a given target logical name.
 
 ```
 record ChainItem
-  logical_name: string
+  unqualified_logical_name: string
   file_path: pathutils.PathCfs
   qualifier: optional string
 
@@ -30,6 +30,27 @@ record Chain
   dependencies: list of ChainItem
   target: ChainItem
   input: optional ChainItem
+```
+
+`ChainItem` fields:
+
+- `unqualified_logical_name` — the logical name without
+  the parenthetical qualifier. For a `depends_on` entry
+  like `SPEC/a/b(interface)`, this field holds
+  `SPEC/a/b`. For `ARTIFACT/` and `EXTERNAL/`
+  references (which never have qualifiers), this is the
+  full logical name as-is.
+- `file_path` — the resolved file path as a `PathCfs`.
+  For `SPEC/` references, this is the `_node.md` path.
+  For `ARTIFACT/` references, this is the artifact
+  output path. For `EXTERNAL/` references, this is the
+  project-root-relative path.
+- `qualifier` — the parenthetical qualifier, if present
+  in the original `depends_on` entry. Absent for
+  references without a qualifier and for all `ARTIFACT/`
+  and `EXTERNAL/` references.
+
+```
 
 function ChainResolve(target_logical_name: string) -> Chain
   errors:
@@ -105,8 +126,9 @@ and `LogicalNameIsExternal`.
    name.
 2. Resolve the bare logical name to a file path using
    `LogicalNameToPath`. If it fails, propagate the error.
-3. Create a `ChainItem` with the bare logical name, the
-   resolved file path, and the qualifier (if any).
+3. Create a `ChainItem` with the bare logical name as
+   `unqualified_logical_name`, the resolved file path,
+   and the qualifier (if any).
 
 **`ARTIFACT/` references:**
 1. Derive the generating node's logical name using
@@ -124,15 +146,16 @@ and `LogicalNameIsExternal`.
    verify existence — the artifact may not have been
    generated yet.
 6. Create a `ChainItem` with the `ARTIFACT/` logical
-   name, the output path as `PathCfs`, and qualifier
-   absent.
+   name as `unqualified_logical_name`, the output path
+   as `PathCfs`, and qualifier absent.
 
 **`EXTERNAL/` references:**
 1. Convert to a file path using
    `LogicalNameExternalToPath`. If it fails, propagate
    the error.
 2. Create a `ChainItem` with the `EXTERNAL/` logical
-   name, the path as `PathCfs`, and qualifier absent.
+   name as `unqualified_logical_name`, the path as
+   `PathCfs`, and qualifier absent.
 
 If none of the three prefixes match, raise
 "unresolvable artifact".
@@ -187,15 +210,16 @@ field, classify it using `LogicalNameIsArtifact` and
 5. The output path is `frontmatter.output`. Do not
    verify existence.
 6. Create a `ChainItem` with the `ARTIFACT/` logical
-   name, the output path as `PathCfs`, and qualifier
-   absent.
+   name as `unqualified_logical_name`, the output path
+   as `PathCfs`, and qualifier absent.
 
 **`EXTERNAL/` input:**
 1. Convert to a file path using
    `LogicalNameExternalToPath`. If it fails, propagate
    the error.
 2. Create a `ChainItem` with the `EXTERNAL/` logical
-   name, the path as `PathCfs`, and qualifier absent.
+   name as `unqualified_logical_name`, the path as
+   `PathCfs`, and qualifier absent.
 
 If `input` is empty, the `input` field in the returned
 `Chain` is absent.

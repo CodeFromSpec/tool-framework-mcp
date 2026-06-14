@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/list_files@t4INp3r6dn2_G0BOg-9SaZUY-Ps
+// code-from-spec: ROOT/golang/implementation/os/list_files@VXWu7-OibVAQl3EroQAomVbW9uc
 package listfiles
 
 import (
@@ -12,8 +12,8 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-var ErrDirectoryNotFound = errors.New("directory not found")
-var ErrWalkError = errors.New("filesystem walk error")
+var ErrDirectoryNotFound = errors.New("directory does not exist")
+var ErrWalkError = errors.New("filesystem error while traversing directory")
 
 func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
@@ -22,36 +22,28 @@ func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 	}
 
 	info, err := os.Stat(osPath.Value)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, ErrDirectoryNotFound
-		}
-		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, err)
-	}
-	if !info.IsDir() {
-		return nil, ErrDirectoryNotFound
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, osPath.Value)
 	}
 
 	var results []*pathutils.PathCfs
 
 	walkErr := filepath.WalkDir(osPath.Value, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("%w: %s", ErrWalkError, err)
+			return fmt.Errorf("%w: %w", ErrWalkError, err)
 		}
 		if d.IsDir() {
 			return nil
 		}
-		cfs, convertErr := pathutils.PathOsToCfs(&pathutils.PathOs{Value: path})
-		if convertErr != nil {
-			return convertErr
+		entryOs := &pathutils.PathOs{Value: path}
+		entryCfs, err := pathutils.PathOsToCfs(entryOs)
+		if err != nil {
+			return err
 		}
-		results = append(results, cfs)
+		results = append(results, entryCfs)
 		return nil
 	})
 	if walkErr != nil {
-		if errors.Is(walkErr, ErrWalkError) {
-			return nil, walkErr
-		}
 		return nil, walkErr
 	}
 
@@ -59,8 +51,5 @@ func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 		return results[i].Value < results[j].Value
 	})
 
-	if results == nil {
-		return []*pathutils.PathCfs{}, nil
-	}
 	return results, nil
 }

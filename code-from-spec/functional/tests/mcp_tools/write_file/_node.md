@@ -57,9 +57,7 @@ LogicalNames via LogicalNameToPath).
 
 Call MCPWriteFile with logical_name =
 "SPEC/a(interface)", path = "out.go", content = "".
-Expect error UnsupportedReference (propagated from
-LogicalNames — LogicalNameToPath strips qualifiers,
-so this resolves but the node file won't exist).
+Expect error QualifierNotAllowed.
 
 #### Nonexistent node file
 

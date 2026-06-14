@@ -1,106 +1,140 @@
-<!-- code-from-spec: ROOT/functional/tests/os/file_writer@E4aR5VW5Xh5ZGwD5jEogd5lZN9o -->
+<!-- code-from-spec: ROOT/functional/tests/os/file_writer@4gZURUXGii3sDorMietZne9KMCc -->
 
-## Test cases for FileWrite
+## Test: Writes content to a new file
 
-### Happy path
-
-#### Writes content to a new file
-
-Setup: a path to a file that does not exist.
+Setup:
+- Prepare a valid `PathCfs` pointing to a file that does not exist.
 
 Actions:
 1. Call `FileWrite` with that path and content `"hello world"`.
 
-Expected outcome: no error is returned. The file exists and its content is exactly `"hello world"`.
+Expected outcome:
+- No error is returned.
+- The file exists at the resolved OS path.
+- The file content is exactly `"hello world"`.
 
 ---
 
-#### Overwrites an existing file
+## Test: Overwrites an existing file
 
-Setup: a file exists at the target path with content `"old"`.
+Setup:
+- Prepare a valid `PathCfs` pointing to a file location.
+- Create a file at that location with content `"old"`.
 
 Actions:
 1. Call `FileWrite` with the same path and content `"new"`.
 
-Expected outcome: no error is returned. The file content is exactly `"new"`. No trace of the old content remains.
+Expected outcome:
+- No error is returned.
+- The file content is exactly `"new"`.
+- No trace of `"old"` remains.
 
 ---
 
-#### Creates intermediate directories
+## Test: Creates intermediate directories
 
-Setup: a path whose parent directories do not exist (e.g., `"a/b/c/file.txt"`).
+Setup:
+- Prepare a valid `PathCfs` whose parent directories do not exist
+  (e.g., resolving to `"a/b/c/file.txt"` where `a`, `b`, and `c`
+  are absent).
 
 Actions:
-1. Call `FileWrite` with that path and any content.
+1. Call `FileWrite` with that path and content `"hello"`.
 
-Expected outcome: no error is returned. All intermediate directories are created. The file exists at the target path with the given content.
+Expected outcome:
+- No error is returned.
+- All intermediate directories are created.
+- The file exists with content `"hello"`.
 
 ---
 
-#### Preserves UTF-8 content
+## Test: Preserves UTF-8 content
 
-Setup: a path to a file that does not exist.
+Setup:
+- Prepare a valid `PathCfs` pointing to a file that does not exist.
 
 Actions:
 1. Call `FileWrite` with content `"café 日本語 🎉"`.
-2. Read the file back.
+2. Read the file back as raw bytes.
 
-Expected outcome: no error is returned. The bytes read from the file match the UTF-8 encoding of `"café 日本語 🎉"` exactly.
+Expected outcome:
+- No error is returned.
+- The raw bytes match the UTF-8 encoding of `"café 日本語 🎉"` exactly.
 
 ---
 
-#### Preserves line endings as received
+## Test: Preserves line endings as received
 
-Setup: a path to a file that does not exist.
+Setup:
+- Prepare a valid `PathCfs` pointing to a file that does not exist.
 
 Actions:
 1. Call `FileWrite` with content `"alpha\r\nbeta\r\n"`.
-2. Read the file back.
+2. Read the file back as raw bytes.
 
-Expected outcome: no error is returned. The bytes read from the file contain CRLF line endings — no normalization has occurred.
+Expected outcome:
+- No error is returned.
+- The raw bytes contain CRLF sequences unchanged — no normalization
+  to LF or any other transformation.
 
 ---
 
-#### Writes empty content
+## Test: Writes empty content
 
-Setup: a path to a file that does not exist.
+Setup:
+- Prepare a valid `PathCfs` pointing to a file that does not exist.
 
 Actions:
 1. Call `FileWrite` with an empty string as content.
 
-Expected outcome: no error is returned. The file exists and contains zero bytes.
+Expected outcome:
+- No error is returned.
+- The file exists with zero bytes.
 
 ---
 
-### Failure cases
+## Test: Propagates validation errors from PathCfsToOs
 
-#### Propagates validation errors from PathCfsToOs
-
-Setup: an invalid `PathCfs` value, e.g., `"../../outside"`.
+Setup:
+- Prepare a `PathCfs` value that is invalid due to directory
+  traversal (e.g., `"../../outside"`).
+- Note the state of the filesystem before the call.
 
 Actions:
-1. Call `FileWrite` with that path and any content.
+1. Call `FileWrite` with the invalid path and content `"x"`.
 
-Expected outcome: error DirectoryTraversal is returned (propagated from PathUtils). No file or directory is created.
+Expected outcome:
+- Error DirectoryTraversal is returned (propagated from PathUtils).
+- No file is created.
+- No directory is created.
+- The filesystem is unchanged from the state noted in setup.
 
 ---
 
-#### Cannot create directory
+## Test: Cannot create directory
 
-Setup: a path where an intermediate directory cannot be created because a path component conflicts with an existing file (e.g., a file named `"a"` already exists, but the target path is `"a/b/file.txt"`).
+Setup:
+- Prepare a valid `PathCfs` whose resolved OS path contains an
+  intermediate path component that conflicts with an existing file
+  (e.g., a file named `"a"` already exists, and the path resolves
+  to `"a/b/file.txt"`).
 
 Actions:
-1. Call `FileWrite` with that path and any content.
+1. Call `FileWrite` with that path and content `"x"`.
 
-Expected outcome: error CannotCreateDirectory is returned. No new directory or file is created.
+Expected outcome:
+- Error CannotCreateDirectory is returned.
 
 ---
 
-#### Cannot write file
+## Test: Cannot write file
 
-Setup: a path that points to a directory that already exists (not a file).
+Setup:
+- Prepare a valid `PathCfs` whose resolved OS path points to a
+  directory that already exists (not a file).
 
 Actions:
-1. Call `FileWrite` with that path and any content.
+1. Call `FileWrite` with that path and content `"x"`.
 
-Expected outcome: error CannotWriteFile is returned.
+Expected outcome:
+- Error CannotWriteFile is returned.

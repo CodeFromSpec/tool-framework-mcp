@@ -191,3 +191,15 @@ case with its setup, actions, and expected outcome.
   Never place content directly under `# Public`
   without a subsection heading — this is a format
   error.
+- Logical names map to filesystem paths as follows:
+  `SPEC` → `code-from-spec/_node.md`,
+  `SPEC/x` → `code-from-spec/x/_node.md`,
+  `SPEC/x/y` → `code-from-spec/x/y/_node.md`.
+  The `SPEC` prefix is not a directory — it is stripped
+  when resolving to a path. When a test says "create a
+  spec tree with SPEC and SPEC/a", the files are
+  `code-from-spec/_node.md` and
+  `code-from-spec/a/_node.md`.
+- The first heading in each `_node.md` must be the full
+  logical name: `# SPEC` for the root,
+  `# SPEC/a` for a child node.

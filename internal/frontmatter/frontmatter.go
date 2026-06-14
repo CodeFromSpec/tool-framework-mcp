@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/parsing/frontmatter@BRcfdUb31wlyxgC8xQH4_8BQt5U
+// code-from-spec: ROOT/golang/implementation/parsing/frontmatter@RWVyO815pmIgcbBjLRh7FTRF5uM
 package frontmatter
 
 import (
@@ -6,47 +6,41 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/goccy/go-yaml"
+
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
-	"github.com/goccy/go-yaml"
 )
 
-var ErrFileUnreadable = errors.New("file unreadable")
-var ErrMalformedYAML = errors.New("malformed YAML")
-
-type FrontmatterExternal struct {
-	Path string
-}
+var ErrFileUnreadable = errors.New("file cannot be opened or read")
+var ErrMalformedYAML = errors.New("content between --- delimiters is not valid YAML")
 
 type Frontmatter struct {
 	DependsOn []string
-	External  []*FrontmatterExternal
 	Input     string
 	Output    string
 }
 
-type rawExternal struct {
-	Path string `yaml:"path"`
-}
-
-type rawFrontmatter struct {
-	DependsOn []string      `yaml:"depends_on"`
-	External  []rawExternal `yaml:"external"`
-	Input     string        `yaml:"input"`
-	Output    string        `yaml:"output"`
+type frontmatterYAML struct {
+	DependsOn []string `yaml:"depends_on"`
+	Input     string   `yaml:"input"`
+	Output    string   `yaml:"output"`
 }
 
 func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
 	reader, err := filereader.FileOpen(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+		if errors.Is(err, filereader.ErrFileUnreadable) {
+			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+		}
+		return nil, fmt.Errorf("opening file: %w", err)
 	}
 
 	firstLine, err := filereader.FileReadLine(reader)
 	if err != nil {
 		if errors.Is(err, filereader.ErrEndOfFile) {
 			filereader.FileClose(reader)
-			return &Frontmatter{}, nil
+			return emptyFrontmatter(), nil
 		}
 		filereader.FileClose(reader)
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
@@ -54,16 +48,16 @@ func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
 
 	if firstLine != "---" {
 		filereader.FileClose(reader)
-		return &Frontmatter{}, nil
+		return emptyFrontmatter(), nil
 	}
 
-	var lines []string
+	var yamlLines []string
 	for {
 		line, err := filereader.FileReadLine(reader)
 		if err != nil {
 			if errors.Is(err, filereader.ErrEndOfFile) {
 				filereader.FileClose(reader)
-				return nil, fmt.Errorf("%w: unterminated frontmatter block", ErrMalformedYAML)
+				return nil, fmt.Errorf("%w: missing closing ---", ErrMalformedYAML)
 			}
 			filereader.FileClose(reader)
 			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
@@ -71,36 +65,38 @@ func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
 		if line == "---" {
 			break
 		}
-		lines = append(lines, line)
+		yamlLines = append(yamlLines, line)
 	}
 
 	filereader.FileClose(reader)
 
-	raw := rawFrontmatter{}
-	if err := yaml.Unmarshal([]byte(strings.Join(lines, "\n")), &raw); err != nil {
+	if len(yamlLines) == 0 {
+		return emptyFrontmatter(), nil
+	}
+
+	yamlText := strings.Join(yamlLines, "\n")
+
+	var parsed frontmatterYAML
+	if err := yaml.Unmarshal([]byte(yamlText), &parsed); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrMalformedYAML, err)
 	}
 
-	fm := &Frontmatter{
-		DependsOn: raw.DependsOn,
-		Input:     raw.Input,
-		Output:    raw.Output,
+	dependsOn := parsed.DependsOn
+	if dependsOn == nil {
+		dependsOn = []string{}
 	}
 
-	if fm.DependsOn == nil {
-		fm.DependsOn = []string{}
-	}
+	return &Frontmatter{
+		DependsOn: dependsOn,
+		Input:     parsed.Input,
+		Output:    parsed.Output,
+	}, nil
+}
 
-	for _, e := range raw.External {
-		if e.Path == "" {
-			return nil, fmt.Errorf("%w: external entry missing required path field", ErrMalformedYAML)
-		}
-		fm.External = append(fm.External, &FrontmatterExternal{Path: e.Path})
+func emptyFrontmatter() *Frontmatter {
+	return &Frontmatter{
+		DependsOn: []string{},
+		Input:     "",
+		Output:    "",
 	}
-
-	if fm.External == nil {
-		fm.External = []*FrontmatterExternal{}
-	}
-
-	return fm, nil
 }

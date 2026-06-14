@@ -46,3 +46,10 @@ blocks. Include:
   documented. For example, if a struct field uses a
   type from another package, the usage example must
   import that package.
+  When usage examples need logical names as arguments,
+  use fictitious names — never the node's own name.
+  Use `SPEC/` for spec references (e.g.
+  `SPEC/payments/fees`), `ARTIFACT/` for artifact
+  references (e.g. `ARTIFACT/functional/fees`), and
+  `EXTERNAL/` for external files (e.g.
+  `EXTERNAL/proto/api.proto`).

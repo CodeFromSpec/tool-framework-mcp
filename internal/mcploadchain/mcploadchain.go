@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@BrNaVhdDMuXkyhjty67pOmdl3uo
+// code-from-spec: ROOT/golang/implementation/mcp_tools/load_chain@Y0MqXxUDwQin1yTpKFVbPsQUgYI
 package mcploadchain
 
 import (
@@ -16,211 +16,318 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 )
 
-var ErrNoOutput = errors.New("no output")
-var ErrInvalidOutputPath = errors.New("invalid output path")
+var ErrNoOutput = errors.New("target node has no output field")
+var ErrInvalidOutputPath = errors.New("the output path fails path validation")
 
 func MCPLoadChain(logical_name string) (string, error) {
 	nodePath, err := logicalnames.LogicalNameToPath(logical_name)
 	if err != nil {
-		return "", fmt.Errorf("MCPLoadChain: %w", err)
+		return "", fmt.Errorf("resolving logical name: %w", err)
 	}
 
 	fm, err := frontmatter.FrontmatterParse(nodePath)
 	if err != nil {
-		return "", fmt.Errorf("MCPLoadChain: %w", err)
+		return "", fmt.Errorf("parsing frontmatter: %w", err)
 	}
+
 	if fm.Output == "" {
-		return "", fmt.Errorf("MCPLoadChain: %w", ErrNoOutput)
+		return "", ErrNoOutput
 	}
+
 	if err := pathutils.PathValidateCfs(fm.Output); err != nil {
-		return "", fmt.Errorf("MCPLoadChain: %w", ErrInvalidOutputPath)
+		return "", fmt.Errorf("%w: %w", ErrInvalidOutputPath, err)
 	}
 
 	chain, err := chainresolver.ChainResolve(logical_name)
 	if err != nil {
-		return "", fmt.Errorf("MCPLoadChain: %w", err)
+		return "", fmt.Errorf("resolving chain: %w", err)
 	}
 
 	chainHash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		return "", fmt.Errorf("MCPLoadChain: %w", err)
+		return "", fmt.Errorf("computing chain hash: %w", err)
 	}
 
-	var ctx strings.Builder
+	contextBlocks, err := buildContextStream(chain, fm)
+	if err != nil {
+		return "", fmt.Errorf("building context stream: %w", err)
+	}
+
+	var sb strings.Builder
+
+	sb.WriteString("chain_hash: ")
+	sb.WriteString(chainHash)
+	sb.WriteString("\n")
+	sb.WriteString("--- context ---\n")
+
+	for i, block := range contextBlocks {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(block)
+	}
+
+	if chain.Input != nil {
+		sb.WriteString("--- input ---\n")
+
+		inputLines, err := readFileLines(chain.Input.FilePath, logicalnames.LogicalNameIsArtifact(chain.Input.UnqualifiedLogicalName))
+		if err != nil {
+			return "", fmt.Errorf("reading input file: %w", err)
+		}
+		for _, line := range inputLines {
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+	}
+
+	outputCfsPath := &pathutils.PathCfs{Value: fm.Output}
+	existingReader, err := filereader.FileOpen(outputCfsPath)
+	if err == nil {
+		var existingLines []string
+		for {
+			line, readErr := filereader.FileReadLine(existingReader)
+			if errors.Is(readErr, filereader.ErrEndOfFile) {
+				break
+			}
+			if readErr != nil {
+				filereader.FileClose(existingReader)
+				return "", fmt.Errorf("reading existing artifact: %w", readErr)
+			}
+			existingLines = append(existingLines, line)
+		}
+		filereader.FileClose(existingReader)
+
+		sb.WriteString("--- existing artifact ---\n")
+		for _, line := range existingLines {
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String(), nil
+}
+
+func buildContextStream(chain *chainresolver.Chain, fm *frontmatter.Frontmatter) ([]string, error) {
+	var blocks []string
 
 	for _, ancestor := range chain.Ancestors {
-		node, err := parsenode.NodeParse(ancestor.LogicalName)
+		node, err := parsenode.NodeParse(ancestor.UnqualifiedLogicalName)
 		if err != nil {
-			return "", fmt.Errorf("MCPLoadChain: %w", err)
+			return nil, fmt.Errorf("parsing ancestor %s: %w", ancestor.UnqualifiedLogicalName, err)
 		}
+
 		if node.Public == nil || len(node.Public.Subsections) == 0 {
 			continue
 		}
-		for _, sub := range node.Public.Subsections {
-			ctx.WriteString(sub.RawHeading + "\n")
-			for _, line := range sub.Content {
-				ctx.WriteString(line + "\n")
-			}
+
+		subsectionBlocks := extractSubsectionBlocks(node.Public.Subsections)
+		if len(subsectionBlocks) > 0 {
+			blocks = append(blocks, joinBlocksWithBlankLine(subsectionBlocks))
 		}
 	}
 
 	for _, dep := range chain.Dependencies {
-		if logicalnames.LogicalNameIsArtifact(dep.LogicalName) {
-			depPath := &pathutils.PathCfs{Value: dep.FilePath.Value}
-			reader, err := filereader.FileOpen(depPath)
+		if logicalnames.LogicalNameIsArtifact(dep.UnqualifiedLogicalName) {
+			lines, err := readFileLines(dep.FilePath, true)
 			if err != nil {
-				return "", fmt.Errorf("MCPLoadChain: %w", err)
+				return nil, fmt.Errorf("reading artifact dependency %s: %w", dep.UnqualifiedLogicalName, err)
 			}
-			lines, err := readAllLines(reader)
-			filereader.FileClose(reader)
+			block := linesToBlock(lines)
+			if block != "" {
+				blocks = append(blocks, block)
+			}
+		} else if logicalnames.LogicalNameIsExternal(dep.UnqualifiedLogicalName) {
+			lines, err := readFileLines(dep.FilePath, false)
 			if err != nil {
-				return "", fmt.Errorf("MCPLoadChain: %w", err)
+				return nil, fmt.Errorf("reading external dependency %s: %w", dep.UnqualifiedLogicalName, err)
 			}
-			lines = removeArtifactTagLine(lines)
-			for _, line := range lines {
-				ctx.WriteString(line + "\n")
+			block := linesToBlock(lines)
+			if block != "" {
+				blocks = append(blocks, block)
 			}
-		} else if dep.Qualifier == "" {
-			node, err := parsenode.NodeParse(dep.LogicalName)
+		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) {
+			node, err := parsenode.NodeParse(dep.UnqualifiedLogicalName)
 			if err != nil {
-				return "", fmt.Errorf("MCPLoadChain: %w", err)
+				return nil, fmt.Errorf("parsing dependency %s: %w", dep.UnqualifiedLogicalName, err)
 			}
-			if node.Public != nil && len(node.Public.Subsections) > 0 {
-				for _, sub := range node.Public.Subsections {
-					ctx.WriteString(sub.RawHeading + "\n")
-					for _, line := range sub.Content {
-						ctx.WriteString(line + "\n")
-					}
+
+			if node.Public == nil || len(node.Public.Subsections) == 0 {
+				continue
+			}
+
+			if dep.Qualifier == nil {
+				subsectionBlocks := extractSubsectionBlocks(node.Public.Subsections)
+				if len(subsectionBlocks) > 0 {
+					blocks = append(blocks, joinBlocksWithBlankLine(subsectionBlocks))
 				}
-			}
-		} else {
-			node, err := parsenode.NodeParse(dep.LogicalName)
-			if err != nil {
-				return "", fmt.Errorf("MCPLoadChain: %w", err)
-			}
-			normalizedQualifier := textnormalization.NormalizeText(dep.Qualifier)
-			if node.Public != nil {
+			} else {
+				targetHeading := textnormalization.NormalizeText(*dep.Qualifier)
+				var found *parsenode.NodeSubsection
 				for _, sub := range node.Public.Subsections {
-					if sub.Heading == normalizedQualifier {
-						ctx.WriteString(sub.RawHeading + "\n")
-						for _, line := range sub.Content {
-							ctx.WriteString(line + "\n")
-						}
+					if sub.Heading == targetHeading {
+						found = sub
 						break
 					}
 				}
+				if found != nil {
+					block := extractSubsectionBlock(found)
+					blocks = append(blocks, block)
+				}
 			}
 		}
 	}
 
-	for _, ext := range chain.External {
-		extPath := &pathutils.PathCfs{Value: ext.Path}
-		reader, err := filereader.FileOpen(extPath)
-		if err != nil {
-			return "", fmt.Errorf("MCPLoadChain: %w", err)
-		}
-		lines, err := readAllLines(reader)
-		filereader.FileClose(reader)
-		if err != nil {
-			return "", fmt.Errorf("MCPLoadChain: %w", err)
-		}
-		for _, line := range lines {
-			ctx.WriteString(line + "\n")
-		}
-	}
+	frontmatterBlock := "---\noutput: " + fm.Output + "\n---\n"
+	blocks = append(blocks, frontmatterBlock)
 
 	if chain.Target != nil {
-		ctx.WriteString("---\n")
-		ctx.WriteString("output: " + fm.Output + "\n")
-		ctx.WriteString("---\n")
-
-		node, err := parsenode.NodeParse(chain.Target.LogicalName)
+		node, err := parsenode.NodeParse(chain.Target.UnqualifiedLogicalName)
 		if err != nil {
-			return "", fmt.Errorf("MCPLoadChain: %w", err)
+			return nil, fmt.Errorf("parsing target node: %w", err)
 		}
+
 		if node.Public != nil && len(node.Public.Subsections) > 0 {
-			for _, sub := range node.Public.Subsections {
-				ctx.WriteString(sub.RawHeading + "\n")
-				for _, line := range sub.Content {
-					ctx.WriteString(line + "\n")
-				}
+			subsectionBlocks := extractSubsectionBlocks(node.Public.Subsections)
+			if len(subsectionBlocks) > 0 {
+				blocks = append(blocks, joinBlocksWithBlankLine(subsectionBlocks))
 			}
 		}
+
 		if node.Agent != nil {
-			ctx.WriteString(node.Agent.RawHeading + "\n")
-			for _, line := range node.Agent.Content {
-				ctx.WriteString(line + "\n")
-			}
-			for _, sub := range node.Agent.Subsections {
-				ctx.WriteString(sub.RawHeading + "\n")
-				for _, line := range sub.Content {
-					ctx.WriteString(line + "\n")
-				}
-			}
+			agentBlock := buildAgentBlock(node.Agent)
+			blocks = append(blocks, agentBlock)
 		}
 	}
 
-	var result strings.Builder
-	result.WriteString("chain_hash: " + chainHash + "\n")
-	result.WriteString("--- context ---\n")
-	result.WriteString(ctx.String())
-
-	if chain.Input != nil {
-		result.WriteString("--- input ---\n")
-		inputPath := &pathutils.PathCfs{Value: chain.Input.FilePath.Value}
-		reader, err := filereader.FileOpen(inputPath)
-		if err != nil {
-			return "", fmt.Errorf("MCPLoadChain: %w", err)
-		}
-		lines, err := readAllLines(reader)
-		filereader.FileClose(reader)
-		if err != nil {
-			return "", fmt.Errorf("MCPLoadChain: %w", err)
-		}
-		lines = removeArtifactTagLine(lines)
-		for _, line := range lines {
-			result.WriteString(line + "\n")
-		}
-	}
-
-	outputPath := &pathutils.PathCfs{Value: fm.Output}
-	outputReader, err := filereader.FileOpen(outputPath)
-	if err == nil {
-		result.WriteString("--- existing artifact ---\n")
-		lines, err := readAllLines(outputReader)
-		filereader.FileClose(outputReader)
-		if err == nil {
-			for _, line := range lines {
-				result.WriteString(line + "\n")
-			}
-		}
-	}
-
-	return result.String(), nil
+	return blocks, nil
 }
 
-func readAllLines(reader *filereader.FileReader) ([]string, error) {
+func extractSubsectionBlock(sub *parsenode.NodeSubsection) string {
+	var sb strings.Builder
+
+	heading := strings.TrimRight(sub.RawHeading, " \t")
+	sb.WriteString(heading)
+	sb.WriteString("\n")
+
+	content := trimBlankLines(sub.Content)
+	for _, line := range content {
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func extractSubsectionBlocks(subsections []*parsenode.NodeSubsection) []string {
+	var blocks []string
+	for _, sub := range subsections {
+		blocks = append(blocks, extractSubsectionBlock(sub))
+	}
+	return blocks
+}
+
+func joinBlocksWithBlankLine(blocks []string) string {
+	if len(blocks) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for i, block := range blocks {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(block)
+	}
+	return sb.String()
+}
+
+func trimBlankLines(lines []string) []string {
+	start := 0
+	for start < len(lines) && strings.TrimSpace(lines[start]) == "" {
+		start++
+	}
+
+	end := len(lines)
+	for end > start && strings.TrimSpace(lines[end-1]) == "" {
+		end--
+	}
+
+	return lines[start:end]
+}
+
+func readFileLines(filePath pathutils.PathCfs, stripArtifactTag bool) ([]string, error) {
+	reader, err := filereader.FileOpen(&filePath)
+	if err != nil {
+		return nil, fmt.Errorf("%w", err)
+	}
+	defer filereader.FileClose(reader)
+
 	var lines []string
 	for {
-		line, err := filereader.FileReadLine(reader)
-		if err != nil {
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				break
-			}
-			return nil, err
+		line, readErr := filereader.FileReadLine(reader)
+		if errors.Is(readErr, filereader.ErrEndOfFile) {
+			break
 		}
+		if readErr != nil {
+			return nil, fmt.Errorf("%w", readErr)
+		}
+
+		if stripArtifactTag && isArtifactTagLine(line) {
+			continue
+		}
+
 		lines = append(lines, line)
 	}
+
 	return lines, nil
 }
 
-func removeArtifactTagLine(lines []string) []string {
-	result := make([]string, 0, len(lines))
-	for _, line := range lines {
-		if strings.Contains(line, "code-from-spec:") {
-			continue
-		}
-		result = append(result, line)
+func isArtifactTagLine(line string) bool {
+	return strings.Contains(line, "code-from-spec:")
+}
+
+func linesToBlock(lines []string) string {
+	if len(lines) == 0 {
+		return ""
 	}
+
+	var sb strings.Builder
+	for _, line := range lines {
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+
+	result := sb.String()
+	result = strings.TrimRight(result, "\n")
+	result += "\n"
+
+	return result
+}
+
+func buildAgentBlock(agentSection *parsenode.NodeSection) string {
+	var sb strings.Builder
+
+	heading := strings.TrimRight(agentSection.RawHeading, " \t")
+	sb.WriteString(heading)
+	sb.WriteString("\n")
+
+	content := trimBlankLines(agentSection.Content)
+	for _, line := range content {
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+
+	if len(agentSection.Subsections) > 0 {
+		subsectionBlocks := extractSubsectionBlocks(agentSection.Subsections)
+		for _, subBlock := range subsectionBlocks {
+			sb.WriteString("\n")
+			sb.WriteString(subBlock)
+		}
+	}
+
+	result := sb.String()
+	result = strings.TrimRight(result, "\n")
+	result += "\n"
+
 	return result
 }

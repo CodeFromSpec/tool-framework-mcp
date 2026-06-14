@@ -1,109 +1,145 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/text_normalization@Kl0fpKwpdky-twBLNB2Y40EGPiY -->
+<!-- code-from-spec: ROOT/functional/tests/utils/text_normalization@yJGBAKMagC9RoPC4ZQrOcXrtkl8 -->
 
-## Identity
+## Test suite: NormalizeText
 
-### Already normalized
+---
 
-Actions: call NormalizeText("public").
+### Identity
+
+#### Already normalized
+
+Setup: none.
+Action: call NormalizeText("public").
 Expected: returns "public".
 
-### Single word
+#### Single word
 
-Actions: call NormalizeText("Interface").
+Setup: none.
+Action: call NormalizeText("Interface").
 Expected: returns "interface".
 
-## Trim
+---
 
-### Leading and trailing spaces
+### Trim
 
-Actions: call NormalizeText("  Interface  ").
+#### Leading and trailing spaces
+
+Setup: none.
+Action: call NormalizeText("  Interface  ").
 Expected: returns "interface".
 
-### Leading and trailing tabs
+#### Leading and trailing tabs
 
-Actions: call NormalizeText("\tInterface\t").
+Setup: none.
+Action: call NormalizeText("\tInterface\t").
 Expected: returns "interface".
 
-### Mixed leading whitespace
+#### Mixed leading whitespace
 
-Actions: call NormalizeText(" \t Interface \t ").
+Setup: none.
+Action: call NormalizeText(" \t Interface \t ").
 Expected: returns "interface".
 
-## Collapse
+---
 
-### Multiple spaces between words
+### Collapse
 
-Actions: call NormalizeText("Testes   de   aceitacao").
+#### Multiple spaces between words
+
+Setup: none.
+Action: call NormalizeText("Testes   de   aceitacao").
 Expected: returns "testes de aceitacao".
 
-### Tabs between words
+#### Tabs between words
 
-Actions: call NormalizeText("Testes\tde\taceitacao").
+Setup: none.
+Action: call NormalizeText("Testes\tde\taceitacao").
 Expected: returns "testes de aceitacao".
 
-### Mixed whitespace between words
+#### Mixed whitespace between words
 
-Actions: call NormalizeText("Testes \t de \t aceitacao").
+Setup: none.
+Action: call NormalizeText("Testes \t de \t aceitacao").
 Expected: returns "testes de aceitacao".
 
-## Case folding
+---
 
-### All uppercase
+### Case folding
 
-Actions: call NormalizeText("PUBLIC").
+#### All uppercase
+
+Setup: none.
+Action: call NormalizeText("PUBLIC").
 Expected: returns "public".
 
-### Mixed case
+#### Mixed case
 
-Actions: call NormalizeText("PuBLiC").
+Setup: none.
+Action: call NormalizeText("PuBLiC").
 Expected: returns "public".
 
-### Unicode case folding
+#### Unicode case folding
 
-Actions: call NormalizeText("TESTES DE ACEITACAO").
+Setup: none.
+Action: call NormalizeText("TESTES DE ACEITACAO").
 Expected: returns "testes de aceitacao".
 
-### German sharp s
+#### German sharp s
 
-Actions: call NormalizeText("Strasse").
+Setup: none.
+Action: call NormalizeText("Strasse").
 Expected: returns "strasse".
 
-## Combined
+---
 
-### Trim, collapse, and case fold together
+### Combined
 
-Actions: call NormalizeText("  TESTES   DE   ACEITACAO  ").
+#### Trim, collapse, and case fold together
+
+Setup: none.
+Action: call NormalizeText("  TESTES   DE   ACEITACAO  ").
 Expected: returns "testes de aceitacao".
 
-### Logical name qualifier style
+#### Logical name qualifier style
 
-Actions: call NormalizeText("testes de ACEITACAO").
+Setup: none.
+Action: call NormalizeText("testes de ACEITACAO").
 Expected: returns "testes de aceitacao".
 
-### Tabs and mixed case
+#### Tabs and mixed case
 
-Actions: call NormalizeText("\tROOT/payments/fees\t").
+Setup: none.
+Action: call NormalizeText("\tROOT/payments/fees\t").
 Expected: returns "root/payments/fees".
 
-## Edge cases
+---
 
-### Empty string
+### Edge cases
 
-Actions: call NormalizeText("").
+#### Empty string
+
+Setup: none.
+Action: call NormalizeText("").
 Expected: returns "".
 
-### Only whitespace
+#### Only whitespace
 
-Actions: call NormalizeText("   \t  ").
+Setup: none.
+Action: call NormalizeText("   \t  ").
 Expected: returns "".
 
-### Non-breaking space is not whitespace
+#### Non-breaking space is not whitespace
 
-Setup: construct a string "hello" + non-breaking space (U+00A0) + "world".
-Actions: call NormalizeText with that string.
-Expected: returns "hello" + non-breaking space + "world" (non-breaking space is preserved as text, not collapsed or trimmed).
+Setup: input string contains the word "hello", followed by
+a non-breaking space character (U+00A0), followed by the
+word "world".
+Action: call NormalizeText with that input string.
+Expected: returns a string where the non-breaking space is
+preserved as text, not collapsed or trimmed — the result
+is "hello" + non-breaking space + "world", all lowercased.
 
-### Single character
+#### Single character
 
-Actions: call NormalizeText("X").
+Setup: none.
+Action: call NormalizeText("X").
 Expected: returns "x".

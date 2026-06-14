@@ -1,190 +1,223 @@
-<!-- code-from-spec: ROOT/functional/logic/chain/hash@bQ0mPHWFL9qw5U3rmzbu3zHNyTw -->
+<!-- code-from-spec: ROOT/functional/logic/chain/hash@4cUqP9l_QMC-Vxl7WAvcKI46-KQ -->
 
+## Interface
+
+```
 function ChainHashCompute(chain: chainresolver.Chain) -> string
   errors:
-    - FileUnreadable: a file in the chain cannot be read or opened.
     - ParseFailure: a node file cannot be parsed.
     - (FileReader.*): propagated from FileOpen.
     - (NodeParsing.*): propagated from NodeParse.
+```
 
-  1. Initialize an empty list: content_hashes.
+Receives a `Chain` (as returned by `ChainResolve`) and returns a 27-character
+base64url encoded SHA-1 hash (RFC 4648 §5, no padding).
 
-  2. For each ancestor in chain.ancestors (root-first order):
-       Call NodeParse with ancestor.logical_name.
-       If NodeParse fails, raise error "parse failure".
-       Hash the node's # Public section (subsections only — see HashPublicSubsections).
-       If the section is absent or produces no bytes, skip.
-       Else append the resulting 20-byte SHA-1 to content_hashes.
+---
 
-  3. For each dependency in chain.dependencies:
-       If LogicalNameIsArtifact(dep.logical_name) is true:
-         Hash the artifact file at dep.file_path (frontmatter stripped — see HashArtifactFile).
-         Append the resulting 20-byte SHA-1 to content_hashes.
-       Else if dep.qualifier is absent:
-         Call NodeParse with dep.logical_name.
-         If NodeParse fails, raise error "parse failure".
-         Hash the node's # Public section (subsections only — see HashPublicSubsections).
-         If the section is absent or produces no bytes, skip.
-         Else append the resulting 20-byte SHA-1 to content_hashes.
-       Else (dep.qualifier is present):
-         Call NodeParse with dep.logical_name.
-         If NodeParse fails, raise error "parse failure".
-         Find the subsection within node.public whose heading equals
-           NormalizeText(dep.qualifier).
-         If not found, skip.
-         Else hash the subsection (see HashSubsection).
-         Append the resulting 20-byte SHA-1 to content_hashes.
+## Helper: ExtractBlock(content: list of string) -> string
 
-  4. For each external entry in chain.external:
-       Hash the external file at external.path (see HashExternalFile).
-       Append the resulting 20-byte SHA-1 to content_hashes.
+1. Remove leading blank lines from `content` (lines that are empty or contain
+   only U+0020 and U+0009).
+2. Remove trailing blank lines from the result of step 1.
+3. If nothing remains, return empty string.
+4. Join the remaining lines with `\n`, then append one `\n` at the end.
+5. Return the joined string.
 
-  5. Call NodeParse with chain.target.logical_name.
-     If NodeParse fails, raise error "parse failure".
+---
 
-     Hash the target node's # Public section (subsections only — see HashPublicSubsections).
-     If the section is present and produces bytes, append 20-byte SHA-1 to content_hashes.
+## Helper: ConcatenateSubsections(subsections: list of NodeSubsection) -> string
 
-     Hash the target node's # Agent section (see HashAgentSection).
-     If the section is present and produces bytes, append 20-byte SHA-1 to content_hashes.
+1. Initialize `result` as an empty string.
+2. For each subsection in `subsections`, in document order:
+   a. Compute `heading_line` = subsection.raw_heading with trailing whitespace
+      removed, followed by `\n`.
+   b. Compute `body` = ExtractBlock(subsection.content).
+   c. If `result` is not empty, append one `\n` to `result` (blank line
+      separator between consecutive blocks).
+   d. Append `heading_line` to `result`.
+   e. Append `body` to `result`.
+3. Return `result`.
 
-  6. If chain.input is present:
-       Hash the artifact file at chain.input.file_path (frontmatter stripped — see HashArtifactFile).
-       Append the resulting 20-byte SHA-1 to content_hashes.
+---
 
-  7. Concatenate all 20-byte entries in content_hashes as raw bytes.
-     Compute SHA-1 of the concatenation.
-     Encode the 20-byte result as base64url (RFC 4648 §5, no padding).
-     Return the resulting 27-character string.
+## Helper: ExtractAgentSection(section: NodeSection) -> string
 
+1. Compute `heading_line` = section.raw_heading with trailing whitespace
+   removed, followed by `\n`.
+2. Compute `body` = ExtractBlock(section.content).
+3. Initialize `result` = `heading_line` + `body`.
+4. For each subsection in `section.subsections`, in document order:
+   a. Compute `sub_heading_line` = subsection.raw_heading with trailing
+      whitespace removed, followed by `\n`.
+   b. Compute `sub_body` = ExtractBlock(subsection.content).
+   c. Append one `\n` to `result` (blank line separator).
+   d. Append `sub_heading_line` to `result`.
+   e. Append `sub_body` to `result`.
+5. Return `result`.
 
---- Helper: Hash public subsections ---
+---
 
-HashPublicSubsections(node: parsenode.Node) -> optional 20-byte hash
+## Helper: NeutralizeArtifactTag(line: string) -> string
 
-  Used for ancestors, the target's # Public, and ROOT/ dependencies.
-  The # Public heading itself and any content directly under # Public
-  (before the first ## subsection) are NOT included.
+1. Search `line` for the pattern:
+   `code-from-spec: <anything>@<27 base64url characters>`
+   where base64url characters are A-Z, a-z, 0-9, `-`, `_`.
+2. If a match is found, replace the 27-character hash portion with
+   `---------------------------` (27 hyphens). Preserve everything else on
+   the line, including the logical name.
+3. Return the (possibly modified) line.
 
-  1. If node.public is absent, return absent.
+---
 
-  2. If node.public.subsections is empty, return absent.
+## Helper: HashPublicSubsections(node: parsenode.Node) -> optional raw bytes (20 bytes)
 
-  3. Initialize byte accumulator.
+1. If `node.public` is absent, return absent.
+2. If `node.public.subsections` is empty, return absent.
+3. Compute `content` = ConcatenateSubsections(node.public.subsections).
+4. Compute SHA-1 of `content` (as UTF-8 bytes).
+5. Return the raw 20-byte SHA-1 digest.
 
-  4. For each subsection in node.public.subsections (document order):
-       Append subsection.raw_heading + "\n" to accumulator.
-       For each line in subsection.content:
-         Append line + "\n" to accumulator.
+---
 
-  5. Compute SHA-1 of the accumulated bytes.
-     Return the 20-byte result.
+## Helper: HashQualifiedSubsection(node: parsenode.Node, qualifier: string) -> optional raw bytes (20 bytes)
 
+1. Compute `normalized_qualifier` = NormalizeText(qualifier).
+2. Search `node.public.subsections` for an entry whose `heading` field equals
+   `normalized_qualifier`.
+3. If not found, return absent.
+4. Let `sub` be the found subsection.
+5. Compute `heading_line` = sub.raw_heading with trailing whitespace removed,
+   followed by `\n`.
+6. Compute `body` = ExtractBlock(sub.content).
+7. Compute `content` = `heading_line` + `body`.
+8. Compute SHA-1 of `content` (as UTF-8 bytes).
+9. Return the raw 20-byte SHA-1 digest.
 
---- Helper: Hash agent section ---
+---
 
-HashAgentSection(node: parsenode.Node) -> optional 20-byte hash
+## Helper: HashAgentSection(node: parsenode.Node) -> optional raw bytes (20 bytes)
 
-  Used for the target's # Agent section only.
+1. If `node.agent` is absent, return absent.
+2. If `node.agent.content` is empty and `node.agent.subsections` is empty,
+   return absent.
+3. Compute `content` = ExtractAgentSection(node.agent).
+4. Compute SHA-1 of `content` (as UTF-8 bytes).
+5. Return the raw 20-byte SHA-1 digest.
 
-  1. If node.agent is absent, return absent.
+---
 
-  2. Initialize byte accumulator.
+## Helper: HashArtifactFile(file_path: pathutils.PathCfs) -> raw bytes (20 bytes)
 
-  3. Append node.agent.raw_heading + "\n" to accumulator.
+1. Call `FileOpen(file_path)`.
+   If `FileOpen` raises an error, raise "file unreadable".
+2. Initialize `content` as an empty string.
+3. Loop:
+   a. Call `FileReadLine(reader)`.
+   b. If `FileReadLine` raises "end of file", exit the loop.
+   c. Compute `neutralized` = NeutralizeArtifactTag(line).
+   d. Append `neutralized` + `\n` to `content`.
+4. Call `FileClose(reader)`.
+   (Call `FileClose` even if an error occurs.)
+5. Compute SHA-1 of `content` (as UTF-8 bytes).
+6. Return the raw 20-byte SHA-1 digest.
 
-  4. For each line in node.agent.content:
-       Append line + "\n" to accumulator.
+---
 
-  5. For each subsection in node.agent.subsections:
-       Append subsection.raw_heading + "\n" to accumulator.
-       For each line in subsection.content:
-         Append line + "\n" to accumulator.
+## Helper: HashExternalFile(file_path: pathutils.PathCfs) -> raw bytes (20 bytes)
 
-  6. If accumulator contains only the raw_heading line (no content, no subsections),
-     that is still hashed — do not skip.
+1. Call `FileOpen(file_path)`.
+   If `FileOpen` raises an error, raise "file unreadable".
+2. Initialize `content` as an empty string.
+3. Loop:
+   a. Call `FileReadLine(reader)`.
+   b. If `FileReadLine` raises "end of file", exit the loop.
+   c. Append `line` + `\n` to `content`.
+4. Call `FileClose(reader)`.
+   (Call `FileClose` even if an error occurs.)
+5. Compute SHA-1 of `content` (as UTF-8 bytes).
+6. Return the raw 20-byte SHA-1 digest.
 
-  7. Compute SHA-1 of the accumulated bytes.
-     Return the 20-byte result.
+---
 
+## function ChainHashCompute(chain: chainresolver.Chain) -> string
 
---- Helper: Hash subsection ---
+1. Initialize `raw_hashes` as an empty list of byte sequences (each 20 bytes).
 
-HashSubsection(subsection: parsenode.NodeSubsection) -> 20-byte hash
+**Step 1 — Ancestors**
 
-  1. Initialize byte accumulator.
+2. For each `ancestor` in `chain.ancestors` (in order, root to target's parent):
+   a. Call `NodeParse(ancestor.unqualified_logical_name)`.
+      If `NodeParse` fails, raise "parse failure".
+   b. Compute `h` = HashPublicSubsections(node).
+   c. If `h` is not absent, append `h` to `raw_hashes`.
 
-  2. Append subsection.raw_heading + "\n" to accumulator.
+**Step 2 — Dependencies**
 
-  3. For each line in subsection.content:
-       Append line + "\n" to accumulator.
+3. For each `dep` in `chain.dependencies` (in alphabetical order by logical name):
+   a. If `LogicalNameIsArtifact(dep.unqualified_logical_name)`:
+      - Compute `h` = HashArtifactFile(dep.file_path).
+      - Append `h` to `raw_hashes`.
+   b. Else if `LogicalNameIsExternal(dep.unqualified_logical_name)`:
+      - Compute `h` = HashExternalFile(dep.file_path).
+      - Append `h` to `raw_hashes`.
+   c. Else if `LogicalNameIsSpec(dep.unqualified_logical_name)` and
+      `dep.qualifier` is absent:
+      - Call `NodeParse(dep.unqualified_logical_name)`.
+        If `NodeParse` fails, raise "parse failure".
+      - Compute `h` = HashPublicSubsections(node).
+      - If `h` is not absent, append `h` to `raw_hashes`.
+   d. Else if `LogicalNameIsSpec(dep.unqualified_logical_name)` and
+      `dep.qualifier` is present:
+      - Call `NodeParse(dep.unqualified_logical_name)`.
+        If `NodeParse` fails, raise "parse failure".
+      - Compute `h` = HashQualifiedSubsection(node, dep.qualifier).
+      - If `h` is not absent, append `h` to `raw_hashes`.
 
-  4. Compute SHA-1 of the accumulated bytes.
-     Return the 20-byte result.
+**Step 3 — Target `# Public`**
 
+4. Call `NodeParse(chain.target.unqualified_logical_name)`.
+   If `NodeParse` fails, raise "parse failure".
+   Store the result as `target_node`.
+5. Compute `h_public` = HashPublicSubsections(target_node).
+   If `h_public` is not absent, append `h_public` to `raw_hashes`.
 
---- Helper: Hash artifact file (frontmatter stripped) ---
+**Step 4 — Target `# Agent`**
 
-HashArtifactFile(file_path: pathutils.PathCfs) -> 20-byte hash
+6. Compute `h_agent` = HashAgentSection(target_node).
+   If `h_agent` is not absent, append `h_agent` to `raw_hashes`.
 
-  1. Call FileOpen with file_path.
-     If FileOpen fails, raise error "file unreadable".
+**Step 5 — Input**
 
-  2. Call FileReadLine to read the first line.
-     If EndOfFile, the file is empty:
-       Call FileClose.
-       Compute SHA-1 of empty bytes.
-       Return the 20-byte result.
+7. If `chain.input` is present:
+   a. Let `input` = `chain.input`.
+   b. If `LogicalNameIsArtifact(input.unqualified_logical_name)`:
+      - Compute `h` = HashArtifactFile(input.file_path).
+      - Append `h` to `raw_hashes`.
+   c. Else if `LogicalNameIsExternal(input.unqualified_logical_name)`:
+      - Compute `h` = HashExternalFile(input.file_path).
+      - Append `h` to `raw_hashes`.
 
-  3. If the first line is exactly "---":
-       Read lines until a line that is exactly "---" is encountered
-         (this closes the frontmatter block). Discard these lines.
-       Read all remaining lines into a list.
-     Else:
-       The first line is content. Collect it plus all remaining lines into a list.
+**Step 6 — Final hash**
 
-  4. Initialize byte accumulator.
-     For each collected line:
-       Apply NeutralizeArtifactTag to the line.
-       Append the result + "\n" to accumulator.
+8. Concatenate all entries in `raw_hashes` as a single byte sequence
+   (each is 20 bytes, in the order they were appended).
+9. Compute SHA-1 of the concatenated bytes.
+10. Encode the 20-byte SHA-1 result as base64url (RFC 4648 §5, no padding),
+    producing a 27-character string.
+11. Return the 27-character string.
 
-  5. Call FileClose.
+---
 
-  6. Compute SHA-1 of the accumulated bytes.
-     Return the 20-byte result.
+## Contracts
 
-  On any error path: call FileClose before raising.
-
-
---- Helper: Hash external file ---
-
-HashExternalFile(path_string: string) -> 20-byte hash
-
-  1. Create a PathCfs from path_string.
-     Call FileOpen with that PathCfs.
-     If FileOpen fails, raise error "file unreadable".
-
-  2. Read all lines with FileReadLine until EndOfFile.
-     For each line, append line + "\n" to byte accumulator.
-
-  3. Call FileClose.
-
-  4. Compute SHA-1 of the accumulated bytes.
-     Return the 20-byte result.
-
-  On any error path: call FileClose before raising.
-
-
---- Helper: Artifact tag hash neutralization ---
-
-NeutralizeArtifactTag(line: string) -> string
-
-  1. Search the line for the pattern:
-       "code-from-spec: " followed by a logical name, then "@",
-       then exactly 27 base64url characters.
-
-  2. If the pattern is found, replace the 27-character hash portion
-     with 27 hyphens ("---------------------------").
-     Return the modified line.
-
-  3. If the pattern is not found, return the line unchanged.
+- `FileReadLine` normalizes CRLF to LF before returning — no additional CRLF
+  normalization is needed when reading files.
+- `NodeParse` also normalizes CRLF to LF — spec node content is always LF by
+  the time it reaches this module.
+- Positions with missing or empty content (absent sections, no subsections,
+  empty extracted text) contribute no hash to `raw_hashes` — they are skipped,
+  not hashed as empty.
+- Deterministic: same files on disk always produce the same hash.
+- Dependencies are deduplicated by `ChainResolve` before being passed to
+  `ChainHashCompute` — this function processes them as given.

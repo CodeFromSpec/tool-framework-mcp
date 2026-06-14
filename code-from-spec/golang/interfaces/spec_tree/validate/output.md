@@ -1,10 +1,10 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/validate@VJr6zGilaVQ0UjpbVooaErDJ4to)
+[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/validate@yRa3zlQHmAERCUMElnAaYPh72Ws)
 
 # Package `spectreevalidate`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
-```
+**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate`
+
+---
 
 ## Structs
 
@@ -16,12 +16,14 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
 )
 
+// SpecTreeValidateInput holds a discovered node with its parsed frontmatter and body.
 type SpecTreeValidateInput struct {
 	LogicalName string
-	Frontmatter frontmatter.Frontmatter
-	Node        parsenode.Node
+	Frontmatter *frontmatter.Frontmatter
+	Node        *parsenode.Node
 }
 
+// FormatError describes a single validation violation for a node.
 type FormatError struct {
 	Node   string
 	Rule   string
@@ -29,20 +31,21 @@ type FormatError struct {
 }
 ```
 
+---
+
 ## Functions
 
 ```go
 package spectreevalidate
 
-// SpecTreeValidate takes the full set of discovered nodes with their parsed
-// frontmatter and body. Returns a list of format errors (empty if all nodes
-// are valid).
-//
-// A node has children if any other entry in the input list has a logical name
-// that starts with its logical name followed by "/". A node is a leaf if no
-// entry starts with its logical name followed by "/".
-func SpecTreeValidate(entries []*SpecTreeValidateInput) []*FormatError
+// SpecTreeValidate validates the full set of discovered nodes against format rules.
+// entries is the complete list of nodes with their parsed frontmatter and body.
+// allDirs is the list of all subdirectory paths found under code-from-spec/.
+// Returns a list of FormatErrors; the list is empty when all nodes are valid.
+func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*FormatError
 ```
+
+---
 
 ## Usage Example
 
@@ -60,18 +63,32 @@ import (
 func main() {
 	entries := []*spectreevalidate.SpecTreeValidateInput{
 		{
-			LogicalName: "ROOT/a",
-			Frontmatter: frontmatter.Frontmatter{},
-			Node:        parsenode.Node{},
+			LogicalName: "SPEC/payments/fees",
+			Frontmatter: &frontmatter.Frontmatter{
+				Output: "ARTIFACT/payments/fees/output.md",
+			},
+			Node: &parsenode.Node{
+				NameSection: &parsenode.NodeSection{Heading: "payments/fees"},
+			},
 		},
 		{
-			LogicalName: "ROOT/a/b",
-			Frontmatter: frontmatter.Frontmatter{Output: "some/output.md"},
-			Node:        parsenode.Node{},
+			LogicalName: "SPEC/payments/fees/calculate",
+			Frontmatter: &frontmatter.Frontmatter{
+				Output: "ARTIFACT/payments/fees/calculate/output.md",
+			},
+			Node: &parsenode.Node{
+				NameSection: &parsenode.NodeSection{Heading: "payments/fees/calculate"},
+			},
 		},
 	}
 
-	errs := spectreevalidate.SpecTreeValidate(entries)
+	allDirs := []string{
+		"code-from-spec/payments",
+		"code-from-spec/payments/fees",
+		"code-from-spec/payments/fees/calculate",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
 	if len(errs) == 0 {
 		fmt.Println("All nodes are valid.")
 		return

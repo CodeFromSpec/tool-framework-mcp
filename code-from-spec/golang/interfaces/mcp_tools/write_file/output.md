@@ -1,10 +1,10 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/write_file@Ne6gmWsuUgcEV7Ehzllcwctohpw)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/write_file@uQJIoTDIDIZ5dmSF9s6klbddtrc)
 
 # Package `mcpwritefile`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
-```
+**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile`
+
+---
 
 ## Error Sentinels
 
@@ -13,22 +13,26 @@ package mcpwritefile
 
 import "errors"
 
-var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-var ErrNoOutput = errors.New("target node has no output field")
-var ErrPathNotInOutput = errors.New("path is not declared in the node's output")
+var ErrQualifierNotAllowed    = errors.New("logical name contains a parenthetical qualifier")
+var ErrUnreadableFrontmatter  = errors.New("node frontmatter cannot be parsed")
+var ErrNoOutput               = errors.New("target node has no output field")
+var ErrPathNotInOutput        = errors.New("path is not declared in the node's output")
 ```
+
+---
 
 ## Functions
 
 ```go
 package mcpwritefile
 
-// MCPWriteFile writes content to the file at path, authorized by the node
-// identified by logical_name. It validates that path is declared in the
-// node's output frontmatter field before writing. Returns "wrote <path>"
-// on success.
-func MCPWriteFile(logicalName string, path string, content string) (string, error)
+// MCPWriteFile verifies that path is declared in the output field of the
+// node identified by logical_name, then writes content to that path.
+// Returns "wrote <path>" on success.
+func MCPWriteFile(logical_name string, path string, content string) (string, error)
 ```
+
+---
 
 ## Usage Example
 
@@ -44,9 +48,9 @@ import (
 
 func main() {
 	result, err := mcpwritefile.MCPWriteFile(
-		"ROOT/golang/interfaces/mcp_tools/write_file",
-		"code-from-spec/golang/interfaces/mcp_tools/write_file/output.md",
-		"# Output\n\nGenerated content.\n",
+		"SPEC/payments/fees",
+		"code-from-spec/golang/payments/fees/output.md",
+		"# Fees\n\nGenerated content here.\n",
 	)
 	if err != nil {
 		log.Fatal(err)

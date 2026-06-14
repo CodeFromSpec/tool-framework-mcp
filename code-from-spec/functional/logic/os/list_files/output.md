@@ -1,23 +1,45 @@
-<!-- code-from-spec: ROOT/functional/logic/os/list_files@sVEU6SIgoJIbOWDXvKdabXnLSVw -->
+<!-- code-from-spec: ROOT/functional/logic/os/list_files@TRiOzgM4dk8yOMhuDt96ueJ5XHo -->
+
+## Namespace
+
+None — this module does not export records consumed by other modules.
+
+---
+
+## Function
 
 function ListFiles(cfs_path: pathutils.PathCfs) -> list of pathutils.PathCfs
 
-  1. Call pathutils.PathCfsToOs(cfs_path) to get an OS path.
-     If it raises an error, propagate it.
+  1. Call pathutils.PathCfsToOs with cfs_path.
+     If it raises a PathUtils error, propagate the error.
+     Assign the result to os_path.
 
-  2. Check that the resolved OS path exists and is a directory.
-     If it does not exist, raise error "DirectoryNotFound".
+  2. Check that os_path refers to an existing directory on the filesystem.
+     If the directory does not exist, raise error "DirectoryNotFound".
 
-  3. Recursively walk the directory tree rooted at the OS path.
+  3. Initialize an empty list called results.
+
+  4. Walk os_path recursively, visiting every entry under it.
      If the walk encounters a filesystem error, raise error "WalkError".
 
-  4. For each entry encountered during the walk:
-     If the entry is a directory, skip it (continue traversal).
-     If the entry is a file, call PathOsToCfs with its absolute OS path.
-       If PathOsToCfs raises an error, propagate it.
-       Otherwise, add the resulting pathutils.PathCfs to the result list.
+     For each entry encountered during the walk:
+       If the entry is a directory, skip it (do not add to results).
+       If the entry is a file:
+         Call pathutils.PathOsToCfs with the entry's absolute OS path.
+         If it raises a PathUtils error, propagate the error.
+         Append the returned pathutils.PathCfs value to results.
 
-  5. Sort the result list alphabetically by the PathCfs value field.
+  5. Sort results alphabetically by their value field.
 
-  6. Return the sorted result list.
-     If no files were found, return an empty list.
+  6. Return results.
+
+---
+
+## Error conditions
+
+- DirectoryNotFound: raised in step 2 when os_path does not resolve to an
+  existing directory.
+- WalkError: raised in step 4 when the filesystem walk returns an error for
+  any entry.
+- PathUtils.*: any error raised by pathutils.PathCfsToOs (step 1) or
+  pathutils.PathOsToCfs (step 4) is propagated to the caller unchanged.

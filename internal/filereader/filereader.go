@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_reader@tm7Q1wgQDbYhjgKR9guosFaPs28
+// code-from-spec: ROOT/golang/implementation/os/file_reader@H04egMJ9MlpGY-vfRVqszoixwWk
 package filereader
 
 import (
@@ -11,11 +11,12 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
 )
 
-var ErrFileUnreadable = errors.New("file unreadable")
+var ErrFileUnreadable = errors.New("file cannot be opened")
 var ErrEndOfFile = errors.New("end of file")
 
 type FileReader struct {
 	CfsPath pathutils.PathCfs
+	osPath  pathutils.PathOs
 	file    *os.File
 	scanner *bufio.Scanner
 	closed  bool
@@ -23,7 +24,7 @@ type FileReader struct {
 
 func FileOpen(cfsPath *pathutils.PathCfs) (*FileReader, error) {
 	if cfsPath == nil {
-		return nil, fmt.Errorf("%w: nil path", ErrFileUnreadable)
+		return nil, fmt.Errorf("%w: nil cfsPath", ErrFileUnreadable)
 	}
 
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
@@ -33,15 +34,14 @@ func FileOpen(cfsPath *pathutils.PathCfs) (*FileReader, error) {
 
 	f, err := os.Open(osPath.Value)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
+		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err.Error())
 	}
-
-	scanner := bufio.NewScanner(f)
 
 	return &FileReader{
 		CfsPath: *cfsPath,
+		osPath:  *osPath,
 		file:    f,
-		scanner: scanner,
+		scanner: bufio.NewScanner(f),
 		closed:  false,
 	}, nil
 }
@@ -57,6 +57,7 @@ func FileReadLine(reader *FileReader) (string, error) {
 
 	line := reader.scanner.Text()
 	line = strings.TrimRight(line, "\r")
+
 	return line, nil
 }
 
@@ -67,10 +68,7 @@ func FileSkipLines(reader *FileReader, count int) {
 
 	for i := 0; i < count; i++ {
 		_, err := FileReadLine(reader)
-		if err != nil {
-			if errors.Is(err, ErrEndOfFile) {
-				return
-			}
+		if errors.Is(err, ErrEndOfFile) {
 			return
 		}
 	}
@@ -81,6 +79,9 @@ func FileClose(reader *FileReader) {
 		return
 	}
 
-	reader.file.Close()
+	if reader.file != nil {
+		_ = reader.file.Close()
+	}
+
 	reader.closed = true
 }

@@ -1,211 +1,257 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/validate_specs@snH3sVUFyT_ar3eClft6x_SBsJo -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/validate_specs@zwInsrFHRMMh5iL3_xzHos7K9gw -->
 
-## Test cases for MCPValidateSpecs
+# Test Specification: MCPValidateSpecs
 
-Each test creates a spec tree on disk with `_node.md` files, then calls
-`MCPValidateSpecs`. The function always returns a `ValidationReport` —
-it never raises an error.
+## Happy Path
+
+### TC-01: Clean tree — no errors
+
+Setup:
+  Create `code-from-spec/_node.md` with heading `# SPEC` and a `# Public` section containing a `## Context` subsection.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `output: out/a.go`.
+  Compute the current chain hash for node `SPEC/a` using `ChainHashCompute`.
+  Create `out/a.go` with a valid artifact tag embedding that hash.
+
+Action:
+  Call `MCPValidateSpecs()`.
+
+Expected outcome:
+  Returns a `ValidationReport` where:
+  - `format_errors` is empty.
+  - `cycles` is empty.
+  - `staleness` is empty.
 
 ---
 
-### Happy path
-
-#### Clean tree — no errors
+### TC-02: Stale artifact detected
 
 Setup:
-- Create a spec tree with ROOT (with `# Public` section containing a
-  `## Context` subsection) and ROOT/a (leaf with output = "out/a.go").
-- Compute the chain hash for ROOT/a using `ChainHashCompute`.
-- Create "out/a.go" with a valid artifact tag containing that hash.
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `output: out/a.go`.
+  Create `out/a.go` with an artifact tag containing a 27-character base64url string that differs from the current chain hash for `SPEC/a`.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.format_errors` is empty.
-- `ValidationReport.cycles` is empty.
-- `ValidationReport.staleness` is empty.
+  Returns a `ValidationReport` where `staleness` contains a `StalenessEntry` for `SPEC/a` with:
+  - `status` = `"stale"`.
+  - `rank` is an integer (present).
 
 ---
 
-#### Stale artifact detected
+### TC-03: Missing artifact detected
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with output).
-- Create the output file with an artifact tag containing a 27-character
-  base64url string that differs from the current chain hash.
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `output: out/a.go`.
+  Do not create `out/a.go`.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains one `StalenessEntry` for ROOT/a.
-- `StalenessEntry.status` = `"stale"`.
-- `StalenessEntry.rank` is present (integer value).
+  Returns a `ValidationReport` where `staleness` contains a `StalenessEntry` for `SPEC/a` with:
+  - `status` = `"missing"`.
 
 ---
 
-#### Missing artifact detected
+### TC-04: Malformed tag detected
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with output).
-- Do not create the output file.
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `output: out/a.go`.
+  Create `out/a.go` with content that contains no artifact tag (or an artifact tag that cannot be parsed).
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains one `StalenessEntry` for ROOT/a.
-- `StalenessEntry.status` = `"missing"`.
+  Returns a `ValidationReport` where `staleness` contains a `StalenessEntry` for `SPEC/a` with:
+  - `status` = `"malformed tag"`.
 
 ---
 
-#### Malformed tag detected
+### TC-05: Staleness entries include rank
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with output).
-- Create the output file with content that has no artifact tag or a
-  malformed artifact tag.
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `output: out/a.go`.
+  Create `code-from-spec/b/_node.md` with heading `# SPEC/b`, frontmatter `output: out/b.go`, and `depends_on: ["SPEC/a"]`.
+  Create `out/a.go` and `out/b.go` with artifact tags containing a 27-character base64url string that differs from their respective current chain hashes.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains one `StalenessEntry` for ROOT/a.
-- `StalenessEntry.status` = `"malformed tag"`.
+  Returns a `ValidationReport` where `staleness` contains `StalenessEntry` records for both `SPEC/a` and `SPEC/b`.
+  The `rank` for `SPEC/a` is strictly lower than the `rank` for `SPEC/b`.
 
 ---
 
-#### Staleness entries include rank
+### TC-06: Staleness ordered by rank then name
 
 Setup:
-- Create a spec tree with ROOT, ROOT/a (leaf with output), ROOT/b (leaf
-  with output, depends_on = ["ROOT/a"]).
-- Create both output files with outdated artifact tags (stale hashes).
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/z/_node.md` with heading `# SPEC/z` and frontmatter `output: out/z.go`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `output: out/a.go`.
+  Create `out/z.go` and `out/a.go` with artifact tags containing stale hashes.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains `StalenessEntry` records for
-  both ROOT/a and ROOT/b.
-- Each entry has a `rank` value.
-- ROOT/a's `rank` is lower than ROOT/b's `rank`.
+  Returns a `ValidationReport` where `staleness` has `SPEC/a` appearing before `SPEC/z`.
+  Both entries have the same rank. Ordering between equal-rank entries is alphabetical by node name.
 
 ---
 
-#### Staleness ordered by rank then name
+## Format Errors
+
+### TC-07: Format error from invalid depends_on
 
 Setup:
-- Create a spec tree with ROOT, ROOT/z (leaf with output), ROOT/a (leaf
-  with output).
-- Both output files have stale artifact tags.
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `depends_on: ["SPEC/missing"]`.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.staleness` has two entries.
-- ROOT/a appears before ROOT/z (same rank, alphabetical ordering).
+  Returns a `ValidationReport` where `format_errors` contains a `spectreevalidate.FormatError` for `SPEC/a` with:
+  - `rule` = `"dependency_targets"`.
 
 ---
 
-### Format errors
-
-#### Format error from invalid depends_on
+### TC-08: Format error from parse failure
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with depends_on =
-  ["ROOT/missing"]).
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with content that causes a parse failure (e.g., text before any heading).
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.format_errors` contains a
-  `spectreevalidate.FormatError` for ROOT/a with rule = `"dependency_targets"`.
+  Returns a `ValidationReport` where `format_errors` contains a `spectreevalidate.FormatError` for `SPEC/a` with:
+  - `rule` = `"parse"`.
+  Other nodes that parse successfully are still validated.
 
 ---
 
-#### Format error from parse failure
+### TC-09: Continues after parse failure
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a whose `_node.md` has invalid
-  content (e.g. text before any heading).
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with invalid content (causes parse failure).
+  Create `code-from-spec/b/_node.md` with heading `# SPEC/b` and frontmatter `output: out/b.go`.
+  Create `out/b.go` with a stale artifact tag.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.format_errors` contains a `spectreevalidate.FormatError`
-  with rule = `"parse"` for ROOT/a.
-- Other nodes are still validated (validation continues).
+  Returns a `ValidationReport` where:
+  - `format_errors` contains a `spectreevalidate.FormatError` for `SPEC/a`.
+  - `staleness` contains a `StalenessEntry` for `SPEC/b`.
+  Both issues are reported in the same report.
 
 ---
 
-#### Continues after parse failure
+### TC-10: Subdirectory without _node.md detected
 
 Setup:
-- Create a spec tree with ROOT, ROOT/a (invalid `_node.md` content),
-  ROOT/b (valid leaf with output and a stale artifact).
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a`.
+  Create an empty directory `code-from-spec/b/` with no `_node.md` inside.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.format_errors` contains a `spectreevalidate.FormatError`
-  for ROOT/a.
-- `ValidationReport.staleness` contains a `StalenessEntry` for ROOT/b.
-- Both are reported in the same `ValidationReport`.
+  Returns a `ValidationReport` where `format_errors` contains a `spectreevalidate.FormatError` with:
+  - `rule` = `"missing_node_md"`.
+  - The error references the `code-from-spec/b/` directory.
 
 ---
 
-### Cycle detection
-
-#### Simple cycle detected
+### TC-11: _-prefixed dir under code-from-spec not flagged
 
 Setup:
-- Create a spec tree with ROOT, ROOT/a (leaf, depends_on = ["ROOT/b"]),
-  ROOT/b (leaf, depends_on = ["ROOT/a"]).
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create a directory `code-from-spec/_tools/` with no `_node.md` inside.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.cycles` is not empty.
-- `ValidationReport.cycles` contains at least one of ROOT/a or ROOT/b.
+  Returns a `ValidationReport` where `format_errors` contains no `spectreevalidate.FormatError` referencing `_tools/`.
+  The `_`-prefixed directory is silently ignored.
 
 ---
 
-#### Ranking skipped when format errors exist
+## Cycle Detection
+
+### TC-12: Simple cycle detected
 
 Setup:
-- Create a spec tree with ROOT, ROOT/a (leaf with invalid depends_on
-  target), ROOT/b (valid leaf with output).
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `depends_on: ["SPEC/b"]`.
+  Create `code-from-spec/b/_node.md` with heading `# SPEC/b` and frontmatter `depends_on: ["SPEC/a"]`.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.format_errors` is not empty.
-- Ranking is skipped — any `StalenessEntry` for ROOT/b has `rank` = 0
-  (the default when no ranking is available).
+  Returns a `ValidationReport` where `cycles` is not empty and contains at least one of `"SPEC/a"` or `"SPEC/b"`.
 
 ---
 
-### Edge cases
-
-#### Empty spec tree — scan fails
+### TC-13: Ranking skipped when format errors exist
 
 Setup:
-- Do not create a `code-from-spec/` directory.
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and frontmatter `depends_on: ["SPEC/missing"]` (invalid dependency target).
+  Create `code-from-spec/b/_node.md` with heading `# SPEC/b` and frontmatter `output: out/b.go`.
+  Create `out/b.go` with a stale artifact tag.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.format_errors` contains a `spectreevalidate.FormatError`
-  with rule = `"scan"`.
-- `ValidationReport.cycles` is empty.
-- `ValidationReport.staleness` is empty.
+  Returns a `ValidationReport` where:
+  - `format_errors` is not empty (contains the error for `SPEC/a`).
+  - `staleness` contains a `StalenessEntry` for `SPEC/b` with `rank` = `0` (ranking was skipped due to format errors).
 
 ---
 
-#### Node with no output — not in staleness
+## Edge Cases
+
+### TC-14: Empty spec tree — scan fails
 
 Setup:
-- Create a spec tree with ROOT and ROOT/a (leaf with no output field).
+  Do not create a `code-from-spec/` directory.
 
-Action: Call `MCPValidateSpecs`.
+Action:
+  Call `MCPValidateSpecs()`.
 
 Expected outcome:
-- `ValidationReport.staleness` contains no `StalenessEntry` for ROOT/a.
-- Staleness check only runs for nodes with an output field.
+  Returns a `ValidationReport` where:
+  - `format_errors` contains a `spectreevalidate.FormatError` with `rule` = `"scan"`.
+  - `cycles` is empty.
+  - `staleness` is empty.
+
+---
+
+### TC-15: Node with no output — not in staleness
+
+Setup:
+  Create `code-from-spec/_node.md` with heading `# SPEC`.
+  Create `code-from-spec/a/_node.md` with heading `# SPEC/a` and no `output` frontmatter field.
+
+Action:
+  Call `MCPValidateSpecs()`.
+
+Expected outcome:
+  Returns a `ValidationReport` where `staleness` contains no `StalenessEntry` for `SPEC/a`.
+  Staleness checks are only performed for nodes that declare an output.

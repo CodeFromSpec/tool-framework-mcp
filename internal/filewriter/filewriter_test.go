@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/os/file_writer@hUxmpzZ6hfg5oqPWcTIqeND0ceg
+// code-from-spec: ROOT/golang/tests/os/file_writer@e_Iu0juGJlhxpu689g8rh1v2Nsw
 package filewriter_test
 
 import (
@@ -27,171 +27,191 @@ func testChdir(t *testing.T, dir string) {
 }
 
 func TestFileWrite_WritesContentToNewFile(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	cfsPath := &pathutils.PathCfs{Value: "newfile.txt"}
+	cfsPath := &pathutils.PathCfs{Value: "output/file.txt"}
+	if err := os.MkdirAll("output", 0755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
 	err := filewriter.FileWrite(cfsPath, "hello world")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, err := os.ReadFile("newfile.txt")
+	data, err := os.ReadFile("output/file.txt")
 	if err != nil {
 		t.Fatalf("reading file: %v", err)
 	}
-	if string(got) != "hello world" {
-		t.Errorf("got %q, want %q", string(got), "hello world")
+	if string(data) != "hello world" {
+		t.Errorf("content = %q, want %q", string(data), "hello world")
 	}
 }
 
 func TestFileWrite_OverwritesExistingFile(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	if err := os.WriteFile("existing.txt", []byte("old"), 0o644); err != nil {
+	if err := os.MkdirAll("output", 0755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := os.WriteFile("output/file.txt", []byte("old"), 0644); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
-	cfsPath := &pathutils.PathCfs{Value: "existing.txt"}
+	cfsPath := &pathutils.PathCfs{Value: "output/file.txt"}
 	err := filewriter.FileWrite(cfsPath, "new")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, err := os.ReadFile("existing.txt")
+	data, err := os.ReadFile("output/file.txt")
 	if err != nil {
 		t.Fatalf("reading file: %v", err)
 	}
-	if string(got) != "new" {
-		t.Errorf("got %q, want %q", string(got), "new")
+	if string(data) != "new" {
+		t.Errorf("content = %q, want %q", string(data), "new")
 	}
 }
 
 func TestFileWrite_CreatesIntermediateDirectories(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	cfsPath := &pathutils.PathCfs{Value: "a/b/c/file.txt"}
-	err := filewriter.FileWrite(cfsPath, "content")
+	err := filewriter.FileWrite(cfsPath, "hello")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, err := os.ReadFile("a/b/c/file.txt")
+	data, err := os.ReadFile("a/b/c/file.txt")
 	if err != nil {
 		t.Fatalf("reading file: %v", err)
 	}
-	if string(got) != "content" {
-		t.Errorf("got %q, want %q", string(got), "content")
+	if string(data) != "hello" {
+		t.Errorf("content = %q, want %q", string(data), "hello")
 	}
 }
 
 func TestFileWrite_PreservesUTF8Content(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	content := "café 日本語 🎉"
-	cfsPath := &pathutils.PathCfs{Value: "utf8.txt"}
+	cfsPath := &pathutils.PathCfs{Value: "output/utf8.txt"}
+	if err := os.MkdirAll("output", 0755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
 	err := filewriter.FileWrite(cfsPath, content)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, err := os.ReadFile("utf8.txt")
+	data, err := os.ReadFile("output/utf8.txt")
 	if err != nil {
 		t.Fatalf("reading file: %v", err)
 	}
-	if string(got) != content {
-		t.Errorf("got %q, want %q", string(got), content)
+	if string(data) != content {
+		t.Errorf("content = %q, want %q", string(data), content)
 	}
 }
 
 func TestFileWrite_PreservesLineEndings(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	content := "alpha\r\nbeta\r\n"
-	cfsPath := &pathutils.PathCfs{Value: "crlf.txt"}
+	cfsPath := &pathutils.PathCfs{Value: "output/crlf.txt"}
+	if err := os.MkdirAll("output", 0755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
 	err := filewriter.FileWrite(cfsPath, content)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, err := os.ReadFile("crlf.txt")
+	data, err := os.ReadFile("output/crlf.txt")
 	if err != nil {
 		t.Fatalf("reading file: %v", err)
 	}
-	if string(got) != content {
-		t.Errorf("got %q, want %q", string(got), content)
+	if string(data) != content {
+		t.Errorf("content = %q, want %q", string(data), content)
 	}
 }
 
 func TestFileWrite_WritesEmptyContent(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	cfsPath := &pathutils.PathCfs{Value: "empty.txt"}
+	cfsPath := &pathutils.PathCfs{Value: "output/empty.txt"}
+	if err := os.MkdirAll("output", 0755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
 	err := filewriter.FileWrite(cfsPath, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, err := os.ReadFile("empty.txt")
+	info, err := os.Stat("output/empty.txt")
 	if err != nil {
-		t.Fatalf("reading file: %v", err)
+		t.Fatalf("stat file: %v", err)
 	}
-	if len(got) != 0 {
-		t.Errorf("expected empty file, got %d bytes", len(got))
+	if info.Size() != 0 {
+		t.Errorf("file size = %d, want 0", info.Size())
 	}
 }
 
 func TestFileWrite_PropagatesValidationErrors(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
 	cfsPath := &pathutils.PathCfs{Value: "../../outside"}
-	err := filewriter.FileWrite(cfsPath, "content")
+
+	err := filewriter.FileWrite(cfsPath, "x")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
-		t.Errorf("expected ErrDirectoryTraversal, got %v", err)
+		t.Errorf("error = %v, want ErrDirectoryTraversal", err)
 	}
 }
 
 func TestFileWrite_CannotCreateDirectory(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	if err := os.WriteFile("a", []byte("file"), 0o644); err != nil {
+	if err := os.WriteFile("a", []byte("block"), 0644); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
 	cfsPath := &pathutils.PathCfs{Value: "a/b/file.txt"}
-	err := filewriter.FileWrite(cfsPath, "content")
+	err := filewriter.FileWrite(cfsPath, "x")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, filewriter.ErrCannotCreateDirectory) {
-		t.Errorf("expected ErrCannotCreateDirectory, got %v", err)
+		t.Errorf("error = %v, want ErrCannotCreateDirectory", err)
 	}
 }
 
 func TestFileWrite_CannotWriteFile(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+	tempDir := t.TempDir()
+	testChdir(t, tempDir)
 
-	if err := os.Mkdir("targetdir", 0o755); err != nil {
+	if err := os.MkdirAll("output/target", 0755); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
-	cfsPath := &pathutils.PathCfs{Value: "targetdir"}
-	err := filewriter.FileWrite(cfsPath, "content")
+	cfsPath := &pathutils.PathCfs{Value: "output/target"}
+	err := filewriter.FileWrite(cfsPath, "x")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, filewriter.ErrCannotWriteFile) {
-		t.Errorf("expected ErrCannotWriteFile, got %v", err)
+		t.Errorf("error = %v, want ErrCannotWriteFile", err)
 	}
 }

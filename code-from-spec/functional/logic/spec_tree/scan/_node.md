@@ -50,12 +50,17 @@ Generate pseudocode for the SpecTreeScan function.
    is exactly `_node.md`. The file name is everything
    after the last `/` in the path.
 3. Exclude files inside `_`-prefixed directories directly
-   under `code-from-spec/`. A file is excluded if its
-   path, after removing the `code-from-spec/` prefix,
-   starts with `_` (e.g. `code-from-spec/_rules/x/_node.md`
-   is excluded, but `code-from-spec/a/_b/_node.md` is not —
-   only the first path segment after `code-from-spec/`
-   is checked).
+   under `code-from-spec/`. After removing the
+   `code-from-spec/` prefix, split the remainder at the
+   first `/`. If there is no `/`, the file is directly
+   inside `code-from-spec/` (e.g. `code-from-spec/_node.md`)
+   and is never excluded. If there is a `/`, the text
+   before it is the first directory segment — exclude the
+   file if that segment starts with `_`
+   (e.g. `code-from-spec/_rules/x/_node.md` is excluded
+   because the first segment is `_rules`, but
+   `code-from-spec/a/_b/_node.md` is not excluded because
+   the first segment is `a`).
 4. For each remaining file, call `LogicalNameFromPath` to
    derive the logical name. If it raises an error,
    propagate it.

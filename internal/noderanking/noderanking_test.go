@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/node_ranking@WcOrg7Qe6zR07tcKw9D7QQ_AXzM
+// code-from-spec: ROOT/golang/tests/utils/node_ranking@eQKNd1CzOHN2iB-APNcuyeaN06Q
 package noderanking_test
 
 import (
@@ -9,18 +9,36 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/noderanking"
 )
 
-func testFindEntry(ranked []*noderanking.NodeRankEntry, name string) *noderanking.NodeRankEntry {
+func testFindEntry(ranked []*noderanking.NodeRankEntry, logicalName string) *noderanking.NodeRankEntry {
 	for _, e := range ranked {
-		if e.LogicalName == name {
+		if e.LogicalName == logicalName {
 			return e
 		}
 	}
 	return nil
 }
 
-func TestNodeRankCompute_RootOnly(t *testing.T) {
+func testRankOf(t *testing.T, ranked []*noderanking.NodeRankEntry, logicalName string) int {
+	t.Helper()
+	e := testFindEntry(ranked, logicalName)
+	if e == nil {
+		t.Fatalf("entry %q not found in ranked", logicalName)
+	}
+	return e.Rank
+}
+
+func testContainsCycle(cycles []string, logicalName string) bool {
+	for _, c := range cycles {
+		if c == logicalName {
+			return true
+		}
+	}
+	return false
+}
+
+func TestNodeRankCompute_TC01_RootOnly(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -28,25 +46,21 @@ func TestNodeRankCompute_RootOnly(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 	if len(ranked) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(ranked))
+		t.Fatalf("expected 1 ranked entry, got %d", len(ranked))
 	}
-	e := testFindEntry(ranked, "ROOT")
-	if e == nil {
-		t.Fatal("expected ROOT in ranked")
-	}
-	if e.Rank != 0 {
-		t.Errorf("expected rank 0, got %d", e.Rank)
+	if ranked[0].LogicalName != "SPEC" || ranked[0].Rank != 0 {
+		t.Errorf("expected SPEC rank 0, got %+v", ranked[0])
 	}
 }
 
-func TestNodeRankCompute_LinearChain(t *testing.T) {
+func TestNodeRankCompute_TC02_LinearChain(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a/b", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a/b", Frontmatter: &frontmatter.Frontmatter{}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -54,32 +68,25 @@ func TestNodeRankCompute_LinearChain(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	root := testFindEntry(ranked, "ROOT")
-	a := testFindEntry(ranked, "ROOT/a")
-	ab := testFindEntry(ranked, "ROOT/a/b")
-
-	if root == nil || a == nil || ab == nil {
-		t.Fatal("missing expected entries")
+	if testRankOf(t, ranked, "SPEC") != 0 {
+		t.Errorf("expected SPEC rank 0")
 	}
-	if root.Rank != 0 {
-		t.Errorf("ROOT: expected rank 0, got %d", root.Rank)
+	if testRankOf(t, ranked, "SPEC/a") != 1 {
+		t.Errorf("expected SPEC/a rank 1")
 	}
-	if a.Rank != 1 {
-		t.Errorf("ROOT/a: expected rank 1, got %d", a.Rank)
-	}
-	if ab.Rank != 2 {
-		t.Errorf("ROOT/a/b: expected rank 2, got %d", ab.Rank)
+	if testRankOf(t, ranked, "SPEC/a/b") != 2 {
+		t.Errorf("expected SPEC/a/b rank 2")
 	}
 }
 
-func TestNodeRankCompute_IndependentSiblings(t *testing.T) {
+func TestNodeRankCompute_TC03_IndependentSiblings(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -87,28 +94,24 @@ func TestNodeRankCompute_IndependentSiblings(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	b := testFindEntry(ranked, "ROOT/b")
-
-	if a == nil || b == nil {
-		t.Fatal("missing expected entries")
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankB := testRankOf(t, ranked, "SPEC/b")
+	if rankA != rankB {
+		t.Errorf("expected SPEC/a and SPEC/b to have equal rank, got %d and %d", rankA, rankB)
 	}
-	if a.Rank != 1 {
-		t.Errorf("ROOT/a: expected rank 1, got %d", a.Rank)
-	}
-	if b.Rank != 1 {
-		t.Errorf("ROOT/b: expected rank 1, got %d", b.Rank)
+	if rankA != 1 {
+		t.Errorf("expected rank 1, got %d", rankA)
 	}
 }
 
-func TestNodeRankCompute_DependsOnIncreasesRank(t *testing.T) {
+func TestNodeRankCompute_TC04_DependsOnIncreasesRank(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/a"}}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/a"}}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -116,25 +119,21 @@ func TestNodeRankCompute_DependsOnIncreasesRank(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	b := testFindEntry(ranked, "ROOT/b")
-
-	if a == nil || b == nil {
-		t.Fatal("missing expected entries")
-	}
-	if b.Rank <= a.Rank {
-		t.Errorf("expected rank of ROOT/b (%d) > rank of ROOT/a (%d)", b.Rank, a.Rank)
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankB := testRankOf(t, ranked, "SPEC/b")
+	if rankB <= rankA {
+		t.Errorf("expected rank of SPEC/b (%d) > rank of SPEC/a (%d)", rankB, rankA)
 	}
 }
 
-func TestNodeRankCompute_DependsOnWithQualifier(t *testing.T) {
+func TestNodeRankCompute_TC05_DependsOnQualifierStripped(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/a(interface)"}}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/a(interface)"}}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -142,25 +141,20 @@ func TestNodeRankCompute_DependsOnWithQualifier(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	b := testFindEntry(ranked, "ROOT/b")
-
-	if a == nil || b == nil {
-		t.Fatal("missing expected entries")
-	}
-	if b.Rank <= a.Rank {
-		t.Errorf("expected rank of ROOT/b (%d) > rank of ROOT/a (%d)", b.Rank, a.Rank)
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankB := testRankOf(t, ranked, "SPEC/b")
+	if rankB <= rankA {
+		t.Errorf("expected rank of SPEC/b (%d) > rank of SPEC/a (%d)", rankB, rankA)
 	}
 }
 
-func TestNodeRankCompute_InputArtifactAddsDependencyEdge(t *testing.T) {
+func TestNodeRankCompute_TC06_ExternalDependsOnSkipped(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{Output: "out.go"}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{Input: "ARTIFACT/a"}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"EXTERNAL/proto/api.proto"}}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -168,34 +162,20 @@ func TestNodeRankCompute_InputArtifactAddsDependencyEdge(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	artifact := testFindEntry(ranked, "ARTIFACT/a")
-	b := testFindEntry(ranked, "ROOT/b")
-
-	if a == nil {
-		t.Fatal("missing ROOT/a")
-	}
-	if artifact == nil {
-		t.Fatal("missing ARTIFACT/a in ranked")
-	}
-	if b == nil {
-		t.Fatal("missing ROOT/b")
-	}
-	if artifact.Rank <= a.Rank {
-		t.Errorf("expected rank of ARTIFACT/a (%d) > rank of ROOT/a (%d)", artifact.Rank, a.Rank)
-	}
-	if b.Rank <= artifact.Rank {
-		t.Errorf("expected rank of ROOT/b (%d) > rank of ARTIFACT/a (%d)", b.Rank, artifact.Rank)
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	if rankA != 1 {
+		t.Errorf("expected SPEC/a rank 1, got %d", rankA)
 	}
 }
 
-func TestNodeRankCompute_ArtifactsRankOneAboveNode(t *testing.T) {
+func TestNodeRankCompute_TC07_InputArtifactAddsDependencyEdge(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{Output: "foo.go"}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{Output: "out.go"}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{Input: "ARTIFACT/a"}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -203,27 +183,25 @@ func TestNodeRankCompute_ArtifactsRankOneAboveNode(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	artifact := testFindEntry(ranked, "ARTIFACT/a")
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankArtA := testRankOf(t, ranked, "ARTIFACT/a")
+	rankB := testRankOf(t, ranked, "SPEC/b")
 
-	if a == nil {
-		t.Fatal("missing ROOT/a")
+	if rankArtA <= rankA {
+		t.Errorf("expected rank of ARTIFACT/a (%d) > rank of SPEC/a (%d)", rankArtA, rankA)
 	}
-	if artifact == nil {
-		t.Fatal("missing ARTIFACT/a in ranked")
-	}
-	if artifact.Rank != a.Rank+1 {
-		t.Errorf("expected ARTIFACT/a rank = %d, got %d", a.Rank+1, artifact.Rank)
+	if rankB <= rankArtA {
+		t.Errorf("expected rank of SPEC/b (%d) > rank of ARTIFACT/a (%d)", rankB, rankArtA)
 	}
 }
 
-func TestNodeRankCompute_SingleOutputArtifactRanked(t *testing.T) {
+func TestNodeRankCompute_TC08_ExternalInputSkipped(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{Output: "x.go"}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{Input: "EXTERNAL/docs/spec.yaml"}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -231,35 +209,74 @@ func TestNodeRankCompute_SingleOutputArtifactRanked(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	count := 0
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	if rankA != 1 {
+		t.Errorf("expected SPEC/a rank 1, got %d", rankA)
+	}
+}
+
+func TestNodeRankCompute_TC09_ArtifactRankOneAboveNode(t *testing.T) {
+	entries := []*noderanking.NodeRankInput{
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{Output: "foo.go"}},
+	}
+
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankArtA := testRankOf(t, ranked, "ARTIFACT/a")
+	if rankArtA != rankA+1 {
+		t.Errorf("expected ARTIFACT/a rank = SPEC/a rank + 1, got SPEC/a=%d ARTIFACT/a=%d", rankA, rankArtA)
+	}
+}
+
+func TestNodeRankCompute_TC10_SingleOutputArtifactRanked(t *testing.T) {
+	entries := []*noderanking.NodeRankInput{
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{Output: "x.go"}},
+	}
+
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+
+	var artifactEntries []*noderanking.NodeRankEntry
 	for _, e := range ranked {
-		if e.LogicalName == "ARTIFACT/a" {
-			count++
+		if len(e.LogicalName) > 9 && e.LogicalName[:9] == "ARTIFACT/" {
+			artifactEntries = append(artifactEntries, e)
 		}
 	}
-	if count != 1 {
-		t.Errorf("expected exactly one ARTIFACT/a entry, got %d", count)
+	if len(artifactEntries) != 1 {
+		t.Fatalf("expected exactly 1 artifact entry, got %d", len(artifactEntries))
+	}
+	if artifactEntries[0].LogicalName != "ARTIFACT/a" {
+		t.Errorf("expected ARTIFACT/a, got %s", artifactEntries[0].LogicalName)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	artifact := testFindEntry(ranked, "ARTIFACT/a")
-
-	if a == nil || artifact == nil {
-		t.Fatal("missing expected entries")
-	}
-	if artifact.Rank != a.Rank+1 {
-		t.Errorf("expected ARTIFACT/a rank = %d, got %d", a.Rank+1, artifact.Rank)
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	if artifactEntries[0].Rank != rankA+1 {
+		t.Errorf("expected ARTIFACT/a rank = SPEC/a rank + 1")
 	}
 }
 
-func TestNodeRankCompute_DependsOnArtifactReference(t *testing.T) {
+func TestNodeRankCompute_TC11_DependsOnArtifactReference(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{Output: "lib.go"}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ARTIFACT/a"}}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{Output: "lib.go"}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ARTIFACT/a"}}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -267,29 +284,26 @@ func TestNodeRankCompute_DependsOnArtifactReference(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	artifact := testFindEntry(ranked, "ARTIFACT/a")
-	b := testFindEntry(ranked, "ROOT/b")
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankArtA := testRankOf(t, ranked, "ARTIFACT/a")
+	rankB := testRankOf(t, ranked, "SPEC/b")
 
-	if a == nil || artifact == nil || b == nil {
-		t.Fatal("missing expected entries")
+	if rankArtA <= rankA {
+		t.Errorf("expected ARTIFACT/a rank (%d) > SPEC/a rank (%d)", rankArtA, rankA)
 	}
-	if artifact.Rank <= a.Rank {
-		t.Errorf("expected rank of ARTIFACT/a (%d) > rank of ROOT/a (%d)", artifact.Rank, a.Rank)
-	}
-	if b.Rank <= artifact.Rank {
-		t.Errorf("expected rank of ROOT/b (%d) > rank of ARTIFACT/a (%d)", b.Rank, artifact.Rank)
+	if rankB <= rankArtA {
+		t.Errorf("expected SPEC/b rank (%d) > ARTIFACT/a rank (%d)", rankB, rankArtA)
 	}
 }
 
-func TestNodeRankCompute_OutputSortedByRankThenLogicalName(t *testing.T) {
+func TestNodeRankCompute_TC12_SortedByRankThenLogicalName(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/z", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/z", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -297,68 +311,37 @@ func TestNodeRankCompute_OutputSortedByRankThenLogicalName(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	if len(ranked) == 0 {
-		t.Fatal("empty ranked")
-	}
-	if ranked[0].LogicalName != "ROOT" {
-		t.Errorf("expected ROOT first, got %s", ranked[0].LogicalName)
+	if ranked[0].LogicalName != "SPEC" || ranked[0].Rank != 0 {
+		t.Errorf("expected first entry to be SPEC rank 0, got %+v", ranked[0])
 	}
 
-	aIdx := -1
-	zIdx := -1
+	idxA := -1
+	idxZ := -1
 	for i, e := range ranked {
-		if e.LogicalName == "ROOT/a" {
-			aIdx = i
+		if e.LogicalName == "SPEC/a" {
+			idxA = i
 		}
-		if e.LogicalName == "ROOT/z" {
-			zIdx = i
-		}
-	}
-	if aIdx == -1 || zIdx == -1 {
-		t.Fatal("missing ROOT/a or ROOT/z")
-	}
-	if aIdx >= zIdx {
-		t.Errorf("expected ROOT/a before ROOT/z in ranked output")
-	}
-}
-
-func TestNodeRankCompute_ParallelEntries(t *testing.T) {
-	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/c", Frontmatter: &frontmatter.Frontmatter{}},
-	}
-
-	ranked, cycles, err := noderanking.NodeRankCompute(entries)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
-	}
-
-	for _, name := range []string{"ROOT/a", "ROOT/b", "ROOT/c"} {
-		e := testFindEntry(ranked, name)
-		if e == nil {
-			t.Fatalf("missing %s", name)
-		}
-		if e.Rank != 1 {
-			t.Errorf("%s: expected rank 1, got %d", name, e.Rank)
+		if e.LogicalName == "SPEC/z" {
+			idxZ = i
 		}
 	}
+	if idxA == -1 || idxZ == -1 {
+		t.Fatal("expected both SPEC/a and SPEC/z in ranked")
+	}
+	if idxA >= idxZ {
+		t.Errorf("expected SPEC/a (idx %d) to appear before SPEC/z (idx %d)", idxA, idxZ)
+	}
 }
 
-func TestNodeRankCompute_DiamondDependency(t *testing.T) {
+func TestNodeRankCompute_TC13_ParallelEntriesEqualRank(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/c", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/c"}}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/c"}}},
-		{LogicalName: "ROOT/d", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/a", "ROOT/b"}}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/c", Frontmatter: &frontmatter.Frontmatter{}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -366,39 +349,25 @@ func TestNodeRankCompute_DiamondDependency(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	c := testFindEntry(ranked, "ROOT/c")
-	a := testFindEntry(ranked, "ROOT/a")
-	b := testFindEntry(ranked, "ROOT/b")
-	d := testFindEntry(ranked, "ROOT/d")
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankB := testRankOf(t, ranked, "SPEC/b")
+	rankC := testRankOf(t, ranked, "SPEC/c")
 
-	if c == nil || a == nil || b == nil || d == nil {
-		t.Fatal("missing expected entries")
-	}
-	if c.Rank != 1 {
-		t.Errorf("ROOT/c: expected rank 1, got %d", c.Rank)
-	}
-	if a.Rank != 2 {
-		t.Errorf("ROOT/a: expected rank 2, got %d", a.Rank)
-	}
-	if b.Rank != 2 {
-		t.Errorf("ROOT/b: expected rank 2, got %d", b.Rank)
-	}
-	if d.Rank != 3 {
-		t.Errorf("ROOT/d: expected rank 3, got %d", d.Rank)
+	if rankA != 1 || rankB != 1 || rankC != 1 {
+		t.Errorf("expected all to have rank 1, got a=%d b=%d c=%d", rankA, rankB, rankC)
 	}
 }
 
-func TestNodeRankCompute_DependsOnOutranksParent(t *testing.T) {
+func TestNodeRankCompute_TC14_DiamondDependency(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/c"}}},
-		{LogicalName: "ROOT/c", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/c/d", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/c/d/e", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/c", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/c"}}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/c"}}},
+		{LogicalName: "SPEC/d", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/a", "SPEC/b"}}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -406,32 +375,36 @@ func TestNodeRankCompute_DependsOnOutranksParent(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	ab := testFindEntry(ranked, "ROOT/a/b")
-	c := testFindEntry(ranked, "ROOT/c")
+	rankC := testRankOf(t, ranked, "SPEC/c")
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankB := testRankOf(t, ranked, "SPEC/b")
+	rankD := testRankOf(t, ranked, "SPEC/d")
 
-	if a == nil || ab == nil || c == nil {
-		t.Fatal("missing expected entries")
+	if rankC != 1 {
+		t.Errorf("expected SPEC/c rank 1, got %d", rankC)
 	}
-	if ab.Rank <= a.Rank {
-		t.Errorf("expected rank of ROOT/a/b (%d) > rank of ROOT/a (%d)", ab.Rank, a.Rank)
+	if rankA != 2 {
+		t.Errorf("expected SPEC/a rank 2, got %d", rankA)
 	}
-	expectedRank := 1 + max(a.Rank, c.Rank)
-	if ab.Rank != expectedRank {
-		t.Errorf("ROOT/a/b: expected rank %d (1 + max(%d, %d)), got %d", expectedRank, a.Rank, c.Rank, ab.Rank)
+	if rankB != 2 {
+		t.Errorf("expected SPEC/b rank 2, got %d", rankB)
+	}
+	if rankD != 3 {
+		t.Errorf("expected SPEC/d rank 3, got %d", rankD)
 	}
 }
 
-func TestNodeRankCompute_MultipleDependsOnRankFromHighest(t *testing.T) {
+func TestNodeRankCompute_TC15_DependsOnOutranksParent(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/a"}}},
-		{LogicalName: "ROOT/c", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/b"}}},
-		{LogicalName: "ROOT/d", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/a", "ROOT/b", "ROOT/c"}}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/c", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/c/d", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/c/d/e", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/c"}}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -439,37 +412,30 @@ func TestNodeRankCompute_MultipleDependsOnRankFromHighest(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	a := testFindEntry(ranked, "ROOT/a")
-	b := testFindEntry(ranked, "ROOT/b")
-	c := testFindEntry(ranked, "ROOT/c")
-	d := testFindEntry(ranked, "ROOT/d")
+	rankA := testRankOf(t, ranked, "SPEC/a")
+	rankAB := testRankOf(t, ranked, "SPEC/a/b")
+	rankC := testRankOf(t, ranked, "SPEC/c")
 
-	if a == nil || b == nil || c == nil || d == nil {
-		t.Fatal("missing expected entries")
+	if rankAB <= rankA {
+		t.Errorf("expected rank of SPEC/a/b (%d) > rank of SPEC/a (%d)", rankAB, rankA)
 	}
-	if a.Rank != 1 {
-		t.Errorf("ROOT/a: expected rank 1, got %d", a.Rank)
-	}
-	if b.Rank != 2 {
-		t.Errorf("ROOT/b: expected rank 2, got %d", b.Rank)
-	}
-	if c.Rank != 3 {
-		t.Errorf("ROOT/c: expected rank 3, got %d", c.Rank)
-	}
-	if d.Rank != 4 {
-		t.Errorf("ROOT/d: expected rank 4, got %d", d.Rank)
+
+	expectedRank := 1 + max(rankA, rankC)
+	if rankAB != expectedRank {
+		t.Errorf("expected SPEC/a/b rank = 1 + max(%d, %d) = %d, got %d", rankA, rankC, expectedRank, rankAB)
 	}
 }
 
-func TestNodeRankCompute_NodeWithBothDependsOnAndInput(t *testing.T) {
+func TestNodeRankCompute_TC16_MultipleDependsOnRankFromHighest(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{Output: "a.go"}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/c", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/b"}, Input: "ARTIFACT/a"}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/a"}}},
+		{LogicalName: "SPEC/c", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/b"}}},
+		{LogicalName: "SPEC/d", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/a", "SPEC/b", "SPEC/c"}}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -477,25 +443,52 @@ func TestNodeRankCompute_NodeWithBothDependsOnAndInput(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 
-	root := testFindEntry(ranked, "ROOT")
-	b := testFindEntry(ranked, "ROOT/b")
-	artifactA := testFindEntry(ranked, "ARTIFACT/a")
-	c := testFindEntry(ranked, "ROOT/c")
-
-	if root == nil || b == nil || artifactA == nil || c == nil {
-		t.Fatal("missing expected entries")
+	if testRankOf(t, ranked, "SPEC/a") != 1 {
+		t.Errorf("expected SPEC/a rank 1")
 	}
-
-	expectedRank := 1 + max(root.Rank, max(b.Rank, artifactA.Rank))
-	if c.Rank != expectedRank {
-		t.Errorf("ROOT/c: expected rank %d, got %d", expectedRank, c.Rank)
+	if testRankOf(t, ranked, "SPEC/b") != 2 {
+		t.Errorf("expected SPEC/b rank 2")
+	}
+	if testRankOf(t, ranked, "SPEC/c") != 3 {
+		t.Errorf("expected SPEC/c rank 3")
+	}
+	if testRankOf(t, ranked, "SPEC/d") != 4 {
+		t.Errorf("expected SPEC/d rank 4")
 	}
 }
 
-func TestNodeRankCompute_EmptyInputList(t *testing.T) {
+func TestNodeRankCompute_TC17_NodeWithBothDependsOnAndInput(t *testing.T) {
+	entries := []*noderanking.NodeRankInput{
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{Output: "a.go"}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/c", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/b"}, Input: "ARTIFACT/a"}},
+	}
+
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+
+	rankSpec := testRankOf(t, ranked, "SPEC")
+	rankB := testRankOf(t, ranked, "SPEC/b")
+	rankArtA := testRankOf(t, ranked, "ARTIFACT/a")
+	rankC := testRankOf(t, ranked, "SPEC/c")
+
+	expectedRank := 1 + max(rankSpec, max(rankB, rankArtA))
+	if rankC != expectedRank {
+		t.Errorf("expected SPEC/c rank = 1 + max(rank SPEC=%d, rank SPEC/b=%d, rank ARTIFACT/a=%d) = %d, got %d",
+			rankSpec, rankB, rankArtA, expectedRank, rankC)
+	}
+}
+
+func TestNodeRankCompute_TC18_EmptyInputList(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -503,63 +496,17 @@ func TestNodeRankCompute_EmptyInputList(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cycles) != 0 {
-		t.Errorf("expected no cycles, got %v", cycles)
+		t.Fatalf("expected no cycles, got %v", cycles)
 	}
 	if len(ranked) != 0 {
 		t.Errorf("expected empty ranked, got %v", ranked)
 	}
 }
 
-func TestNodeRankCompute_SelfReference(t *testing.T) {
+func TestNodeRankCompute_TC19_SelfReference(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/a"}}},
-	}
-
-	_, cycles, err := noderanking.NodeRankCompute(entries)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(cycles) == 0 {
-		t.Error("expected cycles to be non-empty for self-reference")
-	}
-}
-
-func TestNodeRankCompute_SimpleCycleTwoNodes(t *testing.T) {
-	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/b"}}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/a"}}},
-	}
-
-	_, cycles, err := noderanking.NodeRankCompute(entries)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(cycles) == 0 {
-		t.Error("expected cycles to be non-empty")
-	}
-
-	hasA := false
-	hasB := false
-	for _, c := range cycles {
-		if c == "ROOT/a" {
-			hasA = true
-		}
-		if c == "ROOT/b" {
-			hasB = true
-		}
-	}
-	if !hasA && !hasB {
-		t.Errorf("cycles should contain ROOT/a or ROOT/b, got %v", cycles)
-	}
-}
-
-func TestNodeRankCompute_CycleThroughArtifacts(t *testing.T) {
-	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{Output: "a.go", DependsOn: []string{"ARTIFACT/b"}}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{Output: "b.go", DependsOn: []string{"ARTIFACT/a"}}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/a"}}},
 	}
 
 	_, cycles, err := noderanking.NodeRankCompute(entries)
@@ -571,12 +518,47 @@ func TestNodeRankCompute_CycleThroughArtifacts(t *testing.T) {
 	}
 }
 
-func TestNodeRankCompute_CycleDoesNotPreventRankingUnrelatedNodes(t *testing.T) {
+func TestNodeRankCompute_TC20_SimpleCycleTwoNodes(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/b"}}},
-		{LogicalName: "ROOT/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/a"}}},
-		{LogicalName: "ROOT/c", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/b"}}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/a"}}},
+	}
+
+	_, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) == 0 {
+		t.Error("expected cycles to be non-empty")
+	}
+	if !testContainsCycle(cycles, "SPEC/a") && !testContainsCycle(cycles, "SPEC/b") {
+		t.Errorf("expected cycles to contain SPEC/a or SPEC/b, got %v", cycles)
+	}
+}
+
+func TestNodeRankCompute_TC21_CycleThroughArtifacts(t *testing.T) {
+	entries := []*noderanking.NodeRankInput{
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{Output: "a.go", DependsOn: []string{"ARTIFACT/b"}}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{Output: "b.go", DependsOn: []string{"ARTIFACT/a"}}},
+	}
+
+	_, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) == 0 {
+		t.Error("expected cycles to be non-empty")
+	}
+}
+
+func TestNodeRankCompute_TC22_CycleDoesNotPreventRankingUnrelated(t *testing.T) {
+	entries := []*noderanking.NodeRankInput{
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/b"}}},
+		{LogicalName: "SPEC/b", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/a"}}},
+		{LogicalName: "SPEC/c", Frontmatter: &frontmatter.Frontmatter{}},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -587,60 +569,65 @@ func TestNodeRankCompute_CycleDoesNotPreventRankingUnrelatedNodes(t *testing.T) 
 		t.Error("expected cycles to be non-empty")
 	}
 
-	root := testFindEntry(ranked, "ROOT")
-	c := testFindEntry(ranked, "ROOT/c")
-
-	if root == nil {
-		t.Fatal("missing ROOT in ranked")
-	}
-	if c == nil {
-		t.Fatal("missing ROOT/c in ranked")
-	}
-	if root.Rank != 0 {
-		t.Errorf("ROOT: expected rank 0, got %d", root.Rank)
-	}
-	if c.Rank != 1 {
-		t.Errorf("ROOT/c: expected rank 1, got %d", c.Rank)
+	rankSpec := testRankOf(t, ranked, "SPEC")
+	if rankSpec != 0 {
+		t.Errorf("expected SPEC rank 0, got %d", rankSpec)
 	}
 
-	for _, cycle := range cycles {
-		if cycle == "ROOT/c" {
-			t.Errorf("ROOT/c should not be in cycles, got %v", cycles)
-		}
+	rankC := testRankOf(t, ranked, "SPEC/c")
+	if rankC != 1 {
+		t.Errorf("expected SPEC/c rank 1, got %d", rankC)
+	}
+
+	if testContainsCycle(cycles, "SPEC/c") {
+		t.Error("SPEC/c should not be in cycles")
+	}
+
+	if !testContainsCycle(cycles, "SPEC/a") && !testContainsCycle(cycles, "SPEC/b") {
+		t.Errorf("expected cycles to relate to SPEC/a and/or SPEC/b, got %v", cycles)
 	}
 }
 
-func TestNodeRankCompute_UnresolvableROOTReference(t *testing.T) {
+func TestNodeRankCompute_TC23_UnresolvableSpecReference(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ROOT/missing"}}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"SPEC/missing"}}},
 	}
 
 	_, _, err := noderanking.NodeRankCompute(entries)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
 	if !errors.Is(err, noderanking.ErrUnresolvableReference) {
 		t.Errorf("expected ErrUnresolvableReference, got %v", err)
 	}
 }
 
-func TestNodeRankCompute_UnresolvableARTIFACTReference(t *testing.T) {
+func TestNodeRankCompute_TC24_UnresolvableArtifactReference(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ARTIFACT/missing"}}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{DependsOn: []string{"ARTIFACT/missing"}}},
 	}
 
 	_, _, err := noderanking.NodeRankCompute(entries)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
 	if !errors.Is(err, noderanking.ErrUnresolvableReference) {
 		t.Errorf("expected ErrUnresolvableReference, got %v", err)
 	}
 }
 
-func TestNodeRankCompute_UnresolvableInputReference(t *testing.T) {
+func TestNodeRankCompute_TC25_UnresolvableInputReference(t *testing.T) {
 	entries := []*noderanking.NodeRankInput{
-		{LogicalName: "ROOT", Frontmatter: &frontmatter.Frontmatter{}},
-		{LogicalName: "ROOT/a", Frontmatter: &frontmatter.Frontmatter{Input: "ARTIFACT/missing"}},
+		{LogicalName: "SPEC", Frontmatter: &frontmatter.Frontmatter{}},
+		{LogicalName: "SPEC/a", Frontmatter: &frontmatter.Frontmatter{Input: "ARTIFACT/missing"}},
 	}
 
 	_, _, err := noderanking.NodeRankCompute(entries)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
 	if !errors.Is(err, noderanking.ErrUnresolvableReference) {
 		t.Errorf("expected ErrUnresolvableReference, got %v", err)
 	}

@@ -13,6 +13,9 @@ output: internal/spectree/spectree.go
 # Agent
 
 Implement the pseudocode from the input as a Go package.
+The output file is the sole .go file in the package —
+declare all types, error sentinels, and function
+signatures from the interface artifact in this file.
 
 ## Go-specific guidance
 

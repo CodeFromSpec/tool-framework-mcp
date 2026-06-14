@@ -106,13 +106,20 @@ consecutive blocks are separated by exactly one blank
 line. This ensures the delivered content matches what
 is hashed — hash and delivery never diverge.
 
-For each position, use `NodeParse` for spec nodes and
+The rendered output of each chain entry is separated
+from the next by exactly one blank line. This applies
+between consecutive ancestors, between the last ancestor
+and the first dependency, between consecutive
+dependencies, and so on through the entire chain
+assembly order.
+
+For each entry, use `NodeParse` for spec nodes and
 `file_reader` for artifacts and external files.
 
 **Ancestors** (from `chain.ancestors`)
 
 For each ancestor, call `NodeParse` with
-`ancestor.logical_name`. If `node.public` is absent
+`ancestor.unqualified_logical_name`. If `node.public` is absent
 or has no subsections, skip. Otherwise, include the
 block-extracted and concatenated `## subsections` in
 document order. Do not include the `# Public` heading
@@ -122,23 +129,23 @@ first `##`).
 **Dependencies** (from `chain.dependencies`)
 
 For each dependency:
-- If `LogicalNameIsArtifact(dep.logical_name)`: open
+- If `LogicalNameIsArtifact(dep.unqualified_logical_name)`: open
   the file at `dep.file_path` with `FileOpen`, read all
   lines, remove the artifact tag line (the line
   containing `code-from-spec: <name>@<hash>`), include
   remaining content. Call `FileClose`.
-- If `LogicalNameIsExternal(dep.logical_name)`: open
+- If `LogicalNameIsExternal(dep.unqualified_logical_name)`: open
   the file at `dep.file_path` with `FileOpen`, read all
   content. Call `FileClose`.
-- If `LogicalNameIsSpec(dep.logical_name)` and
+- If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
   `dep.qualifier` is absent: call `NodeParse` with
-  `dep.logical_name`, include the block-extracted and
+  `dep.unqualified_logical_name`, include the block-extracted and
   concatenated `## subsections` in document order. Do
   not include the `# Public` heading or content
   directly under `# Public`.
-- If `LogicalNameIsSpec(dep.logical_name)` and
+- If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
   `dep.qualifier` is present: call `NodeParse` with
-  `dep.logical_name`, find the subsection in
+  `dep.unqualified_logical_name`, find the subsection in
   `node.public` whose `heading` matches
   `NormalizeText(dep.qualifier)`, include the
   block-extracted `## subsection` heading and content.
@@ -148,7 +155,7 @@ For each dependency:
 First, emit a reduced frontmatter block containing only
 the `output` field (formatted as YAML between `---`
 delimiters). Then call `NodeParse` with
-`chain.target.logical_name`. If `node.public` is
+`chain.target.unqualified_logical_name`. If `node.public` is
 present and has subsections, include the block-extracted
 and concatenated `## subsections` in document order.
 Do not include the `# Public` heading or content

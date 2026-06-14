@@ -1,47 +1,29 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/chain_hash@-NhQ1arOBLGCKMGTZSsFLIDg-2c -->
+<!-- code-from-spec: ROOT/functional/logic/mcp_tools/chain_hash@jhjGxNpCmTIo-_IKiJ95UtxNTfg -->
 
-# Public
+namespace: mcpchainhash
 
-## Namespace
+---
 
-    namespace: mcpchainhash
-
-## Interface
-
-```
 function MCPChainHash(logical_name: string) -> string
   errors:
     - NoOutput: target node has no output field.
-    - (LogicalNames.*): propagated from
-      LogicalNameToPath.
+    - (LogicalNames.*): propagated from LogicalNameToPath.
     - (ChainResolver.*): propagated from ChainResolve.
     - (ChainHash.*): propagated from ChainHashCompute.
     - (Frontmatter.*): propagated from FrontmatterParse.
     - (FileReader.*): propagated from FileOpen.
-```
 
-MCPChainHash validates the target node, resolves the
-chain, and returns the 27-character base64url chain hash.
+  1. Call LogicalNameToPath(logical_name) to get the target node's file path.
+     If it fails, propagate the error.
 
-### Step 1 — Validate
+  2. Call FrontmatterParse(file_path) to read the target node's frontmatter.
+     If it fails, propagate the error.
+     If frontmatter.output is empty, raise error "NoOutput".
 
-1. Call LogicalNameToPath(logical_name).
-   If it raises an error, propagate it.
+  3. Call ChainResolve(logical_name) to get the resolved Chain.
+     If it fails, propagate the error.
 
-2. Call FrontmatterParse with the resolved file path.
-   If it raises an error, propagate it.
+  4. Call ChainHashCompute(chain) with the resolved Chain.
+     If it fails, propagate the error.
 
-3. If frontmatter.output is empty, raise error NoOutput.
-
-### Step 2 — Resolve chain
-
-4. Call ChainResolve(logical_name).
-   If it raises an error, propagate it.
-
-### Step 3 — Compute hash
-
-5. Call ChainHashCompute(chain) with the resolved Chain.
-   If it raises an error, propagate it.
-
-6. Return the resulting 27-character hash string.
-```
+  5. Return the resulting 27-character base64url hash string.

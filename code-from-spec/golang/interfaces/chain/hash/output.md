@@ -1,10 +1,10 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@Y4_hlDtkJsqYUdugfeH39kMUTfk)
+[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@VjjWAInRCFZfBMBvYx2JPwJsNV8)
 
 # Package `chainhash`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
-```
+**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash`
+
+---
 
 ## Error Sentinels
 
@@ -13,9 +13,10 @@ package chainhash
 
 import "errors"
 
-var ErrFileUnreadable = errors.New("file unreadable")
-var ErrParseFailure = errors.New("parse failure")
+var ErrParseFailure = errors.New("a node file cannot be parsed")
 ```
+
+---
 
 ## Functions
 
@@ -33,6 +34,8 @@ import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
 func ChainHashCompute(chain *chainresolver.Chain) (string, error)
 ```
 
+---
+
 ## Usage Example
 
 ```go
@@ -47,7 +50,7 @@ import (
 )
 
 func main() {
-	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/hash")
+	chain, err := chainresolver.ChainResolve("SPEC/payments/invoices")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -57,6 +60,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Hash:", hash)
+	fmt.Println("Chain hash:", hash)
 }
 ```

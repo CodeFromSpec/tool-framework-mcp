@@ -22,7 +22,7 @@ files containing frontmatter as needed, then call
 
 Create spec tree: SPEC only. Call ChainResolve with
 "SPEC". Expect ancestors = empty, target =
-ChainItem(logical_name="SPEC", qualifier=absent).
+ChainItem(unqualified_logical_name="SPEC", qualifier=absent).
 
 #### Linear chain — ancestors in root-first order
 
@@ -51,7 +51,7 @@ Create spec tree: SPEC, SPEC/a (leaf, depends_on =
 ["SPEC/b"]), SPEC/b. Call ChainResolve with "SPEC/a".
 
 Expect dependencies contains one ChainItem with
-logical_name = "SPEC/b", qualifier = absent.
+unqualified_logical_name = "SPEC/b", qualifier = absent.
 
 #### Dependency with qualifier
 
@@ -60,7 +60,7 @@ Create spec tree: SPEC, SPEC/a (leaf, depends_on =
 "SPEC/a".
 
 Expect dependencies contains one ChainItem with
-logical_name = "SPEC/b", qualifier = "interface".
+unqualified_logical_name = "SPEC/b", qualifier = "interface".
 
 #### Dependencies sorted by logical name then qualifier
 
@@ -80,7 +80,7 @@ Create spec tree: SPEC, SPEC/a (leaf, depends_on =
 Call ChainResolve with "SPEC/a".
 
 Expect dependencies contains one ChainItem with
-logical_name = "ARTIFACT/b", file_path =
+unqualified_logical_name = "ARTIFACT/b", file_path =
 "out/lib.go".
 
 #### ARTIFACT — generating node has no output
@@ -171,7 +171,7 @@ Create spec tree: SPEC, SPEC/a (leaf, depends_on =
 "SPEC/a".
 
 Expect dependencies contains one ChainItem with
-logical_name = "EXTERNAL/docs/api.yaml", file_path =
+unqualified_logical_name = "EXTERNAL/docs/api.yaml", file_path =
 "docs/api.yaml", qualifier = absent.
 
 #### Multiple EXTERNAL dependencies sorted
@@ -202,7 +202,7 @@ Create spec tree: SPEC, SPEC/a (leaf, input =
 "ARTIFACT/b"), SPEC/b (with output =
 "out/data.json"). Call ChainResolve with "SPEC/a".
 
-Expect input = ChainItem with logical_name =
+Expect input = ChainItem with unqualified_logical_name =
 "ARTIFACT/b", file_path = "out/data.json".
 
 #### EXTERNAL input resolved to path
@@ -211,7 +211,7 @@ Create spec tree: SPEC, SPEC/a (leaf, input =
 "EXTERNAL/docs/vendor/spec.yaml"). Call ChainResolve
 with "SPEC/a".
 
-Expect input = ChainItem with logical_name =
+Expect input = ChainItem with unqualified_logical_name =
 "EXTERNAL/docs/vendor/spec.yaml", file_path =
 "docs/vendor/spec.yaml".
 

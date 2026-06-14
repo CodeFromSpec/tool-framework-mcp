@@ -1,10 +1,10 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@Wb5Aoo5Gv5B0rF5enMl8RT2D3ak)
+# code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@1IyOWc2KLmKt9W4CzhveaT3c378
 
 # Package `mcploadchain`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
-```
+**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain`
+
+---
 
 ## Error Sentinels
 
@@ -13,34 +13,40 @@ package mcploadchain
 
 import "errors"
 
-var ErrNoOutput = errors.New("no output")
-var ErrInvalidOutputPath = errors.New("invalid output path")
+var ErrNoOutput          = errors.New("target node has no output field")
+var ErrInvalidOutputPath = errors.New("the output path fails path validation")
 ```
+
+---
 
 ## Functions
 
 ```go
 package mcploadchain
 
-// MCPLoadChain resolves the spec chain for the given logical name and returns
-// a formatted string containing the chain hash, context, optional input, and
-// optional existing artifact sections.
+// MCPLoadChain resolves the full chain for the given logical name and returns
+// a single formatted string containing the chain hash, context content, and
+// optionally the input and existing artifact sections.
 //
-// The returned string has the following format:
+// The returned string has the following structure:
 //
-//	chain_hash: <27-character hash>
-//	--- context ---
-//	<context content>
-//	--- input ---
-//	<input content>
-//	--- existing artifact ---
-//	<existing artifact content>
+//   chain_hash: <27-character hash>
+//   --- context ---
+//   <context content>
+//   --- input ---
+//   <input content>
+//   --- existing artifact ---
+//   <existing artifact content>
 //
 // The "--- input ---" section is only present when the target node's
-// frontmatter has a non-empty input field. The "--- existing artifact ---"
-// section is only present when the output file exists on disk and is readable.
+// frontmatter has a non-empty input field.
+//
+// The "--- existing artifact ---" section is only present when the output
+// file exists on disk and is readable.
 func MCPLoadChain(logical_name string) (string, error)
 ```
+
+---
 
 ## Usage Example
 
@@ -55,7 +61,7 @@ import (
 )
 
 func main() {
-	result, err := mcploadchain.MCPLoadChain("ROOT/golang/interfaces/mcp_tools/load_chain")
+	result, err := mcploadchain.MCPLoadChain("SPEC/payments/invoices")
 	if err != nil {
 		log.Fatal(err)
 	}

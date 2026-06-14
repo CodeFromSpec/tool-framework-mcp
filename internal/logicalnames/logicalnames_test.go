@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/utils/logical_names@erBVg2XCRBA2f8gKxXBzIxNR_Sg
+// code-from-spec: ROOT/golang/tests/utils/logical_names@bvRMAb-i7wY8_myi-3mXTrWmDyk
 package logicalnames_test
 
 import (
@@ -17,23 +17,33 @@ func TestLogicalNameToPath(t *testing.T) {
 		wantErr  error
 	}{
 		{
-			name:     "ROOT alone",
-			input:    "ROOT",
+			name:     "SPEC alone",
+			input:    "SPEC",
 			wantPath: "code-from-spec/_node.md",
 		},
 		{
-			name:     "ROOT with path",
-			input:    "ROOT/payments/processor",
+			name:     "SPEC with path",
+			input:    "SPEC/payments/processor",
 			wantPath: "code-from-spec/payments/processor/_node.md",
 		},
 		{
 			name:     "Strips qualifier before resolving",
-			input:    "ROOT/x/y(interface)",
+			input:    "SPEC/x/y(interface)",
 			wantPath: "code-from-spec/x/y/_node.md",
+		},
+		{
+			name:    "Rejects ROOT reference",
+			input:   "ROOT/x",
+			wantErr: logicalnames.ErrUnsupportedReference,
 		},
 		{
 			name:    "Rejects ARTIFACT reference",
 			input:   "ARTIFACT/x",
+			wantErr: logicalnames.ErrUnsupportedReference,
+		},
+		{
+			name:    "Rejects EXTERNAL reference",
+			input:   "EXTERNAL/proto/api.proto",
 			wantErr: logicalnames.ErrUnsupportedReference,
 		},
 		{
@@ -52,6 +62,9 @@ func TestLogicalNameToPath(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := logicalnames.LogicalNameToPath(tc.input)
 			if tc.wantErr != nil {
+				if err == nil {
+					t.Fatalf("expected error %v, got nil", tc.wantErr)
+				}
 				if !errors.Is(err, tc.wantErr) {
 					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
 				}
@@ -60,8 +73,11 @@ func TestLogicalNameToPath(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+			if got == nil {
+				t.Fatal("expected non-nil PathCfs, got nil")
+			}
 			if got.Value != tc.wantPath {
-				t.Fatalf("expected %q, got %q", tc.wantPath, got.Value)
+				t.Errorf("expected %q, got %q", tc.wantPath, got.Value)
 			}
 		})
 	}
@@ -77,12 +93,12 @@ func TestLogicalNameFromPath(t *testing.T) {
 		{
 			name:     "Root node",
 			input:    "code-from-spec/_node.md",
-			wantName: "ROOT",
+			wantName: "SPEC",
 		},
 		{
 			name:     "Nested node",
 			input:    "code-from-spec/x/y/_node.md",
-			wantName: "ROOT/x/y",
+			wantName: "SPEC/x/y",
 		},
 		{
 			name:    "Rejects non-node path",
@@ -100,6 +116,9 @@ func TestLogicalNameFromPath(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := logicalnames.LogicalNameFromPath(&pathutils.PathCfs{Value: tc.input})
 			if tc.wantErr != nil {
+				if err == nil {
+					t.Fatalf("expected error %v, got nil", tc.wantErr)
+				}
 				if !errors.Is(err, tc.wantErr) {
 					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
 				}
@@ -109,7 +128,7 @@ func TestLogicalNameFromPath(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tc.wantName {
-				t.Fatalf("expected %q, got %q", tc.wantName, got)
+				t.Errorf("expected %q, got %q", tc.wantName, got)
 			}
 		})
 	}
@@ -123,29 +142,39 @@ func TestLogicalNameGetParent(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name:       "ROOT/x parent is ROOT",
-			input:      "ROOT/domain",
-			wantParent: "ROOT",
+			name:       "SPEC/x parent is SPEC",
+			input:      "SPEC/domain",
+			wantParent: "SPEC",
 		},
 		{
-			name:       "ROOT/x/y parent is ROOT/x",
-			input:      "ROOT/domain/config",
-			wantParent: "ROOT/domain",
+			name:       "SPEC/x/y parent is SPEC/x",
+			input:      "SPEC/domain/config",
+			wantParent: "SPEC/domain",
 		},
 		{
 			name:       "Strips qualifier before computing parent",
-			input:      "ROOT/domain/config(interface)",
-			wantParent: "ROOT/domain",
+			input:      "SPEC/domain/config(interface)",
+			wantParent: "SPEC/domain",
 		},
 		{
-			name:    "ROOT has no parent",
-			input:   "ROOT",
+			name:    "SPEC has no parent",
+			input:   "SPEC",
 			wantErr: logicalnames.ErrNoParent,
+		},
+		{
+			name:    "Rejects ROOT reference",
+			input:   "ROOT/domain",
+			wantErr: logicalnames.ErrNotASpecReference,
 		},
 		{
 			name:    "Rejects ARTIFACT reference",
 			input:   "ARTIFACT/x",
-			wantErr: logicalnames.ErrNotARootReference,
+			wantErr: logicalnames.ErrNotASpecReference,
+		},
+		{
+			name:    "Rejects EXTERNAL reference",
+			input:   "EXTERNAL/x",
+			wantErr: logicalnames.ErrNotASpecReference,
 		},
 	}
 
@@ -153,6 +182,9 @@ func TestLogicalNameGetParent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := logicalnames.LogicalNameGetParent(tc.input)
 			if tc.wantErr != nil {
+				if err == nil {
+					t.Fatalf("expected error %v, got nil", tc.wantErr)
+				}
 				if !errors.Is(err, tc.wantErr) {
 					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
 				}
@@ -162,7 +194,7 @@ func TestLogicalNameGetParent(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tc.wantParent {
-				t.Fatalf("expected %q, got %q", tc.wantParent, got)
+				t.Errorf("expected %q, got %q", tc.wantParent, got)
 			}
 		})
 	}
@@ -170,42 +202,47 @@ func TestLogicalNameGetParent(t *testing.T) {
 
 func TestLogicalNameGetQualifier(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantQual  string
-		wantFound bool
+		name          string
+		input         string
+		wantQualifier string
+		wantOk        bool
 	}{
 		{
-			name:      "Extracts qualifier from ROOT reference",
-			input:     "ROOT/x/y(interface)",
-			wantQual:  "interface",
-			wantFound: true,
+			name:          "Extracts qualifier from SPEC reference",
+			input:         "SPEC/x/y(interface)",
+			wantQualifier: "interface",
+			wantOk:        true,
 		},
 		{
-			name:      "ARTIFACT without qualifier returns absent",
-			input:     "ARTIFACT/x/y",
-			wantFound: false,
+			name:   "ARTIFACT without qualifier returns absent",
+			input:  "ARTIFACT/x/y",
+			wantOk: false,
 		},
 		{
-			name:      "Returns absent when no qualifier",
-			input:     "ROOT/x/y",
-			wantFound: false,
+			name:   "EXTERNAL without qualifier returns absent",
+			input:  "EXTERNAL/proto/api.proto",
+			wantOk: false,
 		},
 		{
-			name:      "Returns absent for ROOT alone",
-			input:     "ROOT",
-			wantFound: false,
+			name:   "Returns absent when no qualifier",
+			input:  "SPEC/x/y",
+			wantOk: false,
+		},
+		{
+			name:   "Returns absent for SPEC alone",
+			input:  "SPEC",
+			wantOk: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, found := logicalnames.LogicalNameGetQualifier(tc.input)
-			if found != tc.wantFound {
-				t.Fatalf("expected found=%v, got found=%v", tc.wantFound, found)
+			gotQualifier, gotOk := logicalnames.LogicalNameGetQualifier(tc.input)
+			if gotOk != tc.wantOk {
+				t.Errorf("expected ok=%v, got ok=%v", tc.wantOk, gotOk)
 			}
-			if found && got != tc.wantQual {
-				t.Fatalf("expected qualifier %q, got %q", tc.wantQual, got)
+			if tc.wantOk && gotQualifier != tc.wantQualifier {
+				t.Errorf("expected qualifier %q, got %q", tc.wantQualifier, gotQualifier)
 			}
 		})
 	}
@@ -218,9 +255,9 @@ func TestLogicalNameStripQualifier(t *testing.T) {
 		wantOut string
 	}{
 		{
-			name:    "Strips qualifier from ROOT reference",
-			input:   "ROOT/x/y(interface)",
-			wantOut: "ROOT/x/y",
+			name:    "Strips qualifier from SPEC reference",
+			input:   "SPEC/x/y(interface)",
+			wantOut: "SPEC/x/y",
 		},
 		{
 			name:    "ARTIFACT without qualifier returns unchanged",
@@ -228,14 +265,19 @@ func TestLogicalNameStripQualifier(t *testing.T) {
 			wantOut: "ARTIFACT/x/y",
 		},
 		{
-			name:    "No qualifier returns unchanged",
-			input:   "ROOT/x/y",
-			wantOut: "ROOT/x/y",
+			name:    "EXTERNAL returns unchanged",
+			input:   "EXTERNAL/proto/api.proto",
+			wantOut: "EXTERNAL/proto/api.proto",
 		},
 		{
-			name:    "ROOT alone returns unchanged",
-			input:   "ROOT",
-			wantOut: "ROOT",
+			name:    "No qualifier returns unchanged",
+			input:   "SPEC/x/y",
+			wantOut: "SPEC/x/y",
+		},
+		{
+			name:    "SPEC alone returns unchanged",
+			input:   "SPEC",
+			wantOut: "SPEC",
 		},
 		{
 			name:    "Empty string returns unchanged",
@@ -248,7 +290,7 @@ func TestLogicalNameStripQualifier(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := logicalnames.LogicalNameStripQualifier(tc.input)
 			if got != tc.wantOut {
-				t.Fatalf("expected %q, got %q", tc.wantOut, got)
+				t.Errorf("expected %q, got %q", tc.wantOut, got)
 			}
 		})
 	}
@@ -256,42 +298,42 @@ func TestLogicalNameStripQualifier(t *testing.T) {
 
 func TestLogicalNameHasParent(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantBool bool
+		name    string
+		input   string
+		wantOut bool
 	}{
 		{
-			name:     "ROOT alone",
-			input:    "ROOT",
-			wantBool: false,
+			name:    "SPEC alone",
+			input:   "SPEC",
+			wantOut: false,
 		},
 		{
-			name:     "ROOT with path",
-			input:    "ROOT/domain/config",
-			wantBool: true,
+			name:    "SPEC with path",
+			input:   "SPEC/domain/config",
+			wantOut: true,
 		},
 		{
-			name:     "ROOT with qualifier",
-			input:    "ROOT/domain/config(interface)",
-			wantBool: true,
+			name:    "ARTIFACT reference",
+			input:   "ARTIFACT/x",
+			wantOut: false,
 		},
 		{
-			name:     "ARTIFACT reference",
-			input:    "ARTIFACT/x",
-			wantBool: false,
+			name:    "EXTERNAL reference",
+			input:   "EXTERNAL/x",
+			wantOut: false,
 		},
 		{
-			name:     "Empty string",
-			input:    "",
-			wantBool: false,
+			name:    "Empty string",
+			input:   "",
+			wantOut: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := logicalnames.LogicalNameHasParent(tc.input)
-			if got != tc.wantBool {
-				t.Fatalf("expected %v, got %v", tc.wantBool, got)
+			if got != tc.wantOut {
+				t.Errorf("expected %v, got %v", tc.wantOut, got)
 			}
 		})
 	}
@@ -299,42 +341,47 @@ func TestLogicalNameHasParent(t *testing.T) {
 
 func TestLogicalNameHasQualifier(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantBool bool
+		name    string
+		input   string
+		wantOut bool
 	}{
 		{
-			name:     "Without qualifier",
-			input:    "ROOT/x",
-			wantBool: false,
+			name:    "Without qualifier",
+			input:   "SPEC/x",
+			wantOut: false,
 		},
 		{
-			name:     "With qualifier",
-			input:    "ROOT/x(y)",
-			wantBool: true,
+			name:    "With qualifier",
+			input:   "SPEC/x(y)",
+			wantOut: true,
 		},
 		{
-			name:     "ARTIFACT without qualifier",
-			input:    "ARTIFACT/x",
-			wantBool: false,
+			name:    "ARTIFACT without qualifier",
+			input:   "ARTIFACT/x",
+			wantOut: false,
 		},
 		{
-			name:     "ROOT alone",
-			input:    "ROOT",
-			wantBool: false,
+			name:    "EXTERNAL without qualifier",
+			input:   "EXTERNAL/x",
+			wantOut: false,
 		},
 		{
-			name:     "Empty string",
-			input:    "",
-			wantBool: false,
+			name:    "SPEC alone",
+			input:   "SPEC",
+			wantOut: false,
+		},
+		{
+			name:    "Empty string",
+			input:   "",
+			wantOut: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := logicalnames.LogicalNameHasQualifier(tc.input)
-			if got != tc.wantBool {
-				t.Fatalf("expected %v, got %v", tc.wantBool, got)
+			if got != tc.wantOut {
+				t.Errorf("expected %v, got %v", tc.wantOut, got)
 			}
 		})
 	}
@@ -342,32 +389,123 @@ func TestLogicalNameHasQualifier(t *testing.T) {
 
 func TestLogicalNameIsArtifact(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantBool bool
+		name    string
+		input   string
+		wantOut bool
 	}{
 		{
-			name:     "ARTIFACT reference",
-			input:    "ARTIFACT/x",
-			wantBool: true,
+			name:    "ARTIFACT reference",
+			input:   "ARTIFACT/x",
+			wantOut: true,
 		},
 		{
-			name:     "ROOT reference",
-			input:    "ROOT/x(y)",
-			wantBool: false,
+			name:    "SPEC reference",
+			input:   "SPEC/x(y)",
+			wantOut: false,
 		},
 		{
-			name:     "Empty string",
-			input:    "",
-			wantBool: false,
+			name:    "EXTERNAL reference",
+			input:   "EXTERNAL/x",
+			wantOut: false,
+		},
+		{
+			name:    "Empty string",
+			input:   "",
+			wantOut: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := logicalnames.LogicalNameIsArtifact(tc.input)
-			if got != tc.wantBool {
-				t.Fatalf("expected %v, got %v", tc.wantBool, got)
+			if got != tc.wantOut {
+				t.Errorf("expected %v, got %v", tc.wantOut, got)
+			}
+		})
+	}
+}
+
+func TestLogicalNameIsSpec(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantOut bool
+	}{
+		{
+			name:    "SPEC alone",
+			input:   "SPEC",
+			wantOut: true,
+		},
+		{
+			name:    "SPEC with path",
+			input:   "SPEC/x/y",
+			wantOut: true,
+		},
+		{
+			name:    "ROOT reference not SPEC",
+			input:   "ROOT/x",
+			wantOut: false,
+		},
+		{
+			name:    "ARTIFACT reference",
+			input:   "ARTIFACT/x",
+			wantOut: false,
+		},
+		{
+			name:    "EXTERNAL reference",
+			input:   "EXTERNAL/x",
+			wantOut: false,
+		},
+		{
+			name:    "Empty string",
+			input:   "",
+			wantOut: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := logicalnames.LogicalNameIsSpec(tc.input)
+			if got != tc.wantOut {
+				t.Errorf("expected %v, got %v", tc.wantOut, got)
+			}
+		})
+	}
+}
+
+func TestLogicalNameIsExternal(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantOut bool
+	}{
+		{
+			name:    "EXTERNAL reference",
+			input:   "EXTERNAL/proto/api.proto",
+			wantOut: true,
+		},
+		{
+			name:    "SPEC reference",
+			input:   "SPEC/x",
+			wantOut: false,
+		},
+		{
+			name:    "ARTIFACT reference",
+			input:   "ARTIFACT/x",
+			wantOut: false,
+		},
+		{
+			name:    "Empty string",
+			input:   "",
+			wantOut: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := logicalnames.LogicalNameIsExternal(tc.input)
+			if got != tc.wantOut {
+				t.Errorf("expected %v, got %v", tc.wantOut, got)
 			}
 		})
 	}
@@ -383,16 +521,21 @@ func TestLogicalNameGetArtifactGenerator(t *testing.T) {
 		{
 			name:     "Simple artifact",
 			input:    "ARTIFACT/x",
-			wantName: "ROOT/x",
+			wantName: "SPEC/x",
 		},
 		{
 			name:     "Nested artifact",
 			input:    "ARTIFACT/x/y/z",
-			wantName: "ROOT/x/y/z",
+			wantName: "SPEC/x/y/z",
 		},
 		{
-			name:    "Rejects ROOT reference",
-			input:   "ROOT/x(y)",
+			name:    "Rejects SPEC reference",
+			input:   "SPEC/x(y)",
+			wantErr: logicalnames.ErrNotAnArtifactReference,
+		},
+		{
+			name:    "Rejects EXTERNAL reference",
+			input:   "EXTERNAL/x",
 			wantErr: logicalnames.ErrNotAnArtifactReference,
 		},
 	}
@@ -401,6 +544,9 @@ func TestLogicalNameGetArtifactGenerator(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := logicalnames.LogicalNameGetArtifactGenerator(tc.input)
 			if tc.wantErr != nil {
+				if err == nil {
+					t.Fatalf("expected error %v, got nil", tc.wantErr)
+				}
 				if !errors.Is(err, tc.wantErr) {
 					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
 				}
@@ -410,7 +556,61 @@ func TestLogicalNameGetArtifactGenerator(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tc.wantName {
-				t.Fatalf("expected %q, got %q", tc.wantName, got)
+				t.Errorf("expected %q, got %q", tc.wantName, got)
+			}
+		})
+	}
+}
+
+func TestLogicalNameExternalToPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantPath string
+		wantErr  error
+	}{
+		{
+			name:     "Simple path",
+			input:    "EXTERNAL/proto/v1/api.proto",
+			wantPath: "proto/v1/api.proto",
+		},
+		{
+			name:     "Root-level file",
+			input:    "EXTERNAL/docker-compose.yaml",
+			wantPath: "docker-compose.yaml",
+		},
+		{
+			name:    "Rejects SPEC reference",
+			input:   "SPEC/x",
+			wantErr: logicalnames.ErrNotAnExternalReference,
+		},
+		{
+			name:    "Rejects ARTIFACT reference",
+			input:   "ARTIFACT/x",
+			wantErr: logicalnames.ErrNotAnExternalReference,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := logicalnames.LogicalNameExternalToPath(tc.input)
+			if tc.wantErr != nil {
+				if err == nil {
+					t.Fatalf("expected error %v, got nil", tc.wantErr)
+				}
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("expected error %v, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got == nil {
+				t.Fatal("expected non-nil PathCfs, got nil")
+			}
+			if got.Value != tc.wantPath {
+				t.Errorf("expected %q, got %q", tc.wantPath, got.Value)
 			}
 		})
 	}

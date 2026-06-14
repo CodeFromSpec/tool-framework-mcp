@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/parsing/frontmatter@dnYATPGwktyUnU4ofuxFOXbGwzA
+// code-from-spec: ROOT/golang/tests/parsing/frontmatter@gDM--fw5q3Gx8lYZT7oin57aKnY
 package frontmatter_test
 
 import (
@@ -27,345 +27,264 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func TestFrontmatterParse_AllFields(t *testing.T) {
+func testWriteFile(t *testing.T, name string, content string) {
+	t.Helper()
+	if err := os.WriteFile(name, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteFile: %v", err)
+	}
+}
+
+func TestFrontmatterParse_TC01_AllFields(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := `---
+	testWriteFile(t, "node.md", `---
 depends_on:
-  - ROOT/dep/a
-  - ROOT/dep/b
-external:
-  - path: some/external/file.md
-  - path: another/external/file.md
-input: some-input-value
-output: some/output/path.go
+  - SPEC/payments/fees
+  - ARTIFACT/generated/output.go
+  - EXTERNAL/proto/api.proto
+input: some input value
+output: path/to/output.go
 ---
 # Body content
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+`)
 
 	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	if len(fm.DependsOn) != 2 {
-		t.Errorf("DependsOn length: got %d, want 2", len(fm.DependsOn))
-	} else {
-		if fm.DependsOn[0] != "ROOT/dep/a" {
-			t.Errorf("DependsOn[0]: got %q, want %q", fm.DependsOn[0], "ROOT/dep/a")
-		}
-		if fm.DependsOn[1] != "ROOT/dep/b" {
-			t.Errorf("DependsOn[1]: got %q, want %q", fm.DependsOn[1], "ROOT/dep/b")
-		}
+	if len(fm.DependsOn) != 3 {
+		t.Fatalf("expected 3 depends_on entries, got %d", len(fm.DependsOn))
 	}
-
-	if len(fm.External) != 2 {
-		t.Errorf("External length: got %d, want 2", len(fm.External))
-	} else {
-		if fm.External[0].Path != "some/external/file.md" {
-			t.Errorf("External[0].Path: got %q, want %q", fm.External[0].Path, "some/external/file.md")
-		}
-		if fm.External[1].Path != "another/external/file.md" {
-			t.Errorf("External[1].Path: got %q, want %q", fm.External[1].Path, "another/external/file.md")
-		}
+	if fm.DependsOn[0] != "SPEC/payments/fees" {
+		t.Errorf("expected SPEC/payments/fees, got %s", fm.DependsOn[0])
 	}
-
-	if fm.Input != "some-input-value" {
-		t.Errorf("Input: got %q, want %q", fm.Input, "some-input-value")
+	if fm.DependsOn[1] != "ARTIFACT/generated/output.go" {
+		t.Errorf("expected ARTIFACT/generated/output.go, got %s", fm.DependsOn[1])
 	}
-
-	if fm.Output != "some/output/path.go" {
-		t.Errorf("Output: got %q, want %q", fm.Output, "some/output/path.go")
+	if fm.DependsOn[2] != "EXTERNAL/proto/api.proto" {
+		t.Errorf("expected EXTERNAL/proto/api.proto, got %s", fm.DependsOn[2])
+	}
+	if fm.Input != "some input value" {
+		t.Errorf("expected input 'some input value', got %q", fm.Input)
+	}
+	if fm.Output != "path/to/output.go" {
+		t.Errorf("expected output 'path/to/output.go', got %q", fm.Output)
 	}
 }
 
-func TestFrontmatterParse_OnlyOutput(t *testing.T) {
+func TestFrontmatterParse_TC02_OnlyOutput(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := `---
-output: internal/pkg/file.go
+	testWriteFile(t, "node.md", `---
+output: path/to/output.go
 ---
-# Body
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+`)
 
 	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(fm.DependsOn) != 0 {
-		t.Errorf("DependsOn: got %v, want empty", fm.DependsOn)
-	}
-	if len(fm.External) != 0 {
-		t.Errorf("External: got %v, want empty", fm.External)
+		t.Errorf("expected empty depends_on, got %v", fm.DependsOn)
 	}
 	if fm.Input != "" {
-		t.Errorf("Input: got %q, want empty", fm.Input)
+		t.Errorf("expected empty input, got %q", fm.Input)
 	}
-	if fm.Output != "internal/pkg/file.go" {
-		t.Errorf("Output: got %q, want %q", fm.Output, "internal/pkg/file.go")
+	if fm.Output != "path/to/output.go" {
+		t.Errorf("expected output 'path/to/output.go', got %q", fm.Output)
 	}
 }
 
-func TestFrontmatterParse_OnlyDependsOn(t *testing.T) {
+func TestFrontmatterParse_TC03_OnlyDependsOn(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := `---
+	testWriteFile(t, "node.md", `---
 depends_on:
-  - ROOT/a
-  - ROOT/b
+  - SPEC/a
+  - SPEC/b
 ---
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+`)
 
 	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(fm.DependsOn) != 2 {
-		t.Errorf("DependsOn length: got %d, want 2", len(fm.DependsOn))
-	} else {
-		if fm.DependsOn[0] != "ROOT/a" {
-			t.Errorf("DependsOn[0]: got %q, want %q", fm.DependsOn[0], "ROOT/a")
-		}
-		if fm.DependsOn[1] != "ROOT/b" {
-			t.Errorf("DependsOn[1]: got %q, want %q", fm.DependsOn[1], "ROOT/b")
-		}
+		t.Fatalf("expected 2 depends_on entries, got %d", len(fm.DependsOn))
 	}
-	if len(fm.External) != 0 {
-		t.Errorf("External: got %v, want empty", fm.External)
+	if fm.DependsOn[0] != "SPEC/a" {
+		t.Errorf("expected SPEC/a, got %s", fm.DependsOn[0])
+	}
+	if fm.DependsOn[1] != "SPEC/b" {
+		t.Errorf("expected SPEC/b, got %s", fm.DependsOn[1])
 	}
 	if fm.Input != "" {
-		t.Errorf("Input: got %q, want empty", fm.Input)
+		t.Errorf("expected empty input, got %q", fm.Input)
 	}
 	if fm.Output != "" {
-		t.Errorf("Output: got %q, want empty", fm.Output)
+		t.Errorf("expected empty output, got %q", fm.Output)
 	}
 }
 
-func TestFrontmatterParse_OnlyExternal(t *testing.T) {
+func TestFrontmatterParse_TC04_ExternalInDependsOn(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := `---
-external:
-  - path: first/path.md
-  - path: second/path.md
----
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(fm.External) != 2 {
-		t.Errorf("External length: got %d, want 2", len(fm.External))
-	} else {
-		if fm.External[0].Path != "first/path.md" {
-			t.Errorf("External[0].Path: got %q, want %q", fm.External[0].Path, "first/path.md")
-		}
-		if fm.External[1].Path != "second/path.md" {
-			t.Errorf("External[1].Path: got %q, want %q", fm.External[1].Path, "second/path.md")
-		}
-	}
-	if len(fm.DependsOn) != 0 {
-		t.Errorf("DependsOn: got %v, want empty", fm.DependsOn)
-	}
-	if fm.Input != "" {
-		t.Errorf("Input: got %q, want empty", fm.Input)
-	}
-	if fm.Output != "" {
-		t.Errorf("Output: got %q, want empty", fm.Output)
-	}
-}
-
-func TestFrontmatterParse_OnlyInput(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	content := `---
-input: my-input-artifact
----
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if fm.Input != "my-input-artifact" {
-		t.Errorf("Input: got %q, want %q", fm.Input, "my-input-artifact")
-	}
-	if len(fm.DependsOn) != 0 {
-		t.Errorf("DependsOn: got %v, want empty", fm.DependsOn)
-	}
-	if len(fm.External) != 0 {
-		t.Errorf("External: got %v, want empty", fm.External)
-	}
-	if fm.Output != "" {
-		t.Errorf("Output: got %q, want empty", fm.Output)
-	}
-}
-
-func TestFrontmatterParse_IgnoresUnknownFields(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	content := `---
-output: internal/out.go
+	testWriteFile(t, "node.md", `---
 depends_on:
-  - ROOT/dep
-custom_field: some-value
+  - EXTERNAL/proto/api.proto
 ---
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+`)
 
 	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	if fm.Output != "internal/out.go" {
-		t.Errorf("Output: got %q, want %q", fm.Output, "internal/out.go")
-	}
-	if len(fm.DependsOn) != 1 || fm.DependsOn[0] != "ROOT/dep" {
-		t.Errorf("DependsOn: got %v, want [ROOT/dep]", fm.DependsOn)
+	if len(fm.DependsOn) != 1 || fm.DependsOn[0] != "EXTERNAL/proto/api.proto" {
+		t.Errorf("expected [EXTERNAL/proto/api.proto], got %v", fm.DependsOn)
 	}
 }
 
-func TestFrontmatterParse_NoFrontmatter(t *testing.T) {
+func TestFrontmatterParse_TC05_OnlyInput(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := `# Just a heading
-
-Some body content without any frontmatter.
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(fm.DependsOn) != 0 {
-		t.Errorf("DependsOn: got %v, want empty", fm.DependsOn)
-	}
-	if len(fm.External) != 0 {
-		t.Errorf("External: got %v, want empty", fm.External)
-	}
-	if fm.Input != "" {
-		t.Errorf("Input: got %q, want empty", fm.Input)
-	}
-	if fm.Output != "" {
-		t.Errorf("Output: got %q, want empty", fm.Output)
-	}
-}
-
-func TestFrontmatterParse_EmptyFrontmatter(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	content := `---
+	testWriteFile(t, "node.md", `---
+input: my input text
 ---
-# Body
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+`)
 
 	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
+	if fm.Input != "my input text" {
+		t.Errorf("expected input 'my input text', got %q", fm.Input)
+	}
 	if len(fm.DependsOn) != 0 {
-		t.Errorf("DependsOn: got %v, want empty", fm.DependsOn)
-	}
-	if len(fm.External) != 0 {
-		t.Errorf("External: got %v, want empty", fm.External)
-	}
-	if fm.Input != "" {
-		t.Errorf("Input: got %q, want empty", fm.Input)
+		t.Errorf("expected empty depends_on, got %v", fm.DependsOn)
 	}
 	if fm.Output != "" {
-		t.Errorf("Output: got %q, want empty", fm.Output)
+		t.Errorf("expected empty output, got %q", fm.Output)
 	}
 }
 
-func TestFrontmatterParse_OnlyFrontmatterNoBody(t *testing.T) {
+func TestFrontmatterParse_TC06_UnknownFieldsIgnored(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := `---
-output: internal/result.go
----`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	testWriteFile(t, "node.md", `---
+depends_on:
+  - SPEC/x
+input: text
+output: out.go
+custom_field: some value
+---
+`)
 
 	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	if fm.Output != "internal/result.go" {
-		t.Errorf("Output: got %q, want %q", fm.Output, "internal/result.go")
+	if len(fm.DependsOn) != 1 || fm.DependsOn[0] != "SPEC/x" {
+		t.Errorf("expected [SPEC/x], got %v", fm.DependsOn)
+	}
+	if fm.Input != "text" {
+		t.Errorf("expected input 'text', got %q", fm.Input)
+	}
+	if fm.Output != "out.go" {
+		t.Errorf("expected output 'out.go', got %q", fm.Output)
 	}
 }
 
-func TestFrontmatterParse_DelimiterWithTrailingWhitespace(t *testing.T) {
+func TestFrontmatterParse_TC07_NoFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := "---   \noutput: internal/out.go\n---\n"
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	testWriteFile(t, "node.md", `# Just body content
+No frontmatter here.
+`)
 
 	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(fm.DependsOn) != 0 {
-		t.Errorf("DependsOn: got %v, want empty", fm.DependsOn)
-	}
-	if len(fm.External) != 0 {
-		t.Errorf("External: got %v, want empty", fm.External)
+		t.Errorf("expected empty depends_on, got %v", fm.DependsOn)
 	}
 	if fm.Input != "" {
-		t.Errorf("Input: got %q, want empty", fm.Input)
+		t.Errorf("expected empty input, got %q", fm.Input)
 	}
 	if fm.Output != "" {
-		t.Errorf("Output: got %q, want empty", fm.Output)
+		t.Errorf("expected empty output, got %q", fm.Output)
 	}
 }
 
-func TestFrontmatterParse_FileNotExist(t *testing.T) {
+func TestFrontmatterParse_TC08_EmptyFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+
+	testWriteFile(t, "node.md", `---
+---
+`)
+
+	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(fm.DependsOn) != 0 {
+		t.Errorf("expected empty depends_on, got %v", fm.DependsOn)
+	}
+	if fm.Input != "" {
+		t.Errorf("expected empty input, got %q", fm.Input)
+	}
+	if fm.Output != "" {
+		t.Errorf("expected empty output, got %q", fm.Output)
+	}
+}
+
+func TestFrontmatterParse_TC09_FrontmatterNoBody(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+
+	testWriteFile(t, "node.md", `---
+output: result.go
+---`)
+
+	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fm.Output != "result.go" {
+		t.Errorf("expected output 'result.go', got %q", fm.Output)
+	}
+}
+
+func TestFrontmatterParse_TC10_DelimiterWithTrailingWhitespace(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+
+	testWriteFile(t, "node.md", "---   \noutput: result.go\n---\n")
+
+	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(fm.DependsOn) != 0 {
+		t.Errorf("expected empty depends_on, got %v", fm.DependsOn)
+	}
+	if fm.Input != "" {
+		t.Errorf("expected empty input, got %q", fm.Input)
+	}
+	if fm.Output != "" {
+		t.Errorf("expected empty output, got %q", fm.Output)
+	}
+}
+
+func TestFrontmatterParse_TC11_FileDoesNotExist(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
@@ -373,12 +292,12 @@ func TestFrontmatterParse_FileNotExist(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, frontmatter.ErrFileUnreadable) {
-		t.Errorf("expected ErrFileUnreadable, got: %v", err)
+	if !errors.Is(err, filereader.ErrFileUnreadable) {
+		t.Errorf("expected ErrFileUnreadable, got %v", err)
 	}
 }
 
-func TestFrontmatterParse_PropagatesPathErrors(t *testing.T) {
+func TestFrontmatterParse_TC12_PathTraversalError(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
@@ -386,76 +305,71 @@ func TestFrontmatterParse_PropagatesPathErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, pathutils.ErrDirectoryTraversal) && !errors.Is(err, filereader.ErrFileUnreadable) {
-		t.Errorf("expected ErrDirectoryTraversal or ErrFileUnreadable propagated, got: %v", err)
+	if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
+		t.Errorf("expected ErrDirectoryTraversal, got %v", err)
 	}
 }
 
-func TestFrontmatterParse_MalformedYAML(t *testing.T) {
+func TestFrontmatterParse_TC13_MalformedYAML(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := `---
+	testWriteFile(t, "node.md", `---
 : invalid: yaml: content
-  bad indentation:
-    - [unclosed
+  - broken
 ---
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+`)
 
 	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
-		t.Errorf("expected ErrMalformedYAML, got: %v", err)
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
 	}
 }
 
-func TestFrontmatterParse_UnclosedFrontmatter(t *testing.T) {
+func TestFrontmatterParse_TC14_UnclosedFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
-	content := `---
-output: internal/out.go
+	testWriteFile(t, "node.md", `---
+output: result.go
+input: some text
+`)
+
+	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
+	}
+}
+
+func TestFrontmatterParse_TC15_ExternalFieldIgnored(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
+
+	testWriteFile(t, "node.md", `---
 depends_on:
-  - ROOT/dep
-# No closing ---
-Some body content here.
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
-		t.Errorf("expected ErrMalformedYAML, got: %v", err)
-	}
-}
-
-func TestFrontmatterParse_ExternalMissingPath(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
-
-	content := `---
-external:
-  - unknown_key: some-value
+  - SPEC/x
+output: out.go
+external: some legacy value
 ---
-`
-	if err := os.WriteFile("node.md", []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+`)
 
-	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "node.md"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !errors.Is(err, frontmatter.ErrMalformedYAML) {
-		t.Errorf("expected ErrMalformedYAML, got: %v", err)
+	if len(fm.DependsOn) != 1 || fm.DependsOn[0] != "SPEC/x" {
+		t.Errorf("expected [SPEC/x], got %v", fm.DependsOn)
+	}
+	if fm.Output != "out.go" {
+		t.Errorf("expected output 'out.go', got %q", fm.Output)
+	}
+	if fm.Input != "" {
+		t.Errorf("expected empty input, got %q", fm.Input)
 	}
 }

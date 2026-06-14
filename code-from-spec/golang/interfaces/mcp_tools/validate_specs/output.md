@@ -1,8 +1,14 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/validate_specs@6HCJBYFHKMXMBZHMEyyNAoxiFjU)
+[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/validate_specs@U2SmPtOwjQYJCsOrURkBXcVUS3g)
 
-# Package `mcpvalidatespecs`
+## Package
 
+```go
+package mcpvalidatespecs
 ```
+
+## Import
+
+```go
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpvalidatespecs"
 ```
 
@@ -13,6 +19,7 @@ package mcpvalidatespecs
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
 
+// StalenessEntry describes a single artifact whose hash is missing, stale, or malformed.
 type StalenessEntry struct {
 	Node         string
 	ArtifactPath string
@@ -21,6 +28,7 @@ type StalenessEntry struct {
 	Rank         int
 }
 
+// ValidationReport is the result produced by MCPValidateSpecs.
 type ValidationReport struct {
 	FormatErrors []*spectreevalidate.FormatError
 	Cycles       []string
@@ -33,22 +41,21 @@ type ValidationReport struct {
 ```go
 package mcpvalidatespecs
 
-// MCPValidateSpecs scans the entire spec tree starting from code-from-spec/
-// and returns a ValidationReport. It never returns an error — all problems
-// are collected in the report.
+// MCPValidateSpecs scans the entire spec tree rooted at code-from-spec/,
+// validates format rules, detects dependency cycles, and checks whether
+// each artifact file is present and up-to-date.
 //
-// FormatErrors contains structural validation failures for spec nodes.
-// Cycles contains logical names involved in non-convergence during ranking.
-// Staleness contains entries for artifacts whose hash is missing, mismatched,
-// or whose tag cannot be parsed. Entries with a matching hash are omitted.
+// It always returns a report. Problems are collected inside the report;
+// no error is returned.
 //
 // StalenessEntry.Status is one of:
-//   - "missing"       — file does not exist.
-//   - "stale"         — hash mismatch.
-//   - "malformed tag" — file exists but has no artifact tag or the tag cannot be parsed.
+//   - "missing"       — the artifact file does not exist.
+//   - "stale"         — the artifact file exists but its embedded hash does not match.
+//   - "malformed tag" — the artifact file exists but has no artifact tag or the tag cannot be parsed.
 //
-// StalenessEntry.Rank is the rank from NodeRankCompute. Entries with equal
-// rank have no dependency between them and can be processed in parallel.
+// Entries whose hash matches are not included in ValidationReport.Staleness.
+// ValidationReport.Cycles is the flat list of logical names involved in
+// non-convergence during ranking, as returned by NodeRankCompute.
 func MCPValidateSpecs() *ValidationReport
 ```
 
@@ -67,20 +74,21 @@ func main() {
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
 	if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
-		fmt.Println("Spec tree is valid and all artifacts are up to date.")
+		fmt.Println("All nodes are valid and up-to-date.")
 		return
 	}
 
-	for _, e := range report.FormatErrors {
-		fmt.Printf("Format error — Node: %s | Rule: %s | Detail: %s\n", e.Node, e.Rule, e.Detail)
+	for _, fe := range report.FormatErrors {
+		fmt.Printf("Format error — node: %s | rule: %s | detail: %s\n", fe.Node, fe.Rule, fe.Detail)
 	}
 
 	for _, name := range report.Cycles {
-		fmt.Printf("Cycle detected — Node: %s\n", name)
+		fmt.Printf("Cycle detected: %s\n", name)
 	}
 
 	for _, s := range report.Staleness {
-		fmt.Printf("Staleness [%s] (rank %d) — %s: %s\n", s.Status, s.Rank, s.Node, s.Detail)
+		fmt.Printf("Staleness [%s] — node: %s | artifact: %s | rank: %d | detail: %s\n",
+			s.Status, s.Node, s.ArtifactPath, s.Rank, s.Detail)
 	}
 }
 ```

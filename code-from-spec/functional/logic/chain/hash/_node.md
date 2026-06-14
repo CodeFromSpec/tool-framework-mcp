@@ -24,8 +24,6 @@ all chain positions from disk and hashing their content.
 ```
 function ChainHashCompute(chain: chainresolver.Chain) -> string
   errors:
-    - FileUnreadable: a file in the chain cannot be
-      read or opened.
     - ParseFailure: a node file cannot be parsed.
     - (FileReader.*): propagated from FileOpen.
     - (NodeParsing.*): propagated from NodeParse.
@@ -181,30 +179,30 @@ Process positions in chain assembly order, computing
 SHA-1 for each:
 
 1. For each ancestor in `chain.ancestors`: call
-   `NodeParse` with `ancestor.logical_name`. If it
+   `NodeParse` with `ancestor.unqualified_logical_name`. If it
    fails, raise "parse failure". Hash `# Public`
    (subsections only, block-extracted). If absent or
    no subsections, skip.
 
 2. For each dependency in `chain.dependencies`:
-   - If `LogicalNameIsArtifact(dep.logical_name)`:
+   - If `LogicalNameIsArtifact(dep.unqualified_logical_name)`:
      hash the artifact file.
-   - If `LogicalNameIsExternal(dep.logical_name)`:
+   - If `LogicalNameIsExternal(dep.unqualified_logical_name)`:
      hash the external file.
-   - If `LogicalNameIsSpec(dep.logical_name)` and
+   - If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
      `dep.qualifier` is absent: call `NodeParse`
-     with `dep.logical_name`. If it fails, raise
+     with `dep.unqualified_logical_name`. If it fails, raise
      "parse failure". Hash `# Public` (subsections
      only, block-extracted).
-   - If `LogicalNameIsSpec(dep.logical_name)` and
+   - If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
      `dep.qualifier` is present: call `NodeParse`
-     with `dep.logical_name`. If it fails, raise
+     with `dep.unqualified_logical_name`. If it fails, raise
      "parse failure". Hash the
      `## <dep.qualifier>` subsection within `# Public`
      (block-extracted).
 
 3. Target `# Public`: call `NodeParse` with
-   `chain.target.logical_name`. If it fails, raise
+   `chain.target.unqualified_logical_name`. If it fails, raise
    "parse failure". Hash `# Public` (subsections
    only, block-extracted). If absent or no subsections,
    skip.
@@ -214,9 +212,9 @@ SHA-1 for each:
    absent, skip.
 
 5. Input (if `chain.input` is present):
-   - If `LogicalNameIsArtifact(input.logical_name)`:
+   - If `LogicalNameIsArtifact(input.unqualified_logical_name)`:
      hash the artifact file.
-   - If `LogicalNameIsExternal(input.logical_name)`:
+   - If `LogicalNameIsExternal(input.unqualified_logical_name)`:
      hash the external file.
 
 **Step 2 — Compute final hash**

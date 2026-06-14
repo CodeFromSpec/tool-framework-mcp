@@ -72,10 +72,14 @@ result (27 chars).
 
 #### Ancestor without Public section — skipped
 
-Create SPEC with no `# Public` section (only name
-section). Build Chain with ancestors = [SPEC]. Compute
-hash. The result should differ from a chain with an
-ancestor that has `# Public` with subsections.
+Create SPEC/a as target with `# Public` containing a
+`## Interface` subsection. First, create SPEC with
+`# Public` containing a `## Context` subsection. Build
+Chain with ancestors = [SPEC], target = SPEC/a. Compute
+hash → hash_with_public. Then rewrite SPEC on disk to
+have only a name section (no `# Public`). Build the
+same Chain structure. Compute hash → hash_without_public.
+Expect hash_with_public differs from hash_without_public.
 
 #### Multiple ancestors — order matters
 
@@ -180,8 +184,10 @@ Compute hash. Expect no error.
 #### Input hashes full file content
 
 Create an artifact file with content. Build Chain with
-input pointing to that file. Compute hash. Modify the
-content. Recompute. Expect hashes differ.
+input = ChainItem(unqualified_logical_name="ARTIFACT/input",
+file_path=<path to the artifact file>). Compute hash.
+Modify the file content. Recompute. Expect hashes
+differ.
 
 #### No input — skipped
 

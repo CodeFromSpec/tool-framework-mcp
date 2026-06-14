@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/server@WBwILsTRU-oQIvxskPHlOQjwbT8
+// code-from-spec: ROOT/golang/implementation/server@MNiSYp1wPrVDafdtt9NXS6zpfUM
 package main
 
 import (
@@ -100,33 +100,12 @@ func main() {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate_specs",
-		Description: "Validate the spec tree format, detect dependency cycles, and check whether each artifact is up to date with its spec.",
+		Description: "Validate the spec tree for format errors, dependency cycles, and artifact staleness.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		report := mcpvalidatespecs.MCPValidateSpecs()
-
-		if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: "Spec tree is fully valid and all artifacts are up to date."}},
-			}, nil, nil
-		}
-
-		var sb strings.Builder
-
-		for _, fe := range report.FormatErrors {
-			fmt.Fprintf(&sb, "Format error — Node: %s | Rule: %s | Detail: %s\n", fe.Node, fe.Rule, fe.Detail)
-		}
-
-		for _, name := range report.Cycles {
-			fmt.Fprintf(&sb, "Cycle detected involving: %s\n", name)
-		}
-
-		for _, se := range report.Staleness {
-			fmt.Fprintf(&sb, "Staleness [%s] — Node: %s | Artifact: %s | Rank: %d | Detail: %s\n",
-				se.Status, se.Node, se.ArtifactPath, se.Rank, se.Detail)
-		}
-
+		text := formatValidationReport(report)
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+			Content: []mcp.Content{&mcp.TextContent{Text: text}},
 		}, nil, nil
 	})
 
@@ -136,7 +115,7 @@ func main() {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "chain_hash",
-		Description: "Compute the 27-character chain hash for a node.",
+		Description: "Compute the chain hash for a given logical name.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args ChainHashArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcpchainhash.MCPChainHash(args.LogicalName)
 		if err != nil {
@@ -163,4 +142,29 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	os.Exit(0)
+}
+
+func formatValidationReport(report *mcpvalidatespecs.ValidationReport) string {
+	if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
+		return "All nodes are valid and up-to-date."
+	}
+
+	var sb strings.Builder
+
+	for _, fe := range report.FormatErrors {
+		fmt.Fprintf(&sb, "Format error — node: %s | rule: %s | detail: %s\n", fe.Node, fe.Rule, fe.Detail)
+	}
+
+	for _, name := range report.Cycles {
+		fmt.Fprintf(&sb, "Cycle detected: %s\n", name)
+	}
+
+	for _, s := range report.Staleness {
+		fmt.Fprintf(&sb, "Staleness [%s] — node: %s | artifact: %s | rank: %d | detail: %s\n",
+			s.Status, s.Node, s.ArtifactPath, s.Rank, s.Detail)
+	}
+
+	return sb.String()
 }

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/spec_tree/scan@9-GnQz-VhEBqZR9fUiVolNQbJEA
+// code-from-spec: ROOT/golang/implementation/spec_tree/scan@uRTaU1GekXBr8Fkq1m6-SXpeD_U
 package spectree
 
 import (
@@ -20,33 +20,44 @@ type SpecTreeNode struct {
 }
 
 func SpecTreeScan() ([]*SpecTreeNode, error) {
-	dir := &pathutils.PathCfs{Value: "code-from-spec/"}
+	rootDir := &pathutils.PathCfs{Value: "code-from-spec/"}
 
-	files, err := listfiles.ListFiles(dir)
+	allFiles, err := listfiles.ListFiles(rootDir)
 	if err != nil {
-		return nil, fmt.Errorf("SpecTreeScan: %w", err)
+		return nil, fmt.Errorf("listing files: %w", err)
 	}
 
-	var nodes []*SpecTreeNode
-
-	for _, f := range files {
-		value := f.Value
-		lastSlash := strings.LastIndex(value, "/")
+	var nodeFiles []*pathutils.PathCfs
+	for _, f := range allFiles {
+		lastSlash := strings.LastIndex(f.Value, "/")
 		var fileName string
-		if lastSlash == -1 {
-			fileName = value
+		if lastSlash < 0 {
+			fileName = f.Value
 		} else {
-			fileName = value[lastSlash+1:]
+			fileName = f.Value[lastSlash+1:]
 		}
 		if fileName != "_node.md" {
 			continue
 		}
 
-		logicalName, err := logicalnames.LogicalNameFromPath(f)
-		if err != nil {
-			return nil, fmt.Errorf("SpecTreeScan: %w", err)
+		remainder := strings.TrimPrefix(f.Value, "code-from-spec/")
+		firstSlash := strings.Index(remainder, "/")
+		if firstSlash >= 0 {
+			firstSegment := remainder[:firstSlash]
+			if strings.HasPrefix(firstSegment, "_") {
+				continue
+			}
 		}
 
+		nodeFiles = append(nodeFiles, f)
+	}
+
+	var nodes []*SpecTreeNode
+	for _, f := range nodeFiles {
+		logicalName, err := logicalnames.LogicalNameFromPath(f)
+		if err != nil {
+			return nil, fmt.Errorf("deriving logical name from %s: %w", f.Value, err)
+		}
 		nodes = append(nodes, &SpecTreeNode{
 			LogicalName: logicalName,
 			FilePath:    *f,

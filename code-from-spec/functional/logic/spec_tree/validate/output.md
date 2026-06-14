@@ -1,10 +1,6 @@
-<!-- code-from-spec: ROOT/functional/logic/spec_tree/validate@V5ls1ehYX1OP3s4gIEmelzebD-Q -->
+<!-- code-from-spec: ROOT/functional/logic/spec_tree/validate@Jr15NVy-8fAe2bZG_DkSFMIpDew -->
 
-## Namespace
-
-    namespace: spectreevalidate
-
-## Records
+namespace: spectreevalidate
 
 record SpecTreeValidateInput
   logical_name: string
@@ -16,129 +12,147 @@ record FormatError
   rule: string
   detail: string
 
-## Functions
+function SpecTreeValidate(entries: list of SpecTreeValidateInput, all_dirs: list of string) -> list of FormatError
 
-function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of FormatError
+  1. Initialize errors as an empty list of FormatError.
 
-  1. Build the known logical names set.
-
+  2. Build known_names as an empty set of strings.
      For each entry in entries:
-       Add entry.logical_name to the set.
+       Add entry.logical_name to known_names.
        If entry.frontmatter.output is non-empty:
-         Strip the "ROOT/" prefix from entry.logical_name, prepend "ARTIFACT/" to get the artifact logical name.
-         Add the artifact logical name to the set.
+         Strip the "SPEC/" prefix from entry.logical_name to get bare_path.
+         Construct artifact_name = "ARTIFACT/" + bare_path.
+         Add artifact_name to known_names.
 
-  2. Determine which nodes have children.
+  3. For each entry in entries:
 
-     For each entry, a node has children if any other entry's logical_name starts with
-     this entry's logical_name followed by "/".
+     a. Determine has_children:
+        Set has_children = false.
+        For each other_entry in entries:
+          If other_entry.logical_name starts with (entry.logical_name + "/"):
+            Set has_children = true.
+            Break.
 
-  3. For each entry, run all validation rules below.
-     Collect all errors — do not stop at the first.
+     b. Run rule name_heading:
+        Compute normalized_heading = NormalizeText(entry.node.name_section.heading).
+        Compute normalized_name = NormalizeText(entry.logical_name).
+        If normalized_heading does not equal normalized_name:
+          Append FormatError(node=entry.logical_name, rule="name_heading",
+            detail="name section heading does not match logical name") to errors.
 
-     Rule: name_heading
-       Apply NormalizeText to both node.name_section.heading and entry.logical_name.
-       If they do not match, add a FormatError with:
-         node: entry.logical_name
-         rule: "name_heading"
-         detail: describing the mismatch
+     c. Run rule leaf_only_fields:
+        If has_children is true:
+          If entry.frontmatter.depends_on is non-empty:
+            Append FormatError(node=entry.logical_name, rule="leaf_only_fields",
+              detail="depends_on is only permitted on leaf nodes") to errors.
+          If entry.frontmatter.input is non-empty:
+            Append FormatError(node=entry.logical_name, rule="leaf_only_fields",
+              detail="input is only permitted on leaf nodes") to errors.
+          If entry.frontmatter.output is non-empty:
+            Append FormatError(node=entry.logical_name, rule="leaf_only_fields",
+              detail="output is only permitted on leaf nodes") to errors.
 
-     Rule: leaf_only_fields
-       If the entry has children:
-         If frontmatter.depends_on is non-empty, add a FormatError with rule "leaf_only_fields".
-         If frontmatter.external is non-empty, add a FormatError with rule "leaf_only_fields".
-         If frontmatter.input is non-empty, add a FormatError with rule "leaf_only_fields".
-         If frontmatter.output is non-empty, add a FormatError with rule "leaf_only_fields".
-       Report one error per non-empty field.
+     d. Run rule leaf_only_agent:
+        If has_children is true and entry.node.agent is present:
+          Append FormatError(node=entry.logical_name, rule="leaf_only_agent",
+            detail="# Agent section is only permitted on leaf nodes") to errors.
 
-     Rule: leaf_only_agent
-       If the entry has children and node.agent is present:
-         Add a FormatError with:
-           node: entry.logical_name
-           rule: "leaf_only_agent"
-           detail: describing that only leaf nodes may have an Agent section
+     e. Run rule dependency_targets:
+        For each dep in entry.frontmatter.depends_on:
+          If LogicalNameIsSpec(dep) is true:
+            Set bare = LogicalNameStripQualifier(dep).
+            If bare does not exist in known_names:
+              Append FormatError(node=entry.logical_name, rule="dependency_targets",
+                detail="depends_on target <dep> does not exist") to errors.
+              Continue to next dep.
+            If bare equals entry.logical_name:
+              Append FormatError(node=entry.logical_name, rule="dependency_targets",
+                detail="depends_on target <dep> points to the node itself") to errors.
+              Continue to next dep.
+            If (bare + "/") is a prefix of entry.logical_name:
+              Append FormatError(node=entry.logical_name, rule="dependency_targets",
+                detail="depends_on target <dep> points to an ancestor") to errors.
+              Continue to next dep.
+            If (entry.logical_name + "/") is a prefix of bare:
+              Append FormatError(node=entry.logical_name, rule="dependency_targets",
+                detail="depends_on target <dep> points to a descendant") to errors.
+              Continue to next dep.
+          Else if LogicalNameIsArtifact(dep) is true:
+            Set bare = LogicalNameStripQualifier(dep).
+            If bare does not exist in known_names:
+              Append FormatError(node=entry.logical_name, rule="dependency_targets",
+                detail="depends_on target <dep> does not exist") to errors.
+          Else if LogicalNameIsExternal(dep) is true:
+            Set ext_path_cfs = LogicalNameExternalToPath(dep).
+            Attempt FileOpen(ext_path_cfs):
+              If FileOpen raises FileUnreadable or any PathUtils error:
+                Append FormatError(node=entry.logical_name, rule="dependency_targets",
+                  detail="depends_on external target <dep> is not readable") to errors.
+              Else:
+                Call FileClose on the opened reader.
+          Else:
+            Append FormatError(node=entry.logical_name, rule="dependency_targets",
+              detail="depends_on entry <dep> has an unrecognized prefix") to errors.
 
-     Rule: dependency_targets
-       For each dep in frontmatter.depends_on:
-         If dep is exactly "ROOT" or starts with "ROOT/":
-           Call LogicalNameStripQualifier on dep to get the bare logical name.
-           If the bare logical name is not in the known logical names set:
-             Add a FormatError with rule "dependency_targets" and detail describing the unknown reference.
-           Else if the bare logical name equals entry.logical_name:
-             Add a FormatError with rule "dependency_targets" and detail describing self-reference.
-           Else if entry.logical_name starts with bare_name followed by "/":
-             Add a FormatError with rule "dependency_targets" and detail describing ancestor reference.
-           Else if bare_name starts with entry.logical_name followed by "/":
-             Add a FormatError with rule "dependency_targets" and detail describing descendant reference.
+     f. Run rule input_target:
+        If entry.frontmatter.input is non-empty:
+          Set inp = entry.frontmatter.input.
+          If LogicalNameIsArtifact(inp) is true:
+            Set bare = LogicalNameStripQualifier(inp).
+            If bare does not exist in known_names:
+              Append FormatError(node=entry.logical_name, rule="input_target",
+                detail="input target <inp> does not exist") to errors.
+          Else if LogicalNameIsExternal(inp) is true:
+            Set ext_path_cfs = LogicalNameExternalToPath(inp).
+            Attempt FileOpen(ext_path_cfs):
+              If FileOpen raises FileUnreadable or any PathUtils error:
+                Append FormatError(node=entry.logical_name, rule="input_target",
+                  detail="input external target <inp> is not readable") to errors.
+              Else:
+                Call FileClose on the opened reader.
+          Else:
+            Append FormatError(node=entry.logical_name, rule="input_target",
+              detail="input must start with ARTIFACT/ or EXTERNAL/") to errors.
 
-         If dep starts with "ARTIFACT/":
-           Call LogicalNameStripQualifier on dep to get the bare reference (defensive).
-           If the bare reference is not in the known logical names set:
-             Add a FormatError with rule "dependency_targets" and detail describing the unknown artifact reference.
+     g. Run rule output_paths:
+        If entry.frontmatter.output is non-empty:
+          Attempt PathValidateCfs(entry.frontmatter.output):
+            If PathValidateCfs raises any error:
+              Append FormatError(node=entry.logical_name, rule="output_paths",
+                detail="output path is invalid: <error detail>") to errors.
 
-         Report one error per invalid entry.
+     h. Run rule public_subsection_required:
+        If entry.node.public is present:
+          For each line in entry.node.public.content:
+            If line is not blank (contains at least one non-whitespace character):
+              Append FormatError(node=entry.logical_name, rule="public_subsection_required",
+                detail="content in # Public must be under a ## subsection") to errors.
+              Break.
 
-     Rule: input_target
-       If frontmatter.input is non-empty:
-         If frontmatter.input does not start with "ARTIFACT/":
-           Add a FormatError with:
-             node: entry.logical_name
-             rule: "input_target"
-             detail: describing that input must be an ARTIFACT/ reference
-         Else:
-           Call LogicalNameStripQualifier on frontmatter.input to get the bare reference (defensive).
-           If the bare reference is not in the known logical names set:
-             Add a FormatError with:
-               node: entry.logical_name
-               rule: "input_target"
-               detail: describing the unknown artifact reference
+     i. Run rule duplicate_subsections:
+        If entry.node.public is present and entry.node.public.subsections is non-empty:
+          Initialize seen_headings as an empty set of strings.
+          For each subsection in entry.node.public.subsections:
+            Set normalized = NormalizeText(subsection.heading).
+            If normalized exists in seen_headings:
+              Append FormatError(node=entry.logical_name, rule="duplicate_subsections",
+                detail="duplicate ## subsection heading <subsection.raw_heading> in # Public") to errors.
+            Else:
+              Add normalized to seen_headings.
 
-     Rule: external_files
-       For each external entry in frontmatter.external:
-         Create a PathCfs with external_entry.path as its value.
-         Call FileOpen with that PathCfs.
-         If FileOpen fails (invalid path, file does not exist, or not readable):
-           Add a FormatError with:
-             node: entry.logical_name
-             rule: "external_files"
-             detail: describing the path and the failure reason
-           Skip to the next external entry.
-         If FileOpen succeeds:
-           Call FileClose immediately.
+  4. Run rule missing_node_md:
+     For each dir_path in all_dirs:
+       If dir_path equals "code-from-spec/":
+         Continue to next dir_path.
+       Compute the first path segment after "code-from-spec/" from dir_path.
+       If that first segment starts with "_":
+         Continue to next dir_path.
+       Construct expected_file = dir_path + "_node.md".
+         (If dir_path does not end with "/", append "/" before "_node.md".)
+       Check whether any entry in entries has a file path equal to expected_file.
+         (To get an entry's file path: call LogicalNameToPath(entry.logical_name).value.)
+       If no such entry exists:
+         Append FormatError(node=dir_path, rule="missing_node_md",
+           detail="subdirectory has no _node.md") to errors.
 
-     Rule: output_paths
-       If frontmatter.output is non-empty:
-         Call PathValidateCfs on frontmatter.output.
-         If it fails:
-           Add a FormatError with:
-             node: entry.logical_name
-             rule: "output_paths"
-             detail: describing the validation failure
-
-     Rule: public_subsection_required
-       If node.public is absent, skip this rule.
-       If node.public is present:
-         For each line in node.public.content:
-           If the line is non-blank (contains at least one non-whitespace character):
-             Add a FormatError with:
-               node: entry.logical_name
-               rule: "public_subsection_required"
-               detail: "content in # Public must be under a ## subsection"
-             Stop checking further lines for this entry (one error is sufficient).
-
-     Rule: duplicate_subsections
-       If node.public is absent, skip this rule.
-       If node.public is present and has subsections:
-         Create a set of seen headings.
-         For each subsection in node.public.subsections:
-           Apply NormalizeText to the subsection heading.
-           If the normalized heading is already in the seen set:
-             Add a FormatError with:
-               node: entry.logical_name
-               rule: "duplicate_subsections"
-               detail: describing the duplicate heading
-           Else:
-             Add the normalized heading to the seen set.
-
-  4. Return the collected list of FormatError records.
-     Return an empty list if no errors were found.
+  5. Return errors.

@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/os/path_utils@I6fGMmrBoL3GUixo_MB2oglkIrQ -->
+<!-- code-from-spec: ROOT/functional/logic/os/path_utils@fYw7SltKhOfCv7bi6MYUZJt5Pm8 -->
 
 namespace: pathutils
 
@@ -13,88 +13,67 @@ record PathOs
 ---
 
 function PathGetProjectRoot() -> PathOs
-  errors:
-    - CannotDetermineRoot
 
   1. Read the current working directory of the process.
      If the working directory cannot be read, raise error "cannot determine project root".
 
-  2. Return a PathOs with the working directory as its value.
+  2. Return a PathOs with value set to the working directory.
 
 ---
 
 function PathValidateCfs(value: string)
-  errors:
-    - PathEmpty
-    - PathAbsolute
-    - PathContainsBackslash
-    - DirectoryTraversal
 
   1. If value is empty, raise error "path is empty".
 
-  2. If value starts with "/" or starts with a drive letter pattern
-     (a single letter followed by ":"), raise error "path is absolute".
+  2. If value starts with "/", raise error "path is absolute".
+     If value matches a drive letter pattern (e.g. starts with a letter followed by ":"),
+     raise error "path is absolute".
 
-  3. If value contains any "\" character, raise error "path contains backslash".
+  3. If value contains "\", raise error "path contains backslash".
 
   4. Normalize the path by resolving "." and ".." components.
 
-  5. For each component in the normalized path:
-       If the component is "..", raise error "directory traversal".
+  5. For each component in the normalized path,
+     if the component is "..", raise error "directory traversal".
 
 ---
 
 function PathCfsToOs(cfs_path: PathCfs) -> PathOs
-  errors:
-    - ResolvesOutsideRoot
-    - PathEmpty          (propagated from PathValidateCfs)
-    - PathAbsolute       (propagated from PathValidateCfs)
-    - PathContainsBackslash (propagated from PathValidateCfs)
-    - DirectoryTraversal (propagated from PathValidateCfs)
-    - CannotDetermineRoot (propagated from PathGetProjectRoot)
 
   1. Call PathValidateCfs with cfs_path.value.
-     If it raises any error, propagate that error immediately without continuing.
+     If it raises an error, propagate that error.
 
-  2. Call PathGetProjectRoot.
-     If it raises an error, propagate that error immediately without continuing.
-     Store the result as root.
+  2. Call PathGetProjectRoot() to get the project root.
+     If it raises an error, propagate that error.
 
-  3. Replace all "/" characters in cfs_path.value with the OS-native path separator.
-     Store the result as os_relative.
+  3. Replace all forward slashes in cfs_path.value with the OS-native separator.
 
-  4. Join root.value and os_relative to form an absolute path.
-     Store the result as abs_path.
+  4. Join the project root value with the converted path to form an absolute path.
 
-  5. If abs_path refers to an existing filesystem entry:
-       Resolve any symlinks in abs_path to obtain resolved_path.
-       If resolved_path does not start with root.value, raise error "resolves outside root".
-       Return a PathOs with resolved_path as its value.
+  5. If the resulting path exists on disk,
+     resolve symlinks on the resulting path.
+     If the resolved path does not start with the project root value,
+     raise error "resolves outside root".
 
-  6. Return a PathOs with abs_path as its value.
+  6. Return a PathOs with the absolute path value.
 
 ---
 
 function PathOsToCfs(os_path: PathOs) -> PathCfs
-  errors:
-    - ResolvesOutsideRoot
-    - CannotDetermineRoot (propagated from PathGetProjectRoot)
 
-  1. Call PathGetProjectRoot.
-     If it raises an error, propagate that error immediately without continuing.
-     Store the result as root.
+  1. Call PathGetProjectRoot() to get the project root.
+     If it raises an error, propagate that error.
 
-  2. If os_path.value refers to an existing filesystem entry:
-       Resolve any symlinks in os_path.value to obtain resolved_path.
-     Else:
-       Set resolved_path to os_path.value.
+  2. If os_path.value exists on disk,
+     resolve symlinks on os_path.value.
+     Use the resolved path for the remaining steps.
 
-  3. If resolved_path does not start with root.value, raise error "resolves outside root".
+  3. If the path (resolved or original) does not start with the project root value,
+     raise error "resolves outside root".
 
-  4. Compute the relative portion of resolved_path by removing the root.value prefix
-     and any leading path separator.
-     Store the result as rel_path.
+  4. Compute the relative path by removing the project root prefix from the path.
+     Remove any leading OS separator from the result.
 
-  5. Replace all OS-native path separator characters in rel_path with "/".
+  5. Replace all OS-native separators in the relative path with "/".
 
-  6. Return a PathCfs with the result as its value.
+  6. Return a PathCfs with the resulting relative value.

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/chain_hash@YouuCEEGImk0toGSuKdyTykaSS0
+// code-from-spec: ROOT/golang/implementation/mcp_tools/chain_hash@UHAJGr5ZLipeXA4LByDXnm6V60Q
 package mcpchainhash
 
 import (
@@ -11,31 +11,30 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
 )
 
-var ErrNoOutput = errors.New("no output")
+var ErrNoOutput = errors.New("target node has no output field")
 
 func MCPChainHash(logical_name string) (string, error) {
 	filePath, err := logicalnames.LogicalNameToPath(logical_name)
 	if err != nil {
-		return "", fmt.Errorf("%w", err)
+		return "", fmt.Errorf("MCPChainHash: %w", err)
 	}
 
 	fm, err := frontmatter.FrontmatterParse(filePath)
 	if err != nil {
-		return "", fmt.Errorf("%w", err)
+		return "", fmt.Errorf("MCPChainHash: %w", err)
 	}
-
 	if fm.Output == "" {
-		return "", ErrNoOutput
+		return "", fmt.Errorf("MCPChainHash: %w", ErrNoOutput)
 	}
 
 	chain, err := chainresolver.ChainResolve(logical_name)
 	if err != nil {
-		return "", fmt.Errorf("%w", err)
+		return "", fmt.Errorf("MCPChainHash: %w", err)
 	}
 
 	hash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		return "", fmt.Errorf("%w", err)
+		return "", fmt.Errorf("MCPChainHash: %w", err)
 	}
 
 	return hash, nil

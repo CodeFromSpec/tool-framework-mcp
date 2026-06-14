@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_writer@XLhW0xpWsSNavwHPS_x56X84gvk
+// code-from-spec: ROOT/golang/implementation/os/file_writer@_uaNla0eifeTYoxssKFLGu8SLeo
 package filewriter
 
 import (
@@ -16,19 +16,19 @@ var ErrCannotWriteFile = errors.New("cannot write file")
 func FileWrite(cfsPath *pathutils.PathCfs, content string) error {
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
-		return fmt.Errorf("%w", err)
+		return err
 	}
 
-	dir := filepath.Dir(osPath.Value)
+	parentDir := filepath.Dir(osPath.Value)
 
-	err = os.MkdirAll(dir, 0755)
+	err = os.MkdirAll(parentDir, 0755)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrCannotCreateDirectory, err)
+		return fmt.Errorf("%w: %s", ErrCannotCreateDirectory, err)
 	}
 
 	err = os.WriteFile(osPath.Value, []byte(content), 0644)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrCannotWriteFile, err)
+		return fmt.Errorf("%w: %s", ErrCannotWriteFile, err)
 	}
 
 	return nil

@@ -1,90 +1,109 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/chain_hash@AyXXygIrXC2K1-OZ0u7-Ld6RTFA -->
+<!-- code-from-spec: ROOT/functional/tests/mcp_tools/chain_hash@biMFO7zheQRHEuN3aU-cVcE2fOg -->
 
-## Test: Returns a 27-character hash
-
-Setup:
-  Create a spec tree on disk:
-    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
-    ROOT/a/_node.md — leaf node with an output field; any "# Public" content under "##" subsections
-
-Actions:
-  1. Call MCPChainHash with logical_name = "ROOT/a".
-
-Expected outcome:
-  Result is a string of exactly 27 characters.
+## Test suite: MCPChainHash
 
 ---
 
-## Test: Hash is deterministic
+### TC-01: Returns a 27-character hash
 
-Setup:
-  Create a spec tree on disk with known, fixed content:
-    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
-    ROOT/a/_node.md — leaf node with an output field; any "# Public" content under "##" subsections
+**Setup**
 
-Actions:
-  1. Call MCPChainHash with logical_name = "ROOT/a". Record result as first_hash.
-  2. Call MCPChainHash with logical_name = "ROOT/a" again. Record result as second_hash.
+Create a spec tree on disk:
+- `<root>/SPEC/_node.md` — contains a `# Public` section with a `## Context` subsection and some content inside it.
+- `<root>/SPEC/a/_node.md` — contains frontmatter with `output: some/output/path.md` and a `# Public` section with a `## Context` subsection.
 
-Expected outcome:
-  first_hash equals second_hash.
+**Actions**
 
----
+1. Call `MCPChainHash("SPEC/a")`.
 
-## Test: Hash matches load_chain hash
+**Expected outcome**
 
-Setup:
-  Create a spec tree on disk:
-    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
-    ROOT/a/_node.md — leaf node with an output field; any "# Public" content under "##" subsections
-
-Actions:
-  1. Call MCPChainHash with logical_name = "ROOT/a". Record result as chain_hash_result.
-  2. Call MCPLoadChain with logical_name = "ROOT/a". Record result as load_chain_result.
-  3. Extract the chain_hash field from load_chain_result.
-
-Expected outcome:
-  chain_hash_result equals the chain_hash from load_chain_result.
+Result is a string of exactly 27 characters.
 
 ---
 
-## Test: Invalid logical name — not ROOT/
+### TC-02: Hash is deterministic
 
-Setup:
-  No spec tree required.
+**Setup**
 
-Actions:
-  1. Call MCPChainHash with logical_name = "INVALID/something".
+Create a spec tree on disk:
+- `<root>/SPEC/_node.md` — contains a `# Public` section with a `## Context` subsection and fixed known content.
+- `<root>/SPEC/a/_node.md` — contains frontmatter with `output: some/output/path.md` and a `# Public` section with a `## Context` subsection with fixed known content.
 
-Expected outcome:
-  Error logicalnames.UnsupportedReference is raised.
+**Actions**
 
----
+1. Call `MCPChainHash("SPEC/a")` and store the result as `hash1`.
+2. Call `MCPChainHash("SPEC/a")` again and store the result as `hash2`.
 
-## Test: Nonexistent node file
+**Expected outcome**
 
-Setup:
-  Create a spec tree on disk:
-    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
-  Do not create ROOT/nonexistent/_node.md.
-
-Actions:
-  1. Call MCPChainHash with logical_name = "ROOT/nonexistent".
-
-Expected outcome:
-  Error filereader.FileUnreadable is raised.
+`hash1` equals `hash2`.
 
 ---
 
-## Test: No output declared
+### TC-03: Hash matches load_chain hash
 
-Setup:
-  Create a spec tree on disk:
-    ROOT/_node.md — contains "# Public" with content under a "## Context" subsection
-    ROOT/a/_node.md — leaf node without an output field; any "# Public" content under "##" subsections
+**Setup**
 
-Actions:
-  1. Call MCPChainHash with logical_name = "ROOT/a".
+Create a spec tree on disk:
+- `<root>/SPEC/_node.md` — contains a `# Public` section with a `## Context` subsection and some content inside it.
+- `<root>/SPEC/a/_node.md` — contains frontmatter with `output: some/output/path.md` and a `# Public` section with a `## Context` subsection.
 
-Expected outcome:
-  Error NoOutput is raised.
+**Actions**
+
+1. Call `MCPChainHash("SPEC/a")` and store the result as `chain_hash_result`.
+2. Call `MCPLoadChain("SPEC/a")` and extract the `chain_hash` value from the first line of its response.
+
+**Expected outcome**
+
+`chain_hash_result` equals the `chain_hash` extracted from the `MCPLoadChain` response.
+
+---
+
+### TC-04: Invalid logical name — not SPEC/
+
+**Setup**
+
+No spec tree required.
+
+**Actions**
+
+1. Call `MCPChainHash("INVALID/something")`.
+
+**Expected outcome**
+
+Raises error `logicalnames.UnsupportedReference`.
+
+---
+
+### TC-05: Nonexistent node file
+
+**Setup**
+
+Create a spec tree on disk where `<root>/SPEC/_node.md` exists, but `<root>/SPEC/nonexistent/_node.md` does not exist.
+
+**Actions**
+
+1. Call `MCPChainHash("SPEC/nonexistent")`.
+
+**Expected outcome**
+
+Raises error `filereader.FileUnreadable`.
+
+---
+
+### TC-06: No output declared
+
+**Setup**
+
+Create a spec tree on disk:
+- `<root>/SPEC/_node.md` — contains a `# Public` section with a `## Context` subsection.
+- `<root>/SPEC/a/_node.md` — contains a `# Public` section with a `## Context` subsection but no `output` field in frontmatter.
+
+**Actions**
+
+1. Call `MCPChainHash("SPEC/a")`.
+
+**Expected outcome**
+
+Raises error `NoOutput`.

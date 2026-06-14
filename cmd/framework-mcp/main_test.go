@@ -1,189 +1,217 @@
-// code-from-spec: ROOT/golang/tests/server@da-jvw5gKNVPJuYdc3JQKWnrFps
+// code-from-spec: ROOT/golang/tests/server@KUfixTlgZBP60kr6UKuSA7Lcn-A
 package main_test
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 )
 
-var testBinaryPath string
+var binaryPath string
 
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "framework-mcp-test-*")
+	tmpDir, err := os.MkdirTemp("", "framework-mcp-test-*")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "TestMain: failed to create temp dir:", err)
+		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
 		os.Exit(1)
 	}
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(tmpDir)
 
-	binaryName := "framework-mcp"
+	name := "framework-mcp"
 	if runtime.GOOS == "windows" {
-		binaryName += ".exe"
+		name += ".exe"
 	}
-	testBinaryPath = filepath.Join(dir, binaryName)
+	binaryPath = tmpDir + string(os.PathSeparator) + name
 
-	cmd := exec.Command("go", "build", "-o", testBinaryPath, ".")
-	cmd.Stdout = os.Stdout
+	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "TestMain: failed to build binary:", err)
+		fmt.Fprintf(os.Stderr, "failed to build binary: %v\n", err)
 		os.Exit(1)
 	}
 
 	os.Exit(m.Run())
 }
 
-func TestHelpFlagPrintsUsageToStdout(t *testing.T) {
-	cmd := exec.Command(testBinaryPath, "--help")
-	out, err := cmd.Output()
+func TestHelpFlag(t *testing.T) {
+	out, err := exec.Command(binaryPath, "--help").Output()
 	if err != nil {
 		t.Fatalf("expected exit 0, got: %v", err)
 	}
 	if !strings.Contains(string(out), "Usage:") {
-		t.Errorf("expected usage message in stdout, got: %s", string(out))
+		t.Errorf("expected stdout to contain usage message, got: %s", string(out))
 	}
 }
 
-func TestHelpWordPrintsUsageToStdout(t *testing.T) {
-	cmd := exec.Command(testBinaryPath, "help")
-	out, err := cmd.Output()
+func TestHelpWord(t *testing.T) {
+	out, err := exec.Command(binaryPath, "help").Output()
 	if err != nil {
 		t.Fatalf("expected exit 0, got: %v", err)
 	}
 	if !strings.Contains(string(out), "Usage:") {
-		t.Errorf("expected usage message in stdout, got: %s", string(out))
+		t.Errorf("expected stdout to contain usage message, got: %s", string(out))
 	}
 }
 
-func TestShortHelpFlagPrintsUsageToStdout(t *testing.T) {
-	cmd := exec.Command(testBinaryPath, "-h")
-	out, err := cmd.Output()
+func TestShortHelpFlag(t *testing.T) {
+	out, err := exec.Command(binaryPath, "-h").Output()
 	if err != nil {
 		t.Fatalf("expected exit 0, got: %v", err)
 	}
 	if !strings.Contains(string(out), "Usage:") {
-		t.Errorf("expected usage message in stdout, got: %s", string(out))
+		t.Errorf("expected stdout to contain usage message, got: %s", string(out))
 	}
 }
 
-func TestUnrecognizedArgumentPrintsUsageToStderr(t *testing.T) {
-	cmd := exec.Command(testBinaryPath, "something")
-	var stderr strings.Builder
+func TestUnrecognizedArgument(t *testing.T) {
+	cmd := exec.Command(binaryPath, "something")
+	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err == nil {
 		t.Fatal("expected exit 1, got exit 0")
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		if exitErr.ExitCode() != 1 {
-			t.Fatalf("expected exit code 1, got %d", exitErr.ExitCode())
-		}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("expected ExitError, got: %v", err)
+	}
+	if exitErr.ExitCode() != 1 {
+		t.Errorf("expected exit code 1, got %d", exitErr.ExitCode())
 	}
 	if !strings.Contains(stderr.String(), "Usage:") {
-		t.Errorf("expected usage message in stderr, got: %s", stderr.String())
+		t.Errorf("expected stderr to contain usage message, got: %s", stderr.String())
 	}
 }
 
-func TestMultipleArgumentsPrintsUsageToStderr(t *testing.T) {
-	cmd := exec.Command(testBinaryPath, "foo", "bar")
-	var stderr strings.Builder
+func TestMultipleArguments(t *testing.T) {
+	cmd := exec.Command(binaryPath, "foo", "bar")
+	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err == nil {
 		t.Fatal("expected exit 1, got exit 0")
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		if exitErr.ExitCode() != 1 {
-			t.Fatalf("expected exit code 1, got %d", exitErr.ExitCode())
-		}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("expected ExitError, got: %v", err)
+	}
+	if exitErr.ExitCode() != 1 {
+		t.Errorf("expected exit code 1, got %d", exitErr.ExitCode())
 	}
 	if !strings.Contains(stderr.String(), "Usage:") {
-		t.Errorf("expected usage message in stderr, got: %s", stderr.String())
+		t.Errorf("expected stderr to contain usage message, got: %s", stderr.String())
 	}
 }
 
-type testMCPProcess struct {
+type testMCPSession struct {
 	cmd    *exec.Cmd
-	stdin  *strings.Reader
+	stdin  *bytes.Buffer
 	stdout *bufio.Reader
-	writer *os.File
-	reader *os.File
+	cancel context.CancelFunc
 }
 
-func testStartMCPProcess(t *testing.T) (*exec.Cmd, *bufio.Writer, *bufio.Reader) {
+func testStartMCPSession(t *testing.T) *testMCPSession {
 	t.Helper()
-	cmd := exec.Command(testBinaryPath)
 
-	stdinR, stdinW, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("testStartMCPProcess: pipe: %v", err)
-	}
-	stdoutR, stdoutW, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("testStartMCPProcess: pipe: %v", err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
 
-	cmd.Stdin = stdinR
-	cmd.Stdout = stdoutW
+	cmd := exec.CommandContext(ctx, binaryPath)
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		cancel()
+		t.Fatalf("failed to get stdin pipe: %v", err)
+	}
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		cancel()
+		t.Fatalf("failed to get stdout pipe: %v", err)
+	}
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		t.Fatalf("testStartMCPProcess: start: %v", err)
+		cancel()
+		t.Fatalf("failed to start binary: %v", err)
 	}
 
-	stdinR.Close()
-	stdoutW.Close()
+	sess := &testMCPSession{
+		cmd:    cmd,
+		stdout: bufio.NewReader(stdoutPipe),
+		cancel: cancel,
+	}
 
 	t.Cleanup(func() {
-		stdinW.Close()
+		cancel()
+		stdinPipe.Close()
 		cmd.Wait()
-		stdoutR.Close()
 	})
 
-	return cmd, bufio.NewWriter(stdinW), bufio.NewReader(stdoutR)
+	testMCPHandshake(t, stdinPipe, sess.stdout)
+
+	sess.stdin = &bytes.Buffer{}
+	_ = sess.stdin
+
+	stdinRef := stdinPipe
+	sess.stdin = &bytes.Buffer{}
+	_ = stdinRef
+
+	sendFn := func(msg map[string]any) {
+		data, err := json.Marshal(msg)
+		if err != nil {
+			t.Fatalf("failed to marshal message: %v", err)
+		}
+		data = append(data, '\n')
+		if _, err := stdinPipe.Write(data); err != nil {
+			t.Fatalf("failed to write to stdin: %v", err)
+		}
+	}
+
+	sess.stdin = &bytes.Buffer{}
+	_ = sendFn
+
+	return &testMCPSession{
+		cmd:    cmd,
+		stdout: sess.stdout,
+		cancel: cancel,
+	}
 }
 
-func testSendJSON(t *testing.T, w *bufio.Writer, v any) {
+func testSendMessage(t *testing.T, stdin interface{ Write([]byte) (int, error) }, msg map[string]any) {
 	t.Helper()
-	data, err := json.Marshal(v)
+	data, err := json.Marshal(msg)
 	if err != nil {
-		t.Fatalf("testSendJSON: marshal: %v", err)
+		t.Fatalf("testSendMessage: marshal: %v", err)
 	}
-	if _, err := w.Write(data); err != nil {
-		t.Fatalf("testSendJSON: write: %v", err)
-	}
-	if err := w.WriteByte('\n'); err != nil {
-		t.Fatalf("testSendJSON: write newline: %v", err)
-	}
-	if err := w.Flush(); err != nil {
-		t.Fatalf("testSendJSON: flush: %v", err)
+	data = append(data, '\n')
+	if _, err := stdin.Write(data); err != nil {
+		t.Fatalf("testSendMessage: write: %v", err)
 	}
 }
 
-func testReadJSON(t *testing.T, r *bufio.Reader) map[string]any {
+func testReadMessage(t *testing.T, reader *bufio.Reader) map[string]any {
 	t.Helper()
-	line, err := r.ReadString('\n')
+	line, err := reader.ReadString('\n')
 	if err != nil {
-		t.Fatalf("testReadJSON: read: %v", err)
+		t.Fatalf("testReadMessage: %v", err)
 	}
-	var result map[string]any
-	if err := json.Unmarshal([]byte(line), &result); err != nil {
-		t.Fatalf("testReadJSON: unmarshal: %v", err)
+	var msg map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(line)), &msg); err != nil {
+		t.Fatalf("testReadMessage: unmarshal: %v", err)
 	}
-	return result
+	return msg
 }
 
-func testMCPHandshake(t *testing.T, w *bufio.Writer, r *bufio.Reader) {
+func testMCPHandshake(t *testing.T, stdin interface{ Write([]byte) (int, error) }, stdout *bufio.Reader) {
 	t.Helper()
 
-	testSendJSON(t, w, map[string]any{
+	initReq := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "initialize",
@@ -191,108 +219,169 @@ func testMCPHandshake(t *testing.T, w *bufio.Writer, r *bufio.Reader) {
 			"protocolVersion": "2024-11-05",
 			"clientInfo": map[string]any{
 				"name":    "test-client",
-				"version": "1.0.0",
+				"version": "1.0",
 			},
 			"capabilities": map[string]any{},
 		},
-	})
+	}
+	testSendMessage(t, stdin, initReq)
 
-	testReadJSON(t, r)
+	testReadMessage(t, stdout)
 
-	testSendJSON(t, w, map[string]any{
+	notif := map[string]any{
 		"jsonrpc": "2.0",
 		"method":  "notifications/initialized",
-	})
+	}
+	testSendMessage(t, stdin, notif)
 }
 
 func TestToolsListAdvertisesMaxResultSizeCharsForLoadChain(t *testing.T) {
-	_, w, r := testStartMCPProcess(t)
-	testMCPHandshake(t, w, r)
+	ctx, cancel := context.WithCancel(context.Background())
 
-	testSendJSON(t, w, map[string]any{
+	cmd := exec.CommandContext(ctx, binaryPath)
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		cancel()
+		t.Fatalf("failed to get stdin pipe: %v", err)
+	}
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		cancel()
+		t.Fatalf("failed to get stdout pipe: %v", err)
+	}
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		cancel()
+		t.Fatalf("failed to start binary: %v", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		stdinPipe.Close()
+		cmd.Wait()
+	})
+
+	stdout := bufio.NewReader(stdoutPipe)
+	testMCPHandshake(t, stdinPipe, stdout)
+
+	toolsListReq := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      2,
 		"method":  "tools/list",
-	})
+		"params":  map[string]any{},
+	}
+	testSendMessage(t, stdinPipe, toolsListReq)
 
-	resp := testReadJSON(t, r)
+	resp := testReadMessage(t, stdout)
 
 	result, ok := resp["result"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected result object, got: %v", resp["result"])
+		t.Fatalf("expected result object, got: %v", resp)
 	}
 	tools, ok := result["tools"].([]any)
 	if !ok {
-		t.Fatalf("expected tools array, got: %v", result["tools"])
+		t.Fatalf("expected tools array, got: %v", result)
 	}
 
-	var found bool
+	var loadChainTool map[string]any
 	for _, toolAny := range tools {
 		tool, ok := toolAny.(map[string]any)
 		if !ok {
 			continue
 		}
-		if tool["name"] != "load_chain" {
-			continue
-		}
-		found = true
-		meta, ok := tool["_meta"].(map[string]any)
-		if !ok {
-			t.Fatalf("load_chain tool missing _meta, got: %v", tool["_meta"])
-		}
-		maxSize, ok := meta["anthropic/maxResultSizeChars"]
-		if !ok {
-			t.Fatal("load_chain _meta missing anthropic/maxResultSizeChars")
-		}
-		maxSizeFloat, ok := maxSize.(float64)
-		if !ok {
-			t.Fatalf("anthropic/maxResultSizeChars expected float64, got: %T", maxSize)
-		}
-		if int(maxSizeFloat) != 500000 {
-			t.Errorf("expected anthropic/maxResultSizeChars = 500000, got %v", maxSizeFloat)
+		if tool["name"] == "load_chain" {
+			loadChainTool = tool
+			break
 		}
 	}
-	if !found {
-		t.Error("load_chain tool not found in tools/list response")
+
+	if loadChainTool == nil {
+		t.Fatal("load_chain tool not found in tools/list response")
+	}
+
+	meta, ok := loadChainTool["_meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected _meta object in load_chain tool, got: %v", loadChainTool)
+	}
+
+	maxSize, ok := meta["anthropic/maxResultSizeChars"]
+	if !ok {
+		t.Fatal("expected anthropic/maxResultSizeChars in _meta")
+	}
+
+	maxSizeFloat, ok := maxSize.(float64)
+	if !ok {
+		t.Fatalf("expected numeric anthropic/maxResultSizeChars, got: %T %v", maxSize, maxSize)
+	}
+
+	if int(maxSizeFloat) != 500000 {
+		t.Errorf("expected anthropic/maxResultSizeChars to be 500000, got %v", maxSizeFloat)
 	}
 }
 
 func TestToolsListAdvertisesAllTools(t *testing.T) {
-	_, w, r := testStartMCPProcess(t)
-	testMCPHandshake(t, w, r)
+	ctx, cancel := context.WithCancel(context.Background())
 
-	testSendJSON(t, w, map[string]any{
+	cmd := exec.CommandContext(ctx, binaryPath)
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		cancel()
+		t.Fatalf("failed to get stdin pipe: %v", err)
+	}
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		cancel()
+		t.Fatalf("failed to get stdout pipe: %v", err)
+	}
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		cancel()
+		t.Fatalf("failed to start binary: %v", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		stdinPipe.Close()
+		cmd.Wait()
+	})
+
+	stdout := bufio.NewReader(stdoutPipe)
+	testMCPHandshake(t, stdinPipe, stdout)
+
+	toolsListReq := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      2,
 		"method":  "tools/list",
-	})
+		"params":  map[string]any{},
+	}
+	testSendMessage(t, stdinPipe, toolsListReq)
 
-	resp := testReadJSON(t, r)
+	resp := testReadMessage(t, stdout)
 
 	result, ok := resp["result"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected result object, got: %v", resp["result"])
+		t.Fatalf("expected result object, got: %v", resp)
 	}
 	tools, ok := result["tools"].([]any)
 	if !ok {
-		t.Fatalf("expected tools array, got: %v", result["tools"])
+		t.Fatalf("expected tools array, got: %v", result)
 	}
 
-	expected := []string{"load_chain", "write_file", "validate_specs", "chain_hash", "version"}
-	found := make(map[string]bool)
+	toolNames := make(map[string]bool)
 	for _, toolAny := range tools {
 		tool, ok := toolAny.(map[string]any)
 		if !ok {
 			continue
 		}
 		if name, ok := tool["name"].(string); ok {
-			found[name] = true
+			toolNames[name] = true
 		}
 	}
 
-	for _, name := range expected {
-		if !found[name] {
-			t.Errorf("expected tool %q not found in tools/list response", name)
+	expectedTools := []string{"load_chain", "write_file", "validate_specs", "chain_hash", "version"}
+	for _, expected := range expectedTools {
+		if !toolNames[expected] {
+			t.Errorf("expected tool %q to be present in tools/list response", expected)
 		}
 	}
 }
