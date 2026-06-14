@@ -1,4 +1,4 @@
-# ROOT/functional
+# SPEC/functional
 
 MCP server for Code from Spec projects. Provides tools for
 spec validation, artifact generation, and artifact management.

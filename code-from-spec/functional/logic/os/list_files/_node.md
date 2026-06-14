@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/os/list_files/output.md
 ---
 
-# ROOT/functional/logic/os/list_files
+# SPEC/functional/logic/os/list_files
 
 Recursively lists all files under a directory.
 

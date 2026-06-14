@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/dependencies/owasp-path-traversal
+  - SPEC/functional/dependencies/owasp-path-traversal
 output: code-from-spec/functional/logic/os/path_utils/output.md
 ---
 
-# ROOT/functional/logic/os/path_utils
+# SPEC/functional/logic/os/path_utils
 
 Path types and safe path conversion for the framework.
 

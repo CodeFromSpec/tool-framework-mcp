@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/parsing/frontmatter
-  - ROOT/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/utils/logical_names
+  - SPEC/functional/logic/parsing/frontmatter
+  - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/chain/resolver/output.md
 ---
 
-# ROOT/functional/logic/chain/resolver
+# SPEC/functional/logic/chain/resolver
 
 Resolves the ordered list of positions that form the
 chain for a given target logical name.

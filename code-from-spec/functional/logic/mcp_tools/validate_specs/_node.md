@@ -1,19 +1,19 @@
 ---
 depends_on:
-  - ROOT/functional/logic/spec_tree/scan
-  - ROOT/functional/logic/spec_tree/validate
-  - ROOT/functional/logic/utils/node_ranking
-  - ROOT/functional/logic/chain/resolver
-  - ROOT/functional/logic/chain/hash
-  - ROOT/functional/logic/parsing/artifact_tag
-  - ROOT/functional/logic/parsing/frontmatter
-  - ROOT/functional/logic/parsing/node_parsing
-  - ROOT/functional/logic/os/list_files
-  - ROOT/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/spec_tree/scan
+  - SPEC/functional/logic/spec_tree/validate
+  - SPEC/functional/logic/utils/node_ranking
+  - SPEC/functional/logic/chain/resolver
+  - SPEC/functional/logic/chain/hash
+  - SPEC/functional/logic/parsing/artifact_tag
+  - SPEC/functional/logic/parsing/frontmatter
+  - SPEC/functional/logic/parsing/node_parsing
+  - SPEC/functional/logic/os/list_files
+  - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/mcp_tools/validate_specs/output.md
 ---
 
-# ROOT/functional/logic/mcp_tools/validate_specs
+# SPEC/functional/logic/mcp_tools/validate_specs
 
 Validates the spec tree for format errors, circular
 references, and artifact staleness.

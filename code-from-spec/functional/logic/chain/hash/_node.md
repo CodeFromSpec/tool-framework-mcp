@@ -1,18 +1,17 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/resolver(interface)
-  - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/os/path_utils(interface)
-  - ROOT/functional/logic/parsing/frontmatter(interface)
-  - ROOT/functional/logic/parsing/node_parsing
-  - ROOT/functional/logic/utils/logical_names(interface)
-  - ROOT/functional/logic/utils/text_normalization(interface)
-external:
-  - path: CHAIN_HASH.md
+  - SPEC/functional/logic/chain/resolver(interface)
+  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/parsing/frontmatter(interface)
+  - SPEC/functional/logic/parsing/node_parsing
+  - SPEC/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/utils/text_normalization(interface)
+  - EXTERNAL/CHAIN_HASH.md
 output: code-from-spec/functional/logic/chain/hash/output.md
 ---
 
-# ROOT/functional/logic/chain/hash
+# SPEC/functional/logic/chain/hash
 
 Computes the chain hash for a resolved chain by reading
 all chain positions from disk and hashing their content.

@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/os/file_writer/output.md
 ---
 
-# ROOT/functional/logic/os/file_writer
+# SPEC/functional/logic/os/file_writer
 
 Writes content to a file on disk.
 

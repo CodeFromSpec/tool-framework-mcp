@@ -1,8 +1,6 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/chain_hash@jhjGxNpCmTIo-_IKiJ95UtxNTfg -->
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/chain_hash@o-Z7gRAHXVs9Yw9lZc2IzZgKz_I -->
 
 namespace: mcpchainhash
-
----
 
 function MCPChainHash(logical_name: string) -> string
   errors:
@@ -26,4 +24,4 @@ function MCPChainHash(logical_name: string) -> string
   4. Call ChainHashCompute(chain) with the resolved Chain.
      If it fails, propagate the error.
 
-  5. Return the resulting 27-character base64url hash string.
+  5. Return the 27-character base64url hash string.
