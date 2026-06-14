@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/text_normalization@h7kvG4cIYhwxdpRkjUNoNwOEtV0 -->
+<!-- code-from-spec: ROOT/functional/logic/utils/text_normalization@6vLGbEZG-TgzpuPhdzZd9x2Qi0I -->
 
 function NormalizeText(raw_string: string) -> string
 
