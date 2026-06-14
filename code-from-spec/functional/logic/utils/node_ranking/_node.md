@@ -87,13 +87,19 @@ For each spec node entry:
 - **depends_on**: for each entry in
   `frontmatter.depends_on`, determine the lookup key.
   For `ARTIFACT/` references, use as-is (the qualifier
-  is part of the key). For `ROOT/` references, use
+  is part of the key). For `SPEC/` or `ROOT/` references
+  (detected by `LogicalNameIsSpec`), normalize the
+  reference with `LogicalNameNormalize` (converts
+  `ROOT/` to `SPEC/`), then use
   `LogicalNameStripQualifier` to get the bare logical
   name for lookup. The dependency edge points to the
-  bare node entry.
-- **input**: if `frontmatter.input` is non-empty, add it
-  as a dependency (it is an `ARTIFACT/` reference, used
-  as-is).
+  bare node entry. For `EXTERNAL/` references, skip —
+  external files are not part of the spec tree and have
+  no rank.
+- **input**: if `frontmatter.input` is non-empty and
+  starts with `ARTIFACT/`, add it as a dependency. If
+  it is an `EXTERNAL/` reference, skip — external files
+  have no rank.
 
 For each artifact entry:
 - Depends on the node that generates it (the node whose
