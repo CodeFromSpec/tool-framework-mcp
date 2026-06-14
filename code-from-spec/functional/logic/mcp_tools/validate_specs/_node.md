@@ -8,6 +8,7 @@ depends_on:
   - ROOT/functional/logic/parsing/artifact_tag
   - ROOT/functional/logic/parsing/frontmatter
   - ROOT/functional/logic/parsing/node_parsing
+  - ROOT/functional/logic/os/list_files
   - ROOT/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/mcp_tools/validate_specs/output.md
 ---
@@ -72,6 +73,11 @@ it fails, return a report with a single format error
 (node = "", rule = "scan", detail = error message) and
 empty cycles/staleness.
 
+Also discover all subdirectories under `code-from-spec/`
+using `ListFiles` (or equivalent). This list is needed
+by `SpecTreeValidate` to detect subdirectories without
+`_node.md`.
+
 ### Step 2 — Parse all nodes
 
 For each discovered node:
@@ -89,8 +95,9 @@ by subsequent steps.
 
 Build a list of `SpecTreeValidateInput` from the
 successfully parsed nodes (logical name + frontmatter +
-node). Call `SpecTreeValidate(entries)`. Collect all
-returned `FormatError` entries.
+node). Call `SpecTreeValidate(entries, all_dirs)` with
+the discovered subdirectories. Collect all returned
+`FormatError` entries.
 
 ### Step 4 — Ranking and cycle detection
 
