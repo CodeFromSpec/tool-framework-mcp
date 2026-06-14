@@ -67,9 +67,9 @@ For each `NodeRankInput`:
 - Add a spec node entry keyed by `logical_name`.
 - If `frontmatter.output` is non-empty, add an artifact
   entry keyed by its `ARTIFACT/` logical name. Construct
-  the artifact logical name by stripping the `ROOT/`
+  the artifact logical name by stripping the `SPEC/`
   prefix from the node's logical name and prepending
-  `ARTIFACT/`. Example: node `ROOT/a/b` with an output
+  `ARTIFACT/`. Example: node `SPEC/a/b` with an output
   → `ARTIFACT/a/b`.
 
 ### Step 2 — Build dependency edges
