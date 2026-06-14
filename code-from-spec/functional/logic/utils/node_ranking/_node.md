@@ -87,10 +87,8 @@ For each spec node entry:
 - **depends_on**: for each entry in
   `frontmatter.depends_on`, determine the lookup key.
   For `ARTIFACT/` references, use as-is (the qualifier
-  is part of the key). For `SPEC/` or `ROOT/` references
-  (detected by `LogicalNameIsSpec`), normalize the
-  reference with `LogicalNameNormalize` (converts
-  `ROOT/` to `SPEC/`), then use
+  is part of the key). For `SPEC/` references (detected
+  by `LogicalNameIsSpec`), use
   `LogicalNameStripQualifier` to get the bare logical
   name for lookup. The dependency edge points to the
   bare node entry. For `EXTERNAL/` references, skip —

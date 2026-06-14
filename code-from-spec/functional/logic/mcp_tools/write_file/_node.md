@@ -50,8 +50,7 @@ A success message: `"wrote <path>"`.
 
 Resolve the logical name to a file path using
 `LogicalNameToPath`. If it fails, propagate the error.
-This rejects non-SPEC/ references and qualifiers (ROOT/
-is accepted as an alias).
+This rejects non-SPEC/ references and qualifiers.
 
 Call `FrontmatterParse` with the resolved path. If
 parsing fails, raise "unreadable frontmatter".
