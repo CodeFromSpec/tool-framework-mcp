@@ -50,13 +50,6 @@ Input: SPEC (node.name_section.heading = "spec"),
 SPEC/a (node.name_section.heading = "spec/a"). Call
 SpecTreeValidate. Expect no name_heading error.
 
-#### ROOT/ heading matches SPEC/ logical name
-
-Input: SPEC (node.name_section.heading = "root"),
-SPEC/a (node.name_section.heading = "root/a"). Call
-SpecTreeValidate. Expect no name_heading error —
-root/ prefix is treated as alias for spec/.
-
 #### Heading does not match logical name
 
 Input: SPEC (node.name_section.heading = "spec"),
@@ -121,13 +114,6 @@ Input: SPEC, SPEC/a (leaf, depends_on =
 ["SPEC/missing"]). Call SpecTreeValidate. Expect a
 FormatError with rule = "dependency_targets" for
 SPEC/a.
-
-#### depends_on with ROOT/ reference normalized
-
-Input: SPEC, SPEC/a (leaf), SPEC/b (leaf, depends_on
-= ["ROOT/a"]). Call SpecTreeValidate. Expect no
-dependency_targets error — ROOT/a is normalized to
-SPEC/a, which exists.
 
 #### depends_on targets ancestor
 

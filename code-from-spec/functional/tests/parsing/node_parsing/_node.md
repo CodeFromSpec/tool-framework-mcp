@@ -142,12 +142,12 @@ Create a node with extra spaces between `#` and
 `SPEC/e` in the name heading. Call `NodeParse` with
 `"SPEC/e"`. Expect `name_section.heading` = `"spec/e"`.
 
-#### Node name with ROOT/ heading matches SPEC/ logical name
+#### Node name with ROOT/ heading does not match SPEC/
 
 Create a node file with heading `# ROOT/x`. Call
-`NodeParse` with `"SPEC/x"`. Expect no error —
-`root/x` normalizes to match `spec/x` via prefix
-replacement.
+`NodeParse` with `"SPEC/x"`. Expect error
+NodeNameDoesNotMatch — `root/x` does not match
+`spec/x`.
 
 #### Subsection headings are normalized
 

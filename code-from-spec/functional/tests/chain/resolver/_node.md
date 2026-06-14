@@ -222,22 +222,6 @@ ChainResolve with "SPEC/a".
 
 Expect input is absent.
 
-### ROOT/ backward compatibility
-
-#### ROOT/ depends_on normalized to SPEC/
-
-Create spec tree: SPEC, SPEC/a (leaf, depends_on =
-["ROOT/b"]), SPEC/b. Call ChainResolve with "SPEC/a".
-
-Expect dependencies contains one ChainItem with
-logical_name = "SPEC/b" (normalized from ROOT/b).
-
-#### ROOT target normalized to SPEC
-
-Call ChainResolve with "ROOT/a" for a spec tree with
-SPEC and SPEC/a. Expect ancestors = [SPEC], target =
-SPEC/a.
-
 ### Error cases
 
 #### Unrecognized prefix in depends_on

@@ -29,15 +29,10 @@ Expect: `code-from-spec/payments/processor/_node.md`.
 Input: `"SPEC/x/y(interface)"`.
 Expect: `code-from-spec/x/y/_node.md`.
 
-#### ROOT alone (backward compatibility)
+#### Rejects ROOT reference
 
-Input: `"ROOT"`.
-Expect: `code-from-spec/_node.md`.
-
-#### ROOT with path (backward compatibility)
-
-Input: `"ROOT/payments/processor"`.
-Expect: `code-from-spec/payments/processor/_node.md`.
+Input: `"ROOT/x"`.
+Expect error UnsupportedReference.
 
 #### Rejects ARTIFACT reference
 
@@ -103,15 +98,10 @@ Expect: `"SPEC/domain"`.
 Input: `"SPEC"`.
 Expect error NoParent.
 
-#### ROOT/x parent returns SPEC parent (backward compat)
+#### Rejects ROOT reference
 
 Input: `"ROOT/domain"`.
-Expect: `"SPEC"`.
-
-#### ROOT has no parent (backward compat)
-
-Input: `"ROOT"`.
-Expect error NoParent.
+Expect error NotASpecReference.
 
 #### Rejects ARTIFACT reference
 
@@ -128,11 +118,6 @@ Expect error NotASpecReference.
 #### Extracts qualifier from SPEC reference
 
 Input: `"SPEC/x/y(interface)"`.
-Expect: `"interface"`.
-
-#### Extracts qualifier from ROOT reference (backward compat)
-
-Input: `"ROOT/x/y(interface)"`.
 Expect: `"interface"`.
 
 #### ARTIFACT without qualifier returns absent
@@ -161,11 +146,6 @@ Expect: absent.
 
 Input: `"SPEC/x/y(interface)"`.
 Expect: `"SPEC/x/y"`.
-
-#### Strips qualifier from ROOT reference (preserves prefix)
-
-Input: `"ROOT/x/y(interface)"`.
-Expect: `"ROOT/x/y"`.
 
 #### ARTIFACT without qualifier — returns unchanged
 
@@ -202,16 +182,6 @@ Expect: false.
 #### SPEC with path
 
 Input: `"SPEC/domain/config"`.
-Expect: true.
-
-#### ROOT alone (backward compat)
-
-Input: `"ROOT"`.
-Expect: false.
-
-#### ROOT with path (backward compat)
-
-Input: `"ROOT/domain/config"`.
 Expect: true.
 
 #### ARTIFACT reference
@@ -295,15 +265,10 @@ Expect: true.
 Input: `"SPEC/x/y"`.
 Expect: true.
 
-#### ROOT alone (backward compat)
+#### ROOT reference — not SPEC
 
-Input: `"ROOT"`.
-Expect: true.
-
-#### ROOT with path (backward compat)
-
-Input: `"ROOT/x/y"`.
-Expect: true.
+Input: `"ROOT/x"`.
+Expect: false.
 
 #### ARTIFACT reference
 
@@ -386,33 +351,6 @@ Expect error NotAnExternalReference.
 Input: `"ARTIFACT/x"`.
 Expect error NotAnExternalReference.
 
-### LogicalNameNormalize
-
-#### ROOT to SPEC
-
-Input: `"ROOT/x/y"`.
-Expect: `"SPEC/x/y"`.
-
-#### ROOT bare to SPEC
-
-Input: `"ROOT"`.
-Expect: `"SPEC"`.
-
-#### SPEC unchanged
-
-Input: `"SPEC/x/y"`.
-Expect: `"SPEC/x/y"`.
-
-#### ARTIFACT unchanged
-
-Input: `"ARTIFACT/x"`.
-Expect: `"ARTIFACT/x"`.
-
-#### EXTERNAL unchanged
-
-Input: `"EXTERNAL/x"`.
-Expect: `"EXTERNAL/x"`.
-
 # Agent
 
 Generate a test specification document listing each test
@@ -427,4 +365,4 @@ case with its setup, actions, and expected outcome.
   `LogicalNameHasQualifier`, `LogicalNameIsArtifact`,
   `LogicalNameIsSpec`, `LogicalNameIsExternal`,
   `LogicalNameGetArtifactGenerator`,
-  `LogicalNameExternalToPath`, `LogicalNameNormalize`.
+  `LogicalNameExternalToPath`.
