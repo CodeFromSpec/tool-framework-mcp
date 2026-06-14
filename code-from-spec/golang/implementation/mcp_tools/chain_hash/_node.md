@@ -10,7 +10,7 @@ input: ARTIFACT/functional/logic/mcp_tools/chain_hash
 output: internal/mcpchainhash/mcpchainhash.go
 ---
 
-# ROOT/golang/implementation/mcp_tools/chain_hash
+# SPEC/golang/implementation/mcp_tools/chain_hash
 
 # Agent
 

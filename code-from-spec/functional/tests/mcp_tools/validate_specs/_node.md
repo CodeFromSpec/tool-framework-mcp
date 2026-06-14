@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/mcp_tools/validate_specs(interface)
-  - ROOT/functional/logic/chain/hash(interface)
+  - SPEC/functional/logic/mcp_tools/validate_specs(interface)
+  - SPEC/functional/logic/chain/hash(interface)
 output: code-from-spec/functional/tests/mcp_tools/validate_specs/output.md
 ---
 
-# ROOT/functional/tests/mcp_tools/validate_specs
+# SPEC/functional/tests/mcp_tools/validate_specs
 
 Test cases for the validate specs tool.
 

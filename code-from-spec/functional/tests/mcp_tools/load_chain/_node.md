@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/mcp_tools/load_chain(interface)
+  - SPEC/functional/logic/mcp_tools/load_chain(interface)
 output: code-from-spec/functional/tests/mcp_tools/load_chain/output.md
 ---
 
-# ROOT/functional/tests/mcp_tools/load_chain
+# SPEC/functional/tests/mcp_tools/load_chain
 
 Test cases for the load chain tool.
 

@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/utils/logical_names(interface)
 output: code-from-spec/functional/tests/utils/logical_names/output.md
 ---
 
-# ROOT/functional/tests/utils/logical_names
+# SPEC/functional/tests/utils/logical_names
 
 Test cases for the logical names component.
 

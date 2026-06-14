@@ -6,7 +6,7 @@ input: ARTIFACT/functional/logic/utils/logical_names
 output: internal/logicalnames/logicalnames.go
 ---
 
-# ROOT/golang/implementation/utils/logical_names
+# SPEC/golang/implementation/utils/logical_names
 
 # Agent
 

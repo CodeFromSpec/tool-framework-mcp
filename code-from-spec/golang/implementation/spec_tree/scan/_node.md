@@ -8,7 +8,7 @@ input: ARTIFACT/functional/logic/spec_tree/scan
 output: internal/spectree/spectree.go
 ---
 
-# ROOT/golang/implementation/spec_tree/scan
+# SPEC/golang/implementation/spec_tree/scan
 
 # Agent
 

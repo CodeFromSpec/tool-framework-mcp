@@ -9,7 +9,7 @@ input: ARTIFACT/functional/logic/chain/resolver
 output: internal/chainresolver/chainresolver.go
 ---
 
-# ROOT/golang/implementation/chain/resolver
+# SPEC/golang/implementation/chain/resolver
 
 # Agent
 

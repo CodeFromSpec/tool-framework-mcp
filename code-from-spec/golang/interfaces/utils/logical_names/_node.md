@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/utils/logical_names(interface)
   - ARTIFACT/golang/interfaces/os/path_utils
 output: code-from-spec/golang/interfaces/utils/logical_names/output.md
 ---
 
-# ROOT/golang/interfaces/utils/logical_names
+# SPEC/golang/interfaces/utils/logical_names
 
 # Public
 
@@ -15,4 +15,4 @@ output: code-from-spec/golang/interfaces/utils/logical_names/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"`

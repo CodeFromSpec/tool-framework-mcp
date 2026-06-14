@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/parsing/artifact_tag(interface)
+  - SPEC/functional/logic/parsing/artifact_tag(interface)
   - ARTIFACT/golang/interfaces/os/path_utils
 output: code-from-spec/golang/interfaces/parsing/artifact_tag/output.md
 ---
 
-# ROOT/golang/interfaces/parsing/artifact_tag
+# SPEC/golang/interfaces/parsing/artifact_tag
 
 # Public
 
@@ -15,4 +15,4 @@ output: code-from-spec/golang/interfaces/parsing/artifact_tag/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/artifacttag"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/artifacttag"`

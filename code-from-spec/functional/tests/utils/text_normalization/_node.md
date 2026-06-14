@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/text_normalization(interface)
+  - SPEC/functional/logic/utils/text_normalization(interface)
 output: code-from-spec/functional/tests/utils/text_normalization/output.md
 ---
 
-# ROOT/functional/tests/utils/text_normalization
+# SPEC/functional/tests/utils/text_normalization
 
 Test cases for the text normalization component.
 

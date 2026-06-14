@@ -7,7 +7,7 @@ input: ARTIFACT/functional/logic/utils/node_ranking
 output: internal/noderanking/noderanking.go
 ---
 
-# ROOT/golang/implementation/utils/node_ranking
+# SPEC/golang/implementation/utils/node_ranking
 
 # Agent
 

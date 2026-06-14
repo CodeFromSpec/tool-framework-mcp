@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/golang/dependencies/goccy-go-yaml
+  - SPEC/golang/dependencies/goccy-go-yaml
   - ARTIFACT/golang/interfaces/parsing/frontmatter
   - ARTIFACT/golang/interfaces/os/file_reader
   - ARTIFACT/golang/interfaces/os/path_utils
@@ -8,7 +8,7 @@ input: ARTIFACT/functional/logic/parsing/frontmatter
 output: internal/frontmatter/frontmatter.go
 ---
 
-# ROOT/golang/implementation/parsing/frontmatter
+# SPEC/golang/implementation/parsing/frontmatter
 
 # Agent
 

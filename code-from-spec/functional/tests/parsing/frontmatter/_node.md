@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/parsing/frontmatter(interface)
+  - SPEC/functional/logic/parsing/frontmatter(interface)
 output: code-from-spec/functional/tests/parsing/frontmatter/output.md
 ---
 
-# ROOT/functional/tests/parsing/frontmatter
+# SPEC/functional/tests/parsing/frontmatter
 
 Test cases for the frontmatter component.
 

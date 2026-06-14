@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/mcp_tools/chain_hash(interface)
+  - SPEC/functional/logic/mcp_tools/chain_hash(interface)
 output: code-from-spec/functional/tests/mcp_tools/chain_hash/output.md
 ---
 
-# ROOT/functional/tests/mcp_tools/chain_hash
+# SPEC/functional/tests/mcp_tools/chain_hash
 
 Test cases for the chain hash tool.
 

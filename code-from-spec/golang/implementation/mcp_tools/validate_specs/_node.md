@@ -14,7 +14,7 @@ input: ARTIFACT/functional/logic/mcp_tools/validate_specs
 output: internal/mcpvalidatespecs/mcpvalidatespecs.go
 ---
 
-# ROOT/golang/implementation/mcp_tools/validate_specs
+# SPEC/golang/implementation/mcp_tools/validate_specs
 
 # Agent
 

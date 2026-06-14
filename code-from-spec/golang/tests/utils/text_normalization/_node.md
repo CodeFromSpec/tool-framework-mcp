@@ -5,7 +5,7 @@ input: ARTIFACT/functional/tests/utils/text_normalization
 output: internal/textnormalization/textnormalization_test.go
 ---
 
-# ROOT/golang/tests/utils/text_normalization
+# SPEC/golang/tests/utils/text_normalization
 
 Unit tests for the textnormalization package.
 

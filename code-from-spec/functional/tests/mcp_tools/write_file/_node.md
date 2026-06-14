@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/mcp_tools/write_file(interface)
+  - SPEC/functional/logic/mcp_tools/write_file(interface)
 output: code-from-spec/functional/tests/mcp_tools/write_file/output.md
 ---
 
-# ROOT/functional/tests/mcp_tools/write_file
+# SPEC/functional/tests/mcp_tools/write_file
 
 Test cases for the write file tool.
 

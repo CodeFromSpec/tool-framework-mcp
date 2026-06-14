@@ -6,7 +6,7 @@ input: ARTIFACT/functional/logic/os/file_reader
 output: internal/filereader/filereader.go
 ---
 
-# ROOT/golang/implementation/os/file_reader
+# SPEC/golang/implementation/os/file_reader
 
 # Agent
 

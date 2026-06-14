@@ -12,7 +12,7 @@ input: ARTIFACT/functional/logic/spec_tree/validate
 output: internal/spectreevalidate/spectreevalidate.go
 ---
 
-# ROOT/golang/implementation/spec_tree/validate
+# SPEC/golang/implementation/spec_tree/validate
 
 # Agent
 

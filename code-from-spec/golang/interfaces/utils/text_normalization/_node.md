@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/text_normalization(interface)
+  - SPEC/functional/logic/utils/text_normalization(interface)
 output: code-from-spec/golang/interfaces/utils/text_normalization/output.md
 ---
 
-# ROOT/golang/interfaces/utils/text_normalization
+# SPEC/golang/interfaces/utils/text_normalization
 
 # Public
 
@@ -14,4 +14,4 @@ output: code-from-spec/golang/interfaces/utils/text_normalization/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"`

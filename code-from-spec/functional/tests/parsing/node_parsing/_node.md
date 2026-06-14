@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/parsing/node_parsing(interface)
+  - SPEC/functional/logic/parsing/node_parsing(interface)
 output: code-from-spec/functional/tests/parsing/node_parsing/output.md
 ---
 
-# ROOT/functional/tests/parsing/node_parsing
+# SPEC/functional/tests/parsing/node_parsing
 
 Test cases for the node parsing component.
 
