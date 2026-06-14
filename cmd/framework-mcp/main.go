@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/server@3aMwtrlsX0VuOya9-hTsxcAJ2dU
+// code-from-spec: ROOT/golang/implementation/server@WBwILsTRU-oQIvxskPHlOQjwbT8
 package main
 
 import (
@@ -51,7 +51,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := mcp.NewServer(&mcp.Implementation{
+	server := mcp.NewServer(&mcp.Implementation{
 		Name: "framework-mcp",
 	}, nil)
 
@@ -59,7 +59,7 @@ func main() {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to load the chain for"`
 	}
 
-	mcp.AddTool(s, &mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "load_chain",
 		Description: "Load the spec chain context for a given logical name. Returns all relevant spec files concatenated in a single response.",
 		Meta:        mcp.Meta{"anthropic/maxResultSizeChars": 500000},
@@ -82,7 +82,7 @@ func main() {
 		Content     string `json:"content" jsonschema:"complete file content to write"`
 	}
 
-	mcp.AddTool(s, &mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "write_file",
 		Description: "Write a generated source file to disk. The path must be one of the files declared in the node's outputs list. Overwrites existing content.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteFileArgs) (*mcp.CallToolResult, any, error) {
@@ -98,27 +98,31 @@ func main() {
 		}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate_specs",
-		Description: "Validate all spec nodes for formatting errors, dependency cycles, and artifact staleness.",
+		Description: "Validate the spec tree format, detect dependency cycles, and check whether each artifact is up to date with its spec.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		report := mcpvalidatespecs.MCPValidateSpecs()
 
 		if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
 			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: "Spec tree is valid and all artifacts are up to date."}},
+				Content: []mcp.Content{&mcp.TextContent{Text: "Spec tree is fully valid and all artifacts are up to date."}},
 			}, nil, nil
 		}
 
 		var sb strings.Builder
-		for _, e := range report.FormatErrors {
-			fmt.Fprintf(&sb, "Format error — Node: %s | Rule: %s | Detail: %s\n", e.Node, e.Rule, e.Detail)
+
+		for _, fe := range report.FormatErrors {
+			fmt.Fprintf(&sb, "Format error — Node: %s | Rule: %s | Detail: %s\n", fe.Node, fe.Rule, fe.Detail)
 		}
+
 		for _, name := range report.Cycles {
-			fmt.Fprintf(&sb, "Cycle detected — Node: %s\n", name)
+			fmt.Fprintf(&sb, "Cycle detected involving: %s\n", name)
 		}
-		for _, entry := range report.Staleness {
-			fmt.Fprintf(&sb, "Staleness [%s] (rank %d) — %s: %s\n", entry.Status, entry.Rank, entry.Node, entry.Detail)
+
+		for _, se := range report.Staleness {
+			fmt.Fprintf(&sb, "Staleness [%s] — Node: %s | Artifact: %s | Rank: %d | Detail: %s\n",
+				se.Status, se.Node, se.ArtifactPath, se.Rank, se.Detail)
 		}
 
 		return &mcp.CallToolResult{
@@ -130,9 +134,9 @@ func main() {
 		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to compute the chain hash for"`
 	}
 
-	mcp.AddTool(s, &mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "chain_hash",
-		Description: "Compute the 27-character base64url chain hash for a given node.",
+		Description: "Compute the 27-character chain hash for a node.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args ChainHashArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcpchainhash.MCPChainHash(args.LogicalName)
 		if err != nil {
@@ -146,7 +150,7 @@ func main() {
 		}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "version",
 		Description: "Print the tool version.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
@@ -155,10 +159,8 @@ func main() {
 		}, nil, nil
 	})
 
-	if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	os.Exit(0)
 }
