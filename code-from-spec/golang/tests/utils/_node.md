@@ -1,3 +1,3 @@
-# ROOT/golang/tests/utils
+# SPEC/golang/tests/utils
 
 Go tests for utility components.

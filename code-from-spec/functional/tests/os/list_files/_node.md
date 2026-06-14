@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/list_files(interface)
+  - SPEC/functional/logic/os/list_files(interface)
 output: code-from-spec/functional/tests/os/list_files/output.md
 ---
 
-# ROOT/functional/tests/os/list_files
+# SPEC/functional/tests/os/list_files
 
 Test cases for the directory listing component.
 

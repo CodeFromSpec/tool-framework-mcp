@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/parsing/frontmatter(interface)
+  - SPEC/functional/logic/utils/logical_names
+  - SPEC/functional/logic/parsing/frontmatter(interface)
 output: code-from-spec/functional/logic/utils/node_ranking/output.md
 ---
 
-# ROOT/functional/logic/utils/node_ranking
+# SPEC/functional/logic/utils/node_ranking
 
 Iterative ranking of spec tree nodes and artifacts,
 with cycle detection as a side effect.

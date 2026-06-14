@@ -1,3 +1,3 @@
-# ROOT/golang/implementation/os
+# SPEC/golang/implementation/os
 
 Go implementation of OS abstraction components.

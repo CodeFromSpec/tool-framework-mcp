@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/logical_names(interface)
-  - ROOT/functional/logic/os/file_reader(interface)
-  - ROOT/functional/logic/utils/text_normalization(interface)
+  - SPEC/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/os/file_reader(interface)
+  - SPEC/functional/logic/utils/text_normalization(interface)
 output: code-from-spec/functional/logic/parsing/node_parsing/output.md
 ---
 
-# ROOT/functional/logic/parsing/node_parsing
+# SPEC/functional/logic/parsing/node_parsing
 
 Parses the body of a spec node file into a structured
 representation of its sections and subsections.

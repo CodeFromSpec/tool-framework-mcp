@@ -11,7 +11,7 @@ input: ARTIFACT/functional/tests/chain/hash
 output: internal/chainhash/chainhash_test.go
 ---
 
-# ROOT/golang/tests/chain/hash
+# SPEC/golang/tests/chain/hash
 
 # Agent
 

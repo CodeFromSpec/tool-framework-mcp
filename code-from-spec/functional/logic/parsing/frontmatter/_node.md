@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/parsing/frontmatter/output.md
 ---
 
-# ROOT/functional/logic/parsing/frontmatter
+# SPEC/functional/logic/parsing/frontmatter
 
 Parses structured metadata from the top of spec node files.
 

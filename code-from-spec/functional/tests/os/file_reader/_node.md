@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/file_reader(interface)
+  - SPEC/functional/logic/os/file_reader(interface)
 output: code-from-spec/functional/tests/os/file_reader/output.md
 ---
 
-# ROOT/functional/tests/os/file_reader
+# SPEC/functional/tests/os/file_reader
 
 Test cases for the file reader component.
 

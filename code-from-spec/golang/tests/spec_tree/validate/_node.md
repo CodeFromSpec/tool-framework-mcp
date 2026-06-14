@@ -10,7 +10,7 @@ input: ARTIFACT/functional/tests/spec_tree/validate
 output: internal/spectreevalidate/spectreevalidate_test.go
 ---
 
-# ROOT/golang/tests/spec_tree/validate
+# SPEC/golang/tests/spec_tree/validate
 
 # Agent
 

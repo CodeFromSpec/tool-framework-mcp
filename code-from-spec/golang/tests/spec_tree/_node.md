@@ -1,3 +1,3 @@
-# ROOT/golang/tests/spec_tree
+# SPEC/golang/tests/spec_tree
 
 Go tests for spec tree components.

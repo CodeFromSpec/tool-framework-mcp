@@ -7,4 +7,4 @@ input: ARTIFACT/functional/tests/parsing/artifact_tag
 output: internal/artifacttag/artifacttag_test.go
 ---
 
-# ROOT/golang/tests/parsing/artifact_tag
+# SPEC/golang/tests/parsing/artifact_tag

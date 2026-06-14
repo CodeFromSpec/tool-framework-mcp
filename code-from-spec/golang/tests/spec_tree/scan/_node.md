@@ -8,4 +8,4 @@ input: ARTIFACT/functional/tests/spec_tree/scan
 output: internal/spectree/spectree_test.go
 ---
 
-# ROOT/golang/tests/spec_tree/scan
+# SPEC/golang/tests/spec_tree/scan

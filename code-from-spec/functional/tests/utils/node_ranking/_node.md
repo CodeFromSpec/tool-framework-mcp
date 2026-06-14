@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/node_ranking(interface)
+  - SPEC/functional/logic/utils/node_ranking(interface)
 output: code-from-spec/functional/tests/utils/node_ranking/output.md
 ---
 
-# ROOT/functional/tests/utils/node_ranking
+# SPEC/functional/tests/utils/node_ranking
 
 Test cases for the node ranking component.
 

@@ -8,4 +8,4 @@ input: ARTIFACT/functional/tests/parsing/node_parsing
 output: internal/parsenode/parsenode_test.go
 ---
 
-# ROOT/golang/tests/parsing/node_parsing
+# SPEC/golang/tests/parsing/node_parsing

@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/golang/dependencies/mcp-go-sdk
+  - SPEC/golang/dependencies/mcp-go-sdk
 input: ARTIFACT/golang/implementation/server
 output: cmd/framework-mcp/main_test.go
 ---
 
-# ROOT/golang/tests/server
+# SPEC/golang/tests/server
 
 Tests for the MCP server entry point.
 

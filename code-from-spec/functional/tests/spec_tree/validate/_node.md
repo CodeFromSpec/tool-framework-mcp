@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/spec_tree/validate(interface)
+  - SPEC/functional/logic/spec_tree/validate(interface)
 output: code-from-spec/functional/tests/spec_tree/validate/output.md
 ---
 
-# ROOT/functional/tests/spec_tree/validate
+# SPEC/functional/tests/spec_tree/validate
 
 Test cases for the spec tree validation component.
 

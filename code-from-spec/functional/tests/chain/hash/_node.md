@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/hash(interface)
-  - ROOT/functional/logic/chain/resolver(interface)
+  - SPEC/functional/logic/chain/hash(interface)
+  - SPEC/functional/logic/chain/resolver(interface)
 output: code-from-spec/functional/tests/chain/hash/output.md
 ---
 
-# ROOT/functional/tests/chain/hash
+# SPEC/functional/tests/chain/hash
 
 Test cases for the chain hash component.
 

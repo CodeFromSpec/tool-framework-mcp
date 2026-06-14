@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/resolver(interface)
+  - SPEC/functional/logic/chain/resolver(interface)
 output: code-from-spec/functional/tests/chain/resolver/output.md
 ---
 
-# ROOT/functional/tests/chain/resolver
+# SPEC/functional/tests/chain/resolver
 
 Test cases for the chain resolver component.
 

@@ -1,18 +1,17 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/os/path_utils
-  - ROOT/functional/logic/os/list_files
-  - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/utils/text_normalization
-  - ROOT/functional/logic/parsing/frontmatter(interface)
-  - ROOT/functional/logic/parsing/node_parsing(interface)
-external:
-  - path: CODE_FROM_SPEC.md
+  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/path_utils
+  - SPEC/functional/logic/os/list_files
+  - SPEC/functional/logic/utils/logical_names
+  - SPEC/functional/logic/utils/text_normalization
+  - SPEC/functional/logic/parsing/frontmatter(interface)
+  - SPEC/functional/logic/parsing/node_parsing(interface)
+  - EXTERNAL/CODE_FROM_SPEC.md
 output: code-from-spec/functional/logic/spec_tree/validate/output.md
 ---
 
-# ROOT/functional/logic/spec_tree/validate
+# SPEC/functional/logic/spec_tree/validate
 
 Linter for the spec tree. Receives discovered nodes with
 their parsed frontmatter and body, checks structural rules

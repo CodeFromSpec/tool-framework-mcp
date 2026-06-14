@@ -1,4 +1,4 @@
-# ROOT/golang
+# SPEC/golang
 
 Technical design decisions for implementing the MCP server in Go.
 
@@ -6,7 +6,7 @@ Technical design decisions for implementing the MCP server in Go.
 
 ## Go module
 
-The module path is `github.com/CodeFromSpec/tool-framework-mcp/v3`.
+The module path is `github.com/CodeFromSpec/tool-framework-mcp/v4`.
 All internal package imports must use this prefix.
 
 ## Language
@@ -67,7 +67,7 @@ generation, run `go mod tidy` to update dependencies.
 Go tooling. `go.sum` is generated automatically by Go
 tooling and must not be edited manually.
 
-# Decisions
+## Decisions
 
 ### Subagent guidance via MCP protocol
 

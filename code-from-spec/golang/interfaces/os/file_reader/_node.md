@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/file_reader(interface)
+  - SPEC/functional/logic/os/file_reader(interface)
   - ARTIFACT/golang/interfaces/os/path_utils
 output: code-from-spec/golang/interfaces/os/file_reader/output.md
 ---
 
-# ROOT/golang/interfaces/os/file_reader
+# SPEC/golang/interfaces/os/file_reader
 
 # Public
 
@@ -15,4 +15,4 @@ output: code-from-spec/golang/interfaces/os/file_reader/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"`

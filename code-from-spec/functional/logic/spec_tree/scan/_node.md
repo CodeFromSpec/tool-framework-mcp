@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/list_files(interface)
-  - ROOT/functional/logic/os/path_utils(interface)
-  - ROOT/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/os/list_files(interface)
+  - SPEC/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/utils/logical_names(interface)
 output: code-from-spec/functional/logic/spec_tree/scan/output.md
 ---
 
-# ROOT/functional/logic/spec_tree/scan
+# SPEC/functional/logic/spec_tree/scan
 
 Scans the `code-from-spec/` directory and returns all
 spec nodes found.

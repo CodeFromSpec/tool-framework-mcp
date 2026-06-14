@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/spec_tree/scan(interface)
+  - SPEC/functional/logic/spec_tree/scan(interface)
 output: code-from-spec/functional/tests/spec_tree/scan/output.md
 ---
 
-# ROOT/functional/tests/spec_tree/scan
+# SPEC/functional/tests/spec_tree/scan
 
 Test cases for the spec tree scanning component.
 

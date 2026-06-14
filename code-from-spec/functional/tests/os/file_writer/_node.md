@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/file_writer(interface)
+  - SPEC/functional/logic/os/file_writer(interface)
 output: code-from-spec/functional/tests/os/file_writer/output.md
 ---
 
-# ROOT/functional/tests/os/file_writer
+# SPEC/functional/tests/os/file_writer
 
 Test cases for the file writer component.
 

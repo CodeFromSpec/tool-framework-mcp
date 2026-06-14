@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/golang/dependencies/mcp-go-sdk
+  - SPEC/golang/dependencies/mcp-go-sdk
   - ARTIFACT/golang/interfaces/mcp_tools/load_chain
   - ARTIFACT/golang/interfaces/mcp_tools/write_file
   - ARTIFACT/golang/interfaces/mcp_tools/validate_specs
@@ -8,7 +8,7 @@ depends_on:
 output: cmd/framework-mcp/main.go
 ---
 
-# ROOT/golang/implementation/server
+# SPEC/golang/implementation/server
 
 Entry point: handles argument validation, creates and
 configures the MCP server, registers tools, and runs

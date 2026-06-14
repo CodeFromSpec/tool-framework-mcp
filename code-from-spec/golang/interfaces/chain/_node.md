@@ -1,3 +1,3 @@
-# ROOT/golang/interfaces/chain
+# SPEC/golang/interfaces/chain
 
 Go interfaces for chain components.

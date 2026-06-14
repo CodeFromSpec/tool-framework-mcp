@@ -6,7 +6,7 @@ input: ARTIFACT/functional/logic/os/list_files
 output: internal/listfiles/listfiles.go
 ---
 
-# ROOT/golang/implementation/os/list_files
+# SPEC/golang/implementation/os/list_files
 
 # Agent
 

@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/utils/logical_names/output.md
 ---
 
-# ROOT/functional/logic/utils/logical_names
+# SPEC/functional/logic/utils/logical_names
 
 Maps logical names to file paths and provides utilities for
 navigating the spec tree hierarchy.

@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/hash(interface)
+  - SPEC/functional/logic/chain/hash(interface)
   - ARTIFACT/golang/interfaces/chain/resolver
 output: code-from-spec/golang/interfaces/chain/hash/output.md
 ---
 
-# ROOT/golang/interfaces/chain/hash
+# SPEC/golang/interfaces/chain/hash
 
 # Public
 
@@ -15,4 +15,4 @@ output: code-from-spec/golang/interfaces/chain/hash/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"`

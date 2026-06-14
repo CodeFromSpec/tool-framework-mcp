@@ -1,4 +1,4 @@
-# ROOT/golang/interfaces
+# SPEC/golang/interfaces
 
 Go interface specifications generated from functional
 interfaces. Each leaf node translates a functional interface

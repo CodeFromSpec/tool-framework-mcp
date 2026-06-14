@@ -7,4 +7,4 @@ input: ARTIFACT/functional/tests/utils/node_ranking
 output: internal/noderanking/noderanking_test.go
 ---
 
-# ROOT/golang/tests/utils/node_ranking
+# SPEC/golang/tests/utils/node_ranking
