@@ -2,6 +2,7 @@
 depends_on:
   - ROOT/functional/logic/os/file_reader
   - ROOT/functional/logic/os/path_utils
+  - ROOT/functional/logic/os/list_files
   - ROOT/functional/logic/utils/logical_names
   - ROOT/functional/logic/utils/text_normalization
   - ROOT/functional/logic/parsing/frontmatter(interface)
@@ -36,19 +37,20 @@ record FormatError
   rule: string
   detail: string
 
-function SpecTreeValidate(entries: list of SpecTreeValidateInput) -> list of FormatError
+function SpecTreeValidate(entries: list of SpecTreeValidateInput, all_dirs: list of string) -> list of FormatError
 ```
 
 Takes the full set of discovered nodes with their parsed
-frontmatter and body. Returns a list of format errors
-(empty if all nodes are valid).
+frontmatter and body, plus a list of all subdirectory
+paths found under `code-from-spec/`. Returns a list of
+format errors (empty if all nodes are valid).
 
 A node has children if any other entry in the input
 list has a logical name that starts with its logical
 name followed by `/`. For example, given entries
-`ROOT/a` and `ROOT/a/b`, `ROOT/a` has children
-(because `ROOT/a/b` starts with `ROOT/a/`). `ROOT/a/b`
-is a leaf if no entry starts with `ROOT/a/b/`.
+`SPEC/a` and `SPEC/a/b`, `SPEC/a` has children
+(because `SPEC/a/b` starts with `SPEC/a/`). `SPEC/a/b`
+is a leaf if no entry starts with `SPEC/a/b/`.
 
 # Agent
 
@@ -57,10 +59,10 @@ is a leaf if no entry starts with `ROOT/a/b/`.
 Build a set of all known logical names for lookup. Add
 every entry's `logical_name` to the set. Then, for each
 entry that has output, construct the artifact logical
-name — strip `ROOT/` from the entry's logical name,
+name — strip `SPEC/` from the entry's logical name,
 prepend `ARTIFACT/` — and add it to the set. Example:
-entry `ROOT/a/b` with output adds `ARTIFACT/a/b` to the
-set.
+entry `SPEC/a/b` with output adds `ARTIFACT/a/b` to
+the set.
 
 For each entry, determine whether it has children: a
 node has children if any other entry's logical name
@@ -82,10 +84,10 @@ must match the entry's `logical_name`. Comparison uses
 
 Rule name: `leaf_only_fields`.
 
-The fields `depends_on`, `external`, `input`, and
-`output` are only permitted on leaf nodes (nodes without
-children). If a node with children has any of these fields
-non-empty, report one error per field.
+The fields `depends_on`, `input`, and `output` are only
+permitted on leaf nodes (nodes without children). If a
+node with children has any of these fields non-empty,
+report one error per field.
 
 #### leaf_only_agent
 
@@ -101,11 +103,10 @@ Rule name: `dependency_targets`.
 
 Each `depends_on` entry must be valid:
 
-- **ROOT references** (the entry is exactly `ROOT` or
-  starts with `ROOT/`): strip the qualifier using
-  `LogicalNameStripQualifier` to get the bare logical
-  name (e.g. `ROOT/a/b(interface)` → `ROOT/a/b`; if no
-  qualifier, returned unchanged). Verify the bare
+- **SPEC references** (detected by `LogicalNameIsSpec`):
+  strip the qualifier using `LogicalNameStripQualifier`
+  to get the bare logical name (e.g.
+  `SPEC/a/b(interface)` → `SPEC/a/b`). Verify the bare
   logical name exists in the known logical names set.
   Also verify it does not point to the node itself
   (bare name equals the current node's logical name),
@@ -119,6 +120,14 @@ Each `depends_on` entry must be valid:
   but do so defensively), then verify the bare reference
   exists in the known logical names set.
 
+- **`EXTERNAL/` references**: convert to a path using
+  `LogicalNameExternalToPath`. Create a `PathCfs` from
+  the result. Open the file with `FileOpen`. If it fails
+  (file does not exist or not readable), report a format
+  error. If it succeeds, call `FileClose` immediately.
+
+- **Unrecognized prefix**: report a format error.
+
 Report one error per invalid entry.
 
 #### input_target
@@ -126,24 +135,36 @@ Report one error per invalid entry.
 Rule name: `input_target`.
 
 If `frontmatter.input` is non-empty, verify it starts
-with `ARTIFACT/`. If not, report a format error. Then
-strip any qualifier using `LogicalNameStripQualifier`
-(defensively), and verify the bare reference exists in
-the known logical names set. If not,
-report a format error.
+with `ARTIFACT/` or `EXTERNAL/`. If neither, report a
+format error.
 
-#### external_files
+For `ARTIFACT/` references: strip any qualifier using
+`LogicalNameStripQualifier` (defensively), and verify the
+bare reference exists in the known logical names set.
+If not, report a format error.
 
-Rule name: `external_files`.
+For `EXTERNAL/` references: convert to a path using
+`LogicalNameExternalToPath`. Create a `PathCfs` from the
+result. Open the file with `FileOpen`. If it fails,
+report a format error. If it succeeds, call `FileClose`
+immediately.
 
-For each `external` entry, create a `PathCfs` with the
-entry's `path` as its value (external paths are relative
-to the project root).
+#### missing_node_md
 
-Open the file with `FileOpen`. If it fails (invalid
-path, file does not exist, or not readable), report a
-format error and skip to the next external entry. If
-it succeeds, call `FileClose` immediately.
+Rule name: `missing_node_md`.
+
+Check the `all_dirs` list for subdirectories under
+`code-from-spec/` that do not have a corresponding
+node in the entries. For each directory path in
+`all_dirs`:
+- Skip directories whose first path segment after
+  `code-from-spec/` starts with `_` (these are ignored
+  by the framework).
+- Skip the `code-from-spec/` directory itself.
+- Check whether a node exists whose file path would be
+  `<dir>/_node.md`. If no such node exists in the
+  entries, report a format error with the directory path
+  and detail "subdirectory has no _node.md".
 
 #### output_paths
 
@@ -184,3 +205,6 @@ are reported.
   the first error.
 - Each FormatError includes the rule name, the node's
   logical name, and a detail message.
+- Subdirectories without `_node.md` are reported as
+  format errors (except `_`-prefixed dirs under
+  `code-from-spec/`).

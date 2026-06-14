@@ -35,12 +35,12 @@ record Node
   name_section: NodeSection
   public: optional NodeSection
   agent: optional NodeSection
-  private: list of NodeSection
+  private: optional NodeSection
 
 function NodeParse(logical_name: string) -> Node
   errors:
-    - NotARootReference: the logical name does not
-      start with ROOT/.
+    - NotASpecReference: the logical name is not a
+      SPEC/ reference (neither SPEC nor SPEC/...).
     - HasQualifier: the logical name contains a
       parenthetical qualifier.
     - FileUnreadable: the file cannot be opened or read.
@@ -54,6 +54,10 @@ function NodeParse(logical_name: string) -> Node
       section exists.
     - DuplicateAgentSection: more than one Agent
       section exists.
+    - DuplicatePrivateSection: more than one Private
+      section exists.
+    - UnrecognizedSection: a level-1 heading that is
+      not the node name, Public, Agent, or Private.
     - DuplicateSubsection: two level-2 headings within
       the same section normalize to the same text.
     - (FileReader.*): propagated from FileOpen.
@@ -67,9 +71,6 @@ original line as read from the file (e.g.
 Content fields are lists of strings — each element is a
 line as returned by `FileReadLine`, preserving the
 original text exactly as read from the file.
-
-Private sections preserve the order they appear in the
-file.
 
 A section that exists in the file but has no content
 (e.g., `# Public` immediately followed by `# Agent`) is
@@ -89,8 +90,8 @@ structure is uniform across all sections.
 
 Given a logical name:
 
-1. If `LogicalNameIsArtifact` returns true, raise
-   "not a ROOT reference".
+1. If `LogicalNameIsSpec` returns false, raise
+   "not a SPEC reference".
 2. If `LogicalNameHasQualifier` returns true, raise
    "has qualifier" — this function parses the full node,
    not a subsection.
@@ -147,9 +148,9 @@ After normalizing a level-1 heading with `NormalizeText`:
 - The **first** level-1 heading is always the node name
   section. Its normalized heading text must match the
   logical name (also normalized with `NormalizeText`).
-  For example, heading `# ROOT/functional/logic/os`
-  has text `ROOT/functional/logic/os`, which normalizes
-  to `root/functional/logic/os`. If it does not match,
+  For example, heading `# SPEC/functional/logic/os`
+  has text `SPEC/functional/logic/os`, which normalizes
+  to `spec/functional/logic/os`. If it does not match,
   raise "node name does not match".
 - A heading that normalizes to `"public"` is the public
   section. If a second one appears, raise "duplicate
@@ -157,7 +158,12 @@ After normalizing a level-1 heading with `NormalizeText`:
 - A heading that normalizes to `"agent"` is the agent
   section. If a second one appears, raise "duplicate
   agent section".
-- Any other level-1 heading is a private section.
+- A heading that normalizes to `"private"` is the private
+  section. If a second one appears, raise "duplicate
+  private section".
+- Any other level-1 heading raises "unrecognized section".
+  Only the four sections above are permitted: node name,
+  Public, Agent, Private.
 
 ### Section parsing
 
@@ -193,6 +199,8 @@ After normalizing a level-1 heading with `NormalizeText`:
 - Level-2 (`##`) headings are structural in all sections.
 - Level-3 and deeper headings are always content.
 - Headings inside fenced code blocks are not structural.
+- Only four level-1 sections are permitted: node name,
+  Public, Agent, Private. Any other heading is an error.
 - Content preserves all lines including leading and
   trailing blank lines.
 - Duplicate subsection detection applies within each
