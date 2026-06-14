@@ -163,7 +163,7 @@ Returns the working directory of the process as a
 
 ### Security
 
-See `ROOT/functional/dependencies/owasp-path-traversal`
+See `SPEC/functional/dependencies/owasp-path-traversal`
 for the threat model. PathCfsToOs is the primary defense
 against path traversal attacks.
 

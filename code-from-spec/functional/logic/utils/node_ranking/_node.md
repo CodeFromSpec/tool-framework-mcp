@@ -41,7 +41,7 @@ with lower rank must be processed before nodes with
 higher rank. Entries with equal rank have no dependency
 between them and can be processed in parallel.
 
-- The root node (`ROOT`) has rank 0 (fixed, special case).
+- The root node (`SPEC`) has rank 0 (fixed, special case).
 - For any other spec node: rank = 1 + max(rank of parent,
   rank of each `depends_on` entry, rank of the `input`
   artifact if present).
@@ -75,9 +75,9 @@ For each `NodeRankInput`:
 ### Step 2 — Build dependency edges
 
 Every entry will have at least one dependency: spec
-nodes (other than ROOT) always have a parent, and
+nodes (other than SPEC) always have a parent, and
 artifact entries always depend on their generating node.
-ROOT is the only entry with no dependencies — it is
+SPEC is the only entry with no dependencies — it is
 handled as a special case in Step 3.
 
 For each spec node entry:
@@ -108,7 +108,7 @@ return the "unresolvable reference" error.
 
 ### Step 3 — Initialize ranks
 
-Assign rank 0 to the root node (`ROOT`). The root is a
+Assign rank 0 to the root node (`SPEC`). The root is a
 special case: its rank is fixed at 0 and it is excluded
 from the iteration loop.
 
@@ -119,7 +119,7 @@ Assign rank 0 to all other entries as an initial value.
 Let N = total number of entries in the map.
 
 Repeat up to N times:
-- For each entry (excluding `ROOT`), compute:
+- For each entry (excluding `SPEC`), compute:
   rank = 1 + max(rank of its dependencies).
   If the computed rank exceeds the current rank, update
   it and mark this pass as "changed".
