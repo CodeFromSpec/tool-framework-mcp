@@ -109,18 +109,11 @@ Chain with qualifier = "INTERFACE" (uppercase). Compute
 hash. Expect no error — the qualifier is normalized
 before matching.
 
-#### ARTIFACT dependency — hashes file minus frontmatter
+#### ARTIFACT dependency — hashes full file content
 
-Create an artifact file with frontmatter and body
-content. Build Chain with ARTIFACT dependency pointing
-to that file. Compute hash. Modify the body. Recompute.
-Expect hashes differ.
-
-#### ARTIFACT dependency — frontmatter change ignored
-
-Create an artifact file with frontmatter and body.
-Compute hash. Modify only the frontmatter. Recompute.
-Expect hashes are identical — frontmatter is stripped.
+Create an artifact file with content. Build Chain with
+ARTIFACT dependency pointing to that file. Compute hash.
+Modify the content. Recompute. Expect hashes differ.
 
 #### ARTIFACT dependency — tag hash change ignored
 
@@ -184,11 +177,11 @@ Compute hash. Expect no error.
 
 ### Input
 
-#### Input hashes file minus frontmatter
+#### Input hashes full file content
 
-Create an artifact file with frontmatter and body.
-Build Chain with input pointing to that file. Compute
-hash. Modify the body. Recompute. Expect hashes differ.
+Create an artifact file with content. Build Chain with
+input pointing to that file. Compute hash. Modify the
+content. Recompute. Expect hashes differ.
 
 #### No input — skipped
 
