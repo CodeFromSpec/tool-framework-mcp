@@ -49,14 +49,23 @@ Generate pseudocode for the SpecTreeScan function.
 2. Filter the results: keep only files whose file name
    is exactly `_node.md`. The file name is everything
    after the last `/` in the path.
-3. For each matching file, call `LogicalNameFromPath` to
+3. Exclude files inside `_`-prefixed directories directly
+   under `code-from-spec/`. A file is excluded if its
+   path, after removing the `code-from-spec/` prefix,
+   starts with `_` (e.g. `code-from-spec/_rules/x/_node.md`
+   is excluded, but `code-from-spec/a/_b/_node.md` is not —
+   only the first path segment after `code-from-spec/`
+   is checked).
+4. For each remaining file, call `LogicalNameFromPath` to
    derive the logical name. If it raises an error,
    propagate it.
-4. Sort the result alphabetically by logical name.
-5. If the result is empty, raise "no nodes found".
+5. Sort the result alphabetically by logical name.
+6. If the result is empty, raise "no nodes found".
 
 ## Contracts
 
 - Only files named exactly `_node.md` are considered nodes.
+- Files inside `_`-prefixed directories directly under
+  `code-from-spec/` are ignored (not nodes, not errors).
 - The returned list is sorted alphabetically by logical name.
 - Only scans the `code-from-spec/` directory.
