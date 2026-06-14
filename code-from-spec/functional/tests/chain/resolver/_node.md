@@ -20,63 +20,64 @@ files containing frontmatter as needed, then call
 
 #### Root as target
 
-Create spec tree: ROOT only. Call ChainResolve with
-"ROOT". Expect ancestors = empty, target =
-ChainItem(logical_name="ROOT", qualifier=absent).
+Create spec tree: SPEC only. Call ChainResolve with
+"SPEC". Expect ancestors = empty, target =
+ChainItem(logical_name="SPEC", qualifier=absent).
 
 #### Linear chain — ancestors in root-first order
 
-Create spec tree: ROOT, ROOT/a, ROOT/a/b. Call
-ChainResolve with "ROOT/a/b". Expect ancestors =
-[ROOT, ROOT/a] in that order. Target = ROOT/a/b.
+Create spec tree: SPEC, SPEC/a, SPEC/a/b. Call
+ChainResolve with "SPEC/a/b". Expect ancestors =
+[SPEC, SPEC/a] in that order. Target = SPEC/a/b.
 
 #### Single parent
 
-Create spec tree: ROOT, ROOT/a. Call ChainResolve with
-"ROOT/a". Expect ancestors = [ROOT]. Target = ROOT/a.
+Create spec tree: SPEC, SPEC/a. Call ChainResolve with
+"SPEC/a". Expect ancestors = [SPEC]. Target = SPEC/a.
 
 #### Target with empty frontmatter
 
-Create spec tree: ROOT, ROOT/a (leaf, empty
-frontmatter). Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, empty
+frontmatter). Call ChainResolve with "SPEC/a".
 
-Expect ancestors = [ROOT], target = ROOT/a,
-dependencies = empty, external = empty, input = absent.
+Expect ancestors = [SPEC], target = SPEC/a,
+dependencies = empty, input = absent.
 
-### Dependencies — ROOT/ references
+### Dependencies — SPEC/ references
 
 #### Dependency without qualifier
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/b"]), ROOT/b. Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["SPEC/b"]), SPEC/b. Call ChainResolve with "SPEC/a".
 
 Expect dependencies contains one ChainItem with
-logical_name = "ROOT/b", qualifier = absent.
+logical_name = "SPEC/b", qualifier = absent.
 
 #### Dependency with qualifier
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/b(interface)"]), ROOT/b. Call ChainResolve with
-"ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["SPEC/b(interface)"]), SPEC/b. Call ChainResolve with
+"SPEC/a".
 
 Expect dependencies contains one ChainItem with
-logical_name = "ROOT/b", qualifier = "interface".
+logical_name = "SPEC/b", qualifier = "interface".
 
-#### Dependencies sorted by file path then qualifier
+#### Dependencies sorted by logical name then qualifier
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/z", "ROOT/m", "ROOT/b"]). Create ROOT/z, ROOT/m,
-ROOT/b. Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["SPEC/z", "SPEC/m", "SPEC/b"]). Create SPEC/z, SPEC/m,
+SPEC/b. Call ChainResolve with "SPEC/a".
 
-Expect dependencies sorted alphabetically by file path.
+Expect dependencies sorted alphabetically by logical
+name: SPEC/b, SPEC/m, SPEC/z.
 
 ### Dependencies — ARTIFACT/ references
 
 #### ARTIFACT dependency resolved from generating node
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b"]), ROOT/b (with output = "out/lib.go").
-Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["ARTIFACT/b"]), SPEC/b (with output = "out/lib.go").
+Call ChainResolve with "SPEC/a".
 
 Expect dependencies contains one ChainItem with
 logical_name = "ARTIFACT/b", file_path =
@@ -84,68 +85,69 @@ logical_name = "ARTIFACT/b", file_path =
 
 #### ARTIFACT — generating node has no output
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b"]), ROOT/b (with empty frontmatter,
-no output). Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["ARTIFACT/b"]), SPEC/b (with empty frontmatter,
+no output). Call ChainResolve with "SPEC/a".
 
 Expect error UnresolvableArtifact.
 
 #### ARTIFACT — artifact file does not exist on disk
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b"]), ROOT/b (with output = "out/lib.go").
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["ARTIFACT/b"]), SPEC/b (with output = "out/lib.go").
 Do NOT create "out/lib.go" on disk. Call ChainResolve
-with "ROOT/a".
+with "SPEC/a".
 
 Expect no error. Dependencies contains one ChainItem
 with file_path = "out/lib.go". Existence is not
 verified by the resolver.
 
-#### Mixed ROOT/ and ARTIFACT/ dependencies
+#### Mixed SPEC/, ARTIFACT/, and EXTERNAL/ dependencies
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/c", "ARTIFACT/b"]), ROOT/b (with output =
-"out/lib.go"), ROOT/c. Call ChainResolve with
-"ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["SPEC/c", "ARTIFACT/b", "EXTERNAL/proto/api.proto"]),
+SPEC/b (with output = "out/lib.go"), SPEC/c. Call
+ChainResolve with "SPEC/a".
 
-Expect dependencies contains both entries, sorted by
-file path value.
+Expect dependencies contains all three entries, sorted
+by logical name: ARTIFACT/b, EXTERNAL/proto/api.proto,
+SPEC/c.
 
 ### Dependencies — dedup
 
 #### Exact duplicate — same file, same qualifier
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/b", "ROOT/b"]), ROOT/b. Call ChainResolve with
-"ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["SPEC/b", "SPEC/b"]), SPEC/b. Call ChainResolve with
+"SPEC/a".
 
-Expect dependencies contains one entry for ROOT/b
+Expect dependencies contains one entry for SPEC/b
 (not two).
 
 #### No qualifier subsumes qualifier
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/b", "ROOT/b(interface)"]), ROOT/b. Call
-ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["SPEC/b", "SPEC/b(interface)"]), SPEC/b. Call
+ChainResolve with "SPEC/a".
 
-Expect dependencies contains one entry for ROOT/b
-with qualifier = absent. The ROOT/b(interface) entry
+Expect dependencies contains one entry for SPEC/b
+with qualifier = absent. The SPEC/b(interface) entry
 is removed.
 
 #### Qualifier before no-qualifier — no-qualifier wins
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/b(interface)", "ROOT/b"]), ROOT/b. Call
-ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["SPEC/b(interface)", "SPEC/b"]), SPEC/b. Call
+ChainResolve with "SPEC/a".
 
-Expect dependencies contains one entry for ROOT/b
+Expect dependencies contains one entry for SPEC/b
 with qualifier = absent.
 
 #### Same file, different qualifiers — both kept
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ROOT/b(interface)", "ROOT/b(constraints)"]), ROOT/b.
-Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["SPEC/b(interface)", "SPEC/b(constraints)"]), SPEC/b.
+Call ChainResolve with "SPEC/a".
 
 Expect dependencies contains two entries, one with
 qualifier = "constraints", one with "interface"
@@ -153,55 +155,95 @@ qualifier = "constraints", one with "interface"
 
 #### Duplicate ARTIFACT — same logical name
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["ARTIFACT/b", "ARTIFACT/b"]), ROOT/b (with output =
-"out/lib.go"). Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["ARTIFACT/b", "ARTIFACT/b"]), SPEC/b (with output =
+"out/lib.go"). Call ChainResolve with "SPEC/a".
 
 Expect dependencies contains one ARTIFACT entry
 (not two).
 
-### External
+### Dependencies — EXTERNAL/ references
 
-#### External entries copied from frontmatter
+#### EXTERNAL dependency resolved to path
 
-Create spec tree: ROOT, ROOT/a (leaf, external =
-[{path: "docs/api.yaml"}, {path: "proto/v1.proto"}]).
-Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["EXTERNAL/docs/api.yaml"]). Call ChainResolve with
+"SPEC/a".
 
-Expect external list contains both entries, sorted
-alphabetically: docs/api.yaml before proto/v1.proto.
+Expect dependencies contains one ChainItem with
+logical_name = "EXTERNAL/docs/api.yaml", file_path =
+"docs/api.yaml", qualifier = absent.
 
-#### Empty external — no entries
+#### Multiple EXTERNAL dependencies sorted
 
-Create spec tree: ROOT, ROOT/a (leaf, no external).
-Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["EXTERNAL/proto/v1.proto",
+"EXTERNAL/docs/api.yaml"]). Call ChainResolve with
+"SPEC/a".
 
-Expect external list is empty.
+Expect dependencies sorted by logical name:
+EXTERNAL/docs/api.yaml before
+EXTERNAL/proto/v1.proto.
+
+#### Duplicate EXTERNAL — same logical name
+
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["EXTERNAL/x.proto", "EXTERNAL/x.proto"]). Call
+ChainResolve with "SPEC/a".
+
+Expect dependencies contains one EXTERNAL entry
+(not two).
 
 ### Input
 
 #### Input resolved from generating node
 
-Create spec tree: ROOT, ROOT/a (leaf, input =
-"ARTIFACT/b"), ROOT/b (with output =
-"out/data.json"). Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, input =
+"ARTIFACT/b"), SPEC/b (with output =
+"out/data.json"). Call ChainResolve with "SPEC/a".
 
 Expect input = ChainItem with logical_name =
 "ARTIFACT/b", file_path = "out/data.json".
 
+#### EXTERNAL input resolved to path
+
+Create spec tree: SPEC, SPEC/a (leaf, input =
+"EXTERNAL/docs/vendor/spec.yaml"). Call ChainResolve
+with "SPEC/a".
+
+Expect input = ChainItem with logical_name =
+"EXTERNAL/docs/vendor/spec.yaml", file_path =
+"docs/vendor/spec.yaml".
+
 #### No input — absent
 
-Create spec tree: ROOT, ROOT/a (leaf, no input). Call
-ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, no input). Call
+ChainResolve with "SPEC/a".
 
 Expect input is absent.
+
+### ROOT/ backward compatibility
+
+#### ROOT/ depends_on normalized to SPEC/
+
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["ROOT/b"]), SPEC/b. Call ChainResolve with "SPEC/a".
+
+Expect dependencies contains one ChainItem with
+logical_name = "SPEC/b" (normalized from ROOT/b).
+
+#### ROOT target normalized to SPEC
+
+Call ChainResolve with "ROOT/a" for a spec tree with
+SPEC and SPEC/a. Expect ancestors = [SPEC], target =
+SPEC/a.
 
 ### Error cases
 
 #### Unrecognized prefix in depends_on
 
-Create spec tree: ROOT, ROOT/a (leaf, depends_on =
-["UNKNOWN/something"]). Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a (leaf, depends_on =
+["UNKNOWN/something"]). Call ChainResolve with "SPEC/a".
 
 Expect error UnresolvableArtifact.
 
@@ -214,8 +256,8 @@ LogicalNameToPath.
 
 #### Unreadable frontmatter
 
-Create spec tree: ROOT, ROOT/a with invalid YAML in
-frontmatter. Call ChainResolve with "ROOT/a".
+Create spec tree: SPEC, SPEC/a with invalid YAML in
+frontmatter. Call ChainResolve with "SPEC/a".
 
 Expect error UnreadableFrontmatter.
 

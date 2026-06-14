@@ -16,132 +16,149 @@ Test cases for the node ranking component.
 
 #### Root only
 
-Input: single entry with logical_name = "ROOT", empty
+Input: single entry with logical_name = "SPEC", empty
 frontmatter. Call NodeRankCompute.
 
-Expect one NodeRankEntry: "ROOT" with rank 0. No cycles.
+Expect one NodeRankEntry: "SPEC" with rank 0. No cycles.
 
 #### Linear chain — incrementing ranks
 
-Input: ROOT, ROOT/a, ROOT/a/b (parent chain, no
+Input: SPEC, SPEC/a, SPEC/a/b (parent chain, no
 depends_on). Call NodeRankCompute.
 
-Expect ranks: ROOT=0, ROOT/a=1, ROOT/a/b=2. No cycles.
+Expect ranks: SPEC=0, SPEC/a=1, SPEC/a/b=2. No cycles.
 
 #### Independent siblings — equal rank
 
-Input: ROOT, ROOT/a, ROOT/b (no cross-dependencies).
+Input: SPEC, SPEC/a, SPEC/b (no cross-dependencies).
 Call NodeRankCompute.
 
-Expect ROOT/a and ROOT/b have the same rank (1). No
+Expect SPEC/a and SPEC/b have the same rank (1). No
 cycles.
 
 #### depends_on increases rank
 
-Input: ROOT, ROOT/a, ROOT/b where ROOT/b has
-depends_on = ["ROOT/a"]. Call NodeRankCompute.
+Input: SPEC, SPEC/a, SPEC/b where SPEC/b has
+depends_on = ["SPEC/a"]. Call NodeRankCompute.
 
-Expect ROOT/b has higher rank than ROOT/a. No cycles.
+Expect SPEC/b has higher rank than SPEC/a. No cycles.
 
 #### depends_on with qualifier — qualifier stripped
 
-Input: ROOT, ROOT/a, ROOT/b where ROOT/b has
-depends_on = ["ROOT/a(interface)"]. Call NodeRankCompute.
+Input: SPEC, SPEC/a, SPEC/b where SPEC/b has
+depends_on = ["SPEC/a(interface)"]. Call NodeRankCompute.
 
-Expect no error. ROOT/b has higher rank than ROOT/a.
+Expect no error. SPEC/b has higher rank than SPEC/a.
 The qualified reference resolves to the bare node
-ROOT/a. No cycles.
+SPEC/a. No cycles.
+
+#### EXTERNAL depends_on — skipped for ranking
+
+Input: SPEC, SPEC/a with depends_on =
+["EXTERNAL/proto/api.proto"]. Call NodeRankCompute.
+
+Expect no error. SPEC/a rank = 1 (parent only).
+EXTERNAL/ references do not contribute to rank.
+No cycles.
 
 #### input artifact adds dependency edge
 
-Input: ROOT, ROOT/a with output = "out.go",
-ROOT/b with input = "ARTIFACT/a".
+Input: SPEC, SPEC/a with output = "out.go",
+SPEC/b with input = "ARTIFACT/a".
 Call NodeRankCompute.
 
-Expect ROOT/b has higher rank than the artifact
-ARTIFACT/a, which has higher rank than ROOT/a.
+Expect SPEC/b has higher rank than the artifact
+ARTIFACT/a, which has higher rank than SPEC/a.
 No cycles.
+
+#### EXTERNAL input — skipped for ranking
+
+Input: SPEC, SPEC/a with input =
+"EXTERNAL/docs/spec.yaml". Call NodeRankCompute.
+
+Expect no error. SPEC/a rank = 1 (parent only).
+EXTERNAL/ input does not contribute to rank. No cycles.
 
 #### Artifacts get rank one above their node
 
-Input: ROOT, ROOT/a with output = "foo.go".
+Input: SPEC, SPEC/a with output = "foo.go".
 Call NodeRankCompute.
 
-Expect ARTIFACT/a has rank = rank of ROOT/a + 1.
+Expect ARTIFACT/a has rank = rank of SPEC/a + 1.
 No cycles.
 
 #### Single output — artifact ranked
 
-Input: ROOT, ROOT/a with output = "x.go".
+Input: SPEC, SPEC/a with output = "x.go".
 Call NodeRankCompute.
 
 Expect one artifact entry ARTIFACT/a with rank =
-rank of ROOT/a + 1. No cycles.
+rank of SPEC/a + 1. No cycles.
 
 #### depends_on ARTIFACT reference — used as-is
 
-Input: ROOT, ROOT/a with output = "lib.go",
-ROOT/b with depends_on = ["ARTIFACT/a"].
+Input: SPEC, SPEC/a with output = "lib.go",
+SPEC/b with depends_on = ["ARTIFACT/a"].
 Call NodeRankCompute.
 
-Expect ROOT/b rank > ARTIFACT/a rank > ROOT/a
+Expect SPEC/b rank > ARTIFACT/a rank > SPEC/a
 rank. No cycles.
 
 #### Output sorted by rank then logical name
 
-Input: ROOT, ROOT/z, ROOT/a (no cross-dependencies).
+Input: SPEC, SPEC/z, SPEC/a (no cross-dependencies).
 Call NodeRankCompute.
 
-Expect output order: ROOT (rank 0), then ROOT/a before
-ROOT/z (both rank 1, alphabetical). No cycles.
+Expect output order: SPEC (rank 0), then SPEC/a before
+SPEC/z (both rank 1, alphabetical). No cycles.
 
 #### Parallel entries — equal rank means no dependency
 
-Input: ROOT, ROOT/a, ROOT/b, ROOT/c — all siblings,
+Input: SPEC, SPEC/a, SPEC/b, SPEC/c — all siblings,
 no cross-dependencies. Call NodeRankCompute.
 
-Expect ROOT/a, ROOT/b, ROOT/c all have rank 1. No
+Expect SPEC/a, SPEC/b, SPEC/c all have rank 1. No
 cycles.
 
 #### Diamond dependency — rank uses max not sum
 
-Input: ROOT, ROOT/c, ROOT/a with depends_on =
-["ROOT/c"], ROOT/b with depends_on = ["ROOT/c"],
-ROOT/d with depends_on = ["ROOT/a", "ROOT/b"].
+Input: SPEC, SPEC/c, SPEC/a with depends_on =
+["SPEC/c"], SPEC/b with depends_on = ["SPEC/c"],
+SPEC/d with depends_on = ["SPEC/a", "SPEC/b"].
 Call NodeRankCompute.
 
-Expect ROOT/c=1, ROOT/a=2, ROOT/b=2, ROOT/d=3 (not
+Expect SPEC/c=1, SPEC/a=2, SPEC/b=2, SPEC/d=3 (not
 5). Rank is 1 + max of dependencies, not sum. No
 cycles.
 
 #### depends_on outranks parent
 
-Input: ROOT, ROOT/a, ROOT/a/b with depends_on =
-["ROOT/c"], ROOT/c, ROOT/c/d, ROOT/c/d/e (deep chain).
+Input: SPEC, SPEC/a, SPEC/a/b with depends_on =
+["SPEC/c"], SPEC/c, SPEC/c/d, SPEC/c/d/e (deep chain).
 Call NodeRankCompute.
 
-Expect ROOT/a/b rank > ROOT/a rank, because depends_on
-ROOT/c contributes rank. ROOT/a/b rank = 1 + max(rank
-of ROOT/a, rank of ROOT/c). No cycles.
+Expect SPEC/a/b rank > SPEC/a rank, because depends_on
+SPEC/c contributes rank. SPEC/a/b rank = 1 + max(rank
+of SPEC/a, rank of SPEC/c). No cycles.
 
 #### Multiple depends_on — rank from highest
 
-Input: ROOT, ROOT/a, ROOT/b, ROOT/c, ROOT/d with
-depends_on = ["ROOT/a", "ROOT/b", "ROOT/c"] where
-ROOT/b has depends_on = ["ROOT/a"] and ROOT/c has
-depends_on = ["ROOT/b"]. Call NodeRankCompute.
+Input: SPEC, SPEC/a, SPEC/b, SPEC/c, SPEC/d with
+depends_on = ["SPEC/a", "SPEC/b", "SPEC/c"] where
+SPEC/b has depends_on = ["SPEC/a"] and SPEC/c has
+depends_on = ["SPEC/b"]. Call NodeRankCompute.
 
-Expect ROOT/a=1, ROOT/b=2, ROOT/c=3, ROOT/d=4 (1 +
+Expect SPEC/a=1, SPEC/b=2, SPEC/c=3, SPEC/d=4 (1 +
 max(1,2,3) = 4, not 1 + first or last). No cycles.
 
 #### Node with both depends_on and input
 
-Input: ROOT, ROOT/a with output = "a.go",
-ROOT/b, ROOT/c with depends_on = ["ROOT/b"] and
+Input: SPEC, SPEC/a with output = "a.go",
+SPEC/b, SPEC/c with depends_on = ["SPEC/b"] and
 input = "ARTIFACT/a". Call NodeRankCompute.
 
-Expect ROOT/c rank = 1 + max(rank of ROOT (parent),
-rank of ROOT/b, rank of ARTIFACT/a). No cycles.
+Expect SPEC/c rank = 1 + max(rank of SPEC (parent),
+rank of SPEC/b, rank of ARTIFACT/a). No cycles.
 
 #### Empty input list
 
@@ -153,24 +170,24 @@ Expect empty ranked list, no cycles.
 
 #### Self-reference
 
-Input: ROOT, ROOT/a with depends_on = ["ROOT/a"].
+Input: SPEC, SPEC/a with depends_on = ["SPEC/a"].
 Call NodeRankCompute.
 
 Expect cycles list is not empty.
 
 #### Simple cycle — two nodes
 
-Input: ROOT, ROOT/a with depends_on = ["ROOT/b"],
-ROOT/b with depends_on = ["ROOT/a"].
+Input: SPEC, SPEC/a with depends_on = ["SPEC/b"],
+SPEC/b with depends_on = ["SPEC/a"].
 Call NodeRankCompute.
 
 Expect cycles list is not empty and contains at least
-one of ROOT/a or ROOT/b.
+one of SPEC/a or SPEC/b.
 
 #### Cycle through artifacts
 
-Input: ROOT, ROOT/a with output = "a.go" and
-depends_on = ["ARTIFACT/b"], ROOT/b with
+Input: SPEC, SPEC/a with output = "a.go" and
+depends_on = ["ARTIFACT/b"], SPEC/b with
 output = "b.go" and depends_on = ["ARTIFACT/a"].
 Call NodeRankCompute.
 
@@ -178,33 +195,33 @@ Expect cycles list is not empty.
 
 #### Cycle does not prevent ranking of unrelated nodes
 
-Input: ROOT, ROOT/a with depends_on = ["ROOT/b"],
-ROOT/b with depends_on = ["ROOT/a"], ROOT/c (no
+Input: SPEC, SPEC/a with depends_on = ["SPEC/b"],
+SPEC/b with depends_on = ["SPEC/a"], SPEC/c (no
 dependencies). Call NodeRankCompute.
 
-Expect ROOT and ROOT/c have valid ranks (0 and 1).
-Cycles list contains entries related to ROOT/a and/or
-ROOT/b but not ROOT/c.
+Expect SPEC and SPEC/c have valid ranks (0 and 1).
+Cycles list contains entries related to SPEC/a and/or
+SPEC/b but not SPEC/c.
 
 ### Error cases
 
-#### Unresolvable ROOT reference
+#### Unresolvable SPEC reference
 
-Input: ROOT, ROOT/a with depends_on = ["ROOT/missing"].
+Input: SPEC, SPEC/a with depends_on = ["SPEC/missing"].
 Call NodeRankCompute.
 
 Expect error UnresolvableReference.
 
 #### Unresolvable ARTIFACT reference
 
-Input: ROOT, ROOT/a with depends_on =
+Input: SPEC, SPEC/a with depends_on =
 ["ARTIFACT/missing"]. Call NodeRankCompute.
 
 Expect error UnresolvableReference.
 
 #### Unresolvable input reference
 
-Input: ROOT, ROOT/a with input =
+Input: SPEC, SPEC/a with input =
 "ARTIFACT/missing". Call NodeRankCompute.
 
 Expect error UnresolvableReference.

@@ -19,9 +19,9 @@ files, then call `MCPChainHash`.
 
 #### Returns a 27-character hash
 
-Create a spec tree: ROOT (with `# Public` containing a
-`## Context` subsection) and ROOT/a (leaf with output).
-Call MCPChainHash with logical_name = "ROOT/a".
+Create a spec tree: SPEC (with `# Public` containing a
+`## Context` subsection) and SPEC/a (leaf with output).
+Call MCPChainHash with logical_name = "SPEC/a".
 
 Expect result is a 27-character string.
 
@@ -33,17 +33,17 @@ Expect both results are identical.
 
 #### Hash matches load_chain hash
 
-Create a spec tree: ROOT (with `# Public` containing a
-`## Context` subsection) and ROOT/a (leaf with output).
-Call MCPChainHash with "ROOT/a" and call MCPLoadChain
-with "ROOT/a".
+Create a spec tree: SPEC (with `# Public` containing a
+`## Context` subsection) and SPEC/a (leaf with output).
+Call MCPChainHash with "SPEC/a" and call MCPLoadChain
+with "SPEC/a".
 
 Expect the hash from MCPChainHash equals the
 chain_hash from MCPLoadChain.
 
 ### Error cases
 
-#### Invalid logical name — not ROOT/
+#### Invalid logical name — not SPEC/
 
 Call MCPChainHash with "INVALID/something". Expect
 error logicalnames.UnsupportedReference (propagated
@@ -51,14 +51,14 @@ from LogicalNameToPath).
 
 #### Nonexistent node file
 
-Call MCPChainHash with "ROOT/nonexistent" (no _node.md
+Call MCPChainHash with "SPEC/nonexistent" (no _node.md
 on disk). Expect error filereader.FileUnreadable
 (propagated from FrontmatterParse).
 
 #### No output declared
 
-Create a spec tree: ROOT, ROOT/a (leaf without
-output). Call MCPChainHash with "ROOT/a". Expect
+Create a spec tree: SPEC, SPEC/a (leaf without
+output). Call MCPChainHash with "SPEC/a". Expect
 error NoOutput.
 
 # Agent

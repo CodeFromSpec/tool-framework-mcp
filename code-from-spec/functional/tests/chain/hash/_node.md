@@ -32,79 +32,79 @@ result is exactly 27 characters long.
 
 #### Hash changes when ancestor content changes
 
-Create a spec tree: ROOT with `# Public` containing a
-`## Context` subsection, ROOT/a as target. Build a
-Chain with ROOT as ancestor. Compute hash. Modify
-ROOT's `## Context` subsection content on disk.
+Create a spec tree: SPEC with `# Public` containing a
+`## Context` subsection, SPEC/a as target. Build a
+Chain with SPEC as ancestor. Compute hash. Modify
+SPEC's `## Context` subsection content on disk.
 Recompute. Expect hashes differ.
 
 #### Hash changes when dependency content changes
 
-Create a spec tree: ROOT, ROOT/a, ROOT/b with
+Create a spec tree: SPEC, SPEC/a, SPEC/b with
 `# Public` containing a `## Interface` subsection.
-ROOT/a is target with dependency on ROOT/b. Build
-Chain. Compute hash. Modify ROOT/b's `## Interface`
+SPEC/a is target with dependency on SPEC/b. Build
+Chain. Compute hash. Modify SPEC/b's `## Interface`
 subsection content. Recompute. Expect hashes differ.
 
 #### Hash changes when target Public changes
 
-Create a spec tree: ROOT, ROOT/a as target with
+Create a spec tree: SPEC, SPEC/a as target with
 `# Public` containing a `## Interface` subsection.
-Build Chain. Compute hash. Modify ROOT/a's
+Build Chain. Compute hash. Modify SPEC/a's
 `## Interface` subsection content on disk. Recompute.
 Expect hashes differ.
 
 #### Hash changes when target Agent changes
 
-Create a spec tree: ROOT, ROOT/a as target with
+Create a spec tree: SPEC, SPEC/a as target with
 `# Agent` content. Build Chain. Compute hash. Modify
-ROOT/a's `# Agent` on disk. Recompute. Expect hashes
+SPEC/a's `# Agent` on disk. Recompute. Expect hashes
 differ.
 
 ### Ancestors
 
 #### Ancestor with Public subsections contributes hash
 
-Create ROOT with `# Public` containing a `## Context`
-subsection, ROOT/a as target. Build Chain with
-ancestors = [ROOT]. Compute hash. Expect a non-empty
+Create SPEC with `# Public` containing a `## Context`
+subsection, SPEC/a as target. Build Chain with
+ancestors = [SPEC]. Compute hash. Expect a non-empty
 result (27 chars).
 
 #### Ancestor without Public section — skipped
 
-Create ROOT with no `# Public` section (only name
-section). Build Chain with ancestors = [ROOT]. Compute
+Create SPEC with no `# Public` section (only name
+section). Build Chain with ancestors = [SPEC]. Compute
 hash. The result should differ from a chain with an
 ancestor that has `# Public` with subsections.
 
 #### Multiple ancestors — order matters
 
-Create ROOT, ROOT/a, ROOT/a/b as target. ROOT and
-ROOT/a both have `# Public` with `## Context`
-subsections. Build Chain with ancestors = [ROOT,
-ROOT/a] in root-first order. Compute hash. Swap
+Create SPEC, SPEC/a, SPEC/a/b as target. SPEC and
+SPEC/a both have `# Public` with `## Context`
+subsections. Build Chain with ancestors = [SPEC,
+SPEC/a] in root-first order. Compute hash. Swap
 ancestor order and recompute. Expect hashes differ.
 
 ### Dependencies
 
-#### ROOT dependency without qualifier — hashes Public subsections
+#### SPEC dependency without qualifier — hashes Public subsections
 
-Create ROOT/b with `# Public` containing a
+Create SPEC/b with `# Public` containing a
 `## Interface` subsection. Build Chain with dependency
-on ROOT/b (qualifier absent). Compute hash. Modify
-ROOT/b's `## Interface` subsection content. Recompute.
+on SPEC/b (qualifier absent). Compute hash. Modify
+SPEC/b's `## Interface` subsection content. Recompute.
 Expect hashes differ.
 
-#### ROOT dependency with qualifier — hashes subsection
+#### SPEC dependency with qualifier — hashes subsection
 
-Create ROOT/b with `# Public` containing `## Interface`
-subsection. Build Chain with dependency on ROOT/b,
+Create SPEC/b with `# Public` containing `## Interface`
+subsection. Build Chain with dependency on SPEC/b,
 qualifier = "interface". Compute hash. Modify the
 `## Interface` content. Recompute. Expect hashes differ.
 
 #### Qualifier case normalization
 
-Create ROOT/b with `## Interface` subsection. Build
+Create SPEC/b with `## Interface` subsection. Build
 Chain with qualifier = "INTERFACE" (uppercase). Compute
 hash. Expect no error — the qualifier is normalized
 before matching.
@@ -125,7 +125,7 @@ Expect hashes are identical — frontmatter is stripped.
 #### ARTIFACT dependency — tag hash change ignored
 
 Create an artifact file with body containing an artifact
-tag line `// code-from-spec: ROOT/x/y@aAbBcCdDeEfFgGhHiIjJkKlLmMn`.
+tag line `// code-from-spec: SPEC/x/y@aAbBcCdDeEfFgGhHiIjJkKlLmMn`.
 Build Chain with ARTIFACT dependency pointing to that
 file. Compute hash. Change only the 27-character hash
 in the tag to a different value (e.g.
@@ -133,26 +133,52 @@ in the tag to a different value (e.g.
 hashes are identical — the tag hash is neutralized
 before hashing.
 
-### External files
+#### EXTERNAL dependency — hashes all content
 
-#### External file — hashes all content
+Create an external file. Build Chain with EXTERNAL
+dependency pointing to that file. Compute hash. Modify
+the file. Recompute. Expect hashes differ.
 
-Create an external file. Build Chain with external
-entry. Compute hash. Modify the file. Recompute.
-Expect hashes differ.
+### Block extraction
+
+#### Leading blank lines removed from subsection
+
+Create a `_node.md` with a `## Interface` subsection
+that has two blank lines between the heading and the
+first content line. Build Chain referencing this node.
+Compute hash. Create a second version with no blank
+lines between heading and content (same content).
+Compute hash. Expect hashes are identical — leading
+blank lines are removed by block extraction.
+
+#### Trailing blank lines removed from subsection
+
+Create a `_node.md` with a `## Interface` subsection
+that has trailing blank lines after the last content
+line. Build Chain referencing this node. Compute hash.
+Create a second version without trailing blank lines.
+Compute hash. Expect hashes are identical.
+
+#### Interior blank lines preserved
+
+Create a `_node.md` with a `## Interface` subsection
+that has blank lines between content lines. Build
+Chain referencing this node. Compute hash. Remove the
+interior blank lines. Compute hash. Expect hashes
+differ — interior content is preserved byte for byte.
 
 ### Target
 
 #### Target Public and Agent both contribute
 
-Create ROOT/a as target with `# Public` containing a
+Create SPEC/a as target with `# Public` containing a
 `## Interface` subsection and `# Agent` with content.
 Build Chain. Compute hash. Remove `# Agent` from file.
 Recompute. Expect hashes differ.
 
 #### Target without Agent — Agent skipped
 
-Create ROOT/a as target with `# Public` containing a
+Create SPEC/a as target with `# Public` containing a
 `## Interface` subsection, no `# Agent`. Build Chain.
 Compute hash. Expect no error.
 
