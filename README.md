@@ -22,30 +22,32 @@ artifact management.
 
 Download the latest release for your platform from
 [Releases](https://github.com/CodeFromSpec/tool-framework-mcp/releases)
-and extract the binary into your project's `tools/` directory.
+and extract the binary into your project's
+`code-from-spec/_tools/` directory.
 
 Or build from source:
 
 ```bash
-go build -o tools/framework-mcp ./cmd/framework-mcp
+go build -o code-from-spec/_tools/framework-mcp ./cmd/framework-mcp
 ```
 
 ## Configure
 
-Register the server in `.claude/settings.json`:
+Register the server in `.mcp.json` at the project root:
 
 ```json
 {
   "mcpServers": {
     "framework-mcp": {
       "type": "stdio",
-      "command": "tools/framework-mcp"
+      "command": "code-from-spec/_tools/framework-mcp"
     }
   }
 }
 ```
 
-On Windows, use `tools/framework-mcp.exe` as the command.
+On Windows, use `code-from-spec/_tools/framework-mcp.exe`
+as the command.
 
 ## Usage
 
