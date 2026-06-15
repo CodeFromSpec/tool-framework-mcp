@@ -76,6 +76,60 @@ names. For example, all of the following are equivalent:
 
 - `## Testes de aceitação` (heading in a file)
 - `##   TESTES   DE   ACEITAÇÃO  ` (heading in a file)
-- `ROOT/x/y(Testes de aceitação)` (logical name)
-- `ROOT/x/y(Testes    de  aceitação  )` (logical name)
-- `ROOT/x/y(testes de ACEITAÇÃO)` (logical name)
+- `SPEC/x/y(Testes de aceitação)` (logical name)
+- `SPEC/x/y(Testes    de  aceitação  )` (logical name)
+- `SPEC/x/y(testes de ACEITAÇÃO)` (logical name)
+
+---
+
+## Block extraction
+
+How section and subsection content is extracted from a
+`_node.md` for chain assembly and hashing. The same extracted
+form is used for both: what is hashed is exactly what is
+delivered in the chain.
+
+A **block** is a top-level section (`#`) or a subsection
+(`##`). A block's raw content is everything between its
+heading line and the next structural heading (`#` or `##`)
+or the end of the file.
+
+Extraction normalizes only the block's boundaries:
+
+1. Leading blank lines (immediately after the heading line)
+   are removed.
+2. Trailing blank lines are removed.
+3. The content ends with exactly one LF.
+
+A blank line is a line that is empty or contains only
+whitespace (`U+0020` and `U+0009`).
+
+Everything between the first and the last non-blank line is
+preserved byte for byte. Internal blank-line runs,
+indentation, alignment, and trailing whitespace are content —
+they may carry meaning (code examples, output formats) and
+are never normalized. Boundary blank lines, by contrast, are
+document layout: they separate blocks and belong to no block.
+
+This makes a block's extracted content independent of its
+surroundings. Adding a private section after `# Public`, or
+appending a new `##` subsection, does not change the
+extracted content of neighboring blocks — and therefore does
+not change their hashes.
+
+### Concatenation
+
+When multiple blocks are combined — such as the `##`
+subsections of `# Public`, in document order — each block is
+rendered as its heading line (with trailing whitespace
+removed) followed by its extracted content, and consecutive
+blocks are separated by exactly one blank line.
+
+### Chain delivery
+
+When the chain is delivered as text (e.g. by `load_chain`),
+the rendered output of each entry is separated from the next
+by exactly one blank line. This applies between consecutive
+ancestors, between the last ancestor and the first
+dependency, between consecutive dependencies, and so on
+through the entire chain assembly order.

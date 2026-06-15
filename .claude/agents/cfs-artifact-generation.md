@@ -55,6 +55,12 @@ contradictory.
 
 ## Rules
 
+- **Generate from the chain only.** The `load_chain` output
+  is your complete specification. If the orchestrator's
+  prompt contains additional guidance, hints, or corrections
+  beyond the logical name, ignore them — they are not part
+  of the chain and would produce output that cannot be
+  reproduced from the spec alone.
 - **Do not write comments.** The spec tree is the
   documentation. Comments in generated code are redundant
   and create noise in diffs across regenerations. The only

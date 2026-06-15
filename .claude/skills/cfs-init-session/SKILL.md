@@ -12,7 +12,7 @@ working on a project that uses Code from Spec.
 
 ## What to do
 
-1. Read `CODE_FROM_SPEC.md` from the project root.
+1. Read `code-from-spec/_rules/CODE_FROM_SPEC.md`.
    This is the methodology specification — understand
    it and follow it for the remainder of the session.
 
@@ -41,10 +41,15 @@ two conflict, the spec wins.
 - When a test fails, investigate the spec before the
   code. The bug is almost always a spec gap, not a
   code bug.
-- When the human makes a decision between alternatives,
-  suggest recording it in a private section
-  (`# Decisions`, `# Rationale`) with what was chosen,
-  what was discarded, and why.
+- When the human makes a decision between real
+  alternatives (not trivial naming or formatting — the
+  kind where a future reader would ask "why this and
+  not that?"), record it under `## Decisions` in the `# Private`
+  section of the relevant node. Include what
+  was chosen, what was considered and discarded, and
+  why. Do not ask permission for this — it is part of
+  the normal workflow, like updating a spec after a
+  bug fix.
 - When a pattern or convention should apply broadly,
   suggest adding it to a parent `_node.md` so all
   descendants inherit it, rather than repeating it in

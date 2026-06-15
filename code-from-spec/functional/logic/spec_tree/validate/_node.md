@@ -7,7 +7,7 @@ depends_on:
   - SPEC/functional/logic/utils/text_normalization
   - SPEC/functional/logic/parsing/frontmatter(interface)
   - SPEC/functional/logic/parsing/node_parsing(interface)
-  - EXTERNAL/CODE_FROM_SPEC.md
+  - EXTERNAL/code-from-spec/_rules/CODE_FROM_SPEC.md
 output: code-from-spec/functional/logic/spec_tree/validate/output.md
 ---
 

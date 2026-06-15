@@ -181,10 +181,8 @@ it was declared.
 
 **After:**
 > O mapeamento de status é definido em
-> ROOT/architecture/backend/internal/api.
+> SPEC/architecture/backend/internal/api.
 
 **Why:** "nó pai" is a tree concept. If a specific node is meant,
 use its logical name so the chain resolver includes it. If the
 content is already inherited, just state the rule directly.
-
----

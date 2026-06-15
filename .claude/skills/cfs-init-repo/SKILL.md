@@ -24,25 +24,25 @@ already in place.
    does not exist, create it with minimal content:
 
    ```markdown
-   # ROOT
+   # SPEC
    ```
 
 2. **Download the methodology file.** Download
    `CODE_FROM_SPEC.md` from
    `https://raw.githubusercontent.com/CodeFromSpec/framework/main/rules/CODE_FROM_SPEC.md`
-   and save it to the project root.
+   and save it to `code-from-spec/_rules/CODE_FROM_SPEC.md`.
+   Create the directory if needed.
 
 3. **Download the MCP server.** Detect the platform
    (OS + architecture) and download the appropriate
    `framework-mcp` binary from
    `https://github.com/CodeFromSpec/tool-framework-mcp/releases/latest`
-   into `tools/`. On Windows, the binary is
+   into `code-from-spec/_tools/`. On Windows, the binary is
    `framework-mcp.exe`.
 
-4. **Configure .gitignore.** Add `/tools/` to `.gitignore`
-   (with leading `/` to match only the root directory).
-   Create the file if it does not exist. Do not duplicate
-   if the entry already exists.
+4. **Configure .gitignore.** Add `/code-from-spec/_tools/`
+   to `.gitignore`. Create the file if it does not exist.
+   Do not duplicate if the entry already exists.
 
 5. **Configure the MCP server.** Create or update
    `.mcp.json` in the project root:
@@ -52,15 +52,15 @@ already in place.
      "mcpServers": {
        "framework-mcp": {
          "type": "stdio",
-         "command": "tools/framework-mcp"
+         "command": "code-from-spec/_tools/framework-mcp"
        }
      }
    }
    ```
 
-   On Windows, use `tools/framework-mcp.exe` as the
-   command. If `.mcp.json` already exists and has other
-   servers, merge — do not overwrite.
+   On Windows, use `code-from-spec/_tools/framework-mcp.exe`
+   as the command. If `.mcp.json` already exists and has
+   other servers, merge — do not overwrite.
 
 6. **Install subagent definitions.** Download and save
    to `.claude/agents/`. Create the directory if needed.

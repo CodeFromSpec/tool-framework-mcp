@@ -7,7 +7,7 @@ depends_on:
   - SPEC/functional/logic/parsing/node_parsing
   - SPEC/functional/logic/utils/logical_names(interface)
   - SPEC/functional/logic/utils/text_normalization(interface)
-  - EXTERNAL/CHAIN_HASH.md
+  - EXTERNAL/code-from-spec/_rules/CHAIN_HASH.md
 output: code-from-spec/functional/logic/chain/hash/output.md
 ---
 

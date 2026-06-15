@@ -53,10 +53,10 @@ The framework-mcp MCP server must be connected (the
    ## Staleness (12 artifacts)
 
    ### Rank 7 (4 artifacts)
-   - ROOT/golang/interfaces/os/file_reader → code-from-spec/.../output.md (stale)
-   - ROOT/golang/interfaces/os/file_writer → code-from-spec/.../output.md (stale)
-   - ROOT/golang/implementation/os/path_utils → internal/pathutils/pathutils.go (stale)
-   - ROOT/golang/tests/os/path_utils → internal/pathutils/pathutils_test.go (stale)
+   - SPEC/golang/interfaces/os/file_reader → code-from-spec/.../output.md (stale)
+   - SPEC/golang/interfaces/os/file_writer → code-from-spec/.../output.md (stale)
+   - SPEC/golang/implementation/os/path_utils → internal/pathutils/pathutils.go (stale)
+   - SPEC/golang/tests/os/path_utils → internal/pathutils/pathutils_test.go (stale)
 
    ### Rank 9 (8 artifacts)
    ...

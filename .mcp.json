@@ -2,7 +2,7 @@
   "mcpServers": {
     "framework-mcp": {
       "type": "stdio",
-      "command": "tools/framework-mcp.exe"
+      "command": "code-from-spec/_tools/framework-mcp.exe"
     }
   }
 }
