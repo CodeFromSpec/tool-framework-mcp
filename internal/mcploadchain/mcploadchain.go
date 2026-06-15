@@ -4,7 +4,6 @@ package mcploadchain
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"
@@ -30,9 +29,11 @@ func MCPLoadChain(logicalName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parsing frontmatter: %w", err)
 	}
+
 	if fm.Output == "" {
 		return "", fmt.Errorf("%w", ErrNoOutput)
 	}
+
 	if err := pathutils.PathValidateCfs(fm.Output); err != nil {
 		return "", fmt.Errorf("%w: %w", ErrInvalidOutputPath, err)
 	}
@@ -55,12 +56,12 @@ func MCPLoadChain(logicalName string) (string, error) {
 		}
 		node, err := parsenode.NodeParse(ancestor.UnqualifiedLogicalName)
 		if err != nil {
-			return "", fmt.Errorf("parsing ancestor node %s: %w", ancestor.UnqualifiedLogicalName, err)
+			return "", fmt.Errorf("parsing ancestor node %q: %w", ancestor.UnqualifiedLogicalName, err)
 		}
 		if node.Public == nil || len(node.Public.Subsections) == 0 {
 			continue
 		}
-		block := buildPublicBlock(node.Public)
+		block := buildPublicSubsectionsBlock(node.Public.Subsections)
 		contextParts = append(contextParts, block)
 	}
 
@@ -69,27 +70,27 @@ func MCPLoadChain(logicalName string) (string, error) {
 			continue
 		}
 		if logicalnames.LogicalNameIsArtifact(dep.UnqualifiedLogicalName) {
-			content, err := readFileContentSkipTag(dep.FilePath)
+			content, err := readFileSkippingArtifactTag(dep.FilePath)
 			if err != nil {
-				return "", fmt.Errorf("reading artifact dep %s: %w", dep.UnqualifiedLogicalName, err)
+				return "", fmt.Errorf("reading artifact dependency %q: %w", dep.UnqualifiedLogicalName, err)
 			}
 			contextParts = append(contextParts, content)
 		} else if logicalnames.LogicalNameIsExternal(dep.UnqualifiedLogicalName) {
-			content, err := readFileContent(dep.FilePath)
+			content, err := readFileAll(dep.FilePath)
 			if err != nil {
-				return "", fmt.Errorf("reading external dep %s: %w", dep.UnqualifiedLogicalName, err)
+				return "", fmt.Errorf("reading external dependency %q: %w", dep.UnqualifiedLogicalName, err)
 			}
 			contextParts = append(contextParts, content)
 		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) {
 			node, err := parsenode.NodeParse(dep.UnqualifiedLogicalName)
 			if err != nil {
-				return "", fmt.Errorf("parsing dep node %s: %w", dep.UnqualifiedLogicalName, err)
+				return "", fmt.Errorf("parsing dependency node %q: %w", dep.UnqualifiedLogicalName, err)
 			}
 			if dep.Qualifier == nil {
 				if node.Public == nil || len(node.Public.Subsections) == 0 {
 					continue
 				}
-				block := buildPublicBlock(node.Public)
+				block := buildPublicSubsectionsBlock(node.Public.Subsections)
 				contextParts = append(contextParts, block)
 			} else {
 				if node.Public == nil {
@@ -103,17 +104,16 @@ func MCPLoadChain(logicalName string) (string, error) {
 						break
 					}
 				}
-				if found == nil {
-					continue
+				if found != nil {
+					block := buildSubsectionBlock(found)
+					contextParts = append(contextParts, block)
 				}
-				block := buildSubsectionBlock(found)
-				contextParts = append(contextParts, block)
 			}
 		}
 	}
 
 	if chain.Target != nil {
-		frontmatterBlock := fmt.Sprintf("---\noutput: %s\n---\n", fm.Output)
+		frontmatterBlock := "---\noutput: " + fm.Output + "\n---\n"
 		contextParts = append(contextParts, frontmatterBlock)
 
 		targetNode, err := parsenode.NodeParse(chain.Target.UnqualifiedLogicalName)
@@ -122,12 +122,12 @@ func MCPLoadChain(logicalName string) (string, error) {
 		}
 
 		if targetNode.Public != nil && len(targetNode.Public.Subsections) > 0 {
-			block := buildPublicBlock(targetNode.Public)
+			block := buildPublicSubsectionsBlock(targetNode.Public.Subsections)
 			contextParts = append(contextParts, block)
 		}
 
 		if targetNode.Agent != nil {
-			agentBlock := buildAgentBlock(targetNode.Agent)
+			agentBlock := buildAgentBlock(targetNode)
 			contextParts = append(contextParts, agentBlock)
 		}
 	}
@@ -140,85 +140,141 @@ func MCPLoadChain(logicalName string) (string, error) {
 	sb.WriteString(strings.Join(contextParts, "\n"))
 
 	if chain.Input != nil {
-		sb.WriteString("--- input ---\n")
+		sb.WriteString("\n--- input ---\n")
 		var inputContent string
 		if logicalnames.LogicalNameIsArtifact(chain.Input.UnqualifiedLogicalName) {
-			inputContent, err = readFileContentSkipTag(chain.Input.FilePath)
+			inputContent, err = readFileSkippingArtifactTag(chain.Input.FilePath)
 			if err != nil {
 				return "", fmt.Errorf("reading input artifact: %w", err)
 			}
 		} else {
-			inputContent, err = readFileContent(chain.Input.FilePath)
+			inputContent, err = readFileAll(chain.Input.FilePath)
 			if err != nil {
-				return "", fmt.Errorf("reading input: %w", err)
+				return "", fmt.Errorf("reading input file: %w", err)
 			}
 		}
 		sb.WriteString(inputContent)
 	}
 
-	outputCfsPath := &pathutils.PathCfs{Value: fm.Output}
-	outputOsPath, pathErr := pathutils.PathCfsToOs(outputCfsPath)
-	if pathErr == nil {
-		_, statErr := os.Stat(outputOsPath.Value)
-		if statErr == nil {
-			existingContent, readErr := readFileContent(*outputCfsPath)
-			if readErr == nil {
-				sb.WriteString("--- existing artifact ---\n")
-				sb.WriteString(existingContent)
-			}
-		}
+	existingPath := &pathutils.PathCfs{Value: fm.Output}
+	existingContent, err := readFileAll(*existingPath)
+	if err == nil {
+		sb.WriteString("\n--- existing artifact ---\n")
+		sb.WriteString(existingContent)
 	}
 
 	return sb.String(), nil
 }
 
-func readFileContentSkipTag(cfsPath pathutils.PathCfs) (string, error) {
+func readFileAll(cfsPath pathutils.PathCfs) (string, error) {
 	reader, err := filereader.FileOpen(cfsPath)
 	if err != nil {
-		return "", fmt.Errorf("opening file %s: %w", cfsPath.Value, err)
+		return "", err
 	}
 	defer filereader.FileClose(reader)
 
-	var sb strings.Builder
-	tagSkipped := false
+	var lines []string
 	for {
 		line, err := filereader.FileReadLine(reader)
 		if errors.Is(err, filereader.ErrEndOfFile) {
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("reading file %s: %w", cfsPath.Value, err)
+			return "", err
 		}
-		if !tagSkipped && strings.Contains(line, "code-from-spec:") {
-			tagSkipped = true
+		lines = append(lines, line)
+	}
+
+	var sb strings.Builder
+	for _, line := range lines {
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+	return sb.String(), nil
+}
+
+func readFileSkippingArtifactTag(cfsPath pathutils.PathCfs) (string, error) {
+	reader, err := filereader.FileOpen(cfsPath)
+	if err != nil {
+		return "", err
+	}
+	defer filereader.FileClose(reader)
+
+	var lines []string
+	artifactTagSkipped := false
+	for {
+		line, err := filereader.FileReadLine(reader)
+		if errors.Is(err, filereader.ErrEndOfFile) {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+		if !artifactTagSkipped && strings.Contains(line, "code-from-spec:") {
+			artifactTagSkipped = true
 			continue
 		}
+		lines = append(lines, line)
+	}
+
+	var sb strings.Builder
+	for _, line := range lines {
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
 	return sb.String(), nil
 }
 
-func readFileContent(cfsPath pathutils.PathCfs) (string, error) {
-	reader, err := filereader.FileOpen(cfsPath)
-	if err != nil {
-		return "", fmt.Errorf("opening file %s: %w", cfsPath.Value, err)
-	}
-	defer filereader.FileClose(reader)
-
+func buildSubsectionBlock(sub *parsenode.NodeSubsection) string {
 	var sb strings.Builder
-	for {
-		line, err := filereader.FileReadLine(reader)
-		if errors.Is(err, filereader.ErrEndOfFile) {
-			break
-		}
-		if err != nil {
-			return "", fmt.Errorf("reading file %s: %w", cfsPath.Value, err)
-		}
+	sb.WriteString(strings.TrimRight(sub.RawHeading, " \t"))
+	sb.WriteString("\n")
+
+	content := trimLeadingBlankLines(sub.Content)
+	content = trimTrailingBlankLines(content)
+	for _, line := range content {
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
-	return sb.String(), nil
+	return sb.String()
+}
+
+func buildPublicSubsectionsBlock(subsections []*parsenode.NodeSubsection) string {
+	var blocks []string
+	for _, sub := range subsections {
+		blocks = append(blocks, buildSubsectionBlock(sub))
+	}
+	return strings.Join(blocks, "\n")
+}
+
+func buildAgentBlock(node *parsenode.Node) string {
+	agent := node.Agent
+	var sb strings.Builder
+
+	sb.WriteString(strings.TrimRight(agent.RawHeading, " \t"))
+	sb.WriteString("\n")
+
+	content := trimLeadingBlankLines(agent.Content)
+	content = trimTrailingBlankLines(content)
+	for _, line := range content {
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+
+	for _, sub := range agent.Subsections {
+		sb.WriteString("\n")
+		sb.WriteString(strings.TrimRight(sub.RawHeading, " \t"))
+		sb.WriteString("\n")
+
+		subContent := trimLeadingBlankLines(sub.Content)
+		subContent = trimTrailingBlankLines(subContent)
+		for _, line := range subContent {
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
 }
 
 func trimLeadingBlankLines(lines []string) []string {
@@ -235,54 +291,4 @@ func trimTrailingBlankLines(lines []string) []string {
 		end--
 	}
 	return lines[:end]
-}
-
-func buildSubsectionBlock(sub *parsenode.NodeSubsection) string {
-	var sb strings.Builder
-	sb.WriteString(strings.TrimRight(sub.RawHeading, " \t"))
-	sb.WriteString("\n")
-
-	trimmed := trimTrailingBlankLines(trimLeadingBlankLines(sub.Content))
-	for _, line := range trimmed {
-		sb.WriteString(line)
-		sb.WriteString("\n")
-	}
-	return sb.String()
-}
-
-func buildPublicBlock(section *parsenode.NodeSection) string {
-	var subsectionBlocks []string
-	for _, sub := range section.Subsections {
-		subsectionBlocks = append(subsectionBlocks, buildSubsectionBlock(sub))
-	}
-	return strings.Join(subsectionBlocks, "\n")
-}
-
-func buildAgentBlock(section *parsenode.NodeSection) string {
-	var sb strings.Builder
-	sb.WriteString(strings.TrimRight(section.RawHeading, " \t"))
-	sb.WriteString("\n")
-
-	trimmedContent := trimTrailingBlankLines(trimLeadingBlankLines(section.Content))
-	for _, line := range trimmedContent {
-		sb.WriteString(line)
-		sb.WriteString("\n")
-	}
-
-	for _, sub := range section.Subsections {
-		sb.WriteString("\n")
-		sb.WriteString(strings.TrimRight(sub.RawHeading, " \t"))
-		sb.WriteString("\n")
-		trimmed := trimTrailingBlankLines(trimLeadingBlankLines(sub.Content))
-		for _, line := range trimmed {
-			sb.WriteString(line)
-			sb.WriteString("\n")
-		}
-	}
-
-	result := sb.String()
-	if !strings.HasSuffix(result, "\n") {
-		result += "\n"
-	}
-	return result
 }

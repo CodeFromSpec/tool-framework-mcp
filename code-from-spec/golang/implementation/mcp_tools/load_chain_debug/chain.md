@@ -5,10 +5,8 @@ chain_hash: cZomqhQq1E9UGVpaY3yV6AsG3v0
 The module path is `github.com/CodeFromSpec/tool-framework-mcp/v4`.
 All internal package imports must use this prefix.
 
-
 ## Language
 Go (minimum 1.24).
-
 
 ## Dependencies
 - Standard library unless explicitly stated otherwise.
@@ -16,20 +14,17 @@ Go (minimum 1.24).
   (stdio transport, tool registration with generics, request
   handling).
 
-
 ## Error handling
 - **Startup errors** (unexpected arguments) — print to stderr and
   exit 1. The tool does not start if it cannot be configured.
 - **Tool errors** — returned as MCP tool error responses. The tool
   continues running after a tool error.
 
-
 ## Project root
 The tool is always executed from the project root directory.
 The working directory of the process is the project root.
 All relative paths — spec files, generated source files — are
 resolved against it.
-
 
 ## Constraints
 - When a functional spec lists `errors:` on a function,
@@ -51,7 +46,6 @@ resolved against it.
   package under test when using internal test files (same package
   as the implementation).
 
-
 ## Implementation rules
 - Implement the pseudocode from the `input` artifact.
 - Declare types, error sentinels, and function signatures
@@ -68,7 +62,6 @@ resolved against it.
   can match with `errors.Is()`.
 - Write straightforward code. Simple and readable over
   clever and compact.
-
 
 
 ## Package
@@ -939,6 +932,7 @@ function MCPLoadChain(logical_name: string) -> string
        If `LogicalNameIsArtifact(dep.unqualified_logical_name)` is true:
          Call `FileOpen(dep.file_path)`.
          Read all lines with `FileReadLine` until `EndOfFile`.
+         Skip the first line that contains "code-from-spec:" (the artifact tag line).
          Include all other lines.
          Call `FileClose`.
          Append the resulting text to `context_parts`.
@@ -1002,6 +996,7 @@ function MCPLoadChain(logical_name: string) -> string
        If `LogicalNameIsArtifact(chain.input.unqualified_logical_name)` is true:
          Call `FileOpen(chain.input.file_path)`.
          Read all lines with `FileReadLine` until `EndOfFile`.
+         Skip the first line that contains "code-from-spec:".
          Include all other lines.
          Call `FileClose`.
          Append the resulting text.
