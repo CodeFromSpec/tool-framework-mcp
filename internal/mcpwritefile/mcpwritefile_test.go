@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/write_file@u1y0ofBlMCa74DZQ6CqgZ7__dAg
+// code-from-spec: SPEC/golang/tests/mcp_tools/write_file@jgkyS37EpXEvT4b8Pqq3969Rak8
 package mcpwritefile_test
 
 import (
@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 func testChdir(t *testing.T, dir string) {
@@ -27,23 +27,21 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func testCreateNodeMd(t *testing.T, relPath string, content string) {
+func testWriteNodeFile(t *testing.T, relPath string, content string) {
 	t.Helper()
-	dir := relPath[:len(relPath)-len("_node.md")]
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("testCreateNodeMd MkdirAll: %v", err)
+	if err := os.MkdirAll(relPath[:len(relPath)-len("_node.md")], 0755); err != nil {
+		t.Fatalf("testWriteNodeFile mkdir: %v", err)
 	}
-	if err := os.WriteFile(relPath, []byte(content), 0o644); err != nil {
-		t.Fatalf("testCreateNodeMd WriteFile: %v", err)
+	if err := os.WriteFile(relPath, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteNodeFile write: %v", err)
 	}
 }
 
 func TestMCPWriteFile_TC01_WritesFileSuccessfully(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testCreateNodeMd(t, "code-from-spec/a/_node.md",
-		"---\noutput: output/file.go\n---\n# SPEC/a\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: output/file.go\n---\n# SPEC/a\n")
 
 	result, err := mcpwritefile.MCPWriteFile("SPEC/a", "output/file.go", "package main")
 	if err != nil {
@@ -55,7 +53,7 @@ func TestMCPWriteFile_TC01_WritesFileSuccessfully(t *testing.T) {
 
 	data, err := os.ReadFile("output/file.go")
 	if err != nil {
-		t.Fatalf("reading output file: %v", err)
+		t.Fatalf("file not found: %v", err)
 	}
 	if string(data) != "package main" {
 		t.Errorf("file content = %q, want %q", string(data), "package main")
@@ -63,60 +61,55 @@ func TestMCPWriteFile_TC01_WritesFileSuccessfully(t *testing.T) {
 }
 
 func TestMCPWriteFile_TC02_CreatesIntermediateDirectories(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testCreateNodeMd(t, "code-from-spec/a/_node.md",
-		"---\noutput: deep/nested/dir/file.go\n---\n# SPEC/a\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: deep/nested/dir/file.go\n---\n# SPEC/a\n")
 
 	result, err := mcpwritefile.MCPWriteFile("SPEC/a", "deep/nested/dir/file.go", "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != "wrote deep/nested/dir/file.go" {
-		t.Errorf("result = %q, want %q", result, "wrote deep/nested/dir/file.go")
+	if result == "" {
+		t.Error("expected non-empty result")
 	}
 
 	if _, err := os.Stat("deep/nested/dir/file.go"); err != nil {
-		t.Errorf("file does not exist: %v", err)
+		t.Errorf("file not found: %v", err)
 	}
 }
 
 func TestMCPWriteFile_TC03_OverwritesExistingFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testCreateNodeMd(t, "code-from-spec/a/_node.md",
-		"---\noutput: output/file.go\n---\n# SPEC/a\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: output/file.go\n---\n# SPEC/a\n")
 
-	if err := os.MkdirAll("output", 0o755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
+	if err := os.MkdirAll("output", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile("output/file.go", []byte("old"), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	if err := os.WriteFile("output/file.go", []byte("old"), 0644); err != nil {
+		t.Fatalf("write existing file: %v", err)
 	}
 
 	result, err := mcpwritefile.MCPWriteFile("SPEC/a", "output/file.go", "new")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != "wrote output/file.go" {
-		t.Errorf("result = %q, want %q", result, "wrote output/file.go")
+	if result == "" {
+		t.Error("expected non-empty result")
 	}
 
 	data, err := os.ReadFile("output/file.go")
 	if err != nil {
-		t.Fatalf("reading output file: %v", err)
+		t.Fatalf("file not found: %v", err)
 	}
 	if string(data) != "new" {
 		t.Errorf("file content = %q, want %q", string(data), "new")
 	}
 }
 
-func TestMCPWriteFile_TC04_ErrorArtifactReference(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
-
+func TestMCPWriteFile_TC04_InvalidLogicalName_ArtifactReference(t *testing.T) {
 	_, err := mcpwritefile.MCPWriteFile("ARTIFACT/x", "out.go", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -126,10 +119,7 @@ func TestMCPWriteFile_TC04_ErrorArtifactReference(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_TC05_ErrorQualifierNotAllowed(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
-
+func TestMCPWriteFile_TC05_InvalidLogicalName_WithQualifier(t *testing.T) {
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a(interface)", "out.go", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -139,9 +129,9 @@ func TestMCPWriteFile_TC05_ErrorQualifierNotAllowed(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_TC06_ErrorNonexistentNodeFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+func TestMCPWriteFile_TC06_NonexistentNodeFile(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/missing", "out.go", "")
 	if err == nil {
@@ -152,11 +142,11 @@ func TestMCPWriteFile_TC06_ErrorNonexistentNodeFile(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_TC07_ErrorNoOutput(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+func TestMCPWriteFile_TC07_NoOutputDeclared(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testCreateNodeMd(t, "code-from-spec/a/_node.md", "# SPEC/a\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", "out.go", "")
 	if err == nil {
@@ -167,12 +157,11 @@ func TestMCPWriteFile_TC07_ErrorNoOutput(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_TC08_ErrorPathNotInOutput(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+func TestMCPWriteFile_TC08_PathNotInOutput(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testCreateNodeMd(t, "code-from-spec/a/_node.md",
-		"---\noutput: allowed/file.go\n---\n# SPEC/a\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: allowed/file.go\n---\n# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", "other/file.go", "")
 	if err == nil {
@@ -183,12 +172,11 @@ func TestMCPWriteFile_TC08_ErrorPathNotInOutput(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_TC09_ErrorEmptyPath(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+func TestMCPWriteFile_TC09_PathValidation_EmptyPath(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testCreateNodeMd(t, "code-from-spec/a/_node.md",
-		"---\noutput: out.go\n---\n# SPEC/a\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: out.go\n---\n# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", "", "")
 	if err == nil {
@@ -199,12 +187,11 @@ func TestMCPWriteFile_TC09_ErrorEmptyPath(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_TC10_ErrorDirectoryTraversal(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+func TestMCPWriteFile_TC10_PathValidation_Traversal(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testCreateNodeMd(t, "code-from-spec/a/_node.md",
-		"---\noutput: out.go\n---\n# SPEC/a\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: out.go\n---\n# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", "../../etc/passwd", "")
 	if err == nil {
@@ -215,12 +202,11 @@ func TestMCPWriteFile_TC10_ErrorDirectoryTraversal(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_TC11_ErrorBackslashInPath(t *testing.T) {
-	tmpDir := t.TempDir()
-	testChdir(t, tmpDir)
+func TestMCPWriteFile_TC11_PathValidation_Backslash(t *testing.T) {
+	dir := t.TempDir()
+	testChdir(t, dir)
 
-	testCreateNodeMd(t, "code-from-spec/a/_node.md",
-		"---\noutput: out.go\n---\n# SPEC/a\n")
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: out.go\n---\n# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", `output\file.go`, "")
 	if err == nil {

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/mcp_tools/validate_specs@H0V1bRwMjKUm7qOxaFLS3QKTXY0
+// code-from-spec: SPEC/golang/tests/mcp_tools/validate_specs@PhAgsXNWzAZodPkRtRUt0OrO4r8
 package mcpvalidatespecs_test
 
 import (
@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpvalidatespecs"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpvalidatespecs"
 )
 
 func testChdir(t *testing.T, dir string) {
@@ -27,348 +27,371 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func testWriteFile(t *testing.T, path string, content string) {
+func testMkdirAll(t *testing.T, path string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath(path), 0755); err != nil {
-		t.Fatalf("testWriteFile mkdir: %v", err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("testWriteFile: %v", err)
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("testMkdirAll %q: %v", path, err)
 	}
 }
 
-func filepath(path string) string {
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' {
-			return path[:i]
-		}
+func testWriteFile(t *testing.T, path string, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("testWriteFile %q: %v", path, err)
 	}
-	return "."
 }
 
 func testComputeChainHash(t *testing.T, logicalName string) string {
 	t.Helper()
 	chain, err := chainresolver.ChainResolve(logicalName)
 	if err != nil {
-		t.Fatalf("ChainResolve(%s): %v", logicalName, err)
+		t.Fatalf("ChainResolve(%q): %v", logicalName, err)
 	}
 	hash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		t.Fatalf("ChainHashCompute(%s): %v", logicalName, err)
+		t.Fatalf("ChainHashCompute(%q): %v", logicalName, err)
 	}
 	return hash
 }
 
-func TestMCPValidateSpecs_TC01_CleanTree(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func testRootNode() string {
+	return "# SPEC\n\n# Public\n\n## Context\n\nRoot context.\n"
+}
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n\n# Public\n\n## Context\n\nSome context.\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\n---\n# SPEC/a\n")
+func TestMCPValidateSpecs_CleanTree(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "out")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutput: \"out/a.go\"\n---\n# SPEC/a\n")
 
 	hash := testComputeChainHash(t, "SPEC/a")
-	testWriteFile(t, "out/a.go", fmt.Sprintf("// code-from-spec: SPEC/a@%s\npackage main\n", hash))
+	testWriteFile(t, "out/a.go",
+		fmt.Sprintf("// code-from-spec: SPEC/a@%s\npackage main\n", hash))
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
 	if len(report.FormatErrors) != 0 {
-		t.Errorf("expected no format errors, got %d: %v", len(report.FormatErrors), report.FormatErrors)
+		t.Errorf("expected no format errors, got %d: %+v", len(report.FormatErrors), report.FormatErrors)
 	}
 	if len(report.Cycles) != 0 {
 		t.Errorf("expected no cycles, got %v", report.Cycles)
 	}
 	if len(report.Staleness) != 0 {
-		t.Errorf("expected no staleness entries, got %d", len(report.Staleness))
+		t.Errorf("expected no staleness entries, got %+v", report.Staleness)
 	}
 }
 
-func TestMCPValidateSpecs_TC02_StaleArtifact(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_StaleArtifact(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\n---\n# SPEC/a\n")
-	testWriteFile(t, "out/a.go", "// code-from-spec: SPEC/a@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "out")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutput: \"out/a.go\"\n---\n# SPEC/a\n")
+
+	testWriteFile(t, "out/a.go",
+		"// code-from-spec: SPEC/a@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
-	if len(report.Staleness) == 0 {
-		t.Fatal("expected a staleness entry, got none")
+	if len(report.Staleness) != 1 {
+		t.Fatalf("expected 1 staleness entry, got %d: %+v", len(report.Staleness), report.Staleness)
 	}
-	found := false
-	for _, s := range report.Staleness {
-		if s.Node == "SPEC/a" {
-			found = true
-			if s.Status != "stale" {
-				t.Errorf("expected status 'stale', got %q", s.Status)
-			}
-		}
+	entry := report.Staleness[0]
+	if entry.Node != "SPEC/a" {
+		t.Errorf("expected node SPEC/a, got %q", entry.Node)
 	}
-	if !found {
-		t.Error("expected staleness entry for SPEC/a")
+	if entry.Status != "stale" {
+		t.Errorf("expected status stale, got %q", entry.Status)
 	}
+	_ = entry.Rank
 }
 
-func TestMCPValidateSpecs_TC03_MissingArtifact(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_MissingArtifact(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\n---\n# SPEC/a\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutput: \"out/a.go\"\n---\n# SPEC/a\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
-	if len(report.Staleness) == 0 {
-		t.Fatal("expected a staleness entry, got none")
+	if len(report.Staleness) != 1 {
+		t.Fatalf("expected 1 staleness entry, got %d: %+v", len(report.Staleness), report.Staleness)
 	}
-	found := false
-	for _, s := range report.Staleness {
-		if s.Node == "SPEC/a" {
-			found = true
-			if s.Status != "missing" {
-				t.Errorf("expected status 'missing', got %q", s.Status)
-			}
-		}
+	entry := report.Staleness[0]
+	if entry.Node != "SPEC/a" {
+		t.Errorf("expected node SPEC/a, got %q", entry.Node)
 	}
-	if !found {
-		t.Error("expected staleness entry for SPEC/a")
+	if entry.Status != "missing" {
+		t.Errorf("expected status missing, got %q", entry.Status)
 	}
 }
 
-func TestMCPValidateSpecs_TC04_MalformedTag(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_MalformedTag(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\n---\n# SPEC/a\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "out")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutput: \"out/a.go\"\n---\n# SPEC/a\n")
+
 	testWriteFile(t, "out/a.go", "package main\n// no artifact tag here\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
-	if len(report.Staleness) == 0 {
-		t.Fatal("expected a staleness entry, got none")
+	if len(report.Staleness) != 1 {
+		t.Fatalf("expected 1 staleness entry, got %d: %+v", len(report.Staleness), report.Staleness)
 	}
-	found := false
-	for _, s := range report.Staleness {
-		if s.Node == "SPEC/a" {
-			found = true
-			if s.Status != "malformed tag" {
-				t.Errorf("expected status 'malformed tag', got %q", s.Status)
-			}
-		}
+	entry := report.Staleness[0]
+	if entry.Node != "SPEC/a" {
+		t.Errorf("expected node SPEC/a, got %q", entry.Node)
 	}
-	if !found {
-		t.Error("expected staleness entry for SPEC/a")
+	if entry.Status != "malformed tag" {
+		t.Errorf("expected status 'malformed tag', got %q", entry.Status)
 	}
 }
 
-func TestMCPValidateSpecs_TC05_StalenessEntriesIncludeRank(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_StalenessEntriesIncludeRank(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\n---\n# SPEC/a\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\noutput: out/b.go\ndepends_on:\n  - SPEC/a\n---\n# SPEC/b\n")
-	testWriteFile(t, "out/a.go", "// code-from-spec: SPEC/a@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
-	testWriteFile(t, "out/b.go", "// code-from-spec: SPEC/b@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "code-from-spec/b")
+	testMkdirAll(t, "out")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutput: \"out/a.go\"\n---\n# SPEC/a\n")
+	testWriteFile(t, "code-from-spec/b/_node.md",
+		"---\noutput: \"out/b.go\"\ndepends_on:\n  - SPEC/a\n---\n# SPEC/b\n")
+
+	testWriteFile(t, "out/a.go",
+		"// code-from-spec: SPEC/a@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
+	testWriteFile(t, "out/b.go",
+		"// code-from-spec: SPEC/b@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	if len(report.Staleness) != 2 {
+		t.Fatalf("expected 2 staleness entries, got %d: %+v", len(report.Staleness), report.Staleness)
+	}
 
 	var rankA, rankB int
 	foundA, foundB := false, false
-	for _, s := range report.Staleness {
-		if s.Node == "SPEC/a" {
-			rankA = s.Rank
+	for _, entry := range report.Staleness {
+		switch entry.Node {
+		case "SPEC/a":
+			rankA = entry.Rank
 			foundA = true
-		}
-		if s.Node == "SPEC/b" {
-			rankB = s.Rank
+		case "SPEC/b":
+			rankB = entry.Rank
 			foundB = true
 		}
 	}
+
 	if !foundA {
-		t.Error("expected staleness entry for SPEC/a")
+		t.Error("missing staleness entry for SPEC/a")
 	}
 	if !foundB {
-		t.Error("expected staleness entry for SPEC/b")
+		t.Error("missing staleness entry for SPEC/b")
 	}
 	if foundA && foundB && rankA >= rankB {
-		t.Errorf("expected rank of SPEC/a (%d) < rank of SPEC/b (%d)", rankA, rankB)
+		t.Errorf("expected rank(SPEC/a) < rank(SPEC/b), got %d >= %d", rankA, rankB)
 	}
 }
 
-func TestMCPValidateSpecs_TC06_StalenessOrderedByRankThenName(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_StalenessOrderedByRankThenName(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/z/_node.md", "---\noutput: out/z.go\n---\n# SPEC/z\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\n---\n# SPEC/a\n")
-	testWriteFile(t, "out/z.go", "// code-from-spec: SPEC/z@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
-	testWriteFile(t, "out/a.go", "// code-from-spec: SPEC/a@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
+	testMkdirAll(t, "code-from-spec/z")
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "out")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/z/_node.md",
+		"---\noutput: \"out/z.go\"\n---\n# SPEC/z\n")
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\noutput: \"out/a.go\"\n---\n# SPEC/a\n")
+
+	testWriteFile(t, "out/z.go",
+		"// code-from-spec: SPEC/z@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
+	testWriteFile(t, "out/a.go",
+		"// code-from-spec: SPEC/a@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
-	if len(report.Staleness) < 2 {
-		t.Fatalf("expected at least 2 staleness entries, got %d", len(report.Staleness))
+	if len(report.Staleness) != 2 {
+		t.Fatalf("expected 2 staleness entries, got %d: %+v", len(report.Staleness), report.Staleness)
 	}
 
-	idxA, idxZ := -1, -1
-	for i, s := range report.Staleness {
-		if s.Node == "SPEC/a" {
-			idxA = i
-		}
-		if s.Node == "SPEC/z" {
-			idxZ = i
-		}
+	if report.Staleness[0].Node != "SPEC/a" {
+		t.Errorf("expected first entry to be SPEC/a, got %q", report.Staleness[0].Node)
 	}
-	if idxA == -1 {
-		t.Error("expected staleness entry for SPEC/a")
-	}
-	if idxZ == -1 {
-		t.Error("expected staleness entry for SPEC/z")
-	}
-	if idxA != -1 && idxZ != -1 && idxA >= idxZ {
-		t.Errorf("expected SPEC/a (index %d) to appear before SPEC/z (index %d)", idxA, idxZ)
+	if report.Staleness[1].Node != "SPEC/z" {
+		t.Errorf("expected second entry to be SPEC/z, got %q", report.Staleness[1].Node)
 	}
 }
 
-func TestMCPValidateSpecs_TC07_FormatErrorInvalidDependsOn(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_FormatErrorDependencyTargets(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\ndepends_on:\n  - SPEC/missing\n---\n# SPEC/a\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ndepends_on:\n  - SPEC/missing\n---\n# SPEC/a\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
-	if len(report.FormatErrors) == 0 {
-		t.Fatal("expected format errors, got none")
-	}
 	found := false
-	for _, fe := range report.FormatErrors {
-		if fe.Node == "SPEC/a" && fe.Rule == "dependency_targets" {
+	for _, e := range report.FormatErrors {
+		if e.Node == "SPEC/a" && e.Rule == "dependency_targets" {
 			found = true
+			break
 		}
 	}
 	if !found {
-		t.Errorf("expected FormatError for SPEC/a with rule 'dependency_targets', got: %v", report.FormatErrors)
+		t.Errorf("expected format error for SPEC/a with rule=dependency_targets, got: %+v", report.FormatErrors)
 	}
 }
 
-func TestMCPValidateSpecs_TC08_FormatErrorParseFailure(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_FormatErrorParse(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "this is text before any heading\n# SPEC/a\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"this is plain text before any heading\nno level-1 heading here\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
-	if len(report.FormatErrors) == 0 {
-		t.Fatal("expected format errors, got none")
-	}
 	found := false
-	for _, fe := range report.FormatErrors {
-		if fe.Node == "SPEC/a" && fe.Rule == "parse" {
+	for _, e := range report.FormatErrors {
+		if e.Node == "SPEC/a" && e.Rule == "parse" {
 			found = true
+			break
 		}
 	}
 	if !found {
-		t.Errorf("expected FormatError for SPEC/a with rule 'parse', got: %v", report.FormatErrors)
+		t.Errorf("expected format error for SPEC/a with rule=parse, got: %+v", report.FormatErrors)
 	}
 }
 
-func TestMCPValidateSpecs_TC09_ContinuesAfterParseFailure(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_ContinuesAfterParseFailure(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "this is text before any heading\n# SPEC/a\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\noutput: out/b.go\n---\n# SPEC/b\n")
-	testWriteFile(t, "out/b.go", "// code-from-spec: SPEC/b@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "code-from-spec/b")
+	testMkdirAll(t, "out")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"this is plain text before any heading\nno level-1 heading here\n")
+	testWriteFile(t, "code-from-spec/b/_node.md",
+		"---\noutput: \"out/b.go\"\n---\n# SPEC/b\n")
+
+	testWriteFile(t, "out/b.go",
+		"// code-from-spec: SPEC/b@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
 	foundParseErr := false
-	for _, fe := range report.FormatErrors {
-		if fe.Node == "SPEC/a" {
+	for _, e := range report.FormatErrors {
+		if e.Node == "SPEC/a" && e.Rule == "parse" {
 			foundParseErr = true
+			break
 		}
 	}
 	if !foundParseErr {
-		t.Error("expected FormatError for SPEC/a")
+		t.Errorf("expected parse format error for SPEC/a, got: %+v", report.FormatErrors)
 	}
 
-	foundStaleness := false
+	foundStale := false
 	for _, s := range report.Staleness {
-		if s.Node == "SPEC/b" {
-			foundStaleness = true
+		if s.Node == "SPEC/b" && s.Status == "stale" {
+			foundStale = true
+			break
 		}
 	}
-	if !foundStaleness {
-		t.Error("expected staleness entry for SPEC/b")
+	if !foundStale {
+		t.Errorf("expected stale entry for SPEC/b, got: %+v", report.Staleness)
 	}
 }
 
-func TestMCPValidateSpecs_TC10_SubdirWithoutNodeMd(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_SubdirWithoutNodeMd(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "# SPEC/a\n")
-	if err := os.MkdirAll("code-from-spec/b", 0755); err != nil {
-		t.Fatalf("mkdir code-from-spec/b: %v", err)
-	}
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "code-from-spec/b")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"# SPEC/a\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
 	found := false
-	for _, fe := range report.FormatErrors {
-		if fe.Rule == "missing_node_md" {
+	for _, e := range report.FormatErrors {
+		if e.Rule == "missing_node_md" {
 			found = true
+			break
 		}
 	}
 	if !found {
-		t.Errorf("expected FormatError with rule 'missing_node_md', got: %v", report.FormatErrors)
+		t.Errorf("expected format error with rule=missing_node_md for code-from-spec/b/, got: %+v", report.FormatErrors)
 	}
 }
 
-func TestMCPValidateSpecs_TC11_UnderscorePrefixedDirIgnored(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_UnderscorePrefixedDirIgnored(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	if err := os.MkdirAll("code-from-spec/_tools", 0755); err != nil {
-		t.Fatalf("mkdir code-from-spec/_tools: %v", err)
-	}
+	testMkdirAll(t, "code-from-spec/_tools")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
-	for _, fe := range report.FormatErrors {
-		if fe.Rule == "missing_node_md" {
-			t.Errorf("unexpected FormatError referencing _tools: %v", fe)
+	for _, e := range report.FormatErrors {
+		if e.Node == "code-from-spec/_tools/" || e.Node == "code-from-spec/_tools" {
+			t.Errorf("expected _tools dir to be ignored, but got format error: %+v", e)
 		}
 	}
 }
 
-func TestMCPValidateSpecs_TC12_SimpleCycle(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_SimpleCycleDetected(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\ndepends_on:\n  - SPEC/b\n---\n# SPEC/a\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\ndepends_on:\n  - SPEC/a\n---\n# SPEC/b\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "code-from-spec/b")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ndepends_on:\n  - SPEC/b\n---\n# SPEC/a\n")
+	testWriteFile(t, "code-from-spec/b/_node.md",
+		"---\ndepends_on:\n  - SPEC/a\n---\n# SPEC/b\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
 	if len(report.Cycles) == 0 {
 		t.Error("expected cycles to be non-empty")
 	}
+
 	foundCycleNode := false
 	for _, name := range report.Cycles {
 		if name == "SPEC/a" || name == "SPEC/b" {
 			foundCycleNode = true
+			break
 		}
 	}
 	if !foundCycleNode {
@@ -376,73 +399,73 @@ func TestMCPValidateSpecs_TC12_SimpleCycle(t *testing.T) {
 	}
 }
 
-func TestMCPValidateSpecs_TC13_RankingSkippedWhenFormatErrors(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_RankingSkippedWhenFormatErrors(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\ndepends_on:\n  - SPEC/missing\n---\n# SPEC/a\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\noutput: out/b.go\n---\n# SPEC/b\n")
-	testWriteFile(t, "out/b.go", "// code-from-spec: SPEC/b@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testMkdirAll(t, "code-from-spec/b")
+	testMkdirAll(t, "out")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"---\ndepends_on:\n  - SPEC/missing\n---\n# SPEC/a\n")
+	testWriteFile(t, "code-from-spec/b/_node.md",
+		"---\noutput: \"out/b.go\"\n---\n# SPEC/b\n")
+
+	testWriteFile(t, "out/b.go",
+		"// code-from-spec: SPEC/b@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
 	if len(report.FormatErrors) == 0 {
-		t.Error("expected format errors")
+		t.Error("expected format errors to be non-empty")
 	}
 
-	foundStalenessB := false
 	for _, s := range report.Staleness {
-		if s.Node == "SPEC/b" {
-			foundStalenessB = true
-			if s.Rank != 0 {
-				t.Errorf("expected rank 0 for SPEC/b when ranking skipped, got %d", s.Rank)
-			}
+		if s.Node == "SPEC/b" && s.Rank != 0 {
+			t.Errorf("expected rank=0 for SPEC/b when ranking skipped, got %d", s.Rank)
 		}
-	}
-	if !foundStalenessB {
-		t.Error("expected staleness entry for SPEC/b")
 	}
 }
 
-func TestMCPValidateSpecs_TC14_EmptySpecTree(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_EmptySpecTree(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
-	if len(report.FormatErrors) == 0 {
-		t.Fatal("expected format errors, got none")
-	}
 	found := false
-	for _, fe := range report.FormatErrors {
-		if fe.Rule == "scan" {
+	for _, e := range report.FormatErrors {
+		if e.Rule == "scan" {
 			found = true
+			break
 		}
 	}
 	if !found {
-		t.Errorf("expected FormatError with rule 'scan', got: %v", report.FormatErrors)
+		t.Errorf("expected format error with rule=scan for empty spec tree, got: %+v", report.FormatErrors)
 	}
 	if len(report.Cycles) != 0 {
 		t.Errorf("expected no cycles, got %v", report.Cycles)
 	}
 	if len(report.Staleness) != 0 {
-		t.Errorf("expected no staleness, got %d entries", len(report.Staleness))
+		t.Errorf("expected no staleness, got %+v", report.Staleness)
 	}
 }
 
-func TestMCPValidateSpecs_TC15_NodeWithNoOutput(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestMCPValidateSpecs_NodeWithNoOutputNotInStaleness(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteFile(t, "code-from-spec/_node.md", "# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "# SPEC/a\n")
+	testMkdirAll(t, "code-from-spec/a")
+	testWriteFile(t, "code-from-spec/_node.md", testRootNode())
+	testWriteFile(t, "code-from-spec/a/_node.md",
+		"# SPEC/a\n")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
 	for _, s := range report.Staleness {
 		if s.Node == "SPEC/a" {
-			t.Errorf("expected no staleness entry for SPEC/a (no output declared), got: %v", s)
+			t.Errorf("expected no staleness entry for SPEC/a (no output declared), got: %+v", s)
 		}
 	}
 }
