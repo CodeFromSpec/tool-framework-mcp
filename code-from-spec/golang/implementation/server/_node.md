@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ROOT/golang/dependencies/mcp-go-sdk
+  - SPEC/golang/dependencies/mcp-go-sdk
   - ARTIFACT/golang/interfaces/mcp_tools/load_chain
   - ARTIFACT/golang/interfaces/mcp_tools/write_file
   - ARTIFACT/golang/interfaces/mcp_tools/validate_specs
@@ -8,7 +8,7 @@ depends_on:
 output: cmd/framework-mcp/main.go
 ---
 
-# ROOT/golang/implementation/server
+# SPEC/golang/implementation/server
 
 Entry point: handles argument validation, creates and
 configures the MCP server, registers tools, and runs
@@ -98,14 +98,11 @@ MCP configuration example:
   calls the corresponding package function.
 - The handler wraps the function result into an MCP
   tool response (text content).
-- For `MCPLoadChain`, the result is `MCPLoadChainResult`
-  — emit `chain_hash` as the first content item,
-  `context` as the second, and `input` as the third
-  (if present).
+- For `MCPLoadChain`, `MCPWriteFile`, and
+  `MCPChainHash`, the result is a string — return
+  directly as text content.
 - For `MCPValidateSpecs`, the result is
   `ValidationReport` — format as human-readable text.
-- For `MCPWriteFile` and `MCPChainHash`, the result
-  is a string — return directly as text content.
 - For `version`, return `Version` directly as text
   content. No external package needed — the handler
   is inline.

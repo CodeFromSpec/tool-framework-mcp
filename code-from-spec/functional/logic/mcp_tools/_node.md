@@ -1,4 +1,4 @@
-# ROOT/functional/logic/mcp_tools
+# SPEC/functional/logic/mcp_tools
 
 Shared behavior for all tools exposed by the MCP server.
 

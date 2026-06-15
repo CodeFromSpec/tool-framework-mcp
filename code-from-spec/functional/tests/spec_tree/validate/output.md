@@ -1,600 +1,659 @@
-<!-- code-from-spec: ROOT/functional/tests/spec_tree/validate@G1xGSsYFHGgr2AF4tdXkDQZOlUI -->
+<!-- code-from-spec: SPEC/functional/tests/spec_tree/validate@yW9q5YAZv9MkWvDzZmLkOVsSKUI -->
 
-## Test cases for SpecTreeValidate
+# Test Specification: SpecTreeValidate
 
-Each test case provides a list of `SpecTreeValidateInput` records, calls
-`SpecTreeValidate`, and checks the returned list of `FormatError` records.
-
-A `SpecTreeValidateInput` record has:
-- `logical_name`: string
-- `frontmatter`: a frontmatter record with optional fields `depends_on`,
-  `output`, `input`, `external`
-- `node`: a parsed node record with `name_section.heading`, optional
-  `public` section, optional `agent` section
-
-An entry is a leaf if no other entry has a logical name starting with
-`<entry_logical_name>/`. An entry is intermediate otherwise.
+Each test case lists a description, setup (list of SpecTreeValidateInput records plus all_dirs), the action taken, and the expected outcome.
 
 ---
 
-### Happy path
+## Happy path
 
-#### Valid leaf node passes all checks
+### Valid leaf node passes all checks
 
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields, node with heading = "ROOT",
-  public present (no subsections), no agent section
-- logical_name = "ROOT/a", frontmatter depends_on = ["ROOT/b"],
-  output = "internal/out.go", node with heading = "ROOT/a"
-- logical_name = "ROOT/b", no frontmatter fields, node with heading = "ROOT/b"
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["SPEC/b"], output: "internal/out.go" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/b", frontmatter: {}, node: { name_section: { heading: "spec/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/b"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns an empty list of `FormatError`.
-
----
-
-#### Valid intermediate node passes all checks
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields, node with heading = "ROOT",
-  public present with empty content, no agent section
-- logical_name = "ROOT/a", no frontmatter fields, node with heading = "ROOT/a"
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns an empty list of `FormatError`.
+Expected: result is an empty list of FormatErrors
 
 ---
 
-#### Leaf with no frontmatter fields
+### Valid intermediate node passes all checks
 
-Setup: input list with two entries:
-- logical_name = "ROOT", node with heading = "ROOT"
-- logical_name = "ROOT/a", empty frontmatter, node with heading = "ROOT/a"
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: { content: [], subsections: [] }, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns an empty list of `FormatError`.
-
----
-
-### name_heading
-
-#### Heading matches logical name
-
-Setup: input list with two entries:
-- logical_name = "ROOT", node with heading = "ROOT"
-- logical_name = "ROOT/a", node with heading = "ROOT/a"
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns no `FormatError` with rule = "name_heading".
+Expected: result is an empty list of FormatErrors
 
 ---
 
-#### Heading does not match logical name
+### Leaf with no frontmatter fields
 
-Setup: input list with two entries:
-- logical_name = "ROOT", node with heading = "ROOT"
-- logical_name = "ROOT/a", node with heading = "ROOT/wrong"
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "name_heading"
-
----
-
-### leaf_only_fields
-
-#### Intermediate node with depends_on
-
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter depends_on = ["ROOT/b"],
-  node with heading = "ROOT/a"
-- logical_name = "ROOT/a/b", no frontmatter fields
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
+Expected: result is an empty list of FormatErrors
 
 ---
 
-#### Intermediate node with output
+## name_heading
 
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter output = "x.go",
-  node with heading = "ROOT/a"
-- logical_name = "ROOT/a/b", no frontmatter fields
+### Heading matches logical name
 
-Actions: call `SpecTreeValidate` with the input list.
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
+Action: call SpecTreeValidate(entries, all_dirs)
 
----
-
-#### Intermediate node with input
-
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter input = "ARTIFACT/c",
-  node with heading = "ROOT/a"
-- logical_name = "ROOT/a/b", no frontmatter fields
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
+Expected: result contains no FormatError with rule = "name_heading"
 
 ---
 
-#### Intermediate node with external
+### Heading does not match logical name
 
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter external = [{path: "some/file.txt"}],
-  node with heading = "ROOT/a"
-- logical_name = "ROOT/a/b", no frontmatter fields
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/wrong" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "name_heading" }
 
 ---
 
-#### Intermediate node with multiple restricted fields
+## leaf_only_fields
 
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter depends_on = ["ROOT/b"],
-  output = "x.go", node with heading = "ROOT/a"
-- logical_name = "ROOT/a/b", no frontmatter fields
+### Intermediate node with depends_on
 
-Actions: call `SpecTreeValidate` with the input list.
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["SPEC/b"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a/b", frontmatter: {}, node: { name_section: { heading: "spec/a/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/a/b"]
 
-Expected outcome: returns exactly two `FormatError` records, both with:
-- node = "ROOT/a"
-- rule = "leaf_only_fields"
-(one per restricted field that is set)
+Action: call SpecTreeValidate(entries, all_dirs)
 
----
-
-### leaf_only_agent
-
-#### Intermediate node with agent section
-
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", no frontmatter fields, node with heading = "ROOT/a",
-  agent section present with content = ["Agent instructions."]
-- logical_name = "ROOT/a/b", no frontmatter fields
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "leaf_only_agent"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "leaf_only_fields" }
 
 ---
 
-#### Leaf node with agent section — no error
+### Intermediate node with output
 
-Setup: input list with two entries:
-- logical_name = "ROOT", node with heading = "ROOT"
-- logical_name = "ROOT/a", node with heading = "ROOT/a",
-  agent section present with content = ["Agent instructions."]
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { output: "x.go" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a/b", frontmatter: {}, node: { name_section: { heading: "spec/a/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/a/b"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns no `FormatError` with rule = "leaf_only_agent".
-
----
-
-### dependency_targets
-
-#### depends_on targets non-existent ROOT node
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter depends_on = ["ROOT/missing"]
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "dependency_targets"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "leaf_only_fields" }
 
 ---
 
-#### depends_on targets ancestor
+### Intermediate node with input
 
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", no frontmatter fields
-- logical_name = "ROOT/a/b", frontmatter depends_on = ["ROOT"]
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { input: "ARTIFACT/c" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a/b", frontmatter: {}, node: { name_section: { heading: "spec/a/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/a/b"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a/b"
-- rule = "dependency_targets"
-
----
-
-#### depends_on targets descendant
-
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter depends_on = ["ROOT/a/b"]
-- logical_name = "ROOT/a/b", no frontmatter fields
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "dependency_targets"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "leaf_only_fields" }
 
 ---
 
-#### depends_on targets self
+### Intermediate node with multiple restricted fields
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter depends_on = ["ROOT/a"]
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["SPEC/b"], output: "x.go" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a/b", frontmatter: {}, node: { name_section: { heading: "spec/a/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/a/b"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "dependency_targets"
-
----
-
-#### depends_on with valid ROOT qualifier
-
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", no frontmatter fields
-- logical_name = "ROOT/b", frontmatter depends_on = ["ROOT/a(interface)"]
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns no `FormatError` with rule = "dependency_targets".
-(The qualifier "(interface)" is stripped before lookup; "ROOT/a" exists and
-is not an ancestor, descendant, or self relative to "ROOT/b".)
+Expected: result contains exactly two FormatErrors, both with node = "SPEC/a" and rule = "leaf_only_fields" (one per restricted field present)
 
 ---
 
-#### depends_on with valid ARTIFACT reference
+## leaf_only_agent
 
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter output = "lib.go"
-- logical_name = "ROOT/b", frontmatter depends_on = ["ARTIFACT/a"]
+### Intermediate node with agent section
 
-Actions: call `SpecTreeValidate` with the input list.
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: { content: ["Agent instructions."] } } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a/b", frontmatter: {}, node: { name_section: { heading: "spec/a/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/a/b"]
 
-Expected outcome: returns no `FormatError` with rule = "dependency_targets".
+Action: call SpecTreeValidate(entries, all_dirs)
 
----
-
-#### depends_on with non-existent ARTIFACT reference
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter depends_on = ["ARTIFACT/missing"]
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "dependency_targets"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "leaf_only_agent" }
 
 ---
 
-#### Multiple invalid depends_on — one error per entry
+### Leaf node with agent section — no error
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter depends_on = ["ROOT/missing", "ROOT/also_missing"]
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: { content: ["Agent instructions."] } } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns exactly two `FormatError` records, both with:
-- node = "ROOT/a"
-- rule = "dependency_targets"
-(one per invalid dependency reference)
-
----
-
-### input_target
-
-#### Valid input reference
-
-Setup: input list with three entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter output = "a.go"
-- logical_name = "ROOT/b", frontmatter input = "ARTIFACT/a"
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns no `FormatError` with rule = "input_target".
+Expected: result contains no FormatError with rule = "leaf_only_agent"
 
 ---
 
-#### Input not starting with ARTIFACT/
+## dependency_targets
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter input = "ROOT/something"
+### depends_on targets non-existent SPEC node
 
-Actions: call `SpecTreeValidate` with the input list.
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["SPEC/missing"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "input_target"
+Action: call SpecTreeValidate(entries, all_dirs)
 
----
-
-#### Input references non-existent artifact
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter input = "ARTIFACT/missing"
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "input_target"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "dependency_targets" }
 
 ---
 
-### external_files
+### depends_on targets ancestor
 
-#### External file exists
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a/b", frontmatter: { depends_on: ["SPEC"] }, node: { name_section: { heading: "spec/a/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/a/b"]
 
-Setup: create a file at path "some/file.txt" on disk with content "hello\n".
-Input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter external = [{path: "some/file.txt"}]
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns no `FormatError` with rule = "external_files".
-
----
-
-#### External file does not exist
-
-Setup: do not create any file at "nonexistent.txt".
-Input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter external = [{path: "nonexistent.txt"}]
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "external_files"
+Expected: result contains exactly one FormatError { node: "SPEC/a/b", rule: "dependency_targets" }
 
 ---
 
-### output_paths
+### depends_on targets descendant
 
-#### Valid output path
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["SPEC/a/b"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a/b", frontmatter: {}, node: { name_section: { heading: "spec/a/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/a/b"]
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter output = "internal/x.go"
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns no `FormatError` with rule = "output_paths".
-
----
-
-#### Output path with traversal
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter output = "../../etc/passwd"
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "output_paths"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "dependency_targets" }
 
 ---
 
-#### Output path with backslash
+### depends_on targets self
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", frontmatter output = "internal\\x.go"
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["SPEC/a"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "output_paths"
-
----
-
-### public_subsection_required
-
-#### Public with content before first subsection
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section present,
-  content = ["Some loose content."],
-  subsections = [{heading: "interface", raw_heading: "## Interface", content: ["Types."]}]
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "public_subsection_required"
-- detail = "content in # Public must be under a ## subsection"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "dependency_targets" }
 
 ---
 
-#### Public with only blank lines before subsection — no error
+### depends_on with valid SPEC qualifier
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section present,
-  content = ["", "  ", ""],
-  subsections = [{heading: "interface", raw_heading: "## Interface", content: ["Types."]}]
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/b", frontmatter: { depends_on: ["SPEC/a(interface)"] }, node: { name_section: { heading: "spec/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/b"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns no `FormatError` with rule = "public_subsection_required".
-
----
-
-#### Public with content and no subsections
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section present,
-  content = ["Some content."], subsections = []
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "public_subsection_required"
+Expected: result contains no FormatError with rule = "dependency_targets"
 
 ---
 
-#### Public with only subsections — no error
+### depends_on with valid ARTIFACT reference
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section present,
-  content = [],
-  subsections = [{heading: "interface", raw_heading: "## Interface", content: ["Types."]}]
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { output: "lib.go" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/b", frontmatter: { depends_on: ["ARTIFACT/a"] }, node: { name_section: { heading: "spec/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/b"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns no `FormatError` with rule = "public_subsection_required".
-
----
-
-#### No public section — skip
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section absent
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns no `FormatError` with rule = "public_subsection_required".
+Expected: result contains no FormatError with rule = "dependency_targets"
 
 ---
 
-### duplicate_subsections
+### depends_on with non-existent ARTIFACT reference
 
-#### Unique subsection headings — no error
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["ARTIFACT/missing"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section containing subsections:
-  - heading = "interface", raw_heading = "## Interface", content = ["Types."]
-  - heading = "context", raw_heading = "## Context", content = ["Background."]
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: returns no `FormatError` with rule = "duplicate_subsections".
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "dependency_targets" }
 
 ---
 
-#### Duplicate subsection headings
+### depends_on with valid EXTERNAL reference
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section containing subsections:
-  - heading = "interface", raw_heading = "## Interface", content = ["First."]
-  - heading = "interface", raw_heading = "## Interface", content = ["Second."]
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["EXTERNAL/proto/api.proto"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+- files on disk: create "proto/api.proto" with any content
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns exactly one `FormatError` with:
-- node = "ROOT/a"
-- rule = "duplicate_subsections"
-(for the second occurrence of heading "interface")
+Expected: result contains no FormatError with rule = "dependency_targets"
 
 ---
 
-#### Three identical subsection headings
+### depends_on with non-existent EXTERNAL file
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section containing subsections:
-  - heading = "interface", raw_heading = "## Interface", content = ["First."]
-  - heading = "interface", raw_heading = "## Interface", content = ["Second."]
-  - heading = "interface", raw_heading = "## Interface", content = ["Third."]
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["EXTERNAL/nonexistent.txt"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+- files on disk: do not create "nonexistent.txt"
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns exactly two `FormatError` records, both with:
-- node = "ROOT/a"
-- rule = "duplicate_subsections"
-(for the second and third occurrences of heading "interface")
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "dependency_targets" }
 
 ---
 
-#### No public section — skip
+### depends_on with unrecognized prefix
 
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with public section absent
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["UNKNOWN/something"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Actions: call `SpecTreeValidate` with the input list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns no `FormatError` with rule = "duplicate_subsections".
-
----
-
-### Cross-cutting
-
-#### Collects multiple errors from different rules
-
-Setup: input list with two entries:
-- logical_name = "ROOT", no frontmatter fields
-- logical_name = "ROOT/a", node with heading = "ROOT/wrong",
-  frontmatter depends_on = ["ROOT/missing"],
-  public section containing subsections:
-  - heading = "interface", raw_heading = "## Interface", content = ["First."]
-  - heading = "interface", raw_heading = "## Interface", content = ["Second."]
-
-Actions: call `SpecTreeValidate` with the input list.
-
-Expected outcome: the returned list contains at least three `FormatError` records:
-- one with rule = "name_heading" for node "ROOT/a"
-- one with rule = "dependency_targets" for node "ROOT/a"
-- one with rule = "duplicate_subsections" for node "ROOT/a"
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "dependency_targets" }
 
 ---
 
-#### Empty input list
+### Multiple invalid depends_on — one error per entry
 
-Setup: empty input list.
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["SPEC/missing", "SPEC/also_missing"] }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
 
-Actions: call `SpecTreeValidate` with the empty list.
+Action: call SpecTreeValidate(entries, all_dirs)
 
-Expected outcome: returns an empty list of `FormatError`.
+Expected: result contains exactly two FormatErrors, both with node = "SPEC/a" and rule = "dependency_targets" (one per invalid entry)
+
+---
+
+## input_target
+
+### Valid ARTIFACT input reference
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { output: "a.go" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/b", frontmatter: { input: "ARTIFACT/a" }, node: { name_section: { heading: "spec/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/b"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "input_target"
+
+---
+
+### Valid EXTERNAL input reference
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { input: "EXTERNAL/docs/spec.yaml" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+- files on disk: create "docs/spec.yaml" with any content
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "input_target"
+
+---
+
+### Input with unsupported prefix
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { input: "SPEC/something" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "input_target" }
+
+---
+
+### Input references non-existent artifact
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { input: "ARTIFACT/missing" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "input_target" }
+
+---
+
+### Input references non-existent EXTERNAL file
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { input: "EXTERNAL/nonexistent.txt" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+- files on disk: do not create "nonexistent.txt"
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "input_target" }
+
+---
+
+## missing_node_md
+
+### Subdirectory without _node.md
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/b"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "code-from-spec/b", rule: "missing_node_md" }
+
+---
+
+### _-prefixed dir under code-from-spec — no error
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/_rules"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "missing_node_md"
+
+---
+
+### All subdirectories have _node.md — no error
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/b", frontmatter: {}, node: { name_section: { heading: "spec/b" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a", "code-from-spec/b"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "missing_node_md"
+
+---
+
+## output_paths
+
+### Valid output path
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { output: "internal/x.go" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "output_paths"
+
+---
+
+### Output path with traversal
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { output: "../../etc/passwd" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "output_paths" }
+
+---
+
+### Output path with backslash
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { output: "internal\\x.go" }, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "output_paths" }
+
+---
+
+## public_subsection_required
+
+### Public with content before first subsection
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: { content: ["Some loose content."], subsections: [{ heading: "interface", raw_heading: "## Interface", content: ["Types."] }] }, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "public_subsection_required", detail: "content in # Public must be under a ## subsection" }
+
+---
+
+### Public with only blank lines before subsection — no error
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: { content: ["", "  ", ""], subsections: [{ heading: "interface", raw_heading: "## Interface", content: ["Types."] }] }, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "public_subsection_required"
+
+---
+
+### Public with content and no subsections
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: { content: ["Some content."], subsections: [] }, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "public_subsection_required" }
+
+---
+
+### Public with only subsections — no error
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: { content: [], subsections: [{ heading: "interface", raw_heading: "## Interface", content: ["Types."] }] }, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "public_subsection_required"
+
+---
+
+### No public section — skip
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "public_subsection_required"
+
+---
+
+## duplicate_subsections
+
+### Unique subsection headings — no error
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: { content: [], subsections: [{ heading: "interface", raw_heading: "## Interface", content: ["Types."] }, { heading: "context", raw_heading: "## Context", content: ["Background."] }] }, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "duplicate_subsections"
+
+---
+
+### Duplicate subsection headings
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: { content: [], subsections: [{ heading: "interface", raw_heading: "## Interface", content: ["First."] }, { heading: "interface", raw_heading: "## Interface", content: ["Second."] }] }, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly one FormatError { node: "SPEC/a", rule: "duplicate_subsections" } (for the second occurrence)
+
+---
+
+### Three identical subsection headings
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: { content: [], subsections: [{ heading: "interface", raw_heading: "## Interface", content: ["First."] }, { heading: "interface", raw_heading: "## Interface", content: ["Second."] }, { heading: "interface", raw_heading: "## Interface", content: ["Third."] }] }, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains exactly two FormatErrors, both with node = "SPEC/a" and rule = "duplicate_subsections" (for the second and third occurrences)
+
+---
+
+### No public section — skip
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: {}, node: { name_section: { heading: "spec/a" }, public: absent, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains no FormatError with rule = "duplicate_subsections"
+
+---
+
+## Cross-cutting
+
+### Collects multiple errors from different rules
+
+Setup:
+- entries:
+  - SpecTreeValidateInput { logical_name: "SPEC", frontmatter: {}, node: { name_section: { heading: "spec" }, public: absent, agent: absent } }
+  - SpecTreeValidateInput { logical_name: "SPEC/a", frontmatter: { depends_on: ["SPEC/missing"] }, node: { name_section: { heading: "spec/wrong" }, public: { content: [], subsections: [{ heading: "interface", raw_heading: "## Interface", content: ["First."] }, { heading: "interface", raw_heading: "## Interface", content: ["Second."] }] }, agent: absent } }
+- all_dirs: ["code-from-spec", "code-from-spec/a"]
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result contains at least three FormatErrors:
+- one with node = "SPEC/a" and rule = "name_heading"
+- one with node = "SPEC/a" and rule = "dependency_targets"
+- one with node = "SPEC/a" and rule = "duplicate_subsections"
+
+---
+
+### Empty input list
+
+Setup:
+- entries: empty list
+- all_dirs: []
+
+Action: call SpecTreeValidate(entries, all_dirs)
+
+Expected: result is an empty list of FormatErrors

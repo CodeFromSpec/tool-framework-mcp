@@ -11,7 +11,7 @@ input: ARTIFACT/functional/tests/mcp_tools/chain_hash
 output: internal/mcpchainhash/mcpchainhash_test.go
 ---
 
-# ROOT/golang/tests/mcp_tools/chain_hash
+# SPEC/golang/tests/mcp_tools/chain_hash
 
 # Agent
 

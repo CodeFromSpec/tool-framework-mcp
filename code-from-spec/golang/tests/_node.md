@@ -1,4 +1,4 @@
-# ROOT/golang/tests
+# SPEC/golang/tests
 
 Go test files generated from functional test specifications
 and implementation artifacts.
@@ -90,13 +90,13 @@ producers would generate:
 
 - `NodeSection.Heading` is the **normalized** form
   (lowercase, whitespace collapsed) as produced by
-  `NodeParse`. Example: `"root/a"` for a node at
-  `ROOT/a`.
+  `NodeParse`. Example: `"spec/a"` for a node at
+  `SPEC/a`.
 - `NodeSection.RawHeading` is the original line as read
-  from the file. Example: `"# ROOT/a"`.
+  from the file. Example: `"# SPEC/a"`.
 - `NodeSection.Content` is a `[]string` (list of lines).
 - `ChainItem.LogicalName` must be a valid logical name
-  (`ROOT/` for spec nodes, `ARTIFACT/` for artifacts).
+  (`SPEC/` for spec nodes, `ARTIFACT/` for artifacts).
   For spec nodes, the logical name must resolve to a
   `_node.md` file that exists on disk (via
   `LogicalNameToPath`). Tests must create the spec tree
@@ -109,17 +109,41 @@ producers would generate:
 When tests create `_node.md` files on disk:
 
 - The first heading in the file body must be
-  `# <logical-name>` (e.g. `# ROOT` for the root node,
-  `# ROOT/a` for a child). `NodeParse` validates that the
+  `# <logical-name>` (e.g. `# SPEC` for the root node,
+  `# SPEC/a` for a child). `NodeParse` validates that the
   first heading matches the logical name — tests that omit
   it or use a different heading (e.g. `# Public`) will
   fail with `ErrNodeNameDoesNotMatch`.
-- `ROOT` (without a trailing slash) is a valid logical
+- `SPEC` (without a trailing slash) is a valid logical
   name — it refers to the root node. Its file path is
-  `code-from-spec/_node.md`. For `ROOT/x/y`, the path
+  `code-from-spec/_node.md`. For `SPEC/x/y`, the path
   is `code-from-spec/x/y/_node.md`. Helper functions
   that convert logical names to paths must handle the
-  bare `ROOT` case.
+  bare `SPEC` case.
+- Frontmatter is optional. Only include frontmatter
+  fields that the node actually uses. An intermediate
+  node (one with children) has no `output`, `depends_on`,
+  or `input` — do not write frontmatter for intermediate
+  nodes. Only leaf nodes that declare these fields need
+  frontmatter.
+
+## Artifact tag and hash format
+
+Tests that create artifact files or verify artifact tags
+must use the correct format:
+
+- Artifact tag line: `code-from-spec: <logical-name>@<hash>`
+  where `<logical-name>` uses `SPEC/`, `ARTIFACT/`, or
+  `EXTERNAL/` prefix, and `<hash>` is exactly 27 characters
+  of base64url (RFC 4648 §5, no padding). Characters
+  allowed in the hash: `A-Z`, `a-z`, `0-9`, `-`, `_`.
+- When the functional test input specifies exact hash
+  values or other string literals, use them verbatim —
+  do not invent substitutes.
+- When a test needs a placeholder stale hash (one that
+  will not match the computed chain hash), use a
+  27-character string like `AAAAAAAAAAAAAAAAAAAAAAAAAAA`
+  — easy to verify the length is correct.
 
 ## Error and style conventions
 

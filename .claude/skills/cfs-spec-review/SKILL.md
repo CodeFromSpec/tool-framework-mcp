@@ -21,7 +21,7 @@ Run this skill when:
 - The human explicitly asks to review a spec.
 
 The user provides a logical name (e.g.,
-`ROOT/architecture/backend/internal/api/operations/account-close/implementation`).
+`SPEC/architecture/backend/internal/api/operations/account-close/implementation`).
 
 ## Prerequisites
 

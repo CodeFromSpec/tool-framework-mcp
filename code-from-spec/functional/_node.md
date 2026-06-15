@@ -1,4 +1,4 @@
-# ROOT/functional
+# SPEC/functional
 
 MCP server for Code from Spec projects. Provides tools for
 spec validation, artifact generation, and artifact management.
@@ -54,7 +54,6 @@ function ParseFrontmatter(file_path) -> frontmatter
 
   4. Extract known fields from the parsed YAML:
      - depends_on: list of strings
-     - external: list of external records
      - input: string
      - output: string
      Ignore unknown fields.
@@ -115,11 +114,11 @@ Any argument causes the tool to print a usage message and exit.
 ### Project root
 
 The working directory of the MCP server process is the
-project root. All relative paths — `output`, `external`,
-artifact file paths — are resolved relative to this
-directory. The server does not search for the project root;
-it is the caller's responsibility to start the server from
-the correct location.
+project root. All relative paths — `output`, `EXTERNAL/`
+references, artifact file paths — are resolved relative
+to this directory. The server does not search for the
+project root; it is the caller's responsibility to start
+the server from the correct location.
 
 ### Distribution
 

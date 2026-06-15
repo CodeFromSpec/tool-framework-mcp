@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/spec_tree/validate(interface)
+  - SPEC/functional/logic/spec_tree/validate(interface)
   - ARTIFACT/golang/interfaces/parsing/frontmatter
   - ARTIFACT/golang/interfaces/parsing/node_parsing
 output: code-from-spec/golang/interfaces/spec_tree/validate/output.md
 ---
 
-# ROOT/golang/interfaces/spec_tree/validate
+# SPEC/golang/interfaces/spec_tree/validate
 
 # Public
 
@@ -16,4 +16,4 @@ output: code-from-spec/golang/interfaces/spec_tree/validate/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectreevalidate"`

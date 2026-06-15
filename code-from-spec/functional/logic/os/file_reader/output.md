@@ -1,56 +1,66 @@
-<!-- code-from-spec: ROOT/functional/logic/os/file_reader@JnDhXaXPtHJJuac5F21bT0mXuBo -->
+<!-- code-from-spec: SPEC/functional/logic/os/file_reader@ZwniNt1NJsZMAGofjefSjhfWfyM -->
+
+namespace: filereader
+
+## Records
+
+record FileReader
+  cfs_path: pathutils.PathCfs
+  os_path: pathutils.PathOs
+  stream: file stream handle
+  closed: boolean
+
+---
+
+## Functions
 
 function FileOpen(cfs_path: pathutils.PathCfs) -> FileReader
-  errors:
-    - FileUnreadable
-    - (PathUtils.*): propagated from PathCfsToOs
 
   1. Call PathCfsToOs(cfs_path).
-     If it raises a PathUtils error, propagate it.
-     Let os_path be the result.
+     If PathCfsToOs raises a PathUtils error, propagate it.
 
-  2. Open the file at os_path for sequential reading from the beginning.
-     If the file cannot be opened (does not exist, permission denied,
-     or any other OS error), raise error "FileUnreadable".
+  2. Open the file at the resulting PathOs for sequential reading
+     from the beginning.
+     If the file cannot be opened (does not exist, permission
+     denied, or other OS error), raise error "FileUnreadable".
 
   3. Return a FileReader record with:
-     - cfs_path: cfs_path
-     - an internal stream handle pointing to the beginning of the file
-     - a flag indicating the stream is open
+     - cfs_path set to cfs_path
+     - os_path set to the resolved PathOs
+     - stream set to the opened file stream handle
+     - closed set to false
 
 
 function FileReadLine(reader: FileReader) -> string
-  errors:
-    - EndOfFile: no more lines to read
 
-  1. If the reader's stream is closed, raise error "EndOfFile".
+  1. If reader.closed is true, raise error "EndOfFile".
 
-  2. Read bytes from the stream up to and including the next LF character,
-     or until the stream is exhausted, whichever comes first.
-     Do not buffer more than the current line in memory.
+  2. Read the next line from reader.stream up to and including
+     the next newline character, or until end of stream.
+     If there are no more bytes to read, raise error "EndOfFile".
 
-  3. If no bytes were read (stream was already at end), raise error "EndOfFile".
+  3. Strip the trailing line terminator from the line:
+     If the line ends with "\r\n", remove both characters.
+     Else if the line ends with "\n", remove that character.
 
-  4. Let line be the bytes read.
-     If line ends with CRLF, strip the trailing CR and LF.
-     Else if line ends with LF, strip the trailing LF.
-
-  5. Return line as a string.
+  4. Return the resulting string.
 
 
 function FileSkipLines(reader: FileReader, count: integer)
 
-  1. If the reader's stream is closed, return immediately.
+  1. If reader.closed is true, return immediately.
 
   2. Repeat count times:
-       Call FileReadLine(reader).
-       If it raises "EndOfFile", stop repeating and return.
+       Read and discard the next line from reader.stream
+       (up to and including the next newline, or end of stream).
+       If end of stream is reached before completing all
+       iterations, stop iterating without raising an error.
 
 
 function FileClose(reader: FileReader)
 
-  1. If the reader's stream is already closed, return immediately.
+  1. If reader.closed is true, return immediately.
 
-  2. Release the OS file handle associated with the reader's stream.
+  2. Release reader.stream (close the OS file handle).
 
-  3. Mark the reader's stream as closed.
+  3. Set reader.closed to true.

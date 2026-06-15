@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/parsing/frontmatter/output.md
 ---
 
-# ROOT/functional/logic/parsing/frontmatter
+# SPEC/functional/logic/parsing/frontmatter
 
 Parses structured metadata from the top of spec node files.
 
@@ -18,12 +18,8 @@ Parses structured metadata from the top of spec node files.
 ## Interface
 
 ```
-record FrontmatterExternal
-  path: string
-
 record Frontmatter
   depends_on: list of strings
-  external: list of FrontmatterExternal
   input: string
   output: string
 
@@ -47,8 +43,8 @@ Open the file with `FileOpen`. Read line by line using
 
 The frontmatter is an optional YAML block delimited by `---` at
 the top of a file. If present, it contains metadata fields that
-the framework uses for dependency resolution, artifact tracking,
-and external file references.
+the framework uses for dependency resolution and artifact
+tracking.
 
 The first line of the file must be exactly `---` (three
 hyphens, nothing else — no leading or trailing whitespace).
@@ -64,11 +60,9 @@ record. This is not an error.
 ```yaml
 ---
 depends_on:
-  - ROOT/external/payments-api/create-transfer
+  - SPEC/integrations/payments-api/create-transfer
   - ARTIFACT/extraction/email-templates
-external:
-  - path: proto/payments/v1/transfers.proto
-  - path: docs/vendor/stripe-payouts.yaml
+  - EXTERNAL/proto/payments/v1/transfers.proto
 input: ARTIFACT/functional/transfers
 output: internal/transfers/handler.go
 ---
@@ -76,11 +70,6 @@ output: internal/transfers/handler.go
 
 YAML keys map directly to record fields. Keys not listed
 in the Frontmatter record are silently ignored.
-
-### Required fields in sub-records
-
-Within each `external` entry, `path` is required.
-Missing required fields are reported as "malformed YAML".
 
 ## Contracts
 

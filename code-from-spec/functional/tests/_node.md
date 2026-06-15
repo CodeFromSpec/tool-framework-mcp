@@ -1,4 +1,4 @@
-# ROOT/functional/tests
+# SPEC/functional/tests
 
 Functional test specifications — test cases, inputs,
 expected outputs, and error conditions for each component.

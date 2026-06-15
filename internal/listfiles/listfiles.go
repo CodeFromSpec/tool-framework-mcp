@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/list_files@t4INp3r6dn2_G0BOg-9SaZUY-Ps
+// code-from-spec: SPEC/golang/implementation/os/list_files@Po-0iUU6PN7w8L-cJ3WG5y-h0no
 package listfiles
 
 import (
@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 var ErrDirectoryNotFound = errors.New("directory not found")
-var ErrWalkError = errors.New("filesystem walk error")
+var ErrWalkError = errors.New("filesystem error occurred while traversing")
 
 func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
@@ -22,45 +22,35 @@ func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 	}
 
 	info, err := os.Stat(osPath.Value)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, ErrDirectoryNotFound
-		}
-		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, err)
-	}
-	if !info.IsDir() {
-		return nil, ErrDirectoryNotFound
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, osPath.Value)
 	}
 
 	var results []*pathutils.PathCfs
 
-	walkErr := filepath.WalkDir(osPath.Value, func(path string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(osPath.Value, func(entryPath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("%w: %s", ErrWalkError, err)
+			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		cfs, convertErr := pathutils.PathOsToCfs(&pathutils.PathOs{Value: path})
-		if convertErr != nil {
-			return convertErr
+		entryOsPath := &pathutils.PathOs{Value: entryPath}
+		entryCfsPath, convErr := pathutils.PathOsToCfs(entryOsPath)
+		if convErr != nil {
+			return convErr
 		}
-		results = append(results, cfs)
+		results = append(results, entryCfsPath)
 		return nil
 	})
+
 	if walkErr != nil {
-		if errors.Is(walkErr, ErrWalkError) {
-			return nil, walkErr
-		}
-		return nil, walkErr
+		return nil, fmt.Errorf("%w: %w", ErrWalkError, walkErr)
 	}
 
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Value < results[j].Value
 	})
 
-	if results == nil {
-		return []*pathutils.PathCfs{}, nil
-	}
 	return results, nil
 }

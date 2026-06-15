@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/parsing/node_parsing(interface)
+  - SPEC/functional/logic/parsing/node_parsing(interface)
   - ARTIFACT/golang/interfaces/os/path_utils
 output: code-from-spec/golang/interfaces/parsing/node_parsing/output.md
 ---
 
-# ROOT/golang/interfaces/parsing/node_parsing
+# SPEC/golang/interfaces/parsing/node_parsing
 
 # Public
 
@@ -15,4 +15,4 @@ output: code-from-spec/golang/interfaces/parsing/node_parsing/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"`

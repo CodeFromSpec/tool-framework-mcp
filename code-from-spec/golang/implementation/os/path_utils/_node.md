@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/dependencies/owasp-path-traversal
+  - SPEC/functional/dependencies/owasp-path-traversal
   - ARTIFACT/golang/interfaces/os/path_utils
 input: ARTIFACT/functional/logic/os/path_utils
 output: internal/pathutils/pathutils.go
 ---
 
-# ROOT/golang/implementation/os/path_utils
+# SPEC/golang/implementation/os/path_utils
 
 # Agent
 

@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/golang/dependencies/golang-x-text
+  - SPEC/golang/dependencies/golang-x-text
   - ARTIFACT/golang/interfaces/utils/text_normalization
 input: ARTIFACT/functional/logic/utils/text_normalization
 output: internal/textnormalization/textnormalization.go
 ---
 
-# ROOT/golang/implementation/utils/text_normalization
+# SPEC/golang/implementation/utils/text_normalization
 
 # Agent
 

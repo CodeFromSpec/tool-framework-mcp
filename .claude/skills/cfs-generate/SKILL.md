@@ -77,11 +77,16 @@ artifacts, or when stale artifacts exist.
    >    mappings you inferred, interpretations of ambiguous
    >    wording. If there are none, omit the section.
 
-4. After each rank completes, run `validate_specs` again.
-   Regenerating a rank may cause new artifacts to become
-   stale in higher ranks (chain hashes propagate). The
-   updated report shows the current state — use it to
-   determine the next rank to process.
+4. **After each rank completes, run `validate_specs` again
+   before starting the next rank.** This is mandatory, not
+   an optimization to skip. Regenerating rank N changes
+   artifact content, which changes the chain hashes of
+   rank N+1 artifacts that depend on them. Without
+   re-validating, the staleness list is stale itself —
+   artifacts that became stale are missed, and artifacts
+   that are generated use outdated hashes. The
+   `validate_specs` call between ranks is what keeps the
+   generation session consistent.
 5. After all ranks are processed, run `validate_specs` a
    final time. Report the remaining stale items (if any)
    to the user.
@@ -89,6 +94,14 @@ artifacts, or when stale artifacts exist.
 ## Rules
 
 - Dispatch one subagent per artifact.
+- **Do not add guidance, hints, or corrections to the subagent
+  prompt beyond the template above.** The subagent must
+  generate from the chain alone. If a previous generation
+  produced a wrong result, the fix belongs in the spec — not
+  in an ad-hoc instruction injected into the prompt. Prompt
+  additions bypass the chain, are not versioned, do not
+  participate in the hash, and will not reproduce on the next
+  regeneration.
 - Artifacts with the same rank are independent — dispatch them
   in parallel (single message with multiple Agent tool calls).
   Wait for all artifacts in a rank to complete before starting

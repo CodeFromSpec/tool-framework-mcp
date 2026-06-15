@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/parsing/frontmatter(interface)
+  - SPEC/functional/logic/parsing/frontmatter(interface)
 output: code-from-spec/functional/tests/parsing/frontmatter/output.md
 ---
 
-# ROOT/functional/tests/parsing/frontmatter
+# SPEC/functional/tests/parsing/frontmatter
 
 Test cases for the frontmatter component.
 
@@ -16,22 +16,21 @@ Test cases for the frontmatter component.
 
 #### Parses complete frontmatter (all fields)
 
-Create a file with all fields: `depends_on`, `external`,
-`input`, and `output`. Call `FrontmatterParse`.
+Create a file with all fields: `depends_on` (including
+SPEC/, ARTIFACT/, and EXTERNAL/ entries), `input`, and
+`output`. Call `FrontmatterParse`.
 
 Expect `depends_on` contains the listed dependencies.
-`external` has two entries each with `path`. `input`
-matches the specified value. `output` matches the
-specified path. No error.
+`input` matches the specified value. `output` matches
+the specified path. No error.
 
 #### Parses frontmatter with only output
 
 Create a file with only `output` in frontmatter. Call
 `FrontmatterParse`.
 
-Expect `depends_on` is empty, `external` is empty,
-`input` is empty. `output` matches the specified path.
-No error.
+Expect `depends_on` is empty, `input` is empty.
+`output` matches the specified path. No error.
 
 #### Parses frontmatter with only depends_on
 
@@ -41,13 +40,13 @@ Call `FrontmatterParse`.
 Expect `depends_on` contains the listed values. All
 other fields are empty. No error.
 
-#### Parses frontmatter with external entries
+#### Parses frontmatter with EXTERNAL/ in depends_on
 
-Create a file with multiple `external` entries. Call
-`FrontmatterParse`.
+Create a file with `depends_on` containing
+`EXTERNAL/proto/api.proto`. Call `FrontmatterParse`.
 
-Expect `external` has two entries each with correct
-`path`. No error.
+Expect `depends_on` contains `EXTERNAL/proto/api.proto`.
+No error.
 
 #### Parses frontmatter with input field
 
@@ -125,12 +124,14 @@ Create a file that starts with `---` but has no closing
 
 Expect error MalformedYAML.
 
-#### Missing required field in external entry
+#### Unknown field 'external' is silently ignored
 
-Create a file with an `external` entry that has no
-`path` field. Call `FrontmatterParse`.
+Create a file with an `external` field (v3 format).
+Call `FrontmatterParse`.
 
-Expect error MalformedYAML.
+Expect no error. The `external` field is ignored as an
+unknown field. Only `depends_on`, `input`, and `output`
+are recognized.
 
 # Agent
 

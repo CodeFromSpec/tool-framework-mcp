@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/path_utils
+  - SPEC/functional/logic/os/path_utils
 output: code-from-spec/functional/logic/os/file_reader/output.md
 ---
 
-# ROOT/functional/logic/os/file_reader
+# SPEC/functional/logic/os/file_reader
 
 Sequential line reader for text files.
 

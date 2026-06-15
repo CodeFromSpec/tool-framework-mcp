@@ -1,3 +1,3 @@
-# ROOT/golang/implementation/mcp_tools
+# SPEC/golang/implementation/mcp_tools
 
 Go implementations for MCP tool components.

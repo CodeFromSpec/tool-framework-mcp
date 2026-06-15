@@ -1,18 +1,17 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/resolver(interface)
-  - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/os/path_utils(interface)
-  - ROOT/functional/logic/parsing/frontmatter(interface)
-  - ROOT/functional/logic/parsing/node_parsing
-  - ROOT/functional/logic/utils/logical_names(interface)
-  - ROOT/functional/logic/utils/text_normalization(interface)
-external:
-  - path: CHAIN_HASH.md
+  - SPEC/functional/logic/chain/resolver(interface)
+  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/parsing/frontmatter(interface)
+  - SPEC/functional/logic/parsing/node_parsing
+  - SPEC/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/utils/text_normalization(interface)
+  - EXTERNAL/code-from-spec/_rules/CHAIN_HASH.md
 output: code-from-spec/functional/logic/chain/hash/output.md
 ---
 
-# ROOT/functional/logic/chain/hash
+# SPEC/functional/logic/chain/hash
 
 Computes the chain hash for a resolved chain by reading
 all chain positions from disk and hashing their content.
@@ -24,8 +23,6 @@ all chain positions from disk and hashing their content.
 ```
 function ChainHashCompute(chain: chainresolver.Chain) -> string
   errors:
-    - FileUnreadable: a file in the chain cannot be
-      read or opened.
     - ParseFailure: a node file cannot be parsed.
     - (FileReader.*): propagated from FileOpen.
     - (NodeParsing.*): propagated from NodeParse.
@@ -48,12 +45,32 @@ spec nodes (`_node.md` files), use `NodeParse` to
 extract sections. For artifact files and external files,
 use `file_reader` directly.
 
-### Hashing convention
+### Block extraction
 
-When reconstructing content for hashing from lines,
-append `\n` (LF) after every line, including the last.
-This ensures a deterministic representation regardless
-of whether the original file had a trailing newline.
+Spec node content (sections and subsections) is
+boundary-normalized before hashing. The same extracted
+form is used for both hashing and chain delivery — they
+never diverge.
+
+**Single block extraction:**
+Given a block's `content` (list of lines from NodeParse):
+1. Remove leading blank lines (lines that are empty or
+   contain only whitespace U+0020 and U+0009).
+2. Remove trailing blank lines.
+3. Join the remaining lines with `\n`, then append
+   exactly one `\n` at the end.
+4. If all lines were blank (nothing remains), the
+   extracted content is empty.
+
+**Heading line:** the `raw_heading` with trailing
+whitespace removed, followed by `\n`.
+
+**Concatenating multiple blocks** (e.g. `##` subsections
+of `# Public`): for each block, emit its heading line
+then its extracted content. Separate consecutive blocks
+with exactly one blank line (a single `\n` between the
+end of one block's content and the next block's heading
+line).
 
 Heading matching is inherited from `NodeParse`: section
 classification (public, agent) and subsection lookup
@@ -68,30 +85,32 @@ the content that position injects into the chain.
 
 | Position | Content hashed |
 |---|---|
-| Ancestor | `##` subsections of `# Public`, concatenated in order |
-| Target `# Public` | `##` subsections of `# Public`, concatenated in order |
-| Target `# Agent` | `# Agent` section (heading, content, subsections) |
-| `ROOT/` dep, no qualifier | `##` subsections of `# Public` of the referenced node, concatenated in order |
-| `ROOT/` dep, with qualifier | `## <qualifier>` subsection of `# Public` |
-| `ARTIFACT/` dep | Full file content, excluding frontmatter |
-| External | Full file content |
-| Input | Full file content, excluding frontmatter |
+| Ancestor | `##` subsections of `# Public`, extracted and concatenated in order |
+| Target `# Public` | `##` subsections of `# Public`, extracted and concatenated in order |
+| Target `# Agent` | `# Agent` section, extracted (heading, content, subsections) |
+| `SPEC/` dep, no qualifier | `##` subsections of `# Public` of the referenced node, extracted and concatenated in order |
+| `SPEC/` dep, with qualifier | `## <qualifier>` subsection of `# Public`, extracted |
+| `ARTIFACT/` dep | Full file content, artifact tag hash neutralized |
+| `EXTERNAL/` dep | Full file content |
+| `ARTIFACT/` input | Full file content, artifact tag hash neutralized |
+| `EXTERNAL/` input | Full file content |
 
 ### Hashing spec nodes with NodeParse
 
 For positions that reference spec nodes (ancestors,
-target, ROOT/ dependencies), call `NodeParse` with the
+target, SPEC/ dependencies), call `NodeParse` with the
 logical name from the `ChainItem`. Then extract the
 relevant content:
 
-**Hashing `# Public`** (ancestors, target, ROOT/ deps
+**Hashing `# Public`** (ancestors, target, SPEC/ deps
 without qualifier):
 
 Collect only the `##` subsections, in document order.
-For each subsection: the subsection's `raw_heading`
-line followed by all lines in its `content`. Append
-`\n` after each line (per hashing convention). Compute
-SHA-1 of the concatenation.
+Apply block extraction and concatenation: for each
+subsection, emit its heading line (raw_heading with
+trailing whitespace removed + `\n`), then its extracted
+content. Separate consecutive subsections with exactly
+one blank line. Compute SHA-1 of the result.
 
 The `# Public` heading itself is not included. Content
 directly under `# Public` (before the first `##`
@@ -102,11 +121,12 @@ If the section is absent or has no subsections, skip
 
 **Hashing `# Agent`** (target only):
 
-Collect the section's `raw_heading` line, then all lines
-in `content`, then for each subsection: the subsection's
-`raw_heading` line followed by all lines in its
-`content`. Append `\n` after each line (per hashing
-convention). Compute SHA-1 of the result.
+Apply block extraction to the entire `# Agent` section.
+Emit the section's heading line (raw_heading with
+trailing whitespace removed + `\n`), then its extracted
+content. Then for each subsection: separate with one
+blank line, emit the subsection's heading line, then its
+extracted content. Compute SHA-1 of the result.
 
 If the section is absent or has no content and no
 subsections, skip (no hash contributed).
@@ -116,9 +136,9 @@ subsections, skip (no hash contributed).
 Find the subsection within `node.public` whose `heading`
 matches `NormalizeText(dep.qualifier)`. Both are
 normalized, so the comparison is a simple string match.
-Collect the
-subsection's `raw_heading` line, then all lines in its
-`content`. Append `\n` after each line. Compute SHA-1.
+Emit the subsection's heading line (raw_heading with
+trailing whitespace removed + `\n`), then its extracted
+content. Compute SHA-1.
 
 If not found, skip.
 
@@ -126,10 +146,7 @@ If not found, skip.
 
 For `ARTIFACT/` dependencies and `input`: open the file
 at `file_path` with `FileOpen`. If `FileOpen` fails,
-raise "file unreadable". Check if the first line is
-exactly `---`. If so, read lines until the next `---`
-line (closing delimiter), discarding the frontmatter.
-Read the remaining lines.
+raise "file unreadable". Read all lines.
 
 Before computing the hash, neutralize the artifact tag:
 for any line matching the pattern
@@ -143,16 +160,12 @@ regenerated but its meaningful content has not changed.
 Append `\n` after each line. Compute SHA-1. Call
 `FileClose`.
 
-If the first line is not `---`, read all lines, apply
-the same artifact tag neutralization, append `\n` after
-each, compute SHA-1. Call `FileClose`.
-
 Call `FileClose` in all cases — including error paths.
 
 ### Hashing external files
 
-For each external entry: create a `PathCfs` from the
-entry's `path` string, open with `FileOpen`. If
+For `EXTERNAL/` dependencies and `EXTERNAL/` input:
+open the file at `file_path` with `FileOpen`. If
 `FileOpen` fails, raise "file unreadable". Read all
 lines with `FileReadLine`, append `\n` after each line.
 Compute SHA-1. Call `FileClose`.
@@ -165,35 +178,43 @@ Process positions in chain assembly order, computing
 SHA-1 for each:
 
 1. For each ancestor in `chain.ancestors`: call
-   `NodeParse` with `ancestor.logical_name`. If it
+   `NodeParse` with `ancestor.unqualified_logical_name`. If it
    fails, raise "parse failure". Hash `# Public`
-   (subsections only). If absent or no subsections,
-   skip.
+   (subsections only, block-extracted). If absent or
+   no subsections, skip.
 
 2. For each dependency in `chain.dependencies`:
-   - If `LogicalNameIsArtifact(dep.logical_name)`:
-     hash the artifact file (frontmatter stripped).
-   - Else if `dep.qualifier` is absent: call `NodeParse`
-     with `dep.logical_name`. If it fails, raise
+   - If `LogicalNameIsArtifact(dep.unqualified_logical_name)`:
+     hash the artifact file.
+   - If `LogicalNameIsExternal(dep.unqualified_logical_name)`:
+     hash the external file.
+   - If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
+     `dep.qualifier` is absent: call `NodeParse`
+     with `dep.unqualified_logical_name`. If it fails, raise
      "parse failure". Hash `# Public` (subsections
-     only).
-   - Else: call `NodeParse` with `dep.logical_name`.
-     If it fails, raise "parse failure". Hash the
-     `## <dep.qualifier>` subsection within `# Public`.
+     only, block-extracted).
+   - If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
+     `dep.qualifier` is present: call `NodeParse`
+     with `dep.unqualified_logical_name`. If it fails, raise
+     "parse failure". Hash the
+     `## <dep.qualifier>` subsection within `# Public`
+     (block-extracted).
 
-3. For each external in `chain.external`: hash per
-   the external rules above.
-
-4. Target `# Public`: call `NodeParse` with
-   `chain.target.logical_name`. If it fails, raise
+3. Target `# Public`: call `NodeParse` with
+   `chain.target.unqualified_logical_name`. If it fails, raise
    "parse failure". Hash `# Public` (subsections
-   only). If absent or no subsections, skip.
+   only, block-extracted). If absent or no subsections,
+   skip.
 
-5. Target `# Agent`: from the same `NodeParse` result,
-   hash the `# Agent` section. If absent, skip.
+4. Target `# Agent`: from the same `NodeParse` result,
+   hash the `# Agent` section (block-extracted). If
+   absent, skip.
 
-6. Input (if `chain.input` is present): hash the
-   artifact file (frontmatter stripped).
+5. Input (if `chain.input` is present):
+   - If `LogicalNameIsArtifact(input.unqualified_logical_name)`:
+     hash the artifact file.
+   - If `LogicalNameIsExternal(input.unqualified_logical_name)`:
+     hash the external file.
 
 **Step 2 — Compute final hash**
 
@@ -206,10 +227,15 @@ the concatenation. Encode the 20-byte result as base64url
 
 - Spec node content is read via `NodeParse` — headings,
   subsections, and code blocks are handled correctly.
+- Spec node content is boundary-normalized (block
+  extraction) before hashing. The extracted form is
+  exactly what is delivered in the chain — hash and
+  delivery never diverge.
 - Artifact and external file content is read via
   `file_reader` directly.
 - The only normalization before hashing is CRLF → LF
-  (handled by `FileReadLine` and `NodeParse`).
+  (handled by `FileReadLine` and `NodeParse`) and block
+  boundary normalization for spec nodes.
 - Deterministic: same files on disk always produce the
   same hash.
 - Positions with missing or empty content contribute no

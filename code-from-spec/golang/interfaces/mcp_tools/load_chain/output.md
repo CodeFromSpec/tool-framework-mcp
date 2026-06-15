@@ -1,9 +1,15 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/load_chain@Wb5Aoo5Gv5B0rF5enMl8RT2D3ak)
+# code-from-spec: SPEC/golang/interfaces/mcp_tools/load_chain@vQdiJGGss3_43ZBXIz0sGrt3ntU
 
-# Package `mcploadchain`
+## Package
+
+```go
+package mcploadchain
+```
+
+## Import Path
 
 ```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
+github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcploadchain
 ```
 
 ## Error Sentinels
@@ -13,7 +19,7 @@ package mcploadchain
 
 import "errors"
 
-var ErrNoOutput = errors.New("no output")
+var ErrNoOutput          = errors.New("no output")
 var ErrInvalidOutputPath = errors.New("invalid output path")
 ```
 
@@ -22,11 +28,10 @@ var ErrInvalidOutputPath = errors.New("invalid output path")
 ```go
 package mcploadchain
 
-// MCPLoadChain resolves the spec chain for the given logical name and returns
-// a formatted string containing the chain hash, context, optional input, and
-// optional existing artifact sections.
+// MCPLoadChain resolves the chain for the given logical name and returns
+// a single string containing the chain hash and all context sections.
 //
-// The returned string has the following format:
+// The returned string uses the following format:
 //
 //	chain_hash: <27-character hash>
 //	--- context ---
@@ -37,9 +42,17 @@ package mcploadchain
 //	<existing artifact content>
 //
 // The "--- input ---" section is only present when the target node's
-// frontmatter has a non-empty input field. The "--- existing artifact ---"
-// section is only present when the output file exists on disk and is readable.
-func MCPLoadChain(logical_name string) (string, error)
+// frontmatter has a non-empty input field.
+//
+// The "--- existing artifact ---" section is only present when the output
+// file exists on disk and is readable.
+//
+// Errors:
+//   - ErrNoOutput: target node has no output field.
+//   - ErrInvalidOutputPath: the output path fails path validation.
+//   - Propagated from LogicalNameToPath, ChainResolve, ChainHashCompute,
+//     NodeParse, and FileOpen.
+func MCPLoadChain(logicalName string) (string, error)
 ```
 
 ## Usage Example
@@ -51,11 +64,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcploadchain"
 )
 
 func main() {
-	result, err := mcploadchain.MCPLoadChain("ROOT/golang/interfaces/mcp_tools/load_chain")
+	result, err := mcploadchain.MCPLoadChain("SPEC/payments/fees")
 	if err != nil {
 		log.Fatal(err)
 	}

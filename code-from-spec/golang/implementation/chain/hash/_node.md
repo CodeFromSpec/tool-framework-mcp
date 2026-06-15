@@ -12,7 +12,7 @@ input: ARTIFACT/functional/logic/chain/hash
 output: internal/chainhash/chainhash.go
 ---
 
-# ROOT/golang/implementation/chain/hash
+# SPEC/golang/implementation/chain/hash
 
 # Agent
 

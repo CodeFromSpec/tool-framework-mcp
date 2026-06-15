@@ -9,7 +9,7 @@ input: ARTIFACT/functional/tests/mcp_tools/write_file
 output: internal/mcpwritefile/mcpwritefile_test.go
 ---
 
-# ROOT/golang/tests/mcp_tools/write_file
+# SPEC/golang/tests/mcp_tools/write_file
 
 # Agent
 

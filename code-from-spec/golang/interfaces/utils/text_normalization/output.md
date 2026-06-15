@@ -1,29 +1,27 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@Kh6FeDbVu3H4umwPnrwWiySlRM8)
+[//]: # (code-from-spec: SPEC/golang/interfaces/utils/text_normalization@i5XyKO6bCaDe3IdHdTEp3i_FEhA)
 
 # Package `textnormalization`
 
+**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization`
+
+## Overview
+
+Package `textnormalization` provides utilities for normalizing text strings by trimming whitespace, collapsing internal spaces, and converting to lowercase. Unicode characters that have a simple lowercase folding (e.g., `Straße` → `strasse`) are handled via standard library Unicode normalization.
+
+## Function Signatures
+
 ```go
 package textnormalization
+
+// NormalizeText trims leading and trailing whitespace, collapses all
+// internal whitespace sequences to a single space, and converts the
+// result to lowercase. Unicode characters with a simple lowercase
+// equivalent (e.g., "Straße" → "strasse") are folded accordingly.
+// An empty string returns an empty string.
+func NormalizeText(rawString string) string
 ```
 
-Import path:
-
-```go
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
-```
-
-## Functions
-
-```go
-// NormalizeText trims leading and trailing whitespace from raw_string,
-// collapses internal runs of whitespace to a single space, and converts
-// the result to lower-case. Special Unicode characters such as the German
-// sharp-s (ß) are folded to their ASCII equivalents where a standard
-// lower-case mapping exists (e.g. "Straße" → "strasse").
-func NormalizeText(raw_string string) string
-```
-
-## Usage
+## Usage Example
 
 ```go
 package main
@@ -31,14 +29,24 @@ package main
 import (
 	"fmt"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
 )
 
 func main() {
-	fmt.Println(textnormalization.NormalizeText("  Interface  "))       // "interface"
-	fmt.Println(textnormalization.NormalizeText("PUBLIC"))              // "public"
-	fmt.Println(textnormalization.NormalizeText("Straße"))              // "strasse"
-	fmt.Println(textnormalization.NormalizeText("Testes   de   aceitação")) // "testes de aceitação"
-	fmt.Println(textnormalization.NormalizeText(""))                    // ""
+	fmt.Println(textnormalization.NormalizeText("  Interface  "))
+	fmt.Println(textnormalization.NormalizeText("PUBLIC"))
+	fmt.Println(textnormalization.NormalizeText("Straße"))
+	fmt.Println(textnormalization.NormalizeText("Testes   de   aceitação"))
+	fmt.Println(textnormalization.NormalizeText(""))
 }
+```
+
+Expected output:
+
+```
+interface
+public
+strasse
+testes de aceitação
+
 ```

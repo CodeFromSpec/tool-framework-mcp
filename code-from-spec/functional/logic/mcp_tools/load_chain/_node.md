@@ -1,17 +1,17 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/resolver
-  - ROOT/functional/logic/chain/hash
-  - ROOT/functional/logic/parsing/node_parsing
-  - ROOT/functional/logic/parsing/frontmatter
-  - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/os/path_utils(interface)
-  - ROOT/functional/logic/utils/logical_names(interface)
-  - ROOT/functional/logic/utils/text_normalization(interface)
+  - SPEC/functional/logic/chain/resolver
+  - SPEC/functional/logic/chain/hash
+  - SPEC/functional/logic/parsing/node_parsing
+  - SPEC/functional/logic/parsing/frontmatter
+  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/utils/text_normalization(interface)
 output: code-from-spec/functional/logic/mcp_tools/load_chain/output.md
 ---
 
-# ROOT/functional/logic/mcp_tools/load_chain
+# SPEC/functional/logic/mcp_tools/load_chain
 
 Loads the complete spec chain for a given node and
 returns everything the subagent needs in a single
@@ -96,19 +96,32 @@ The context is a single continuous text block — no
 delimiters, no file boundaries. Content is concatenated
 in chain assembly order.
 
-When reconstructing content from lines (whether from
-`NodeParse` content lists or `FileReadLine`), append
-`\n` after each line, including the last.
+Spec node content is boundary-normalized using the same
+block extraction rules as the chain hash: leading blank
+lines after the heading are removed, trailing blank
+lines are removed, content ends with exactly one LF.
+When concatenating multiple blocks (e.g. subsections),
+heading lines have trailing whitespace removed, and
+consecutive blocks are separated by exactly one blank
+line. This ensures the delivered content matches what
+is hashed — hash and delivery never diverge.
 
-For each position, use `NodeParse` for spec nodes and
+The rendered output of each chain entry is separated
+from the next by exactly one blank line. This applies
+between consecutive ancestors, between the last ancestor
+and the first dependency, between consecutive
+dependencies, and so on through the entire chain
+assembly order.
+
+For each entry, use `NodeParse` for spec nodes and
 `file_reader` for artifacts and external files.
 
 **Ancestors** (from `chain.ancestors`)
 
 For each ancestor, call `NodeParse` with
-`ancestor.logical_name`. If `node.public` is absent
-or has no subsections, skip. Otherwise, include each
-`## subsection` raw heading and its content, in
+`ancestor.unqualified_logical_name`. If `node.public` is absent
+or has no subsections, skip. Otherwise, include the
+block-extracted and concatenated `## subsections` in
 document order. Do not include the `# Public` heading
 or any content directly under `# Public` (before the
 first `##`).
@@ -116,44 +129,46 @@ first `##`).
 **Dependencies** (from `chain.dependencies`)
 
 For each dependency:
-- If `LogicalNameIsArtifact(dep.logical_name)`: open
+- If `LogicalNameIsArtifact(dep.unqualified_logical_name)`: open
+  the file at `dep.file_path` with `FileOpen`, read each
+  line at a time, ignore the artifact tag line (the first
+  line containing `code-from-spec:`), include all other
+  lines. Call `FileClose`.
+- If `LogicalNameIsExternal(dep.unqualified_logical_name)`: open
   the file at `dep.file_path` with `FileOpen`, read all
-  lines, remove the artifact tag line (the line
-  containing `code-from-spec: <name>@<hash>`), include
-  remaining content. Call `FileClose`.
-- Else if `dep.qualifier` is absent: call `NodeParse`
-  with `dep.logical_name`, include each `## subsection`
-  raw heading and its content, in document order. Do
+  content. Call `FileClose`.
+- If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
+  `dep.qualifier` is absent: call `NodeParse` with
+  `dep.unqualified_logical_name`, include the block-extracted and
+  concatenated `## subsections` in document order. Do
   not include the `# Public` heading or content
   directly under `# Public`.
-- Else: call `NodeParse` with `dep.logical_name`, find
-  the subsection in `node.public` whose `heading`
-  matches `NormalizeText(dep.qualifier)`, include the
-  `## subsection` raw heading and its content.
-
-**External** (from `chain.external`)
-
-For each external entry, create a `PathCfs` from the
-entry's `path`. Open with `FileOpen`, read all content.
-Call `FileClose`.
+- If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
+  `dep.qualifier` is present: call `NodeParse` with
+  `dep.unqualified_logical_name`, find the subsection in
+  `node.public` whose `heading` matches
+  `NormalizeText(dep.qualifier)`, include the
+  block-extracted `## subsection` heading and content.
 
 **Target Public** (from `chain.target`)
 
 First, emit a reduced frontmatter block containing only
 the `output` field (formatted as YAML between `---`
 delimiters). Then call `NodeParse` with
-`chain.target.logical_name`. If `node.public` is
-present and has subsections, include each
-`## subsection` raw heading and its content, in
-document order. Do not include the `# Public` heading
-or content directly under `# Public`. If absent or no
-subsections, skip.
+`chain.target.unqualified_logical_name`. If `node.public` is
+present and has subsections, include the block-extracted
+and concatenated `## subsections` in document order.
+Do not include the `# Public` heading or content
+directly under `# Public`. If absent or no subsections,
+skip.
 
 **Target Agent**
 
-From the same `NodeParse` result, include `# Agent`
-raw heading, section content, all `## subsection` raw
-headings, and their content. If absent, skip.
+From the same `NodeParse` result, include the
+block-extracted `# Agent` section: heading line (trailing
+whitespace removed), section content, all `## subsection`
+headings and their content (block-extracted, separated
+by blank lines). If absent, skip.
 
 ### Step 4 — Assemble output string
 
@@ -169,8 +184,11 @@ delimiter lines:
 
 4. If `chain.input` is present: a line containing
    exactly `--- input ---`, followed by the content of
-   the input artifact file (artifact tag line removed,
-   read with `FileOpen`/`FileReadLine`/`FileClose`).
+   the input file. For `ARTIFACT/` input, read each line
+   at a time, ignore the artifact tag line (the first
+   line containing `code-from-spec:`), include all other
+   lines. For `EXTERNAL/` input, the full file content
+   is included.
 
 5. If the output file (at `frontmatter.output`) exists
    on disk and is readable: a line containing exactly

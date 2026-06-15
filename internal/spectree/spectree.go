@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/spec_tree/scan@9-GnQz-VhEBqZR9fUiVolNQbJEA
+// code-from-spec: SPEC/golang/implementation/spec_tree/scan@LViGnzVjhUWSac9t5xWfAfmMp5E
 package spectree
 
 import (
@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/listfiles"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/listfiles"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 var ErrNoNodesFound = errors.New("no _node.md files found under code-from-spec/")
@@ -20,33 +20,44 @@ type SpecTreeNode struct {
 }
 
 func SpecTreeScan() ([]*SpecTreeNode, error) {
-	dir := &pathutils.PathCfs{Value: "code-from-spec/"}
+	dir := &pathutils.PathCfs{Value: "code-from-spec"}
 
 	files, err := listfiles.ListFiles(dir)
 	if err != nil {
-		return nil, fmt.Errorf("SpecTreeScan: %w", err)
+		return nil, fmt.Errorf("listing files: %w", err)
 	}
 
-	var nodes []*SpecTreeNode
-
+	var kept []*pathutils.PathCfs
 	for _, f := range files {
-		value := f.Value
-		lastSlash := strings.LastIndex(value, "/")
+		lastSlash := strings.LastIndex(f.Value, "/")
 		var fileName string
 		if lastSlash == -1 {
-			fileName = value
+			fileName = f.Value
 		} else {
-			fileName = value[lastSlash+1:]
+			fileName = f.Value[lastSlash+1:]
 		}
 		if fileName != "_node.md" {
 			continue
 		}
 
-		logicalName, err := logicalnames.LogicalNameFromPath(f)
-		if err != nil {
-			return nil, fmt.Errorf("SpecTreeScan: %w", err)
+		remainder := strings.TrimPrefix(f.Value, "code-from-spec/")
+		slashIdx := strings.Index(remainder, "/")
+		if slashIdx != -1 {
+			firstSegment := remainder[:slashIdx]
+			if strings.HasPrefix(firstSegment, "_") {
+				continue
+			}
 		}
 
+		kept = append(kept, f)
+	}
+
+	var nodes []*SpecTreeNode
+	for _, f := range kept {
+		logicalName, err := logicalnames.LogicalNameFromPath(f)
+		if err != nil {
+			return nil, fmt.Errorf("deriving logical name from %s: %w", f.Value, err)
+		}
 		nodes = append(nodes, &SpecTreeNode{
 			LogicalName: logicalName,
 			FilePath:    *f,

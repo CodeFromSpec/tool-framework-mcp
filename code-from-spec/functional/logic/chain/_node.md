@@ -1,4 +1,4 @@
-# ROOT/functional/logic/chain
+# SPEC/functional/logic/chain
 
 Chain assembly and hashing — resolving the ordered list
 of files in a chain and computing the chain hash for

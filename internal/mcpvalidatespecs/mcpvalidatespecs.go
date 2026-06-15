@@ -1,20 +1,23 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/validate_specs@ctdi8tTTdQMmHBxfqQ3f_mfe5_E
+// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@hfVZs4r2QmYvy5IQaPvxGcb_MqY
 package mcpvalidatespecs
 
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/artifacttag"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/noderanking"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/artifacttag"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/noderanking"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectree"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectreevalidate"
 )
 
 type StalenessEntry struct {
@@ -31,7 +34,7 @@ type ValidationReport struct {
 	Staleness    []*StalenessEntry
 }
 
-type parsedNode struct {
+type parsedNodeEntry struct {
 	logicalName string
 	fm          *frontmatter.Frontmatter
 	node        *parsenode.Node
@@ -54,115 +57,110 @@ func MCPValidateSpecs() *ValidationReport {
 		return report
 	}
 
-	parsed := make([]*parsedNode, 0, len(nodes))
-	for _, n := range nodes {
-		fm, fmErr := frontmatter.FrontmatterParse(&n.FilePath)
-		nd, ndErr := parsenode.NodeParse(n.LogicalName)
+	allDirs := discoverAllDirs()
+
+	parsedEntries := make([]*parsedNodeEntry, 0, len(nodes))
+	for _, specNode := range nodes {
+		fm, fmErr := frontmatter.FrontmatterParse(&specNode.FilePath)
 		if fmErr != nil {
 			report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
-				Node:   n.LogicalName,
+				Node:   specNode.LogicalName,
 				Rule:   "parse",
 				Detail: fmErr.Error(),
 			})
 			continue
 		}
-		if ndErr != nil {
+
+		parsedNode, npErr := parsenode.NodeParse(specNode.LogicalName)
+		if npErr != nil {
 			report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
-				Node:   n.LogicalName,
+				Node:   specNode.LogicalName,
 				Rule:   "parse",
-				Detail: ndErr.Error(),
+				Detail: npErr.Error(),
 			})
 			continue
 		}
-		parsed = append(parsed, &parsedNode{
-			logicalName: n.LogicalName,
+
+		parsedEntries = append(parsedEntries, &parsedNodeEntry{
+			logicalName: specNode.LogicalName,
 			fm:          fm,
-			node:        nd,
+			node:        parsedNode,
 		})
 	}
 
-	validateInputs := make([]*spectreevalidate.SpecTreeValidateInput, 0, len(parsed))
-	for _, p := range parsed {
+	validateInputs := make([]*spectreevalidate.SpecTreeValidateInput, 0, len(parsedEntries))
+	for _, entry := range parsedEntries {
 		validateInputs = append(validateInputs, &spectreevalidate.SpecTreeValidateInput{
-			LogicalName: p.logicalName,
-			Frontmatter: *p.fm,
-			Node:        *p.node,
+			LogicalName: entry.logicalName,
+			Frontmatter: entry.fm,
+			Node:        entry.node,
 		})
 	}
-	formatErrs := spectreevalidate.SpecTreeValidate(validateInputs)
+	formatErrs := spectreevalidate.SpecTreeValidate(validateInputs, allDirs)
 	report.FormatErrors = append(report.FormatErrors, formatErrs...)
 
 	rankMap := make(map[string]int)
-	skipRanking := len(report.FormatErrors) > 0
+	var cycles []string
 
-	if !skipRanking {
-		rankInputs := make([]*noderanking.NodeRankInput, 0, len(parsed))
-		for _, p := range parsed {
+	if len(report.FormatErrors) == 0 {
+		rankInputs := make([]*noderanking.NodeRankInput, 0, len(parsedEntries))
+		for _, entry := range parsedEntries {
 			rankInputs = append(rankInputs, &noderanking.NodeRankInput{
-				LogicalName: p.logicalName,
-				Frontmatter: p.fm,
+				LogicalName: entry.logicalName,
+				Frontmatter: entry.fm,
 			})
 		}
 
-		ranked, cycles, rankErr := noderanking.NodeRankCompute(rankInputs)
+		rankedEntries, rankCycles, rankErr := noderanking.NodeRankCompute(rankInputs)
 		if rankErr != nil {
-			if errors.Is(rankErr, noderanking.ErrUnresolvableReference) {
-				report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
-					Node:   "",
-					Rule:   "ranking",
-					Detail: rankErr.Error(),
-				})
-			} else {
-				report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
-					Node:   "",
-					Rule:   "ranking",
-					Detail: rankErr.Error(),
-				})
-			}
+			report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
+				Node:   "",
+				Rule:   "ranking",
+				Detail: rankErr.Error(),
+			})
 		} else {
-			report.Cycles = cycles
-			for _, entry := range ranked {
-				rankMap[entry.LogicalName] = entry.Rank
+			for _, re := range rankedEntries {
+				rankMap[re.LogicalName] = re.Rank
 			}
+			cycles = rankCycles
 		}
 	}
 
-	type stalenessCandidate struct {
-		p    *parsedNode
-		rank int
+	report.Cycles = cycles
+
+	orderedEntries := make([]*parsedNodeEntry, len(parsedEntries))
+	copy(orderedEntries, parsedEntries)
+
+	if len(rankMap) > 0 {
+		sort.Slice(orderedEntries, func(i, j int) bool {
+			ri := rankMap[orderedEntries[i].logicalName]
+			rj := rankMap[orderedEntries[j].logicalName]
+			if ri != rj {
+				return ri < rj
+			}
+			return orderedEntries[i].logicalName < orderedEntries[j].logicalName
+		})
+	} else {
+		sort.Slice(orderedEntries, func(i, j int) bool {
+			return orderedEntries[i].logicalName < orderedEntries[j].logicalName
+		})
 	}
 
-	candidates := make([]stalenessCandidate, 0)
-	for _, p := range parsed {
-		if p.fm.Output == "" {
+	for _, entry := range orderedEntries {
+		if entry.fm.Output == "" {
 			continue
 		}
-		rank := 0
-		if r, ok := rankMap[p.logicalName]; ok {
-			rank = r
-		}
-		candidates = append(candidates, stalenessCandidate{p: p, rank: rank})
-	}
 
-	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].rank != candidates[j].rank {
-			return candidates[i].rank < candidates[j].rank
-		}
-		return candidates[i].p.logicalName < candidates[j].p.logicalName
-	})
+		nodeRank := rankMap[entry.logicalName]
 
-	for _, c := range candidates {
-		p := c.p
-		rank := c.rank
-
-		chain, chainErr := chainresolver.ChainResolve(p.logicalName)
-		if chainErr != nil {
+		chain, resolveErr := chainresolver.ChainResolve(entry.logicalName)
+		if resolveErr != nil {
 			report.Staleness = append(report.Staleness, &StalenessEntry{
-				Node:         p.logicalName,
-				ArtifactPath: p.fm.Output,
+				Node:         entry.logicalName,
+				ArtifactPath: entry.fm.Output,
 				Status:       "missing",
-				Detail:       chainErr.Error(),
-				Rank:         rank,
+				Detail:       resolveErr.Error(),
+				Rank:         nodeRank,
 			})
 			continue
 		}
@@ -170,42 +168,101 @@ func MCPValidateSpecs() *ValidationReport {
 		chainHash, hashErr := chainhash.ChainHashCompute(chain)
 		if hashErr != nil {
 			report.Staleness = append(report.Staleness, &StalenessEntry{
-				Node:         p.logicalName,
-				ArtifactPath: p.fm.Output,
+				Node:         entry.logicalName,
+				ArtifactPath: entry.fm.Output,
 				Status:       "missing",
 				Detail:       hashErr.Error(),
-				Rank:         rank,
+				Rank:         nodeRank,
 			})
 			continue
 		}
 
-		artifactPath := &pathutils.PathCfs{Value: p.fm.Output}
+		artifactPath := &pathutils.PathCfs{Value: entry.fm.Output}
 		tag, tagErr := artifacttag.ArtifactTagExtract(artifactPath)
 		if tagErr != nil {
-			status := "malformed tag"
 			if errors.Is(tagErr, artifacttag.ErrFileUnreadable) {
-				status = "missing"
+				report.Staleness = append(report.Staleness, &StalenessEntry{
+					Node:         entry.logicalName,
+					ArtifactPath: entry.fm.Output,
+					Status:       "missing",
+					Detail:       tagErr.Error(),
+					Rank:         nodeRank,
+				})
+				continue
 			}
+
+			if errors.Is(tagErr, artifacttag.ErrNoTagFound) || errors.Is(tagErr, artifacttag.ErrMalformedTag) {
+				report.Staleness = append(report.Staleness, &StalenessEntry{
+					Node:         entry.logicalName,
+					ArtifactPath: entry.fm.Output,
+					Status:       "malformed tag",
+					Detail:       tagErr.Error(),
+					Rank:         nodeRank,
+				})
+				continue
+			}
+
 			report.Staleness = append(report.Staleness, &StalenessEntry{
-				Node:         p.logicalName,
-				ArtifactPath: p.fm.Output,
-				Status:       status,
+				Node:         entry.logicalName,
+				ArtifactPath: entry.fm.Output,
+				Status:       "malformed tag",
 				Detail:       tagErr.Error(),
-				Rank:         rank,
+				Rank:         nodeRank,
 			})
 			continue
 		}
 
 		if tag.Hash != chainHash {
 			report.Staleness = append(report.Staleness, &StalenessEntry{
-				Node:         p.logicalName,
-				ArtifactPath: p.fm.Output,
+				Node:         entry.logicalName,
+				ArtifactPath: entry.fm.Output,
 				Status:       "stale",
 				Detail:       fmt.Sprintf("file hash %s does not match expected hash %s", tag.Hash, chainHash),
-				Rank:         rank,
+				Rank:         nodeRank,
 			})
 		}
 	}
 
+	sort.Slice(report.Staleness, func(i, j int) bool {
+		if report.Staleness[i].Rank != report.Staleness[j].Rank {
+			return report.Staleness[i].Rank < report.Staleness[j].Rank
+		}
+		return report.Staleness[i].Node < report.Staleness[j].Node
+	})
+
 	return report
+}
+
+func discoverAllDirs() []string {
+	root, err := pathutils.PathGetProjectRoot()
+	if err != nil {
+		return []string{}
+	}
+
+	baseDir := filepath.Join(root.Value, "code-from-spec")
+
+	if _, statErr := os.Stat(baseDir); statErr != nil {
+		return []string{}
+	}
+
+	var dirs []string
+	_ = filepath.WalkDir(baseDir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if path == baseDir {
+			return nil
+		}
+		rel, relErr := filepath.Rel(root.Value, path)
+		if relErr != nil {
+			return nil
+		}
+		dirs = append(dirs, filepath.ToSlash(rel))
+		return nil
+	})
+
+	return dirs
 }

@@ -6,7 +6,7 @@ input: ARTIFACT/functional/tests/utils/logical_names
 output: internal/logicalnames/logicalnames_test.go
 ---
 
-# ROOT/golang/tests/utils/logical_names
+# SPEC/golang/tests/utils/logical_names
 
 Unit tests for the logicalnames package.
 

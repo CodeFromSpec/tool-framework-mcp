@@ -5,4 +5,4 @@ input: ARTIFACT/functional/tests/os/file_reader
 output: internal/filereader/filereader_test.go
 ---
 
-# ROOT/golang/tests/os/file_reader
+# SPEC/golang/tests/os/file_reader

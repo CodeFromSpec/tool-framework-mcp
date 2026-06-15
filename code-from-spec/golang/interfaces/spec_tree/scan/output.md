@@ -1,18 +1,21 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/scan@WNzawr8ehklTt6jB5UxrF8IDyNU)
+# code-from-spec: SPEC/golang/interfaces/spec_tree/scan@j8xWADoWKb5oSRIIN6TG-uQJtDo
 
-# Package `spectree`
+# Package `spectree` — SpecTreeScan
 
+```go
+package spectree
 ```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"
-```
 
-## Structs
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectree`
+
+## Struct Definitions
 
 ```go
 package spectree
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 
+// SpecTreeNode represents a single node discovered in the spec tree.
 type SpecTreeNode struct {
 	LogicalName string
 	FilePath    pathutils.PathCfs
@@ -35,7 +38,8 @@ var ErrNoNodesFound = errors.New("no _node.md files found under code-from-spec/"
 package spectree
 
 // SpecTreeScan scans the code-from-spec/ directory relative to the project
-// root and returns all discovered nodes sorted alphabetically by logical name.
+// root and returns all discovered spec tree nodes sorted alphabetically by
+// logical name.
 func SpecTreeScan() ([]*SpecTreeNode, error)
 ```
 
@@ -48,7 +52,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectree"
 )
 
 func main() {
@@ -56,8 +60,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	for _, node := range nodes {
-		fmt.Printf("logical_name=%s file_path=%s\n", node.LogicalName, node.FilePath.Value)
+		fmt.Printf("logical_name=%s  file_path=%s\n", node.LogicalName, node.FilePath.Value)
 	}
 }
 ```

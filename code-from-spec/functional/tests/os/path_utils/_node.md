@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/tests/os/path_utils/output.md
 ---
 
-# ROOT/functional/tests/os/path_utils
+# SPEC/functional/tests/os/path_utils
 
 Test cases for path types and conversion functions.
 

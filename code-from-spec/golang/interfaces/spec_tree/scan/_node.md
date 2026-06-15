@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/spec_tree/scan(interface)
+  - SPEC/functional/logic/spec_tree/scan(interface)
   - ARTIFACT/golang/interfaces/os/path_utils
 output: code-from-spec/golang/interfaces/spec_tree/scan/output.md
 ---
 
-# ROOT/golang/interfaces/spec_tree/scan
+# SPEC/golang/interfaces/spec_tree/scan
 
 # Public
 
@@ -15,4 +15,4 @@ output: code-from-spec/golang/interfaces/spec_tree/scan/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectree"`

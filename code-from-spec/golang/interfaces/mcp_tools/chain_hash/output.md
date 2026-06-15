@@ -1,9 +1,15 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/chain_hash@09bysZB-Vk9yWMVi27IAO_0aXQI)
+[//]: # (code-from-spec: SPEC/golang/interfaces/mcp_tools/chain_hash@8J5MbOBgYELJl-ov6hbPbsTnmAA)
 
-# Package `mcpchainhash`
+## Package
+
+```go
+package mcpchainhash
+```
+
+## Import Path
 
 ```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpchainhash"
+github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpchainhash
 ```
 
 ## Error Sentinels
@@ -21,13 +27,13 @@ var ErrNoOutput = errors.New("no output")
 ```go
 package mcpchainhash
 
-// MCPChainHash resolves the chain for logical_name, computes the 27-character
-// base64url chain hash, and returns it.
+// MCPChainHash resolves the chain for the given logical name, computes
+// the 27-character base64url SHA-1 chain hash, and returns it.
 //
-// Returns ErrNoOutput when the target node has no output field.
+// Returns ErrNoOutput if the target node has no output field.
 // Errors from LogicalNameToPath, ChainResolve, ChainHashCompute,
-// FrontmatterParse, and FileOpen are propagated as-is.
-func MCPChainHash(logical_name string) (string, error)
+// FrontmatterParse, and FileOpen are propagated unchanged.
+func MCPChainHash(logicalName string) (string, error)
 ```
 
 ## Usage Example
@@ -39,15 +45,15 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpchainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpchainhash"
 )
 
 func main() {
-	hash, err := mcpchainhash.MCPChainHash("ROOT/golang/interfaces/mcp_tools/chain_hash")
+	hash, err := mcpchainhash.MCPChainHash("SPEC/payments/fees")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Hash:", hash)
+	fmt.Println("Chain hash:", hash)
 }
 ```

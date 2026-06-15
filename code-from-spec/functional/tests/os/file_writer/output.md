@@ -1,106 +1,136 @@
-<!-- code-from-spec: ROOT/functional/tests/os/file_writer@E4aR5VW5Xh5ZGwD5jEogd5lZN9o -->
+<!-- code-from-spec: SPEC/functional/tests/os/file_writer@TO61LggAIIUBGzYP7sZVi_skxm0 -->
 
-## Test cases for FileWrite
-
-### Happy path
-
-#### Writes content to a new file
-
-Setup: a path to a file that does not exist.
-
-Actions:
-1. Call `FileWrite` with that path and content `"hello world"`.
-
-Expected outcome: no error is returned. The file exists and its content is exactly `"hello world"`.
+## Test suite: FileWrite
 
 ---
 
-#### Overwrites an existing file
+### TC-01: Writes content to a new file
 
-Setup: a file exists at the target path with content `"old"`.
+Setup:
+- Ensure the target file does not exist.
+
+Actions:
+1. Call `FileWrite` with a valid path to a non-existent file and content `"hello world"`.
+
+Expected outcome:
+- No error is returned.
+- The file exists at the resolved path.
+- The file content is exactly `"hello world"`.
+
+---
+
+### TC-02: Overwrites an existing file
+
+Setup:
+- Create a file at the target path with content `"old"`.
 
 Actions:
 1. Call `FileWrite` with the same path and content `"new"`.
 
-Expected outcome: no error is returned. The file content is exactly `"new"`. No trace of the old content remains.
+Expected outcome:
+- No error is returned.
+- The file content is exactly `"new"`.
+- No trace of `"old"` remains.
 
 ---
 
-#### Creates intermediate directories
+### TC-03: Creates intermediate directories
 
-Setup: a path whose parent directories do not exist (e.g., `"a/b/c/file.txt"`).
+Setup:
+- Ensure the parent directories (e.g., `"a/b/c"`) do not exist.
 
 Actions:
-1. Call `FileWrite` with that path and any content.
+1. Call `FileWrite` with a path whose parent directories do not exist (e.g., `"a/b/c/file.txt"`) and any non-empty content.
 
-Expected outcome: no error is returned. All intermediate directories are created. The file exists at the target path with the given content.
+Expected outcome:
+- No error is returned.
+- All intermediate directories are created.
+- The file exists at the resolved path with the given content.
 
 ---
 
-#### Preserves UTF-8 content
+### TC-04: Preserves UTF-8 content
 
-Setup: a path to a file that does not exist.
+Setup:
+- Ensure the target file does not exist.
 
 Actions:
-1. Call `FileWrite` with content `"café 日本語 🎉"`.
-2. Read the file back.
+1. Call `FileWrite` with a valid path and content `"café 日本語 🎉"`.
+2. Read the file back as raw bytes.
 
-Expected outcome: no error is returned. The bytes read from the file match the UTF-8 encoding of `"café 日本語 🎉"` exactly.
+Expected outcome:
+- No error is returned.
+- The raw bytes of the file match the UTF-8 encoding of `"café 日本語 🎉"` byte-for-byte.
 
 ---
 
-#### Preserves line endings as received
+### TC-05: Preserves line endings as received
 
-Setup: a path to a file that does not exist.
+Setup:
+- Ensure the target file does not exist.
 
 Actions:
-1. Call `FileWrite` with content `"alpha\r\nbeta\r\n"`.
-2. Read the file back.
+1. Call `FileWrite` with a valid path and content `"alpha\r\nbeta\r\n"`.
+2. Read the file back as raw bytes.
 
-Expected outcome: no error is returned. The bytes read from the file contain CRLF line endings — no normalization has occurred.
+Expected outcome:
+- No error is returned.
+- The raw bytes contain CRLF sequences (`\r\n`) exactly as provided — no normalization has occurred.
 
 ---
 
-#### Writes empty content
+### TC-06: Writes empty content
 
-Setup: a path to a file that does not exist.
+Setup:
+- Ensure the target file does not exist.
 
 Actions:
-1. Call `FileWrite` with an empty string as content.
+1. Call `FileWrite` with a valid path and an empty string as content.
 
-Expected outcome: no error is returned. The file exists and contains zero bytes.
+Expected outcome:
+- No error is returned.
+- The file exists at the resolved path.
+- The file contains zero bytes.
 
 ---
 
-### Failure cases
+### TC-07: Propagates validation errors from PathCfsToOs
 
-#### Propagates validation errors from PathCfsToOs
-
-Setup: an invalid `PathCfs` value, e.g., `"../../outside"`.
+Setup:
+- No files or directories are created.
 
 Actions:
-1. Call `FileWrite` with that path and any content.
+1. Call `FileWrite` with an invalid `PathCfs` value such as `"../../outside"`.
 
-Expected outcome: error DirectoryTraversal is returned (propagated from PathUtils). No file or directory is created.
+Expected outcome:
+- A `DirectoryTraversal` error (propagated from `PathUtils`) is returned.
+- No file is created.
+- No directory is created.
 
 ---
 
-#### Cannot create directory
+### TC-08: Cannot create directory
 
-Setup: a path where an intermediate directory cannot be created because a path component conflicts with an existing file (e.g., a file named `"a"` already exists, but the target path is `"a/b/file.txt"`).
+Setup:
+- Create a regular file at a path that would need to be an intermediate directory (e.g., a file named `"a"` where the target path is `"a/b/file.txt"`).
 
 Actions:
-1. Call `FileWrite` with that path and any content.
+1. Call `FileWrite` with a path whose intermediate directory component conflicts with the existing file.
 
-Expected outcome: error CannotCreateDirectory is returned. No new directory or file is created.
+Expected outcome:
+- A `CannotCreateDirectory` error is returned.
+- No new file is created.
 
 ---
 
-#### Cannot write file
+### TC-09: Cannot write file
 
-Setup: a path that points to a directory that already exists (not a file).
+Setup:
+- Create a directory at the exact target path (e.g., a directory named `"file.txt"`).
 
 Actions:
-1. Call `FileWrite` with that path and any content.
+1. Call `FileWrite` with a path that resolves to an existing directory.
 
-Expected outcome: error CannotWriteFile is returned.
+Expected outcome:
+- A `CannotWriteFile` error is returned.
+- The directory remains unchanged.

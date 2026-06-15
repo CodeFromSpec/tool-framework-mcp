@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/parsing/artifact_tag(interface)
+  - SPEC/functional/logic/parsing/artifact_tag(interface)
 output: code-from-spec/functional/tests/parsing/artifact_tag/output.md
 ---
 
-# ROOT/functional/tests/parsing/artifact_tag
+# SPEC/functional/tests/parsing/artifact_tag
 
 Test cases for the artifact tag component.
 

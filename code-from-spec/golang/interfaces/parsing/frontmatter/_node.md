@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/parsing/frontmatter(interface)
+  - SPEC/functional/logic/parsing/frontmatter(interface)
   - ARTIFACT/golang/interfaces/os/path_utils
 output: code-from-spec/golang/interfaces/parsing/frontmatter/output.md
 ---
 
-# ROOT/golang/interfaces/parsing/frontmatter
+# SPEC/golang/interfaces/parsing/frontmatter
 
 # Public
 
@@ -15,4 +15,4 @@ output: code-from-spec/golang/interfaces/parsing/frontmatter/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"`

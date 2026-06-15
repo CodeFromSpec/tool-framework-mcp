@@ -6,7 +6,7 @@ input: ARTIFACT/functional/logic/os/file_writer
 output: internal/filewriter/filewriter.go
 ---
 
-# ROOT/golang/implementation/os/file_writer
+# SPEC/golang/implementation/os/file_writer
 
 # Agent
 

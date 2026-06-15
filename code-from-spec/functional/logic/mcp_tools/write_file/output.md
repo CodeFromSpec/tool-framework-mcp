@@ -1,37 +1,28 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/write_file@87JEQZ7dhsfoSGYzMqDCdqtkH44 -->
-
-## Functions
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/write_file@44gaq70qsiJr7pV3QE43WVgDNu8 -->
 
 function MCPWriteFile(logical_name: string, path: string, content: string) -> string
-  errors:
-    - UnreadableFrontmatter: the node's frontmatter cannot be parsed.
-    - NoOutput: target node has no output field.
-    - PathNotInOutput: path is not declared in the node's output.
-    - (LogicalNames.*): propagated from LogicalNameToPath.
-    - (PathUtils.*): propagated from PathValidateCfs.
-    - (FileWriter.*): propagated from FileWrite.
 
-  1. Read frontmatter.
+  1. Call LogicalNameHasQualifier with logical_name.
+     If true, raise error "qualifier not allowed".
 
-     Call LogicalNameToPath with logical_name. If it fails, propagate the error.
+  2. Call LogicalNameToPath with logical_name.
+     If it fails, propagate the error.
+     Store the result as node_path.
 
-     Call FrontmatterParse with the resolved file path.
-     If parsing fails, raise error "unreadable frontmatter".
+  3. Call FrontmatterParse with node_path.
+     If it fails, raise error "unreadable frontmatter".
+     Store the result as frontmatter.
 
-     If frontmatter.output is empty, raise error "no output".
+  4. If frontmatter.output is empty, raise error "no output".
 
-  2. Validate path.
+  5. Call PathValidateCfs with path.
+     If it fails, propagate the error.
 
-     Call PathValidateCfs on the path string. If it fails, propagate the error.
+  6. If path does not exactly match frontmatter.output,
+     raise error "path not in output".
 
-  3. Check path against output.
+  7. Construct a PathCfs record with value set to path.
+     Call FileWrite with that PathCfs and content.
+     If it fails, propagate the error.
 
-     Compare path against frontmatter.output using exact string match.
-     If they do not match, raise error "path not in output".
-
-  4. Write file.
-
-     Construct a PathCfs from the path string.
-     Call FileWrite with the PathCfs and content. If it fails, propagate the error.
-
-     Return "wrote <path>" where <path> is the path string.
+  8. Return "wrote <path>" where <path> is the path string.

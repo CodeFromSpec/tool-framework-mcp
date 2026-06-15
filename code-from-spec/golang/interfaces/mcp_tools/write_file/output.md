@@ -1,10 +1,8 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/write_file@Ne6gmWsuUgcEV7Ehzllcwctohpw)
+[//]: # (code-from-spec: SPEC/golang/interfaces/mcp_tools/write_file@LyR8O4k4uHtbP5bz9eD9jxU6UH4)
 
 # Package `mcpwritefile`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
-```
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile`
 
 ## Error Sentinels
 
@@ -13,9 +11,10 @@ package mcpwritefile
 
 import "errors"
 
+var ErrQualifierNotAllowed  = errors.New("qualifier not allowed")
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-var ErrNoOutput = errors.New("target node has no output field")
-var ErrPathNotInOutput = errors.New("path is not declared in the node's output")
+var ErrNoOutput             = errors.New("no output")
+var ErrPathNotInOutput      = errors.New("path not in output")
 ```
 
 ## Functions
@@ -23,10 +22,9 @@ var ErrPathNotInOutput = errors.New("path is not declared in the node's output")
 ```go
 package mcpwritefile
 
-// MCPWriteFile writes content to the file at path, authorized by the node
-// identified by logical_name. It validates that path is declared in the
-// node's output frontmatter field before writing. Returns "wrote <path>"
-// on success.
+// MCPWriteFile validates that path is declared in the output field of the node
+// identified by logical_name, then writes content to that path.
+// Returns "wrote <path>" on success.
 func MCPWriteFile(logicalName string, path string, content string) (string, error)
 ```
 
@@ -39,14 +37,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile"
 )
 
 func main() {
 	result, err := mcpwritefile.MCPWriteFile(
-		"ROOT/golang/interfaces/mcp_tools/write_file",
-		"code-from-spec/golang/interfaces/mcp_tools/write_file/output.md",
-		"# Output\n\nGenerated content.\n",
+		"SPEC/payments/fees",
+		"code-from-spec/payments/fees/output.go",
+		"package fees\n",
 	)
 	if err != nil {
 		log.Fatal(err)

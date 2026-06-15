@@ -1,23 +1,18 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/frontmatter@QLwobF5jj6bQdL_90NtWu4rMNfw)
+[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/frontmatter@gYbcS2Kej33rL2I4XjIxeL_VCqQ)
 
 # Package `frontmatter`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-```
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter`
 
-## Structs
+## Types
 
 ```go
 package frontmatter
 
-type FrontmatterExternal struct {
-	Path string
-}
-
+// Frontmatter holds the parsed fields extracted from a spec node file's
+// YAML front matter block.
 type Frontmatter struct {
 	DependsOn []string
-	External  []*FrontmatterExternal
 	Input     string
 	Output    string
 }
@@ -31,7 +26,7 @@ package frontmatter
 import "errors"
 
 var ErrFileUnreadable = errors.New("file unreadable")
-var ErrMalformedYAML = errors.New("malformed YAML")
+var ErrMalformedYAML  = errors.New("malformed YAML")
 ```
 
 ## Functions
@@ -39,12 +34,12 @@ var ErrMalformedYAML = errors.New("malformed YAML")
 ```go
 package frontmatter
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 
-// FrontmatterParse reads the file at file_path, extracts the YAML block
-// between the first pair of --- delimiters, and unmarshals it into a
-// Frontmatter. All fields default to their zero values when absent from
-// the YAML.
+// FrontmatterParse opens the file at filePath, extracts the YAML front matter
+// delimited by "---" markers, and returns the parsed Frontmatter.
+// All fields default to their zero value (empty list, empty string) when
+// absent from the YAML block.
 func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error)
 ```
 
@@ -57,12 +52,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 func main() {
-	path := &pathutils.PathCfs{Value: "code-from-spec/some/node/_node.md"}
+	path := &pathutils.PathCfs{Value: "code-from-spec/functional/logic/_node.md"}
 
 	fm, err := frontmatter.FrontmatterParse(path)
 	if err != nil {
@@ -72,8 +67,5 @@ func main() {
 	fmt.Println("Output:", fm.Output)
 	fmt.Println("Input:", fm.Input)
 	fmt.Println("DependsOn:", fm.DependsOn)
-	for _, ext := range fm.External {
-		fmt.Println("External path:", ext.Path)
-	}
 }
 ```

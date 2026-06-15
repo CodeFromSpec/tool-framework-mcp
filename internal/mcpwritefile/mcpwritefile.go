@@ -1,47 +1,52 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/write_file@5ONmibjnZqpDAbgyN82_wk9Woxo
+// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@0eWplgdnP_Pvl1Z_7ymZtqW7b0w
 package mcpwritefile
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filewriter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filewriter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
+var ErrQualifierNotAllowed   = errors.New("qualifier not allowed")
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-var ErrNoOutput = errors.New("target node has no output field")
-var ErrPathNotInOutput = errors.New("path is not declared in the node's output")
+var ErrNoOutput              = errors.New("no output")
+var ErrPathNotInOutput       = errors.New("path not in output")
 
 func MCPWriteFile(logicalName string, path string, content string) (string, error) {
+	if logicalnames.LogicalNameHasQualifier(logicalName) {
+		return "", ErrQualifierNotAllowed
+	}
+
 	nodePath, err := logicalnames.LogicalNameToPath(logicalName)
 	if err != nil {
-		return "", fmt.Errorf("MCPWriteFile: %w", err)
+		return "", fmt.Errorf("resolving logical name: %w", err)
 	}
 
 	fm, err := frontmatter.FrontmatterParse(nodePath)
 	if err != nil {
-		return "", fmt.Errorf("MCPWriteFile: %w: %w", ErrUnreadableFrontmatter, err)
+		return "", fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
 	}
 
 	if fm.Output == "" {
-		return "", fmt.Errorf("MCPWriteFile: %w", ErrNoOutput)
+		return "", ErrNoOutput
 	}
 
 	if err := pathutils.PathValidateCfs(path); err != nil {
-		return "", fmt.Errorf("MCPWriteFile: %w", err)
+		return "", fmt.Errorf("validating path: %w", err)
 	}
 
 	if path != fm.Output {
-		return "", fmt.Errorf("MCPWriteFile: %w", ErrPathNotInOutput)
+		return "", ErrPathNotInOutput
 	}
 
 	cfsPath := &pathutils.PathCfs{Value: path}
 	if err := filewriter.FileWrite(cfsPath, content); err != nil {
-		return "", fmt.Errorf("MCPWriteFile: %w", err)
+		return "", fmt.Errorf("writing file: %w", err)
 	}
 
-	return "wrote " + path, nil
+	return fmt.Sprintf("wrote %s", path), nil
 }

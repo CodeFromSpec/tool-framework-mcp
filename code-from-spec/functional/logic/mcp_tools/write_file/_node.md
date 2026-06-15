@@ -1,13 +1,13 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/parsing/frontmatter
-  - ROOT/functional/logic/os/path_utils
-  - ROOT/functional/logic/os/file_writer
+  - SPEC/functional/logic/utils/logical_names
+  - SPEC/functional/logic/parsing/frontmatter
+  - SPEC/functional/logic/os/path_utils
+  - SPEC/functional/logic/os/file_writer
 output: code-from-spec/functional/logic/mcp_tools/write_file/output.md
 ---
 
-# ROOT/functional/logic/mcp_tools/write_file
+# SPEC/functional/logic/mcp_tools/write_file
 
 Writes a generated source file to disk after validating
 the path against the node's declared output.
@@ -19,6 +19,8 @@ the path against the node's declared output.
 ```
 function MCPWriteFile(logical_name: string, path: string, content: string) -> string
   errors:
+    - QualifierNotAllowed: the logical name contains
+      a parenthetical qualifier.
     - UnreadableFrontmatter: the node's frontmatter
       cannot be parsed.
     - NoOutput: target node has no output field.
@@ -46,11 +48,17 @@ A success message: `"wrote <path>"`.
 
 ## Behavior
 
-### Step 1 — Read frontmatter
+### Step 1 — Validate and read frontmatter
+
+Check if the logical name has a qualifier using
+`LogicalNameHasQualifier`. If true, raise
+"qualifier not allowed" — qualifiers reference
+subsections and are not valid targets for file
+writing.
 
 Resolve the logical name to a file path using
 `LogicalNameToPath`. If it fails, propagate the error.
-This rejects non-ROOT/ references and qualifiers.
+This rejects non-SPEC/ references.
 
 Call `FrontmatterParse` with the resolved path. If
 parsing fails, raise "unreadable frontmatter".

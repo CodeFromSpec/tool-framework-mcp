@@ -1,31 +1,29 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/resolver@1vyBydvlA8YOr4IIR1H7jifm2YE)
+[//]: # (code-from-spec: SPEC/golang/interfaces/chain/resolver@jCG2U714TdT-5wF3xsZeLZ1SbWk)
 
 # Package `chainresolver`
 
-```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
-```
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver`
 
-## Structs
+## Types
 
 ```go
 package chainresolver
 
 import (
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
+// ChainItem represents a single node in the resolved chain.
 type ChainItem struct {
-	LogicalName string
-	FilePath    pathutils.PathCfs
-	Qualifier   string
+	UnqualifiedLogicalName string
+	FilePath               pathutils.PathCfs
+	Qualifier              *string
 }
 
+// Chain is the fully resolved chain for a target logical name.
 type Chain struct {
 	Ancestors    []*ChainItem
 	Dependencies []*ChainItem
-	External     []*frontmatter.FrontmatterExternal
 	Target       *ChainItem
 	Input        *ChainItem
 }
@@ -39,7 +37,7 @@ package chainresolver
 import "errors"
 
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-var ErrUnresolvableArtifact = errors.New("unresolvable artifact")
+var ErrUnresolvableArtifact  = errors.New("unresolvable artifact")
 ```
 
 ## Functions
@@ -47,19 +45,10 @@ var ErrUnresolvableArtifact = errors.New("unresolvable artifact")
 ```go
 package chainresolver
 
-// ChainResolve returns the chain for a target logical name — the ordered
-// list of positions that a downstream tool needs to assemble context for
-// artifact generation or to compute the chain hash.
-//
-// Chain assembly order:
-//  1. Ancestors — from root down to (but not including) the target node.
-//  2. Dependencies — entries from the target's depends_on, sorted
-//     alphabetically by file path then by qualifier, each with its
-//     resolved file path and an optional qualifier.
-//  3. External — files from the target's external, sorted alphabetically
-//     by path.
-//  4. Target — the target node itself.
-//  5. Input — the target's input artifact, if present.
+// ChainResolve returns the chain for the given target logical name.
+// The chain contains ancestors (root down to but not including the target),
+// dependencies (sorted alphabetically by logical name), the target itself,
+// and optionally the target's input.
 func ChainResolve(targetLogicalName string) (*Chain, error)
 ```
 
@@ -72,31 +61,34 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
 )
 
 func main() {
-	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/resolver")
+	chain, err := chainresolver.ChainResolve("SPEC/payments/fees")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, ancestor := range chain.Ancestors {
-		fmt.Println("Ancestor:", ancestor.LogicalName, ancestor.FilePath.Value)
+	fmt.Println("Target:", chain.Target.UnqualifiedLogicalName)
+	fmt.Println("Target file:", chain.Target.FilePath.Value)
+
+	fmt.Println("Ancestors:")
+	for _, a := range chain.Ancestors {
+		fmt.Println(" ", a.UnqualifiedLogicalName, a.FilePath.Value)
 	}
 
-	for _, dep := range chain.Dependencies {
-		fmt.Println("Dependency:", dep.LogicalName, dep.FilePath.Value, dep.Qualifier)
+	fmt.Println("Dependencies:")
+	for _, d := range chain.Dependencies {
+		qualifier := ""
+		if d.Qualifier != nil {
+			qualifier = "(" + *d.Qualifier + ")"
+		}
+		fmt.Println(" ", d.UnqualifiedLogicalName+qualifier, d.FilePath.Value)
 	}
-
-	for _, ext := range chain.External {
-		fmt.Println("External:", ext.Path)
-	}
-
-	fmt.Println("Target:", chain.Target.LogicalName, chain.Target.FilePath.Value)
 
 	if chain.Input != nil {
-		fmt.Println("Input:", chain.Input.LogicalName, chain.Input.FilePath.Value)
+		fmt.Println("Input:", chain.Input.UnqualifiedLogicalName, chain.Input.FilePath.Value)
 	}
 }
 ```

@@ -1,4 +1,4 @@
-# ROOT/functional/logic/os
+# SPEC/functional/logic/os
 
 Operating system abstractions — file I/O, path handling,
 and directory listing.

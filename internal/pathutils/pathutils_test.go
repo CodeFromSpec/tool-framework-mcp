@@ -1,14 +1,13 @@
-// code-from-spec: ROOT/golang/tests/os/path_utils@YZI-9E3CVYCl5s_-ltfPgbouIE4
+// code-from-spec: SPEC/golang/tests/os/path_utils@ZgHSn53KHCF2T9UXwqOHdRgcm0o
 package pathutils_test
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 func testChdir(t *testing.T, dir string) {
@@ -28,295 +27,338 @@ func testChdir(t *testing.T, dir string) {
 }
 
 func TestPathValidateCfs(t *testing.T) {
-	testCases := []struct {
-		name    string
-		input   string
-		wantErr error
-	}{
+	type testCase struct {
+		name        string
+		input       string
+		expectedErr error
+	}
+
+	cases := []testCase{
 		{
-			name:    "valid simple relative path",
-			input:   "internal/config/config.go",
-			wantErr: nil,
+			name:        "TC-PV-01: valid simple relative path",
+			input:       "internal/config/config.go",
+			expectedErr: nil,
 		},
 		{
-			name:    "valid nested path",
-			input:   "cmd/framework-mcp/main.go",
-			wantErr: nil,
+			name:        "TC-PV-02: valid nested path",
+			input:       "cmd/framework-mcp/main.go",
+			expectedErr: nil,
 		},
 		{
-			name:    "valid single filename",
-			input:   "main.go",
-			wantErr: nil,
+			name:        "TC-PV-03: valid single filename",
+			input:       "main.go",
+			expectedErr: nil,
 		},
 		{
-			name:    "accepts path with dot segment",
-			input:   "internal/./config/config.go",
-			wantErr: nil,
+			name:        "TC-PV-04: accepts path with dot segment",
+			input:       "internal/./config/config.go",
+			expectedErr: nil,
 		},
 		{
-			name:    "accepts traversal that resolves within root",
-			input:   "a/b/../c",
-			wantErr: nil,
+			name:        "TC-PV-05: accepts traversal that resolves within root",
+			input:       "a/b/../c",
+			expectedErr: nil,
 		},
 		{
-			name:    "accepts path with trailing slash",
-			input:   "internal/config/",
-			wantErr: nil,
+			name:        "TC-PV-06: accepts path with trailing slash",
+			input:       "internal/config/",
+			expectedErr: nil,
 		},
 		{
-			name:    "accepts path with duplicate slashes",
-			input:   "internal//config//file.go",
-			wantErr: nil,
+			name:        "TC-PV-07: accepts path with duplicate slashes",
+			input:       "internal//config//file.go",
+			expectedErr: nil,
 		},
 		{
-			name:    "rejects empty string",
-			input:   "",
-			wantErr: pathutils.ErrPathEmpty,
+			name:        "TC-PV-08: rejects empty string",
+			input:       "",
+			expectedErr: pathutils.ErrPathEmpty,
 		},
 		{
-			name:    "rejects absolute path with leading slash",
-			input:   "/etc/passwd",
-			wantErr: pathutils.ErrPathAbsolute,
+			name:        "TC-PV-09: rejects absolute path with leading slash",
+			input:       "/etc/passwd",
+			expectedErr: pathutils.ErrPathAbsolute,
 		},
 		{
-			name:    "rejects absolute path with drive letter",
-			input:   "C:/Windows/system32",
-			wantErr: pathutils.ErrPathAbsolute,
+			name:        "TC-PV-10: rejects absolute path with drive letter",
+			input:       "C:/Windows/system32",
+			expectedErr: pathutils.ErrPathAbsolute,
 		},
 		{
-			name:    "rejects backslash",
-			input:   `internal\config\config.go`,
-			wantErr: pathutils.ErrPathContainsBackslash,
+			name:        "TC-PV-11: rejects backslash",
+			input:       `internal\config\config.go`,
+			expectedErr: pathutils.ErrPathContainsBackslash,
 		},
 		{
-			name:    "rejects simple traversal",
-			input:   "../../etc/passwd",
-			wantErr: pathutils.ErrDirectoryTraversal,
+			name:        "TC-PV-12: rejects simple traversal",
+			input:       "../../etc/passwd",
+			expectedErr: pathutils.ErrDirectoryTraversal,
 		},
 		{
-			name:    "rejects embedded traversal",
-			input:   "internal/../../outside/file.go",
-			wantErr: pathutils.ErrDirectoryTraversal,
+			name:        "TC-PV-13: rejects embedded traversal",
+			input:       "internal/../../outside/file.go",
+			expectedErr: pathutils.ErrDirectoryTraversal,
 		},
 	}
 
-	for _, tc := range testCases {
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := pathutils.PathValidateCfs(tc.input)
-			if tc.wantErr == nil {
+			if tc.expectedErr == nil {
 				if err != nil {
-					t.Errorf("expected no error, got: %v", err)
+					t.Fatalf("expected no error, got: %v", err)
 				}
-			} else {
-				if !errors.Is(err, tc.wantErr) {
-					t.Errorf("expected error %v, got: %v", tc.wantErr, err)
-				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error %v, got nil", tc.expectedErr)
+			}
+			if !isErr(err, tc.expectedErr) {
+				t.Fatalf("expected error %v, got: %v", tc.expectedErr, err)
 			}
 		})
 	}
 }
 
 func TestPathCfsToOs(t *testing.T) {
-	t.Run("converts valid path that exists", func(t *testing.T) {
+	t.Run("TC-CO-01: converts valid path that exists", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		dir := filepath.Join(tempDir, "internal", "config")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
+		subDir := filepath.Join(tempDir, "internal", "config")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatalf("setup: %v", err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, "config.go"), []byte("package config"), 0644); err != nil {
-			t.Fatalf("WriteFile: %v", err)
+		if err := os.WriteFile(filepath.Join(subDir, "config.go"), []byte("package config"), 0644); err != nil {
+			t.Fatalf("setup: %v", err)
 		}
 
-		result, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "internal/config/config.go"})
+		cfsPath := &pathutils.PathCfs{Value: "internal/config/config.go"}
+		result, err := pathutils.PathCfsToOs(cfsPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if !filepath.IsAbs(result.Value) {
-			t.Errorf("expected absolute path, got: %s", result.Value)
+			t.Fatalf("expected absolute path, got: %s", result.Value)
 		}
-		if !strings.HasSuffix(filepath.ToSlash(result.Value), "internal/config/config.go") {
-			t.Errorf("expected path ending with internal/config/config.go, got: %s", result.Value)
+		expected := filepath.Join("internal", "config", "config.go")
+		if !strings.HasSuffix(result.Value, expected) {
+			t.Fatalf("expected path ending with %s, got: %s", expected, result.Value)
 		}
 	})
 
-	t.Run("converts valid path that does not exist", func(t *testing.T) {
+	t.Run("TC-CO-02: converts valid path that does not exist", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		result, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "internal/newdir/newfile.go"})
+		cfsPath := &pathutils.PathCfs{Value: "internal/newdir/newfile.go"}
+		result, err := pathutils.PathCfsToOs(cfsPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if !filepath.IsAbs(result.Value) {
-			t.Errorf("expected absolute path, got: %s", result.Value)
+			t.Fatalf("expected absolute path, got: %s", result.Value)
 		}
-		if !strings.HasSuffix(filepath.ToSlash(result.Value), "internal/newdir/newfile.go") {
-			t.Errorf("expected path ending with internal/newdir/newfile.go, got: %s", result.Value)
+		expected := filepath.Join("internal", "newdir", "newfile.go")
+		if !strings.HasSuffix(result.Value, expected) {
+			t.Fatalf("expected path ending with %s, got: %s", expected, result.Value)
 		}
 	})
 
-	t.Run("converts path with duplicate slashes", func(t *testing.T) {
+	t.Run("TC-CO-03: converts path with duplicate slashes", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		result, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "internal//config.go"})
+		cfsPath := &pathutils.PathCfs{Value: "internal//config.go"}
+		result, err := pathutils.PathCfsToOs(cfsPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if !filepath.IsAbs(result.Value) {
-			t.Errorf("expected absolute path, got: %s", result.Value)
+			t.Fatalf("expected absolute path, got: %s", result.Value)
 		}
 	})
 
-	t.Run("rejects invalid CfsPath", func(t *testing.T) {
-		_, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "../../etc/passwd"})
-		if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
-			t.Errorf("expected ErrDirectoryTraversal, got: %v", err)
+	t.Run("TC-CO-04: rejects invalid CfsPath — directory traversal", func(t *testing.T) {
+		cfsPath := &pathutils.PathCfs{Value: "../../etc/passwd"}
+		result, err := pathutils.PathCfsToOs(cfsPath)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !isErr(err, pathutils.ErrDirectoryTraversal) {
+			t.Fatalf("expected ErrDirectoryTraversal, got: %v", err)
+		}
+		if result != nil {
+			t.Fatalf("expected nil result, got: %v", result)
 		}
 	})
 
-	t.Run("rejects symlink escaping project root", func(t *testing.T) {
-		tempDir := t.TempDir()
-		testChdir(t, tempDir)
-
+	t.Run("TC-CO-05: rejects symlink escaping project root", func(t *testing.T) {
 		outsideDir := t.TempDir()
 		outsideFile := filepath.Join(outsideDir, "secret.txt")
 		if err := os.WriteFile(outsideFile, []byte("secret"), 0644); err != nil {
-			t.Fatalf("WriteFile: %v", err)
+			t.Fatalf("setup: %v", err)
 		}
 
-		symlinkPath := filepath.Join(tempDir, "symlink.txt")
-		if err := os.Symlink(outsideFile, symlinkPath); err != nil {
-			t.Skipf("symlinks not supported: %v", err)
-		}
-
-		_, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "symlink.txt"})
-		if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
-			t.Errorf("expected ErrResolvesOutsideRoot, got: %v", err)
-		}
-	})
-
-	t.Run("roundtrip CfsToOs then OsToCfs", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		dir := filepath.Join(tempDir, "internal", "config")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "config.go"), []byte("package config"), 0644); err != nil {
-			t.Fatalf("WriteFile: %v", err)
+		symlinkPath := filepath.Join(tempDir, "link.txt")
+		if err := os.Symlink(outsideFile, symlinkPath); err != nil {
+			t.Skip("symlinks not supported:", err)
 		}
 
-		osPath, err := pathutils.PathCfsToOs(&pathutils.PathCfs{Value: "internal/config/config.go"})
+		cfsPath := &pathutils.PathCfs{Value: "link.txt"}
+		_, err := pathutils.PathCfsToOs(cfsPath)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !isErr(err, pathutils.ErrResolvesOutsideRoot) {
+			t.Fatalf("expected ErrResolvesOutsideRoot, got: %v", err)
+		}
+	})
+
+	t.Run("TC-CO-06: roundtrip CfsToOs then OsToCfs", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testChdir(t, tempDir)
+
+		subDir := filepath.Join(tempDir, "internal", "config")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(subDir, "config.go"), []byte("package config"), 0644); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		cfsPath := &pathutils.PathCfs{Value: "internal/config/config.go"}
+		osPath, err := pathutils.PathCfsToOs(cfsPath)
 		if err != nil {
 			t.Fatalf("PathCfsToOs: %v", err)
 		}
 
-		cfsPath, err := pathutils.PathOsToCfs(osPath)
+		roundTripped, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("PathOsToCfs: %v", err)
 		}
 
-		if cfsPath.Value != "internal/config/config.go" {
-			t.Errorf("expected internal/config/config.go, got: %s", cfsPath.Value)
+		if roundTripped.Value != "internal/config/config.go" {
+			t.Fatalf("expected %q, got %q", "internal/config/config.go", roundTripped.Value)
 		}
 	})
 }
 
 func TestPathOsToCfs(t *testing.T) {
-	t.Run("converts valid OS path that exists", func(t *testing.T) {
+	t.Run("TC-OC-01: converts valid OS path that exists", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		if err := os.WriteFile(filepath.Join(tempDir, "file.go"), []byte("package main"), 0644); err != nil {
-			t.Fatalf("WriteFile: %v", err)
+		subDir := filepath.Join(tempDir, "somedir")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+		filePath := filepath.Join(subDir, "file.go")
+		if err := os.WriteFile(filePath, []byte("package somedir"), 0644); err != nil {
+			t.Fatalf("setup: %v", err)
 		}
 
-		absPath := filepath.Join(tempDir, "file.go")
-		result, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: absPath})
+		osPath := &pathutils.PathOs{Value: filePath}
+		result, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if strings.Contains(result.Value, "\\") {
-			t.Errorf("result contains backslash: %s", result.Value)
+			t.Fatalf("expected forward slashes, got: %s", result.Value)
 		}
-		if result.Value != "file.go" {
-			t.Errorf("expected file.go, got: %s", result.Value)
+		if filepath.IsAbs(result.Value) {
+			t.Fatalf("expected relative path, got: %s", result.Value)
 		}
 	})
 
-	t.Run("converts valid OS path that does not exist", func(t *testing.T) {
+	t.Run("TC-OC-02: converts valid OS path that does not exist", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		absPath := filepath.Join(tempDir, "nonexistent", "file.go")
-		result, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: absPath})
+		nonexistentPath := filepath.Join(tempDir, "nonexistent", "file.go")
+		osPath := &pathutils.PathOs{Value: nonexistentPath}
+		result, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if strings.Contains(result.Value, "\\") {
-			t.Errorf("result contains backslash: %s", result.Value)
+			t.Fatalf("expected forward slashes, got: %s", result.Value)
+		}
+		if filepath.IsAbs(result.Value) {
+			t.Fatalf("expected relative path, got: %s", result.Value)
 		}
 	})
 
-	t.Run("result uses forward slashes", func(t *testing.T) {
+	t.Run("TC-OC-03: result uses forward slashes", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		dir := filepath.Join(tempDir, "internal", "config")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
+		subDir := filepath.Join(tempDir, "a", "b")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatalf("setup: %v", err)
 		}
-		absPath := filepath.Join(dir, "config.go")
+		filePath := filepath.Join(subDir, "c.go")
+		if err := os.WriteFile(filePath, []byte("package b"), 0644); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
 
-		result, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: absPath})
+		osPath := &pathutils.PathOs{Value: filePath}
+		result, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if strings.Contains(result.Value, "\\") {
-			t.Errorf("result contains backslash: %s", result.Value)
+			t.Fatalf("result must not contain backslashes, got: %s", result.Value)
 		}
 	})
 
-	t.Run("symlink within root resolving within root", func(t *testing.T) {
+	t.Run("TC-OC-04: symlink within root resolving within root", func(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		targetFile := filepath.Join(tempDir, "target.go")
+		targetFile := filepath.Join(tempDir, "real.go")
 		if err := os.WriteFile(targetFile, []byte("package main"), 0644); err != nil {
-			t.Fatalf("WriteFile: %v", err)
+			t.Fatalf("setup: %v", err)
 		}
 
 		symlinkPath := filepath.Join(tempDir, "link.go")
 		if err := os.Symlink(targetFile, symlinkPath); err != nil {
-			t.Skipf("symlinks not supported: %v", err)
+			t.Skip("symlinks not supported:", err)
 		}
 
-		_, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: symlinkPath})
+		osPath := &pathutils.PathOs{Value: symlinkPath}
+		result, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
-			t.Errorf("unexpected error: %v", err)
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if strings.Contains(result.Value, "\\") {
+			t.Fatalf("expected forward slashes, got: %s", result.Value)
+		}
+		if filepath.IsAbs(result.Value) {
+			t.Fatalf("expected relative path, got: %s", result.Value)
 		}
 	})
 
-	t.Run("rejects path outside project root", func(t *testing.T) {
-		tempDir := t.TempDir()
-		testChdir(t, tempDir)
-
+	t.Run("TC-OC-05: rejects path outside project root", func(t *testing.T) {
 		outsideDir := t.TempDir()
-		absPath := filepath.Join(outsideDir, "outside.go")
+		outsidePath := filepath.Join(outsideDir, "outside.go")
 
-		_, err := pathutils.PathOsToCfs(&pathutils.PathOs{Value: absPath})
-		if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
-			t.Errorf("expected ErrResolvesOutsideRoot, got: %v", err)
+		osPath := &pathutils.PathOs{Value: outsidePath}
+		_, err := pathutils.PathOsToCfs(osPath)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !isErr(err, pathutils.ErrResolvesOutsideRoot) {
+			t.Fatalf("expected ErrResolvesOutsideRoot, got: %v", err)
 		}
 	})
 }
 
 func TestPathGetProjectRoot(t *testing.T) {
-	t.Run("returns an absolute path", func(t *testing.T) {
+	t.Run("TC-PGR-01: returns an absolute path", func(t *testing.T) {
 		result, err := pathutils.PathGetProjectRoot()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -324,15 +366,15 @@ func TestPathGetProjectRoot(t *testing.T) {
 		if result == nil {
 			t.Fatal("expected non-nil result")
 		}
-		if !filepath.IsAbs(result.Value) {
-			t.Errorf("expected absolute path, got: %s", result.Value)
-		}
 		if result.Value == "" {
-			t.Error("expected non-empty path")
+			t.Fatal("expected non-empty path")
+		}
+		if !filepath.IsAbs(result.Value) {
+			t.Fatalf("expected absolute path, got: %s", result.Value)
 		}
 	})
 
-	t.Run("matches working directory", func(t *testing.T) {
+	t.Run("TC-PGR-02: matches working directory", func(t *testing.T) {
 		wd, err := os.Getwd()
 		if err != nil {
 			t.Fatalf("os.Getwd: %v", err)
@@ -342,17 +384,44 @@ func TestPathGetProjectRoot(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if result == nil {
-			t.Fatal("expected non-nil result")
-		}
 
-		wdAbs, err := filepath.Abs(wd)
+		wdEval, err := filepath.EvalSymlinks(wd)
 		if err != nil {
-			t.Fatalf("filepath.Abs: %v", err)
+			wdEval = wd
+		}
+		resultEval, err := filepath.EvalSymlinks(result.Value)
+		if err != nil {
+			resultEval = result.Value
 		}
 
-		if result.Value != wdAbs {
-			t.Errorf("expected %s, got: %s", wdAbs, result.Value)
+		if wdEval != resultEval {
+			t.Fatalf("expected %s, got %s", wdEval, resultEval)
 		}
 	})
+}
+
+func isErr(err, target error) bool {
+	if err == nil {
+		return target == nil
+	}
+	type unwrapper interface {
+		Unwrap() error
+	}
+	type multiUnwrapper interface {
+		Unwrap() []error
+	}
+	if err == target {
+		return true
+	}
+	if u, ok := err.(unwrapper); ok {
+		return isErr(u.Unwrap(), target)
+	}
+	if mu, ok := err.(multiUnwrapper); ok {
+		for _, e := range mu.Unwrap() {
+			if isErr(e, target) {
+				return true
+			}
+		}
+	}
+	return false
 }

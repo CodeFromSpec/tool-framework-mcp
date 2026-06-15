@@ -2,7 +2,7 @@
 output: code-from-spec/functional/logic/utils/text_normalization/output.md
 ---
 
-# ROOT/functional/logic/utils/text_normalization
+# SPEC/functional/logic/utils/text_normalization
 
 Normalizes text for comparison.
 

@@ -7,4 +7,4 @@ input: ARTIFACT/functional/tests/parsing/frontmatter
 output: internal/frontmatter/frontmatter_test.go
 ---
 
-# ROOT/golang/tests/parsing/frontmatter
+# SPEC/golang/tests/parsing/frontmatter

@@ -1,170 +1,253 @@
-<!-- code-from-spec: ROOT/functional/tests/parsing/frontmatter@aHDP0XkeMvEU5eg-VTP1lkiAAkY -->
+<!-- code-from-spec: SPEC/functional/tests/parsing/frontmatter@RregwZnV3STv3VBd-rm6kDBAink -->
 
-## Happy path
-
-### Parses complete frontmatter (all fields)
-
-Setup: Create a file with all four fields in frontmatter:
-- `depends_on`: list of two dependencies
-- `external`: list of two entries each with a `path` field
-- `input`: a non-empty string value
-- `output`: a non-empty path string
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome: No error. `depends_on` contains both listed dependencies.
-`external` has two entries each with the correct `path`. `input` matches the
-specified value. `output` matches the specified path.
+## Test Suite: FrontmatterParse
 
 ---
 
-### Parses frontmatter with only output
+### Happy Path
 
-Setup: Create a file with only `output` in frontmatter.
+#### TC-1: Parses complete frontmatter (all fields)
 
-Action: Call `FrontmatterParse` with the file path.
+Setup:
+  Create a file with frontmatter containing all fields:
+    depends_on:
+      - "SPEC/some/node"
+      - "ARTIFACT/some/output"
+      - "EXTERNAL/proto/api.proto"
+    input: "some/input/path"
+    output: "some/output/path"
 
-Expected outcome: No error. `depends_on` is empty. `external` is empty.
-`input` is empty. `output` matches the specified path.
+Action:
+  Call FrontmatterParse with the file's PathCfs.
 
----
-
-### Parses frontmatter with only depends_on
-
-Setup: Create a file with only `depends_on` listing two values in frontmatter.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome: No error. `depends_on` contains both listed values.
-`external` is empty. `input` is empty. `output` is empty.
-
----
-
-### Parses frontmatter with external entries
-
-Setup: Create a file with `external` containing two entries each with a `path` field.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome: No error. `external` has two entries each with the correct `path`.
-All other fields are empty.
+Expected outcome:
+  No error.
+  Result depends_on contains "SPEC/some/node", "ARTIFACT/some/output", "EXTERNAL/proto/api.proto".
+  Result input equals "some/input/path".
+  Result output equals "some/output/path".
 
 ---
 
-### Parses frontmatter with input field
+#### TC-2: Parses frontmatter with only output
 
-Setup: Create a file with only the `input` field in frontmatter.
+Setup:
+  Create a file with frontmatter containing only:
+    output: "only/output/path"
 
-Action: Call `FrontmatterParse` with the file path.
+Action:
+  Call FrontmatterParse with the file's PathCfs.
 
-Expected outcome: No error. `input` matches the specified value. `depends_on` is empty.
-`external` is empty. `output` is empty.
-
----
-
-### Ignores unknown frontmatter fields
-
-Setup: Create a file with known fields (`output`, `depends_on`) plus an extra unknown
-field (e.g., `custom_field: value`) in frontmatter.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome: No error. Known fields parsed correctly. Unknown fields are ignored.
+Expected outcome:
+  No error.
+  Result depends_on is empty.
+  Result input is empty.
+  Result output equals "only/output/path".
 
 ---
 
-### File with no frontmatter returns empty result
+#### TC-3: Parses frontmatter with only depends_on
 
-Setup: Create a file with body content only — no `---` delimiter present.
+Setup:
+  Create a file with frontmatter containing only:
+    depends_on:
+      - "SPEC/some/dep"
 
-Action: Call `FrontmatterParse` with the file path.
+Action:
+  Call FrontmatterParse with the file's PathCfs.
 
-Expected outcome: No error. `depends_on` is empty. `external` is empty. `input` is empty.
-`output` is empty.
-
----
-
-## Edge cases
-
-### Empty frontmatter
-
-Setup: Create a file with an opening `---` and closing `---` with nothing between them.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome: No error. `depends_on` is empty. `external` is empty. `input` is empty.
-`output` is empty.
+Expected outcome:
+  No error.
+  Result depends_on contains "SPEC/some/dep".
+  Result input is empty.
+  Result output is empty.
 
 ---
 
-### File with only frontmatter, nothing after
+#### TC-4: Parses frontmatter with EXTERNAL/ in depends_on
 
-Setup: Create a file with frontmatter fields followed by the closing `---` and no body content.
+Setup:
+  Create a file with frontmatter containing:
+    depends_on:
+      - "EXTERNAL/proto/api.proto"
 
-Action: Call `FrontmatterParse` with the file path.
+Action:
+  Call FrontmatterParse with the file's PathCfs.
 
-Expected outcome: No error. Fields parsed correctly from frontmatter.
-
----
-
-### Delimiter with trailing whitespace is not recognized
-
-Setup: Create a file where the very first line is `---   ` (with trailing spaces).
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome: No error. Result has all fields empty — the line with trailing spaces is
-not recognized as a frontmatter delimiter.
+Expected outcome:
+  No error.
+  Result depends_on contains "EXTERNAL/proto/api.proto".
 
 ---
 
-## Failure cases
+#### TC-5: Parses frontmatter with input field
 
-### File does not exist
+Setup:
+  Create a file with frontmatter containing only:
+    input: "some/input/file"
 
-Setup: No file is created.
+Action:
+  Call FrontmatterParse with the file's PathCfs.
 
-Action: Call `FrontmatterParse` with a `pathutils.PathCfs` pointing to a non-existent file.
-
-Expected outcome: Error FileUnreadable.
-
----
-
-### Propagates path errors
-
-Setup: No file is created.
-
-Action: Call `FrontmatterParse` with an invalid `pathutils.PathCfs` (e.g., `"../../outside"`).
-
-Expected outcome: Error DirectoryTraversal propagated from FileReader/PathUtils via FileOpen.
+Expected outcome:
+  No error.
+  Result input equals "some/input/file".
+  Result depends_on is empty.
+  Result output is empty.
 
 ---
 
-### Malformed YAML
+#### TC-6: Ignores unknown frontmatter fields
 
-Setup: Create a file with invalid YAML content between the frontmatter `---` delimiters.
+Setup:
+  Create a file with frontmatter containing:
+    output: "some/output/path"
+    custom_field: "unexpected value"
 
-Action: Call `FrontmatterParse` with the file path.
+Action:
+  Call FrontmatterParse with the file's PathCfs.
 
-Expected outcome: Error MalformedYAML.
-
----
-
-### Unclosed frontmatter block
-
-Setup: Create a file that begins with `---` but has no closing `---` — only body content follows.
-
-Action: Call `FrontmatterParse` with the file path.
-
-Expected outcome: Error MalformedYAML.
+Expected outcome:
+  No error.
+  Result output equals "some/output/path".
+  Unknown field custom_field is silently ignored.
 
 ---
 
-### Missing required field in external entry
+#### TC-7: File with no frontmatter returns empty result
 
-Setup: Create a file with an `external` entry that has no `path` field (e.g., the entry is
-an object with only an unrecognized key or is empty).
+Setup:
+  Create a file with only body content and no "---" delimiter.
 
-Action: Call `FrontmatterParse` with the file path.
+Action:
+  Call FrontmatterParse with the file's PathCfs.
 
-Expected outcome: Error MalformedYAML.
+Expected outcome:
+  No error.
+  Result depends_on is empty.
+  Result input is empty.
+  Result output is empty.
+
+---
+
+### Edge Cases
+
+#### TC-8: Empty frontmatter
+
+Setup:
+  Create a file with opening and closing "---" and nothing between them.
+
+Action:
+  Call FrontmatterParse with the file's PathCfs.
+
+Expected outcome:
+  No error.
+  Result depends_on is empty.
+  Result input is empty.
+  Result output is empty.
+
+---
+
+#### TC-9: File with only frontmatter, nothing after
+
+Setup:
+  Create a file with frontmatter containing:
+    output: "some/output/path"
+  No body content after the closing "---".
+
+Action:
+  Call FrontmatterParse with the file's PathCfs.
+
+Expected outcome:
+  No error.
+  Result output equals "some/output/path".
+
+---
+
+#### TC-10: Delimiter with trailing whitespace is not recognized
+
+Setup:
+  Create a file whose first line is "---   " (three dashes followed by spaces).
+
+Action:
+  Call FrontmatterParse with the file's PathCfs.
+
+Expected outcome:
+  No error.
+  The line is not treated as a frontmatter delimiter.
+  Result has all fields empty.
+
+---
+
+### Failure Cases
+
+#### TC-11: File does not exist
+
+Setup:
+  No file is created. Use a PathCfs pointing to a non-existent location.
+
+Action:
+  Call FrontmatterParse with the non-existent PathCfs.
+
+Expected outcome:
+  Error FileUnreadable is raised.
+
+---
+
+#### TC-12: Propagates path errors
+
+Setup:
+  Construct an invalid PathCfs such as "../../outside".
+
+Action:
+  Call FrontmatterParse with the invalid PathCfs.
+
+Expected outcome:
+  Error DirectoryTraversal is raised, propagated from FileReader/PathUtils via FileOpen.
+
+---
+
+#### TC-13: Malformed YAML
+
+Setup:
+  Create a file with invalid YAML between frontmatter delimiters, for example:
+    ---
+    depends_on: [unclosed bracket
+    ---
+
+Action:
+  Call FrontmatterParse with the file's PathCfs.
+
+Expected outcome:
+  Error MalformedYAML is raised.
+
+---
+
+#### TC-14: Unclosed frontmatter block
+
+Setup:
+  Create a file that starts with "---" but has no closing "---".
+
+Action:
+  Call FrontmatterParse with the file's PathCfs.
+
+Expected outcome:
+  Error MalformedYAML is raised.
+
+---
+
+#### TC-15: Unknown field 'external' is silently ignored
+
+Setup:
+  Create a file with frontmatter containing an "external" field (v3 format):
+    output: "some/output/path"
+    external: "some/external/ref"
+
+Action:
+  Call FrontmatterParse with the file's PathCfs.
+
+Expected outcome:
+  No error.
+  The external field is ignored.
+  Result output equals "some/output/path".
+  Result depends_on is empty.
+  Result input is empty.

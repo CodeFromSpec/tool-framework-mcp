@@ -12,7 +12,7 @@ input: ARTIFACT/functional/tests/mcp_tools/load_chain
 output: internal/mcploadchain/mcploadchain_test.go
 ---
 
-# ROOT/golang/tests/mcp_tools/load_chain
+# SPEC/golang/tests/mcp_tools/load_chain
 
 # Agent
 

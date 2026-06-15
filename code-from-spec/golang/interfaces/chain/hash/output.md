@@ -1,9 +1,15 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/chain/hash@Y4_hlDtkJsqYUdugfeH39kMUTfk)
+# code-from-spec: SPEC/golang/interfaces/chain/hash@6Qlm7Pu3jfHYDTuVvLTOHoOV9FE
 
-# Package `chainhash`
+## Package
+
+```go
+package chainhash
+```
+
+## Import Path
 
 ```
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
+github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash
 ```
 
 ## Error Sentinels
@@ -13,7 +19,6 @@ package chainhash
 
 import "errors"
 
-var ErrFileUnreadable = errors.New("file unreadable")
 var ErrParseFailure = errors.New("parse failure")
 ```
 
@@ -22,10 +27,12 @@ var ErrParseFailure = errors.New("parse failure")
 ```go
 package chainhash
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+import (
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
+)
 
-// ChainHashCompute receives a Chain (as returned by ChainResolve) and returns
-// a 27-character base64url encoded SHA-1 hash.
+// ChainHashCompute receives a Chain (as returned by ChainResolve) and
+// returns a 27-character base64url encoded SHA-1 hash.
 //
 // The function reads each position's content from disk, computes a content
 // hash (SHA-1) for each, concatenates all content hashes as raw bytes in
@@ -42,12 +49,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
 )
 
 func main() {
-	chain, err := chainresolver.ChainResolve("ROOT/golang/interfaces/chain/hash")
+	chain, err := chainresolver.ChainResolve("SPEC/payments/fees")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -57,6 +64,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Hash:", hash)
+	fmt.Println("Chain hash:", hash)
 }
 ```

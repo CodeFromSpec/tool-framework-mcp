@@ -7,7 +7,7 @@ input: ARTIFACT/functional/logic/parsing/artifact_tag
 output: internal/artifacttag/artifacttag.go
 ---
 
-# ROOT/golang/implementation/parsing/artifact_tag
+# SPEC/golang/implementation/parsing/artifact_tag
 
 # Agent
 

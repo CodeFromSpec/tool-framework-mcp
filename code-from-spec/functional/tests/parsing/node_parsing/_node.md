@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/parsing/node_parsing(interface)
+  - SPEC/functional/logic/parsing/node_parsing(interface)
 output: code-from-spec/functional/tests/parsing/node_parsing/output.md
 ---
 
-# ROOT/functional/tests/parsing/node_parsing
+# SPEC/functional/tests/parsing/node_parsing
 
 Test cases for the node parsing component.
 
@@ -16,55 +16,56 @@ Test cases for the node parsing component.
 
 #### Minimal node — name section only
 
-Create a node file for `ROOT/x` containing a name
+Create a node file for `SPEC/x` containing a name
 heading followed immediately (no blank line) by a
 single line of text `A simple node.`, then no other
-headings. Call `NodeParse` with `"ROOT/x"`.
+headings. Call `NodeParse` with `"SPEC/x"`.
 
-Expect `name_section.heading` = `"root/x"`,
+Expect `name_section.heading` = `"spec/x"`,
 `name_section.raw_heading` = the original heading line,
 `name_section.content` = `["A simple node."]`,
 `name_section.subsections` empty,
-`public` absent, `agent` absent, `private` empty.
+`public` absent, `agent` absent, `private` absent.
 
 #### Full node — all section types
 
-Create a node file for `ROOT/payments/fees` with
+Create a node file for `SPEC/payments/fees` with
 frontmatter, a name heading followed immediately by
 one line of description, then a Public section with
 two subsections (Interface and Constraints — each with
 one line of content, no blank lines between heading
 and content), then an Agent section with one line of
-content, then two private sections (Decisions and
-Rationale) each with one line of content. No blank
-lines between any heading and its content.
+content, then a Private section with two subsections
+(Decisions and Rationale) each with one line of content.
+No blank lines between any heading and its content.
 
-Call `NodeParse` with `"ROOT/payments/fees"`.
+Call `NodeParse` with `"SPEC/payments/fees"`.
 
 Expect:
-- `name_section.heading` = `"root/payments/fees"`,
+- `name_section.heading` = `"spec/payments/fees"`,
   content = one-element list with the description line
 - `public` present with two subsections `"interface"`
   and `"constraints"`, each with one-element content
 - `public.content` = empty list (no lines before first
   subsection)
 - `agent` present with one-element content
-- `private` has two sections in order: `"decisions"`,
-  `"rationale"`
+- `private` present with two subsections in order:
+  `"decisions"`, `"rationale"`
 
 #### Node with no public section
 
-Create a node file for `ROOT/decisions` with a name
-heading, one line of content, then a private section
-`Rationale` with content. No Public or Agent sections.
+Create a node file for `SPEC/decisions` with a name
+heading, one line of content, then a Private section
+with a `## Rationale` subsection with content. No Public
+or Agent sections.
 
 Call `NodeParse`. Expect `public` absent, `agent`
-absent, `private` has one section with heading
-`"rationale"`.
+absent, `private` present with one subsection with
+heading `"rationale"`.
 
 #### Public section with content before first subsection
 
-Create a node file for `ROOT/a` with a name heading
+Create a node file for `SPEC/a` with a name heading
 and content, then a Public section with two lines of
 preamble text (no blank line after the Public heading),
 then an Interface subsection with one line. No blank
@@ -98,13 +99,15 @@ original Agent heading line. `agent.subsections` has
 two entries with headings `"implementation guidance"`
 and `"contracts"`.
 
-#### Private sections preserve file order
+#### Private section with subsections
 
-Create a node file with three private sections in this
-order: TODO, Decisions, Rationale.
+Create a node file with a Private section containing
+three subsections in this order: TODO, Decisions,
+Rationale.
 
-Call `NodeParse`. Expect `private` has three sections
-in order: `"todo"`, `"decisions"`, `"rationale"`.
+Call `NodeParse`. Expect `private` present with three
+subsections in order: `"todo"`, `"decisions"`,
+`"rationale"`.
 
 #### Content is raw markdown
 
@@ -136,8 +139,15 @@ Create a node with extra spaces between `#` and
 #### Node name with varied whitespace
 
 Create a node with extra spaces between `#` and
-`ROOT/e` in the name heading. Call `NodeParse` with
-`"ROOT/e"`. Expect `name_section.heading` = `"root/e"`.
+`SPEC/e` in the name heading. Call `NodeParse` with
+`"SPEC/e"`. Expect `name_section.heading` = `"spec/e"`.
+
+#### Node name with ROOT/ heading does not match SPEC/
+
+Create a node file with heading `# ROOT/x`. Call
+`NodeParse` with `"SPEC/x"`. Expect error
+NodeNameDoesNotMatch — `root/x` does not match
+`spec/x`.
 
 #### Subsection headings are normalized
 
@@ -251,11 +261,16 @@ Expect error UnexpectedContentBeforeFirstHeading.
 #### ARTIFACT reference rejected
 
 Call `NodeParse` with `"ARTIFACT/x"`.
-Expect error NotARootReference.
+Expect error NotASpecReference.
+
+#### EXTERNAL reference rejected
+
+Call `NodeParse` with `"EXTERNAL/x"`.
+Expect error NotASpecReference.
 
 #### Qualifier rejected
 
-Call `NodeParse` with `"ROOT/x(interface)"`.
+Call `NodeParse` with `"SPEC/x(interface)"`.
 Expect error HasQualifier.
 
 #### File does not exist
@@ -314,6 +329,27 @@ Call `NodeParse`. Expect error DuplicatePublicSection.
 
 Create a node with two Agent sections. Call `NodeParse`.
 Expect error DuplicateAgentSection.
+
+#### Duplicate private section
+
+Create a node with two Private sections. Call
+`NodeParse`. Expect error DuplicatePrivateSection.
+
+#### Unrecognized section heading
+
+Create a node with a `# Decisions` heading (not under
+`# Private`). Call `NodeParse`. Expect error
+UnrecognizedSection.
+
+#### Unrecognized section — Rationale
+
+Create a node with a `# Rationale` heading. Call
+`NodeParse`. Expect error UnrecognizedSection.
+
+#### Unrecognized section — TODO
+
+Create a node with a `# TODO` heading. Call
+`NodeParse`. Expect error UnrecognizedSection.
 
 #### Duplicate subsection in public — same case
 

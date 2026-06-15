@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/dependencies/owasp-path-traversal
+  - SPEC/functional/dependencies/owasp-path-traversal
 output: code-from-spec/functional/logic/os/path_utils/output.md
 ---
 
-# ROOT/functional/logic/os/path_utils
+# SPEC/functional/logic/os/path_utils
 
 Path types and safe path conversion for the framework.
 
@@ -61,8 +61,8 @@ A path in the Code from Spec standard format:
   no backslashes.
 
 This is the only path format used in the framework's
-public API — in frontmatter fields (`output`, `external`,
-`input`), in logical names, and in tool parameters.
+public API — in frontmatter fields (`output`, `input`),
+in logical names, and in tool parameters.
 
 Examples:
 - `internal/filereader/filereader.go`
@@ -163,7 +163,7 @@ Returns the working directory of the process as a
 
 ### Security
 
-See `ROOT/functional/dependencies/owasp-path-traversal`
+See `SPEC/functional/dependencies/owasp-path-traversal`
 for the threat model. PathCfsToOs is the primary defense
 against path traversal attacks.
 

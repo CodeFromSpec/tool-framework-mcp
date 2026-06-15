@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/utils/logical_names(interface)
 output: code-from-spec/functional/tests/utils/logical_names/output.md
 ---
 
-# ROOT/functional/tests/utils/logical_names
+# SPEC/functional/tests/utils/logical_names
 
 Test cases for the logical names component.
 
@@ -14,24 +14,34 @@ Test cases for the logical names component.
 
 ### LogicalNameToPath
 
-#### ROOT alone
+#### SPEC alone
 
-Input: `"ROOT"`.
+Input: `"SPEC"`.
 Expect: `code-from-spec/_node.md`.
 
-#### ROOT with path
+#### SPEC with path
 
-Input: `"ROOT/payments/processor"`.
+Input: `"SPEC/payments/processor"`.
 Expect: `code-from-spec/payments/processor/_node.md`.
 
 #### Strips qualifier before resolving
 
-Input: `"ROOT/x/y(interface)"`.
+Input: `"SPEC/x/y(interface)"`.
 Expect: `code-from-spec/x/y/_node.md`.
+
+#### Rejects ROOT reference
+
+Input: `"ROOT/x"`.
+Expect error UnsupportedReference.
 
 #### Rejects ARTIFACT reference
 
 Input: `"ARTIFACT/x"`.
+Expect error UnsupportedReference.
+
+#### Rejects EXTERNAL reference
+
+Input: `"EXTERNAL/proto/api.proto"`.
 Expect error UnsupportedReference.
 
 #### Rejects unrecognized prefix
@@ -49,12 +59,12 @@ Expect error UnsupportedReference.
 #### Root node
 
 Input: `code-from-spec/_node.md`.
-Expect: `"ROOT"`.
+Expect: `"SPEC"`.
 
 #### Nested node
 
 Input: `code-from-spec/x/y/_node.md`.
-Expect: `"ROOT/x/y"`.
+Expect: `"SPEC/x/y"`.
 
 #### Rejects non-node path
 
@@ -68,36 +78,46 @@ Expect error InvalidPath.
 
 ### LogicalNameGetParent
 
-#### ROOT/x parent is ROOT
+#### SPEC/x parent is SPEC
 
-Input: `"ROOT/domain"`.
-Expect: `"ROOT"`.
+Input: `"SPEC/domain"`.
+Expect: `"SPEC"`.
 
-#### ROOT/x/y parent is ROOT/x
+#### SPEC/x/y parent is SPEC/x
 
-Input: `"ROOT/domain/config"`.
-Expect: `"ROOT/domain"`.
+Input: `"SPEC/domain/config"`.
+Expect: `"SPEC/domain"`.
 
 #### Strips qualifier before computing parent
 
-Input: `"ROOT/domain/config(interface)"`.
-Expect: `"ROOT/domain"`.
+Input: `"SPEC/domain/config(interface)"`.
+Expect: `"SPEC/domain"`.
 
-#### ROOT has no parent
+#### SPEC has no parent
 
-Input: `"ROOT"`.
+Input: `"SPEC"`.
 Expect error NoParent.
+
+#### Rejects ROOT reference
+
+Input: `"ROOT/domain"`.
+Expect error NotASpecReference.
 
 #### Rejects ARTIFACT reference
 
 Input: `"ARTIFACT/x"`.
-Expect error NotARootReference.
+Expect error NotASpecReference.
+
+#### Rejects EXTERNAL reference
+
+Input: `"EXTERNAL/x"`.
+Expect error NotASpecReference.
 
 ### LogicalNameGetQualifier
 
-#### Extracts qualifier from ROOT reference
+#### Extracts qualifier from SPEC reference
 
-Input: `"ROOT/x/y(interface)"`.
+Input: `"SPEC/x/y(interface)"`.
 Expect: `"interface"`.
 
 #### ARTIFACT without qualifier returns absent
@@ -105,37 +125,47 @@ Expect: `"interface"`.
 Input: `"ARTIFACT/x/y"`.
 Expect: absent.
 
-#### Returns absent when no qualifier
+#### EXTERNAL without qualifier returns absent
 
-Input: `"ROOT/x/y"`.
+Input: `"EXTERNAL/proto/api.proto"`.
 Expect: absent.
 
-#### Returns absent for ROOT alone
+#### Returns absent when no qualifier
 
-Input: `"ROOT"`.
+Input: `"SPEC/x/y"`.
+Expect: absent.
+
+#### Returns absent for SPEC alone
+
+Input: `"SPEC"`.
 Expect: absent.
 
 ### LogicalNameStripQualifier
 
-#### Strips qualifier from ROOT reference
+#### Strips qualifier from SPEC reference
 
-Input: `"ROOT/x/y(interface)"`.
-Expect: `"ROOT/x/y"`.
+Input: `"SPEC/x/y(interface)"`.
+Expect: `"SPEC/x/y"`.
 
 #### ARTIFACT without qualifier — returns unchanged
 
 Input: `"ARTIFACT/x/y"`.
 Expect: `"ARTIFACT/x/y"`.
 
+#### EXTERNAL — returns unchanged
+
+Input: `"EXTERNAL/proto/api.proto"`.
+Expect: `"EXTERNAL/proto/api.proto"`.
+
 #### No qualifier — returns unchanged
 
-Input: `"ROOT/x/y"`.
-Expect: `"ROOT/x/y"`.
+Input: `"SPEC/x/y"`.
+Expect: `"SPEC/x/y"`.
 
-#### ROOT alone — returns unchanged
+#### SPEC alone — returns unchanged
 
-Input: `"ROOT"`.
-Expect: `"ROOT"`.
+Input: `"SPEC"`.
+Expect: `"SPEC"`.
 
 #### Empty string — returns unchanged
 
@@ -144,24 +174,24 @@ Expect: `""`.
 
 ### LogicalNameHasParent
 
-#### ROOT alone
+#### SPEC alone
 
-Input: `"ROOT"`.
+Input: `"SPEC"`.
 Expect: false.
 
-#### ROOT with path
+#### SPEC with path
 
-Input: `"ROOT/domain/config"`.
-Expect: true.
-
-#### ROOT with qualifier
-
-Input: `"ROOT/domain/config(interface)"`.
+Input: `"SPEC/domain/config"`.
 Expect: true.
 
 #### ARTIFACT reference
 
 Input: `"ARTIFACT/x"`.
+Expect: false.
+
+#### EXTERNAL reference
+
+Input: `"EXTERNAL/x"`.
 Expect: false.
 
 #### Empty string
@@ -173,12 +203,12 @@ Expect: false.
 
 #### Without qualifier
 
-Input: `"ROOT/x"`.
+Input: `"SPEC/x"`.
 Expect: false.
 
 #### With qualifier
 
-Input: `"ROOT/x(y)"`.
+Input: `"SPEC/x(y)"`.
 Expect: true.
 
 #### ARTIFACT without qualifier
@@ -186,9 +216,14 @@ Expect: true.
 Input: `"ARTIFACT/x"`.
 Expect: false.
 
-#### ROOT alone
+#### EXTERNAL without qualifier
 
-Input: `"ROOT"`.
+Input: `"EXTERNAL/x"`.
+Expect: false.
+
+#### SPEC alone
+
+Input: `"SPEC"`.
 Expect: false.
 
 #### Empty string
@@ -203,9 +238,68 @@ Expect: false.
 Input: `"ARTIFACT/x"`.
 Expect: true.
 
-#### ROOT reference
+#### SPEC reference
 
-Input: `"ROOT/x(y)"`.
+Input: `"SPEC/x(y)"`.
+Expect: false.
+
+#### EXTERNAL reference
+
+Input: `"EXTERNAL/x"`.
+Expect: false.
+
+#### Empty string
+
+Input: `""`.
+Expect: false.
+
+### LogicalNameIsSpec
+
+#### SPEC alone
+
+Input: `"SPEC"`.
+Expect: true.
+
+#### SPEC with path
+
+Input: `"SPEC/x/y"`.
+Expect: true.
+
+#### ROOT reference — not SPEC
+
+Input: `"ROOT/x"`.
+Expect: false.
+
+#### ARTIFACT reference
+
+Input: `"ARTIFACT/x"`.
+Expect: false.
+
+#### EXTERNAL reference
+
+Input: `"EXTERNAL/x"`.
+Expect: false.
+
+#### Empty string
+
+Input: `""`.
+Expect: false.
+
+### LogicalNameIsExternal
+
+#### EXTERNAL reference
+
+Input: `"EXTERNAL/proto/api.proto"`.
+Expect: true.
+
+#### SPEC reference
+
+Input: `"SPEC/x"`.
+Expect: false.
+
+#### ARTIFACT reference
+
+Input: `"ARTIFACT/x"`.
 Expect: false.
 
 #### Empty string
@@ -218,19 +312,44 @@ Expect: false.
 #### Simple artifact
 
 Input: `"ARTIFACT/x"`.
-Expect: `"ROOT/x"`.
-
-ARTIFACT/ references no longer have qualifiers.
+Expect: `"SPEC/x"`.
 
 #### Nested artifact
 
 Input: `"ARTIFACT/x/y/z"`.
-Expect: `"ROOT/x/y/z"`.
+Expect: `"SPEC/x/y/z"`.
 
-#### Rejects ROOT reference
+#### Rejects SPEC reference
 
-Input: `"ROOT/x(y)"`.
+Input: `"SPEC/x(y)"`.
 Expect error NotAnArtifactReference.
+
+#### Rejects EXTERNAL reference
+
+Input: `"EXTERNAL/x"`.
+Expect error NotAnArtifactReference.
+
+### LogicalNameExternalToPath
+
+#### Simple path
+
+Input: `"EXTERNAL/proto/v1/api.proto"`.
+Expect: `proto/v1/api.proto`.
+
+#### Root-level file
+
+Input: `"EXTERNAL/docker-compose.yaml"`.
+Expect: `docker-compose.yaml`.
+
+#### Rejects SPEC reference
+
+Input: `"SPEC/x"`.
+Expect error NotAnExternalReference.
+
+#### Rejects ARTIFACT reference
+
+Input: `"ARTIFACT/x"`.
+Expect error NotAnExternalReference.
 
 # Agent
 
@@ -244,4 +363,6 @@ case with its setup, actions, and expected outcome.
   `LogicalNameGetParent`, `LogicalNameGetQualifier`,
   `LogicalNameStripQualifier`, `LogicalNameHasParent`,
   `LogicalNameHasQualifier`, `LogicalNameIsArtifact`,
-  `LogicalNameGetArtifactGenerator`.
+  `LogicalNameIsSpec`, `LogicalNameIsExternal`,
+  `LogicalNameGetArtifactGenerator`,
+  `LogicalNameExternalToPath`.

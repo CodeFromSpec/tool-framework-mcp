@@ -5,4 +5,4 @@ input: ARTIFACT/functional/tests/os/file_writer
 output: internal/filewriter/filewriter_test.go
 ---
 
-# ROOT/golang/tests/os/file_writer
+# SPEC/golang/tests/os/file_writer

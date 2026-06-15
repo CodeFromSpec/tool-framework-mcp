@@ -9,7 +9,7 @@ input: ARTIFACT/functional/logic/parsing/node_parsing
 output: internal/parsenode/parsenode.go
 ---
 
-# ROOT/golang/implementation/parsing/node_parsing
+# SPEC/golang/implementation/parsing/node_parsing
 
 # Agent
 

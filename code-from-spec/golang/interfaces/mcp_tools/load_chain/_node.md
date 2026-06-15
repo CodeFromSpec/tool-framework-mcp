@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - ROOT/functional/logic/mcp_tools/load_chain(interface)
+  - SPEC/functional/logic/mcp_tools/load_chain(interface)
   - ARTIFACT/golang/interfaces/chain/resolver
   - ARTIFACT/golang/interfaces/chain/hash
 output: code-from-spec/golang/interfaces/mcp_tools/load_chain/output.md
 ---
 
-# ROOT/golang/interfaces/mcp_tools/load_chain
+# SPEC/golang/interfaces/mcp_tools/load_chain
 
 # Public
 
@@ -16,4 +16,4 @@ output: code-from-spec/golang/interfaces/mcp_tools/load_chain/output.md
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcploadchain"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcploadchain"`

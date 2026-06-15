@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ROOT/functional/logic/utils/logical_names
-  - ROOT/functional/logic/parsing/frontmatter(interface)
+  - SPEC/functional/logic/utils/logical_names
+  - SPEC/functional/logic/parsing/frontmatter(interface)
 output: code-from-spec/functional/logic/utils/node_ranking/output.md
 ---
 
-# ROOT/functional/logic/utils/node_ranking
+# SPEC/functional/logic/utils/node_ranking
 
 Iterative ranking of spec tree nodes and artifacts,
 with cycle detection as a side effect.
@@ -41,7 +41,7 @@ with lower rank must be processed before nodes with
 higher rank. Entries with equal rank have no dependency
 between them and can be processed in parallel.
 
-- The root node (`ROOT`) has rank 0 (fixed, special case).
+- The root node (`SPEC`) has rank 0 (fixed, special case).
 - For any other spec node: rank = 1 + max(rank of parent,
   rank of each `depends_on` entry, rank of the `input`
   artifact if present).
@@ -67,17 +67,17 @@ For each `NodeRankInput`:
 - Add a spec node entry keyed by `logical_name`.
 - If `frontmatter.output` is non-empty, add an artifact
   entry keyed by its `ARTIFACT/` logical name. Construct
-  the artifact logical name by stripping the `ROOT/`
+  the artifact logical name by stripping the `SPEC/`
   prefix from the node's logical name and prepending
-  `ARTIFACT/`. Example: node `ROOT/a/b` with an output
+  `ARTIFACT/`. Example: node `SPEC/a/b` with an output
   → `ARTIFACT/a/b`.
 
 ### Step 2 — Build dependency edges
 
 Every entry will have at least one dependency: spec
-nodes (other than ROOT) always have a parent, and
+nodes (other than SPEC) always have a parent, and
 artifact entries always depend on their generating node.
-ROOT is the only entry with no dependencies — it is
+SPEC is the only entry with no dependencies — it is
 handled as a special case in Step 3.
 
 For each spec node entry:
@@ -87,13 +87,17 @@ For each spec node entry:
 - **depends_on**: for each entry in
   `frontmatter.depends_on`, determine the lookup key.
   For `ARTIFACT/` references, use as-is (the qualifier
-  is part of the key). For `ROOT/` references, use
+  is part of the key). For `SPEC/` references (detected
+  by `LogicalNameIsSpec`), use
   `LogicalNameStripQualifier` to get the bare logical
   name for lookup. The dependency edge points to the
-  bare node entry.
-- **input**: if `frontmatter.input` is non-empty, add it
-  as a dependency (it is an `ARTIFACT/` reference, used
-  as-is).
+  bare node entry. For `EXTERNAL/` references, skip —
+  external files are not part of the spec tree and have
+  no rank.
+- **input**: if `frontmatter.input` is non-empty and
+  starts with `ARTIFACT/`, add it as a dependency. If
+  it is an `EXTERNAL/` reference, skip — external files
+  have no rank.
 
 For each artifact entry:
 - Depends on the node that generates it (the node whose
@@ -104,7 +108,7 @@ return the "unresolvable reference" error.
 
 ### Step 3 — Initialize ranks
 
-Assign rank 0 to the root node (`ROOT`). The root is a
+Assign rank 0 to the root node (`SPEC`). The root is a
 special case: its rank is fixed at 0 and it is excluded
 from the iteration loop.
 
@@ -115,7 +119,7 @@ Assign rank 0 to all other entries as an initial value.
 Let N = total number of entries in the map.
 
 Repeat up to N times:
-- For each entry (excluding `ROOT`), compute:
+- For each entry (excluding `SPEC`), compute:
   rank = 1 + max(rank of its dependencies).
   If the computed rank exceeds the current rank, update
   it and mark this pass as "changed".

@@ -1,14 +1,14 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/resolver
-  - ROOT/functional/logic/chain/hash
-  - ROOT/functional/logic/parsing/frontmatter
-  - ROOT/functional/logic/os/path_utils(interface)
-  - ROOT/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/chain/resolver
+  - SPEC/functional/logic/chain/hash
+  - SPEC/functional/logic/parsing/frontmatter
+  - SPEC/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/utils/logical_names(interface)
 output: code-from-spec/functional/logic/mcp_tools/chain_hash/output.md
 ---
 
-# ROOT/functional/logic/mcp_tools/chain_hash
+# SPEC/functional/logic/mcp_tools/chain_hash
 
 Computes the chain hash for a given node without
 assembling the full context stream. Lighter than

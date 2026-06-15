@@ -9,4 +9,4 @@ input: ARTIFACT/functional/tests/chain/resolver
 output: internal/chainresolver/chainresolver_test.go
 ---
 
-# ROOT/golang/tests/chain/resolver
+# SPEC/golang/tests/chain/resolver
