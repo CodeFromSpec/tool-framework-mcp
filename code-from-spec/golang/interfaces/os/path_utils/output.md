@@ -1,31 +1,27 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/os/path_utils@mUOaDWmNceWf1XAxc8vRvD24Iqk)
+[//]: # (code-from-spec: SPEC/golang/interfaces/os/path_utils@b_xbAfj8SOcHW7JKI-SWlNvdyT4)
 
 # Package `pathutils`
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils`
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils`
 
----
-
-## Structs
+## Types
 
 ```go
 package pathutils
 
 // PathCfs is a path in the Code from Spec standard format:
-// forward slashes, relative to the project root, no ".." components,
-// no drive letters, no leading slash, no backslashes.
+// forward-slash separated, relative to the project root,
+// no ".." components, no drive letters, no leading "/", no backslashes.
 type PathCfs struct {
 	Value string
 }
 
 // PathOs is an absolute path in the operating system's native format.
-// It is never exposed in the framework's public API.
+// This type is never exposed in the framework's public API.
 type PathOs struct {
 	Value string
 }
 ```
-
----
 
 ## Error Sentinels
 
@@ -34,15 +30,13 @@ package pathutils
 
 import "errors"
 
-var ErrCannotDetermineRoot    = errors.New("cannot determine project root")
-var ErrPathEmpty              = errors.New("path is empty")
-var ErrPathAbsolute           = errors.New("path must be relative (no leading slash or drive letter)")
-var ErrPathContainsBackslash  = errors.New("path contains backslash characters")
-var ErrDirectoryTraversal     = errors.New("path contains directory traversal components")
-var ErrResolvesOutsideRoot    = errors.New("path resolves outside the project root")
+var ErrCannotDetermineRoot   = errors.New("cannot determine project root")
+var ErrPathEmpty             = errors.New("path is empty")
+var ErrPathAbsolute          = errors.New("path must not be absolute")
+var ErrPathContainsBackslash = errors.New("path must not contain backslashes")
+var ErrDirectoryTraversal    = errors.New("path contains directory traversal components")
+var ErrResolvesOutsideRoot   = errors.New("path resolves outside the project root")
 ```
-
----
 
 ## Functions
 
@@ -53,21 +47,21 @@ package pathutils
 // determined from the working directory of the process.
 func PathGetProjectRoot() (*PathOs, error)
 
-// PathValidateCfs validates that a value conforms to the PathCfs
-// format rules. Returns an error describing the violation if not.
+// PathValidateCfs validates that value conforms to the PathCfs format rules.
+// Returns an error describing the violation if the value is not valid.
 // Does not verify that the file exists or resolve symlinks.
 func PathValidateCfs(value string) error
 
-// PathCfsToOs validates a PathCfs and converts it to an absolute PathOs.
+// PathCfsToOs validates cfs_path and converts it to an absolute PathOs.
+// This is the single entry point for going from framework paths to OS paths.
 // The target file or directory does not need to exist.
 func PathCfsToOs(cfsPath *PathCfs) (*PathOs, error)
 
-// PathOsToCfs converts an absolute PathOs to a PathCfs relative to
-// the project root. The target file or directory does not need to exist.
+// PathOsToCfs converts an absolute PathOs to a PathCfs relative to the
+// project root. Used internally by components that receive paths from the OS.
+// The target file or directory does not need to exist.
 func PathOsToCfs(osPath *PathOs) (*PathCfs, error)
 ```
-
----
 
 ## Usage Example
 
@@ -78,7 +72,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 func main() {
@@ -88,22 +82,22 @@ func main() {
 	}
 	fmt.Println("Project root:", root.Value)
 
-	err = pathutils.PathValidateCfs("code-from-spec/SPEC/payments/fees/_node.md")
-	if err != nil {
+	cfsPath := &pathutils.PathCfs{Value: "code-from-spec/functional/logic/_node.md"}
+
+	if err := pathutils.PathValidateCfs(cfsPath.Value); err != nil {
 		log.Fatal(err)
 	}
 
-	cfsPath := &pathutils.PathCfs{Value: "code-from-spec/SPEC/payments/fees/_node.md"}
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("OS path:", osPath.Value)
 
-	backToCfs, err := pathutils.PathOsToCfs(osPath)
+	roundTripped, err := pathutils.PathOsToCfs(osPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("CFS path:", backToCfs.Value)
+	fmt.Println("CFS path:", roundTripped.Value)
 }
 ```

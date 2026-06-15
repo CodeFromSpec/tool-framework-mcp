@@ -1,17 +1,19 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/scan@yoMUKDzaksJWs6cYS2qBxoOgqpk)
+# code-from-spec: SPEC/golang/interfaces/spec_tree/scan@j8xWADoWKb5oSRIIN6TG-uQJtDo
 
-# Package `spectree`
+# Package `spectree` — SpecTreeScan
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree`
+```go
+package spectree
+```
 
----
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectree`
 
-## Structs
+## Struct Definitions
 
 ```go
 package spectree
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 
 // SpecTreeNode represents a single node discovered in the spec tree.
 type SpecTreeNode struct {
@@ -19,8 +21,6 @@ type SpecTreeNode struct {
 	FilePath    pathutils.PathCfs
 }
 ```
-
----
 
 ## Error Sentinels
 
@@ -31,8 +31,6 @@ import "errors"
 
 var ErrNoNodesFound = errors.New("no _node.md files found under code-from-spec/")
 ```
-
----
 
 ## Functions
 
@@ -45,8 +43,6 @@ package spectree
 func SpecTreeScan() ([]*SpecTreeNode, error)
 ```
 
----
-
 ## Usage Example
 
 ```go
@@ -56,7 +52,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectree"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectree"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/file_reader@H04egMJ9MlpGY-vfRVqszoixwWk
+// code-from-spec: SPEC/golang/implementation/os/file_reader@ZCfCNnT7WTwYX0hApXEUXhjzACo
 package filereader
 
 import (
@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
-var ErrFileUnreadable = errors.New("file cannot be opened")
+var ErrFileUnreadable = errors.New("file unreadable")
 var ErrEndOfFile = errors.New("end of file")
 
 type FileReader struct {
@@ -22,32 +22,34 @@ type FileReader struct {
 	closed  bool
 }
 
-func FileOpen(cfsPath *pathutils.PathCfs) (*FileReader, error) {
-	if cfsPath == nil {
-		return nil, fmt.Errorf("%w: nil cfsPath", ErrFileUnreadable)
-	}
-
-	osPath, err := pathutils.PathCfsToOs(cfsPath)
+func FileOpen(cfsPath pathutils.PathCfs) (*FileReader, error) {
+	osPath, err := pathutils.PathCfsToOs(&cfsPath)
 	if err != nil {
 		return nil, err
 	}
 
 	f, err := os.Open(osPath.Value)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err.Error())
+		return nil, fmt.Errorf("%w: %s", ErrFileUnreadable, err)
 	}
 
+	scanner := bufio.NewScanner(f)
+	scanner.Split(scanLinesKeepCR)
+
 	return &FileReader{
-		CfsPath: *cfsPath,
+		CfsPath: cfsPath,
 		osPath:  *osPath,
 		file:    f,
-		scanner: bufio.NewScanner(f),
+		scanner: scanner,
 		closed:  false,
 	}, nil
 }
 
 func FileReadLine(reader *FileReader) (string, error) {
-	if reader == nil || reader.closed {
+	if reader == nil {
+		return "", ErrEndOfFile
+	}
+	if reader.closed {
 		return "", ErrEndOfFile
 	}
 
@@ -57,31 +59,50 @@ func FileReadLine(reader *FileReader) (string, error) {
 
 	line := reader.scanner.Text()
 	line = strings.TrimRight(line, "\r")
-
 	return line, nil
 }
 
 func FileSkipLines(reader *FileReader, count int) {
-	if reader == nil || reader.closed {
+	if reader == nil {
+		return
+	}
+	if reader.closed {
 		return
 	}
 
 	for i := 0; i < count; i++ {
-		_, err := FileReadLine(reader)
-		if errors.Is(err, ErrEndOfFile) {
+		if !reader.scanner.Scan() {
 			return
 		}
 	}
 }
 
 func FileClose(reader *FileReader) {
-	if reader == nil || reader.closed {
+	if reader == nil {
+		return
+	}
+	if reader.closed {
 		return
 	}
 
-	if reader.file != nil {
-		_ = reader.file.Close()
+	reader.file.Close()
+	reader.closed = true
+}
+
+func scanLinesKeepCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
 	}
 
-	reader.closed = true
+	for i := 0; i < len(data); i++ {
+		if data[i] == '\n' {
+			return i + 1, data[:i], nil
+		}
+	}
+
+	if atEOF {
+		return len(data), data, nil
+	}
+
+	return 0, nil, nil
 }

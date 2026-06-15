@@ -1,40 +1,41 @@
-// code-from-spec: ROOT/golang/implementation/mcp_tools/chain_hash@UHAJGr5ZLipeXA4LByDXnm6V60Q
+// code-from-spec: SPEC/golang/implementation/mcp_tools/chain_hash@idGj7IqFMUtjdRziPgXIukfZhqg
 package mcpchainhash
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 )
 
-var ErrNoOutput = errors.New("target node has no output field")
+var ErrNoOutput = errors.New("no output")
 
-func MCPChainHash(logical_name string) (string, error) {
-	filePath, err := logicalnames.LogicalNameToPath(logical_name)
+func MCPChainHash(logicalName string) (string, error) {
+	filePath, err := logicalnames.LogicalNameToPath(logicalName)
 	if err != nil {
-		return "", fmt.Errorf("MCPChainHash: %w", err)
+		return "", fmt.Errorf("resolving logical name: %w", err)
 	}
 
 	fm, err := frontmatter.FrontmatterParse(filePath)
 	if err != nil {
-		return "", fmt.Errorf("MCPChainHash: %w", err)
-	}
-	if fm.Output == "" {
-		return "", fmt.Errorf("MCPChainHash: %w", ErrNoOutput)
+		return "", fmt.Errorf("parsing frontmatter: %w", err)
 	}
 
-	chain, err := chainresolver.ChainResolve(logical_name)
+	if fm.Output == "" {
+		return "", ErrNoOutput
+	}
+
+	chain, err := chainresolver.ChainResolve(logicalName)
 	if err != nil {
-		return "", fmt.Errorf("MCPChainHash: %w", err)
+		return "", fmt.Errorf("resolving chain: %w", err)
 	}
 
 	hash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		return "", fmt.Errorf("MCPChainHash: %w", err)
+		return "", fmt.Errorf("computing chain hash: %w", err)
 	}
 
 	return hash, nil

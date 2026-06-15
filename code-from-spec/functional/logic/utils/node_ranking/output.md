@@ -1,6 +1,4 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/node_ranking@i7UwY37_ciHXtGeMUf5LLnTtXEk -->
-
-namespace: noderanking
+<!-- code-from-spec: SPEC/functional/logic/utils/node_ranking@Wwc809voWLrgV-UjR90MgZUHPYQ -->
 
 record NodeRankInput
   logical_name: string
@@ -10,105 +8,100 @@ record NodeRankEntry
   logical_name: string
   rank: integer
 
-record RankingEntry
-  logical_name: string
-  dependencies: list of strings
-  rank: integer
-
 function NodeRankCompute(entries: list of NodeRankInput) -> (ranked: list of NodeRankEntry, cycles: list of string)
+  errors:
+    - UnresolvableReference: a depends_on or input target cannot be resolved.
 
-  1. Build entry map.
-
-     Create an empty map from logical_name to RankingEntry.
+  1. Build an entry map keyed by logical name.
 
      For each NodeRankInput in entries:
-       Add a RankingEntry with:
-         logical_name = NodeRankInput.logical_name
-         dependencies = empty list
-         rank = 0
+       Add a spec entry keyed by logical_name with:
+         - deps: empty list (to be filled in step 2)
+         - rank: 0
 
-       If NodeRankInput.frontmatter.output is non-empty:
-         Construct the artifact logical name:
-           Strip the "SPEC/" prefix from NodeRankInput.logical_name.
-           Prepend "ARTIFACT/" to the result.
-         Add another RankingEntry with:
-           logical_name = the artifact logical name
-           dependencies = empty list
-           rank = 0
+       If frontmatter.output is non-empty:
+         Construct artifact logical name:
+           Strip "SPEC/" prefix from logical_name and prepend "ARTIFACT/".
+           Example: "SPEC/a/b" -> "ARTIFACT/a/b"
+         Add an artifact entry keyed by that artifact logical name with:
+           - deps: list containing the generating node's logical_name
+           - rank: 0
 
-  2. Build dependency edges.
+  2. Build dependency edges for each spec node entry.
 
-     For each RankingEntry that is a spec node (logical_name is a SPEC/ reference):
+     For each spec node entry in the entry map:
+       If logical_name is "SPEC":
+         Skip — root node has no dependencies.
 
-       If the spec node is not "SPEC" (the root):
-         Call LogicalNameGetParent(logical_name).
-         Add the returned parent logical name to the entry's dependencies.
+       Else:
+         a. Parent dependency:
+            Call LogicalNameGetParent(logical_name) to get the parent.
+            Add the parent to the entry's deps list.
 
-       For each string dep in the corresponding frontmatter.depends_on:
-         If dep starts with "ARTIFACT/":
-           Add dep as-is to the entry's dependencies.
-         Else if LogicalNameIsSpec(dep) is true:
-           Call LogicalNameStripQualifier(dep) to get the bare name.
-           Add the bare name to the entry's dependencies.
-         Else if dep starts with "EXTERNAL/":
-           Skip — external files have no rank.
+         b. depends_on dependencies:
+            For each reference in frontmatter.depends_on:
+              If LogicalNameIsSpec(reference) is true:
+                Call LogicalNameStripQualifier(reference) to get bare_name.
+                If bare_name is not a key in the entry map:
+                  Raise error "UnresolvableReference"
+                Add bare_name to the entry's deps list.
+              Else if reference starts with "ARTIFACT/":
+                If reference is not a key in the entry map:
+                  Raise error "UnresolvableReference"
+                Add reference to the entry's deps list.
+              Else if reference starts with "EXTERNAL/":
+                Skip — external files have no rank.
+              Else:
+                Raise error "UnresolvableReference"
 
-       If the corresponding frontmatter.input is non-empty:
-         If frontmatter.input starts with "ARTIFACT/":
-           Add frontmatter.input to the entry's dependencies.
-         Else if frontmatter.input starts with "EXTERNAL/":
-           Skip — external files have no rank.
-
-     For each RankingEntry that is an artifact (logical_name starts with "ARTIFACT/"):
-       Derive the generating node logical name:
-         Strip the "ARTIFACT/" prefix.
-         Prepend "SPEC/".
-       Add the generating node logical name to the artifact entry's dependencies.
-
-     After building all dependency edges:
-       For each RankingEntry, for each dependency in its dependencies list:
-         If the dependency is not a key in the entry map:
-           Raise error "unresolvable reference".
+         c. input dependency:
+            If frontmatter.input is non-empty:
+              If frontmatter.input starts with "ARTIFACT/":
+                If frontmatter.input is not a key in the entry map:
+                  Raise error "UnresolvableReference"
+                Add frontmatter.input to the entry's deps list.
+              Else if frontmatter.input starts with "EXTERNAL/":
+                Skip — external files have no rank.
 
   3. Initialize ranks.
 
-     Set the rank of the "SPEC" entry to 0.
-     Set the rank of all other entries to 0.
+     Set rank of entry keyed "SPEC" to 0 (fixed, never updated).
+     All other entries already have rank 0 from step 1.
 
   4. Iterate and detect cycles.
 
-     Let N = total number of entries in the map.
-     Let cycle_participants = empty list.
+     Let N = total number of entries in the entry map.
+     Let cycle_candidates = empty list.
 
-     Repeat up to N times:
+     Repeat up to N times, tracking iteration index i from 1 to N:
        Let changed = false.
 
-       For each RankingEntry (excluding "SPEC"):
-         Let max_dep_rank = 0.
-         For each dependency in the entry's dependencies:
-           Look up the dependency's current rank in the entry map.
-           If that rank exceeds max_dep_rank, set max_dep_rank to that rank.
+       For each entry in the entry map (excluding "SPEC"):
+         Let max_dep_rank = maximum rank among all entries in the entry's deps list.
          Let new_rank = 1 + max_dep_rank.
-         If new_rank exceeds the entry's current rank:
-           Update the entry's rank to new_rank.
+
+         If new_rank > entry's current rank:
+           Update entry's rank to new_rank.
            Set changed = true.
+           If i equals N:
+             Add entry's logical_name to cycle_candidates.
 
        If changed is false:
-         Stop iterating (converged, no cycles).
+         Stop iteration (converged, no cycles).
 
-     If after N full passes the loop exited because changed was still true:
-       Set cycle_participants to the list of logical names of all entries
-       whose rank changed in the last pass.
+     If iteration completed all N passes and changed was still true on pass N:
+       Set cycles = cycle_candidates.
+     Else:
+       Set cycles = empty list.
 
-  5. Build and return output.
+  5. Collect and return results.
 
-     Create ranked as an empty list of NodeRankEntry.
+     Build ranked list:
+       For each entry in the entry map:
+         Append NodeRankEntry with logical_name and rank.
 
-     For each RankingEntry in the entry map:
-       Append a NodeRankEntry with:
-         logical_name = RankingEntry.logical_name
-         rank = RankingEntry.rank
+     Sort ranked list:
+       Primary sort: rank ascending.
+       Secondary sort: logical_name ascending.
 
-     Sort ranked first by rank ascending, then by logical_name ascending.
-
-     Return (ranked, cycle_participants).
+     Return (ranked: ranked list, cycles: cycles).

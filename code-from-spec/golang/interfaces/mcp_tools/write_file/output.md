@@ -1,10 +1,8 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/mcp_tools/write_file@uQJIoTDIDIZ5dmSF9s6klbddtrc)
+[//]: # (code-from-spec: SPEC/golang/interfaces/mcp_tools/write_file@LyR8O4k4uHtbP5bz9eD9jxU6UH4)
 
 # Package `mcpwritefile`
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile`
-
----
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile`
 
 ## Error Sentinels
 
@@ -13,26 +11,22 @@ package mcpwritefile
 
 import "errors"
 
-var ErrQualifierNotAllowed    = errors.New("logical name contains a parenthetical qualifier")
-var ErrUnreadableFrontmatter  = errors.New("node frontmatter cannot be parsed")
-var ErrNoOutput               = errors.New("target node has no output field")
-var ErrPathNotInOutput        = errors.New("path is not declared in the node's output")
+var ErrQualifierNotAllowed  = errors.New("qualifier not allowed")
+var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
+var ErrNoOutput             = errors.New("no output")
+var ErrPathNotInOutput      = errors.New("path not in output")
 ```
-
----
 
 ## Functions
 
 ```go
 package mcpwritefile
 
-// MCPWriteFile verifies that path is declared in the output field of the
-// node identified by logical_name, then writes content to that path.
+// MCPWriteFile validates that path is declared in the output field of the node
+// identified by logical_name, then writes content to that path.
 // Returns "wrote <path>" on success.
-func MCPWriteFile(logical_name string, path string, content string) (string, error)
+func MCPWriteFile(logicalName string, path string, content string) (string, error)
 ```
-
----
 
 ## Usage Example
 
@@ -43,14 +37,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile"
 )
 
 func main() {
 	result, err := mcpwritefile.MCPWriteFile(
 		"SPEC/payments/fees",
-		"code-from-spec/golang/payments/fees/output.md",
-		"# Fees\n\nGenerated content here.\n",
+		"code-from-spec/payments/fees/output.go",
+		"package fees\n",
 	)
 	if err != nil {
 		log.Fatal(err)

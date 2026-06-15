@@ -1,365 +1,635 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/load_chain@E9aGanVJe04NniIu7l1nLhqZj0M -->
+<!-- code-from-spec: SPEC/functional/tests/mcp_tools/load_chain@xgBm4ZowYRRNyBwk3svrH12Z9kg -->
 
-# Test Specification: MCPLoadChain
+## Test suite: MCPLoadChain
 
-## Happy Path
+Each test creates a spec tree on disk using `_node.md` files, calls `MCPLoadChain`,
+and parses the result by splitting on delimiter lines:
+`--- context ---`, `--- input ---`, `--- existing artifact ---`.
+The first line is always `chain_hash: <hash>`.
 
-### TC-01: Simple leaf node — context and hash
+---
+
+### Happy path
+
+---
+
+#### TC-01: Simple leaf node — context and hash
 
 Setup:
-- Create SPEC/_node.md with:
-  - frontmatter: (no depends_on, no output, no input)
-  - `# Public` section containing `## Context` subsection with one line of content
-- Create SPEC/a/_node.md with:
-  - frontmatter: output = "out/a.txt"
-  - `# Public` section containing `## Interface` subsection with content
-  - `# Agent` section with content
-- Do not create "out/a.txt"
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  # Public
+  ## Context
+  Root context line.
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  ---
+  # Public
+  ## Interface
+  Interface description.
+  # Agent
+  Agent guidance.
+  ```
+- Do not create `out/a.txt`.
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- First line matches `chain_hash: ` followed by exactly 27 characters
-- String contains `--- context ---` delimiter
+- First line matches `chain_hash: ` followed by exactly 27 non-whitespace characters.
 - After `--- context ---`:
-  - SPEC's `## Context` heading and its content appear
-  - No `# Public` heading appears
-  - A frontmatter block appears between `---` delimiters containing only `output = "out/a.txt"`; no `depends_on` field
-  - SPEC/a's `## Interface` heading and its content appear
-  - No `# Public` heading appears
-  - `# Agent` heading and SPEC/a's agent content appear
-- String does not contain `--- input ---`
-- String does not contain `--- existing artifact ---`
+  - Contains `## Context` heading and `Root context line.`
+  - Does not contain `# Public` heading.
+  - Contains a frontmatter block delimited by `---` / `---` with only the `output` field set to `out/a.txt`.
+  - Contains `## Interface` heading and `Interface description.`
+  - Contains `# Agent` heading and `Agent guidance.`
+  - Does not contain `# Public` heading.
+- No `--- input ---` section present.
+- No `--- existing artifact ---` section present.
 
 ---
 
-### TC-02: Ancestor public content included
+#### TC-02: Ancestor public content included
 
 Setup:
-- Create SPEC/_node.md with `# Public` section and `## Overview` subsection
-- Create SPEC/a/_node.md with `# Public` section and `## Description` subsection
-- Create SPEC/a/b/_node.md with frontmatter: output = "out/b.txt", and `# Public` section
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  # Public
+  ## Overview
+  Root overview.
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  ---
+  # Public
+  ## Details
+  Node a details.
+  ```
+- Create `SPEC/a/b/_node.md`:
+  ```
+  ---
+  output: out/b.txt
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a/b")
+Action: Call `MCPLoadChain("SPEC/a/b")`.
 
 Expected outcome:
 - After `--- context ---`:
-  - SPEC's `## Overview` heading and its content appear
-  - SPEC/a's `## Description` heading and its content appear
+  - Contains `## Overview` heading and `Root overview.`
+  - Contains `## Details` heading and `Node a details.`
+  - No `# Public` headings appear anywhere.
 
 ---
 
-### TC-03: Ancestor without public section skipped
+#### TC-03: Ancestor without public section skipped
 
 Setup:
-- Create SPEC/_node.md with only a `# Name` section (no `# Public` section)
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", `# Public` section with `## Summary` subsection
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  # Name
+  Root.
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  ---
+  # Public
+  ## Interface
+  Node a interface.
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- After `--- context ---`, SPEC's content does not appear
-- SPEC/a's `## Summary` heading and content appear
+- After `--- context ---`:
+  - Does not contain SPEC's `# Name` section content.
+  - Contains `## Interface` heading and `Node a interface.`
 
 ---
 
-### TC-04: Ancestor with empty public section skipped
+#### TC-04: Ancestor with empty public section skipped
 
 Setup:
-- Create SPEC/_node.md with a `# Public` section that has no subsections and no content
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", `# Public` section with `## Summary` subsection
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  # Public
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  ---
+  # Public
+  ## Interface
+  Node a interface.
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- After `--- context ---`, SPEC's content does not appear
-- SPEC/a's `## Summary` heading and content appear
+- After `--- context ---`:
+  - Does not contain SPEC's content.
+  - Contains `## Interface` heading and `Node a interface.`
 
 ---
 
-### TC-05: Dependency without qualifier — full public included
+#### TC-05: Dependency without qualifier — full public included
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", depends_on = ["SPEC/b"]
-- Create SPEC/b/_node.md with `# Public` section containing `## Interface` and `## Constraints` subsections with content
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/b/_node.md`:
+  ```
+  ---
+  ---
+  # Public
+  ## Interface
+  Node b interface.
+  ## Constraints
+  Node b constraints.
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  depends_on:
+    - SPEC/b
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- After `--- context ---`, SPEC/b's `## Interface` heading and content appear
-- SPEC/b's `## Constraints` heading and content appear
+- After `--- context ---`:
+  - Contains `## Interface` heading and `Node b interface.`
+  - Contains `## Constraints` heading and `Node b constraints.`
 
 ---
 
-### TC-06: Dependency with qualifier — subsection only
+#### TC-06: Dependency with qualifier — subsection only
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", depends_on = ["SPEC/b(interface)"]
-- Create SPEC/b/_node.md with `# Public` section containing `## Interface` and `## Constraints` subsections with content
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/b/_node.md`:
+  ```
+  ---
+  ---
+  # Public
+  ## Interface
+  Node b interface.
+  ## Constraints
+  Node b constraints.
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  depends_on:
+    - SPEC/b(interface)
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- After `--- context ---`, SPEC/b's `## Interface` heading and content appear
-- SPEC/b's `## Constraints` heading and content do not appear
+- After `--- context ---`:
+  - Contains `## Interface` heading and `Node b interface.`
+  - Does not contain `## Constraints` heading or `Node b constraints.`
 
 ---
 
-### TC-07: ARTIFACT dependency — artifact tag line removed
+#### TC-07: ARTIFACT dependency — artifact tag line removed
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", depends_on = ["ARTIFACT/b"]
-- Create SPEC/b/_node.md with frontmatter: output = "out/b.go"
-- Create "out/b.go" with:
-  - First line: `// code-from-spec: SPEC/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa`
-  - Remaining lines: body content (known text)
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/b/_node.md`:
+  ```
+  ---
+  output: out/b.go
+  ---
+  ```
+- Create `out/b.go`:
+  ```
+  // code-from-spec: SPEC/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa
+  package main
+  // body content
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.go
+  depends_on:
+    - ARTIFACT/b
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- After `--- context ---`, the body content of "out/b.go" appears
-- The artifact tag line does not appear in the context
+- After `--- context ---`:
+  - Contains `package main` and `// body content`.
+  - Does not contain the artifact tag line
+    `// code-from-spec: SPEC/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa`.
 
 ---
 
-### TC-08: EXTERNAL dependency — full content
+#### TC-08: EXTERNAL dependency — full content
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", depends_on = ["EXTERNAL/data/config.yaml"]
-- Create "data/config.yaml" with known content
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  depends_on:
+    - EXTERNAL/data/config.yaml
+  ---
+  ```
+- Create `data/config.yaml`:
+  ```
+  key: value
+  setting: enabled
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- After `--- context ---`, the full content of "data/config.yaml" appears
+- After `--- context ---`:
+  - Contains `key: value` and `setting: enabled`.
 
 ---
 
-### TC-09: Target has reduced frontmatter with output only
+#### TC-09: Target has reduced frontmatter with output only
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", depends_on = ["SPEC/b"]
-- Create SPEC/b/_node.md with `# Public` section with `## Info` subsection
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  depends_on:
+    - SPEC/b
+  ---
+  ```
+- Create `SPEC/b/_node.md`:
+  ```
+  ---
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- After `--- context ---`, a frontmatter block between `---` delimiters contains only the `output` field
-- The `depends_on` field does not appear in the frontmatter block
+- After `--- context ---`:
+  - Contains a frontmatter block delimited by `---` / `---`.
+  - The frontmatter block contains `output: out/a.txt`.
+  - The frontmatter block does not contain `depends_on`.
 
 ---
 
-### TC-10: Target agent section included
+#### TC-10: Target agent section included
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with:
-  - frontmatter: output = "out/a.txt"
-  - `# Public` section with `## Interface` subsection
-  - `# Agent` section with content
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  ---
+  # Public
+  ## Interface
+  Public interface.
+  # Agent
+  Agent-specific guidance.
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- After `--- context ---`, SPEC/a's `## Interface` heading and content appear
-- `# Agent` heading and the agent content appear
-- No `# Public` heading appears
+- After `--- context ---`:
+  - Contains `## Interface` heading and `Public interface.`
+  - Contains `# Agent` heading and `Agent-specific guidance.`
+  - Does not contain `# Public` heading.
 
 ---
 
-### TC-11: Target without agent section — skipped
+#### TC-11: Target without agent section — skipped
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with:
-  - frontmatter: output = "out/a.txt"
-  - `# Public` section with `## Interface` subsection
-  - No `# Agent` section
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  ---
+  # Public
+  ## Interface
+  Public interface.
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- No error
-- Context contains SPEC/a's public content
-- No `# Agent` heading appears in the result
+- No error.
+- After `--- context ---`:
+  - Contains `## Interface` heading and `Public interface.`
+  - No `# Agent` heading.
 
 ---
 
-### TC-12: Input present — in separate section
+#### TC-12: Input present — in separate section
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", input = "ARTIFACT/b"
-- Create SPEC/b/_node.md with frontmatter: output = "out/data.json"
-- Create "out/data.json" with:
-  - First line: artifact tag line
-  - Remaining lines: body content (known text)
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/b/_node.md`:
+  ```
+  ---
+  output: out/data.json
+  ---
+  ```
+- Create `out/data.json`:
+  ```
+  // code-from-spec: SPEC/b@aaaaaaaaaaaaaaaaaaaaaaaaaaa
+  {"key": "value"}
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  input: ARTIFACT/b
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- Result contains `--- input ---` delimiter
-- After `--- input ---`, the body content of "out/data.json" appears
-- The artifact tag line does not appear
-- The input content does not appear in the section before `--- input ---`
+- Result contains `--- input ---` section.
+- After `--- input ---`:
+  - Contains `{"key": "value"}`.
+  - Does not contain the artifact tag line.
+- The input content does not appear in the `--- context ---` section.
 
 ---
 
-### TC-13: EXTERNAL input — full content in input section
+#### TC-13: EXTERNAL input — full content in input section
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", input = "EXTERNAL/docs/vendor/spec.yaml"
-- Create "docs/vendor/spec.yaml" with known content
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  input: EXTERNAL/docs/vendor/spec.yaml
+  ---
+  ```
+- Create `docs/vendor/spec.yaml`:
+  ```
+  version: 1
+  title: Vendor spec
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- Result contains `--- input ---` delimiter
-- After `--- input ---`, the full content of "docs/vendor/spec.yaml" appears
+- Result contains `--- input ---` section.
+- After `--- input ---`:
+  - Contains `version: 1` and `title: Vendor spec`.
 
 ---
 
-### TC-14: No input — section absent
+#### TC-14: No input — section absent
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", no input field
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- Result does not contain `--- input ---`
+- Result does not contain `--- input ---`.
 
 ---
 
-### TC-15: Existing artifact present — in separate section
+#### TC-15: Existing artifact present — in separate section
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.go"
-- Create "out/a.go" with known content
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.go
+  ---
+  ```
+- Create `out/a.go`:
+  ```
+  package main
+  func main() {}
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- Result contains `--- existing artifact ---` delimiter
-- After `--- existing artifact ---`, the full content of "out/a.go" appears
+- Result contains `--- existing artifact ---` section.
+- After `--- existing artifact ---`:
+  - Contains `package main` and `func main() {}`.
 
 ---
 
-### TC-16: Existing artifact absent — section omitted
+#### TC-16: Existing artifact absent — section omitted
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.go"
-- Do not create "out/a.go"
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.go
+  ---
+  ```
+- Do not create `out/a.go`.
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- Result does not contain `--- existing artifact ---`
+- Result does not contain `--- existing artifact ---`.
 
 ---
 
-### TC-17: Hash is deterministic
+#### TC-17: Hash is deterministic
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", `# Public` section with `## Notes` subsection with fixed content
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  # Public
+  ## Overview
+  Stable content.
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a") — call once, record chain_hash
-- Call MCPLoadChain("SPEC/a") — call again, record chain_hash
+Action: Call `MCPLoadChain("SPEC/a")` twice.
 
 Expected outcome:
-- Both chain_hash values are identical
+- Both calls return a result whose first line is identical.
+- The 27-character hash portion is the same in both results.
 
 ---
 
-## Error Cases
-
-### TC-18: Invalid logical name — not SPEC/
-
-Actions:
-- Call MCPLoadChain("INVALID/something")
-
-Expected outcome:
-- Error logicalnames.UnsupportedReference is raised
+### Error cases
 
 ---
 
-### TC-19: Nonexistent node file
+#### TC-18: Invalid logical name — not SPEC/
+
+Action: Call `MCPLoadChain("INVALID/something")`.
+
+Expected outcome:
+- Returns error `logicalnames.UnsupportedReference`.
+
+---
+
+#### TC-19: Nonexistent node file
+
+Action: Call `MCPLoadChain("SPEC/nonexistent")` with no `_node.md` on disk for that path.
+
+Expected outcome:
+- Returns error propagated from `FrontmatterParse` (`FileUnreadable`).
+
+---
+
+#### TC-20: No output declared
 
 Setup:
-- Do not create any _node.md at SPEC/nonexistent
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/nonexistent")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- Error propagated from FrontmatterParse (FileUnreadable) is raised
+- Returns error `NoOutput`.
 
 ---
 
-### TC-20: No output declared
+#### TC-21: Invalid output path — path traversal
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter containing no output field
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: ../../etc/passwd
+  ---
+  ```
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- Error NoOutput is raised
+- Returns error `InvalidOutputPath`.
 
 ---
 
-### TC-21: Invalid output path — traversal
+#### TC-22: Unresolvable dependency
 
 Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "../../etc/passwd"
+- Create `SPEC/_node.md`:
+  ```
+  ---
+  ---
+  ```
+- Create `SPEC/a/_node.md`:
+  ```
+  ---
+  output: out/a.txt
+  depends_on:
+    - SPEC/missing
+  ---
+  ```
+- Do not create `SPEC/missing/_node.md`.
 
-Actions:
-- Call MCPLoadChain("SPEC/a")
-
-Expected outcome:
-- Error InvalidOutputPath is raised
-
----
-
-### TC-22: Unresolvable dependency
-
-Setup:
-- Create SPEC/_node.md with no public section
-- Create SPEC/a/_node.md with frontmatter: output = "out/a.txt", depends_on = ["SPEC/missing"]
-- Do not create SPEC/missing/_node.md
-
-Actions:
-- Call MCPLoadChain("SPEC/a")
+Action: Call `MCPLoadChain("SPEC/a")`.
 
 Expected outcome:
-- An error is raised when the missing node is encountered during chain processing (hash computation or context building)
+- Returns an error — the missing node is detected during chain processing
+  (hash computation or context building).

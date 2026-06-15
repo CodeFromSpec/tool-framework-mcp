@@ -1,33 +1,29 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/utils/node_ranking@obbyQHUUIVI8toSBeS7W1vCFixE)
+[//]: # (code-from-spec: SPEC/golang/interfaces/utils/node_ranking@_GE-wze4pr2JQ06vZi26j_OuHPQ)
 
 # Package `noderanking`
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/noderanking`
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/noderanking`
 
----
-
-## Structs
+## Types
 
 ```go
 package noderanking
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
+import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
 
-// NodeRankInput represents a discovered node with its parsed frontmatter,
-// used as input to NodeRankCompute.
+// NodeRankInput holds a discovered node's logical name and its parsed
+// frontmatter, used as input to the ranking computation.
 type NodeRankInput struct {
 	LogicalName string
 	Frontmatter *frontmatter.Frontmatter
 }
 
-// NodeRankEntry holds a logical name and its computed rank.
+// NodeRankEntry holds the logical name and computed rank of a node or artifact.
 type NodeRankEntry struct {
 	LogicalName string
 	Rank        int
 }
 ```
-
----
 
 ## Error Sentinels
 
@@ -36,10 +32,8 @@ package noderanking
 
 import "errors"
 
-var ErrUnresolvableReference = errors.New("a depends_on or input target cannot be resolved")
+var ErrUnresolvableReference = errors.New("unresolvable reference")
 ```
-
----
 
 ## Functions
 
@@ -47,14 +41,12 @@ var ErrUnresolvableReference = errors.New("a depends_on or input target cannot b
 package noderanking
 
 // NodeRankCompute takes the full set of discovered nodes with their parsed
-// frontmatter. It returns ranked entries (nodes and artifacts) sorted by
-// dependency order, and a list of logical names involved in cycles.
+// frontmatter and computes a topological rank for each node and artifact.
+// Returns the ranked entries and a list of logical names involved in cycles.
 // Returns ErrUnresolvableReference if a depends_on or input target cannot
 // be resolved.
-func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles []string, err error)
+func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, error)
 ```
-
----
 
 ## Usage Example
 
@@ -62,41 +54,32 @@ func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles 
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/noderanking"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/noderanking"
 )
 
 func main() {
 	entries := []*noderanking.NodeRankInput{
 		{
-			LogicalName: "SPEC/payments",
-			Frontmatter: &frontmatter.Frontmatter{},
-		},
-		{
 			LogicalName: "SPEC/payments/fees",
 			Frontmatter: &frontmatter.Frontmatter{
-				DependsOn: []string{"SPEC/payments"},
+				DependsOn: []string{"SPEC/payments/core"},
 				Output:    "ARTIFACT/payments/fees",
 			},
 		},
 		{
-			LogicalName: "SPEC/reports/summary",
+			LogicalName: "SPEC/payments/core",
 			Frontmatter: &frontmatter.Frontmatter{
-				DependsOn: []string{"SPEC/payments/fees"},
-				Input:     "EXTERNAL/data/transactions.csv",
+				DependsOn: []string{},
 			},
 		},
 	}
 
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
 	if err != nil {
-		if errors.Is(err, noderanking.ErrUnresolvableReference) {
-			log.Fatal("unresolvable reference in dependency graph:", err)
-		}
 		log.Fatal(err)
 	}
 
@@ -105,7 +88,7 @@ func main() {
 	}
 
 	for _, entry := range ranked {
-		fmt.Printf("rank %d: %s\n", entry.Rank, entry.LogicalName)
+		fmt.Printf("LogicalName: %s  Rank: %d\n", entry.LogicalName, entry.Rank)
 	}
 }
 ```

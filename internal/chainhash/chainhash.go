@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/chain/hash@xyJ2Wt92BZRK8unOV47TsaxCCjI
+// code-from-spec: SPEC/golang/implementation/chain/hash@Wih4bjbzw1vdJNa9Vy3GldGwSHc
 package chainhash
 
 import (
@@ -6,103 +6,58 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
 )
 
-var ErrParseFailure = errors.New("a node file cannot be parsed")
-
-var artifactTagPattern = regexp.MustCompile(`[A-Za-z0-9_-]{27}`)
+var ErrParseFailure = errors.New("parse failure")
 
 func extractBlock(content []string) string {
 	start := 0
 	for start < len(content) {
-		trimmed := strings.TrimLeft(content[start], " \t")
-		if trimmed != "" {
+		if strings.TrimSpace(content[start]) != "" {
 			break
 		}
 		start++
 	}
 
-	end := len(content)
-	for end > start {
-		trimmed := strings.TrimLeft(content[end-1], " \t")
-		if trimmed != "" {
+	end := len(content) - 1
+	for end >= start {
+		if strings.TrimSpace(content[end]) != "" {
 			break
 		}
 		end--
 	}
 
-	if start >= end {
+	if start > end {
 		return ""
 	}
 
-	return strings.Join(content[start:end], "\n") + "\n"
+	return strings.Join(content[start:end+1], "\n") + "\n"
+}
+
+func formatSection(rawHeading string, content []string) string {
+	head := strings.TrimRight(rawHeading, " \t") + "\n"
+	body := extractBlock(content)
+	return head + body
 }
 
 func concatenateSubsections(subsections []*parsenode.NodeSubsection) string {
 	result := ""
 	for _, sub := range subsections {
-		headingLine := strings.TrimRight(sub.RawHeading, " \t") + "\n"
-		body := extractBlock(sub.Content)
-
-		if result != "" {
+		block := formatSection(sub.RawHeading, sub.Content)
+		if result != "" && block != "" {
 			result += "\n"
 		}
-		result += headingLine
-		result += body
+		result += block
 	}
 	return result
-}
-
-func extractAgentSection(section *parsenode.NodeSection) string {
-	headingLine := strings.TrimRight(section.RawHeading, " \t") + "\n"
-	body := extractBlock(section.Content)
-	result := headingLine + body
-
-	for _, sub := range section.Subsections {
-		subHeadingLine := strings.TrimRight(sub.RawHeading, " \t") + "\n"
-		subBody := extractBlock(sub.Content)
-		result += "\n"
-		result += subHeadingLine
-		result += subBody
-	}
-
-	return result
-}
-
-func neutralizeArtifactTag(line string) string {
-	const marker = "code-from-spec: "
-	idx := strings.Index(line, marker)
-	if idx == -1 {
-		return line
-	}
-
-	afterMarker := line[idx+len(marker):]
-	loc := artifactTagPattern.FindStringIndex(afterMarker)
-	if loc == nil {
-		return line
-	}
-
-	hashStart := loc[0]
-	hashEnd := loc[1]
-	if hashEnd-hashStart != 27 {
-		return line
-	}
-
-	neutralized := line[:idx+len(marker)] +
-		afterMarker[:hashStart] +
-		"---------------------------" +
-		afterMarker[hashEnd:]
-
-	return neutralized
 }
 
 func hashPublicSubsections(node *parsenode.Node) []byte {
@@ -112,56 +67,73 @@ func hashPublicSubsections(node *parsenode.Node) []byte {
 	if len(node.Public.Subsections) == 0 {
 		return nil
 	}
-	content := concatenateSubsections(node.Public.Subsections)
-	digest := sha1.Sum([]byte(content))
-	return digest[:]
+	text := concatenateSubsections(node.Public.Subsections)
+	sum := sha1.Sum([]byte(text))
+	return sum[:]
 }
 
 func hashQualifiedSubsection(node *parsenode.Node, qualifier string) []byte {
+	normalizedQualifier := textnormalization.NormalizeText(qualifier)
 	if node.Public == nil {
 		return nil
 	}
-	normalizedQualifier := textnormalization.NormalizeText(qualifier)
-
-	var found *parsenode.NodeSubsection
 	for _, sub := range node.Public.Subsections {
 		if sub.Heading == normalizedQualifier {
-			found = sub
-			break
+			text := formatSection(sub.RawHeading, sub.Content)
+			sum := sha1.Sum([]byte(text))
+			return sum[:]
 		}
 	}
-
-	if found == nil {
-		return nil
-	}
-
-	headingLine := strings.TrimRight(found.RawHeading, " \t") + "\n"
-	body := extractBlock(found.Content)
-	content := headingLine + body
-
-	digest := sha1.Sum([]byte(content))
-	return digest[:]
+	return nil
 }
 
 func hashAgentSection(node *parsenode.Node) []byte {
 	if node.Agent == nil {
 		return nil
 	}
-	if len(node.Agent.Content) == 0 && len(node.Agent.Subsections) == 0 {
+	text := formatSection(node.Agent.RawHeading, node.Agent.Content)
+	for _, sub := range node.Agent.Subsections {
+		subBlock := formatSection(sub.RawHeading, sub.Content)
+		if subBlock != "" {
+			text += "\n" + subBlock
+		}
+	}
+	if text == "" {
 		return nil
 	}
-	content := extractAgentSection(node.Agent)
-	digest := sha1.Sum([]byte(content))
-	return digest[:]
+	sum := sha1.Sum([]byte(text))
+	return sum[:]
 }
 
-func hashArtifactFile(filePath *pathutils.PathCfs) ([]byte, error) {
+var artifactTagPattern = "code-from-spec: "
+
+func neutralizeLine(line string) string {
+	idx := strings.Index(line, artifactTagPattern)
+	if idx == -1 {
+		return line
+	}
+	afterTag := line[idx+len(artifactTagPattern):]
+	atSign := strings.Index(afterTag, "@")
+	if atSign == -1 {
+		return line
+	}
+	hashStart := atSign + 1
+	if hashStart+27 > len(afterTag) {
+		return line
+	}
+	prefix := line[:idx+len(artifactTagPattern)]
+	logicalName := afterTag[:atSign]
+	suffix := afterTag[hashStart+27:]
+	return prefix + logicalName + "@" + "---------------------------" + suffix
+}
+
+func hashFileContent(filePath pathutils.PathCfs, neutralizeArtifactTag bool) ([]byte, error) {
 	reader, err := filereader.FileOpen(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("file unreadable: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrParseFailure, err)
 	}
 
-	content := ""
+	var sb strings.Builder
 	for {
 		line, err := filereader.FileReadLine(reader)
 		if errors.Is(err, filereader.ErrEndOfFile) {
@@ -169,49 +141,23 @@ func hashArtifactFile(filePath *pathutils.PathCfs) ([]byte, error) {
 		}
 		if err != nil {
 			filereader.FileClose(reader)
-			return nil, fmt.Errorf("reading artifact file: %w", err)
+			return nil, fmt.Errorf("reading file %s: %w", filePath.Value, err)
 		}
-		neutralized := neutralizeArtifactTag(line)
-		content += neutralized + "\n"
+		if neutralizeArtifactTag {
+			line = neutralizeLine(line)
+		}
+		sb.WriteString(line)
+		sb.WriteString("\n")
 	}
-
 	filereader.FileClose(reader)
 
-	digest := sha1.Sum([]byte(content))
-	return digest[:], nil
-}
-
-func hashExternalFile(filePath *pathutils.PathCfs) ([]byte, error) {
-	reader, err := filereader.FileOpen(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("file unreadable: %w", err)
-	}
-
-	content := ""
-	for {
-		line, err := filereader.FileReadLine(reader)
-		if errors.Is(err, filereader.ErrEndOfFile) {
-			break
-		}
-		if err != nil {
-			filereader.FileClose(reader)
-			return nil, fmt.Errorf("reading external file: %w", err)
-		}
-		content += line + "\n"
-	}
-
-	filereader.FileClose(reader)
-
-	digest := sha1.Sum([]byte(content))
-	return digest[:], nil
+	text := sb.String()
+	sum := sha1.Sum([]byte(text))
+	return sum[:], nil
 }
 
 func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
-	if chain == nil {
-		return "", fmt.Errorf("%w: chain is nil", ErrParseFailure)
-	}
-
-	var rawHashes [][]byte
+	var hashes [][]byte
 
 	for _, ancestor := range chain.Ancestors {
 		if ancestor == nil {
@@ -219,11 +165,11 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 		}
 		node, err := parsenode.NodeParse(ancestor.UnqualifiedLogicalName)
 		if err != nil {
-			return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
+			return "", fmt.Errorf("%w: %s: %w", ErrParseFailure, ancestor.UnqualifiedLogicalName, err)
 		}
 		h := hashPublicSubsections(node)
 		if h != nil {
-			rawHashes = append(rawHashes, h)
+			hashes = append(hashes, h)
 		}
 	}
 
@@ -232,81 +178,76 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 			continue
 		}
 		if logicalnames.LogicalNameIsArtifact(dep.UnqualifiedLogicalName) {
-			h, err := hashArtifactFile(&dep.FilePath)
+			h, err := hashFileContent(dep.FilePath, true)
 			if err != nil {
 				return "", err
 			}
-			rawHashes = append(rawHashes, h)
+			hashes = append(hashes, h)
 		} else if logicalnames.LogicalNameIsExternal(dep.UnqualifiedLogicalName) {
-			h, err := hashExternalFile(&dep.FilePath)
+			h, err := hashFileContent(dep.FilePath, false)
 			if err != nil {
 				return "", err
 			}
-			rawHashes = append(rawHashes, h)
-		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) && dep.Qualifier == nil {
+			hashes = append(hashes, h)
+		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) {
 			node, err := parsenode.NodeParse(dep.UnqualifiedLogicalName)
 			if err != nil {
-				return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
+				return "", fmt.Errorf("%w: %s: %w", ErrParseFailure, dep.UnqualifiedLogicalName, err)
 			}
-			h := hashPublicSubsections(node)
-			if h != nil {
-				rawHashes = append(rawHashes, h)
-			}
-		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) && dep.Qualifier != nil {
-			node, err := parsenode.NodeParse(dep.UnqualifiedLogicalName)
-			if err != nil {
-				return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
-			}
-			h := hashQualifiedSubsection(node, *dep.Qualifier)
-			if h != nil {
-				rawHashes = append(rawHashes, h)
+			if dep.Qualifier == nil {
+				h := hashPublicSubsections(node)
+				if h != nil {
+					hashes = append(hashes, h)
+				}
+			} else {
+				h := hashQualifiedSubsection(node, *dep.Qualifier)
+				if h != nil {
+					hashes = append(hashes, h)
+				}
 			}
 		}
 	}
 
 	if chain.Target == nil {
-		return "", fmt.Errorf("%w: target is nil", ErrParseFailure)
+		return "", fmt.Errorf("%w: chain target is nil", ErrParseFailure)
 	}
-
 	targetNode, err := parsenode.NodeParse(chain.Target.UnqualifiedLogicalName)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrParseFailure, err)
+		return "", fmt.Errorf("%w: %s: %w", ErrParseFailure, chain.Target.UnqualifiedLogicalName, err)
+	}
+	h := hashPublicSubsections(targetNode)
+	if h != nil {
+		hashes = append(hashes, h)
 	}
 
-	hPublic := hashPublicSubsections(targetNode)
-	if hPublic != nil {
-		rawHashes = append(rawHashes, hPublic)
-	}
-
-	hAgent := hashAgentSection(targetNode)
-	if hAgent != nil {
-		rawHashes = append(rawHashes, hAgent)
+	agentHash := hashAgentSection(targetNode)
+	if agentHash != nil {
+		hashes = append(hashes, agentHash)
 	}
 
 	if chain.Input != nil {
 		input := chain.Input
 		if logicalnames.LogicalNameIsArtifact(input.UnqualifiedLogicalName) {
-			h, err := hashArtifactFile(&input.FilePath)
+			h, err := hashFileContent(input.FilePath, true)
 			if err != nil {
 				return "", err
 			}
-			rawHashes = append(rawHashes, h)
+			hashes = append(hashes, h)
 		} else if logicalnames.LogicalNameIsExternal(input.UnqualifiedLogicalName) {
-			h, err := hashExternalFile(&input.FilePath)
+			h, err := hashFileContent(input.FilePath, false)
 			if err != nil {
 				return "", err
 			}
-			rawHashes = append(rawHashes, h)
+			hashes = append(hashes, h)
 		}
 	}
 
 	var concatenated []byte
-	for _, h := range rawHashes {
+	for _, h := range hashes {
 		concatenated = append(concatenated, h...)
 	}
 
-	finalDigest := sha1.Sum(concatenated)
-	encoded := base64.RawURLEncoding.EncodeToString(finalDigest[:])
-
+	finalSum := sha1.Sum(concatenated)
+	encoded := base64.RawURLEncoding.EncodeToString(finalSum[:])
 	return encoded, nil
 }

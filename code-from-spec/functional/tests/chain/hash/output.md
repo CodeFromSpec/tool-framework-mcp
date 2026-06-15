@@ -1,650 +1,389 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/hash@jd6ZQNUM27i9Li-TirzPTZMi7cM -->
+<!-- code-from-spec: SPEC/functional/tests/chain/hash@isxZV_zMwigqnGUUcN1o9e5LyWc -->
 
-# Test Specification: ChainHashCompute
+## Test suite: ChainHashCompute
+
+### Properties
+
+#### Hash is deterministic
+
+Setup:
+- Create a `_node.md` file for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>).
+
+Actions:
+1. Call ChainHashCompute with the Chain.
+2. Call ChainHashCompute again with the same Chain.
+
+Expected outcome: Both results are identical strings.
 
 ---
 
-## Properties
-
-### Hash is deterministic
+#### Hash is 27 characters
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC` with a `# Public` section containing a `## Context` subsection with some content.
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain` directly:
-  - `ancestors` = [ChainItem(unqualified_logical_name="SPEC", file_path=<path to SPEC/_node.md>, qualifier=absent)]
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create a `_node.md` file for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem pointing to that file.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `result1`.
-- Call `ChainHashCompute(chain)` → `result2`.
+1. Call ChainHashCompute with the Chain.
 
-Expected outcome:
-- `result1` equals `result2`.
+Expected outcome: The result is exactly 27 characters long.
 
 ---
 
-### Hash is 27 characters
+#### Hash changes when ancestor content changes
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create a `_node.md` for SPEC with `# Public` containing a `## Context` subsection with initial content.
+- Create a `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with ancestors = [ChainItem for SPEC], target = ChainItem for SPEC/a.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `result`.
+1. Call ChainHashCompute → hash_before.
+2. Modify SPEC's `## Context` subsection content on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `len(result)` equals 27.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-### Hash changes when ancestor content changes
+#### Hash changes when dependency content changes
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC` with a `# Public` section containing:
-  ```
-  ## Context
-  original ancestor content
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = [ChainItem(unqualified_logical_name="SPEC", file_path=<path to SPEC/_node.md>, qualifier=absent)]
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create a `_node.md` for SPEC with `# Public` containing a `## Context` subsection.
+- Create a `_node.md` for SPEC/b with `# Public` containing a `## Interface` subsection with initial content.
+- Create a `_node.md` for SPEC/a with no extra content.
+- Build a Chain with target = ChainItem for SPEC/a, dependencies = [ChainItem for SPEC/b (qualifier absent)].
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite `SPEC/_node.md` so the `## Context` subsection reads `modified ancestor content`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute → hash_before.
+2. Modify SPEC/b's `## Interface` subsection content on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-### Hash changes when dependency content changes
+#### Hash changes when target Public changes
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC` with a `# Public` section containing a `## Context` subsection with some content.
-- Write `_node.md` for `SPEC/b` with a `# Public` section containing:
-  ```
-  ## Interface
-  original dependency content
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="SPEC/b", file_path=<path to SPEC/b/_node.md>, qualifier=absent)]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create a `_node.md` for SPEC with `# Public` containing a `## Context` subsection.
+- Create a `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection with initial content.
+- Build a Chain with target = ChainItem for SPEC/a.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite `SPEC/b/_node.md` so the `## Interface` subsection reads `modified dependency content`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute → hash_before.
+2. Modify SPEC/a's `## Interface` subsection content on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-### Hash changes when target Public changes
+#### Hash changes when target Agent changes
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing:
-  ```
-  ## Interface
-  original target interface
-  ```
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create a `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection and a `# Agent` section with initial content.
+- Build a Chain with target = ChainItem for SPEC/a.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite `SPEC/a/_node.md` so the `## Interface` subsection reads `modified target interface`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute → hash_before.
+2. Modify SPEC/a's `# Agent` section content on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-### Hash changes when target Agent changes
+### Ancestors
+
+#### Ancestor with Public subsections contributes hash
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/a` with:
-  - A `# Public` section containing a `## Interface` subsection with some content.
-  - A `# Agent` section with `original agent content`.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create a `_node.md` for SPEC with `# Public` containing a `## Context` subsection.
+- Create a `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with ancestors = [ChainItem for SPEC], target = ChainItem for SPEC/a.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite `SPEC/a/_node.md` so `# Agent` reads `modified agent content`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: A non-empty result of exactly 27 characters.
 
 ---
 
-## Ancestors
-
-### Ancestor with Public subsections contributes hash
+#### Ancestor without Public section — skipped
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC` with a `# Public` section containing:
-  ```
-  ## Context
-  some ancestor context
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = [ChainItem(unqualified_logical_name="SPEC", file_path=<path to SPEC/_node.md>, qualifier=absent)]
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create a `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Create a `_node.md` for SPEC with `# Public` containing a `## Context` subsection.
+- Build a Chain with ancestors = [ChainItem for SPEC], target = ChainItem for SPEC/a.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `result`.
+1. Call ChainHashCompute → hash_with_public.
+2. Rewrite SPEC's `_node.md` on disk to contain only a name heading (no `# Public` section).
+3. Build the same Chain structure (same ChainItem records).
+4. Call ChainHashCompute → hash_without_public.
 
-Expected outcome:
-- No error.
-- `len(result)` equals 27.
+Expected outcome: hash_with_public differs from hash_without_public.
 
 ---
 
-### Ancestor without Public section — skipped
+#### Multiple ancestors — order matters
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC` with a `# Public` section containing:
-  ```
-  ## Context
-  some context
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = [ChainItem(unqualified_logical_name="SPEC", file_path=<path to SPEC/_node.md>, qualifier=absent)]
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create `_node.md` for SPEC with `# Public` containing a `## Context` subsection with content "root context".
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Context` subsection with content "a context".
+- Create `_node.md` for SPEC/a/b with `# Public` containing a `## Interface` subsection.
+- Build Chain_A with ancestors = [ChainItem for SPEC, ChainItem for SPEC/a], target = ChainItem for SPEC/a/b.
+- Build Chain_B with ancestors = [ChainItem for SPEC/a, ChainItem for SPEC], target = ChainItem for SPEC/a/b.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash_with_public`.
-- Overwrite `SPEC/_node.md` with content that has only a name heading and no `# Public` section (e.g., `# SPEC`).
-- Build the same `Chain` structure with the same ChainItem values.
-- Call `ChainHashCompute(chain)` → `hash_without_public`.
+1. Call ChainHashCompute with Chain_A → hash_a.
+2. Call ChainHashCompute with Chain_B → hash_b.
 
-Expected outcome:
-- `hash_with_public` differs from `hash_without_public`.
+Expected outcome: hash_a differs from hash_b.
 
 ---
 
-### Multiple ancestors — order matters
+### Dependencies
+
+#### SPEC dependency without qualifier — hashes Public subsections
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC` with a `# Public` section containing:
-  ```
-  ## Context
-  root context
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing:
-  ```
-  ## Context
-  mid context
-  ```
-- Write `_node.md` for `SPEC/a/b` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build `chain_forward`:
-  - `ancestors` = [ChainItem("SPEC", <path SPEC/_node.md>), ChainItem("SPEC/a", <path SPEC/a/_node.md>)]
-  - `dependencies` = []
-  - `target` = ChainItem("SPEC/a/b", <path SPEC/a/b/_node.md>)
-  - `input` = absent
-- Build `chain_reversed`:
-  - `ancestors` = [ChainItem("SPEC/a", <path SPEC/a/_node.md>), ChainItem("SPEC", <path SPEC/_node.md>)]
-  - `dependencies` = []
-  - `target` = ChainItem("SPEC/a/b", <path SPEC/a/b/_node.md>)
-  - `input` = absent
+- Create `_node.md` for SPEC/b with `# Public` containing a `## Interface` subsection with initial content.
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem for SPEC/a, dependencies = [ChainItem for SPEC/b (qualifier absent)].
 
 Actions:
-- Call `ChainHashCompute(chain_forward)` → `hash_forward`.
-- Call `ChainHashCompute(chain_reversed)` → `hash_reversed`.
+1. Call ChainHashCompute → hash_before.
+2. Modify SPEC/b's `## Interface` subsection content on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `hash_forward` differs from `hash_reversed`.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-## Dependencies
-
-### SPEC dependency without qualifier — hashes Public subsections
+#### SPEC dependency with qualifier — hashes subsection
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/b` with a `# Public` section containing:
-  ```
-  ## Interface
-  original interface
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="SPEC/b", file_path=<path to SPEC/b/_node.md>, qualifier=absent)]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create `_node.md` for SPEC/b with `# Public` containing a `## Interface` subsection with initial content.
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem for SPEC/a, dependencies = [ChainItem(unqualified_logical_name="SPEC/b", file_path=<path>, qualifier="interface")].
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite `SPEC/b/_node.md` so `## Interface` reads `modified interface`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute → hash_before.
+2. Modify the `## Interface` content of SPEC/b on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-### SPEC dependency with qualifier — hashes subsection
+#### Qualifier case normalization
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/b` with a `# Public` section containing:
-  ```
-  ## Interface
-  original interface
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="SPEC/b", file_path=<path to SPEC/b/_node.md>, qualifier="interface")]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create `_node.md` for SPEC/b with `# Public` containing a `## Interface` subsection.
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem for SPEC/a, dependencies = [ChainItem(unqualified_logical_name="SPEC/b", file_path=<path>, qualifier="INTERFACE")].
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite `SPEC/b/_node.md` so `## Interface` reads `modified interface`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: No error is raised. The qualifier "INTERFACE" is normalized to "interface" before matching the subsection heading.
 
 ---
 
-### Qualifier case normalization
+#### ARTIFACT dependency — hashes full file content
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/b` with a `# Public` section containing:
-  ```
-  ## Interface
-  some interface content
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="SPEC/b", file_path=<path to SPEC/b/_node.md>, qualifier="INTERFACE")]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create an artifact file with initial content.
+- Build a Chain with target = ChainItem for some SPEC node, dependencies = [ChainItem(unqualified_logical_name="ARTIFACT/out", file_path=<path to artifact file>)].
 
 Actions:
-- Call `ChainHashCompute(chain)` → `result`.
+1. Call ChainHashCompute → hash_before.
+2. Modify the artifact file content on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- No error.
-- `len(result)` equals 27.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-### ARTIFACT dependency — hashes full file content
+#### ARTIFACT dependency — tag hash change ignored
 
 Setup:
-- Create a temp directory.
-- Create an artifact file (e.g., `output.md`) with content `original artifact content`.
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="ARTIFACT/x", file_path=<path to artifact file>, qualifier=absent)]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create an artifact file whose body contains the line:
+  `// code-from-spec: SPEC/x/y@aAbBcCdDeEfFgGhHiIjJkKlLmMn`
+- Build a Chain with target = ChainItem for some SPEC node, dependencies = [ChainItem(unqualified_logical_name="ARTIFACT/out", file_path=<path to artifact file>)].
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite the artifact file with `modified artifact content`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute → hash_before.
+2. Change only the 27-character hash in the artifact tag line to a different value, e.g. `zZyYxXwWvVuUtTsSrRqQpPoOnNm`. Do not change any other content.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: hash_before equals hash_after — the artifact tag hash is neutralized before hashing.
 
 ---
 
-### ARTIFACT dependency — tag hash change ignored
+#### EXTERNAL dependency — hashes all content
 
 Setup:
-- Create a temp directory.
-- Create an artifact file with body content:
-  ```
-  // code-from-spec: SPEC/x/y@aAbBcCdDeEfFgGhHiIjJkKlLmMn
-  some body content
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="ARTIFACT/x", file_path=<path to artifact file>, qualifier=absent)]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create an external file with initial content.
+- Build a Chain with target = ChainItem for some SPEC node, dependencies = [ChainItem(unqualified_logical_name="EXTERNAL/somefile", file_path=<path to external file>)].
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite the artifact file, changing only the 27-character hash in the tag to `zZyYxXwWvVuUtTsSrRqQpPoOnNm`:
-  ```
-  // code-from-spec: SPEC/x/y@zZyYxXwWvVuUtTsSrRqQpPoOnNm
-  some body content
-  ```
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute → hash_before.
+2. Modify the external file content on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `hash1` equals `hash2`.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-### EXTERNAL dependency — hashes all content
+### Block extraction
+
+#### Leading blank lines removed from subsection
 
 Setup:
-- Create a temp directory.
-- Create an external file with content `original external content`.
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="EXTERNAL/rules.md", file_path=<path to external file>, qualifier=absent)]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create file_A: a `_node.md` with a `## Interface` subsection where two blank lines appear between the heading and the first content line.
+- Create file_B: a `_node.md` with a `## Interface` subsection where no blank lines appear between the heading and the same content line.
+- Build Chain_A with target = ChainItem(file_path=<file_A>).
+- Build Chain_B with target = ChainItem(file_path=<file_B>).
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite the external file with `modified external content`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute with Chain_A → hash_a.
+2. Call ChainHashCompute with Chain_B → hash_b.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: hash_a equals hash_b — leading blank lines are stripped by block extraction.
 
 ---
 
-## Block Extraction
-
-### Leading blank lines removed from subsection
+#### Trailing blank lines removed from subsection
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/b` — version A — with a `# Public` section where `## Interface` has two blank lines before the first content line:
-  ```
-  # Public
-
-  ## Interface
-
-
-  interface content line
-  ```
-- Write `_node.md` for `SPEC/b` — version B — with the same `## Interface` subsection but no blank lines before the content:
-  ```
-  # Public
-
-  ## Interface
-  interface content line
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build `chain_a` using version A for `SPEC/b`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem("SPEC/b", <path to version A _node.md>, qualifier=absent)]
-  - `target` = ChainItem("SPEC/a", <path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create file_A: a `_node.md` with a `## Interface` subsection where trailing blank lines appear after the last content line.
+- Create file_B: a `_node.md` with the same `## Interface` subsection content but no trailing blank lines.
+- Build Chain_A with target = ChainItem(file_path=<file_A>).
+- Build Chain_B with target = ChainItem(file_path=<file_B>).
 
 Actions:
-- Write version A to `SPEC/b/_node.md`.
-- Call `ChainHashCompute(chain_a)` → `hash_a`.
-- Overwrite `SPEC/b/_node.md` with version B.
-- Build `chain_b` using the same ChainItem for `SPEC/b` (same path).
-- Call `ChainHashCompute(chain_b)` → `hash_b`.
+1. Call ChainHashCompute with Chain_A → hash_a.
+2. Call ChainHashCompute with Chain_B → hash_b.
 
-Expected outcome:
-- `hash_a` equals `hash_b`.
+Expected outcome: hash_a equals hash_b — trailing blank lines are stripped by block extraction.
 
 ---
 
-### Trailing blank lines removed from subsection
+#### Interior blank lines preserved
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/b` — version A — with a `# Public` section where `## Interface` has trailing blank lines after the last content line:
-  ```
-  # Public
-
-  ## Interface
-  interface content line
-
-
-  ```
-- Write `_node.md` for `SPEC/b` — version B — with the same content but no trailing blank lines:
-  ```
-  # Public
-
-  ## Interface
-  interface content line
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
+- Create file_A: a `_node.md` with a `## Interface` subsection that has blank lines between content lines.
+- Create file_B: a `_node.md` with the same `## Interface` subsection content but with those interior blank lines removed.
+- Build Chain_A with target = ChainItem(file_path=<file_A>).
+- Build Chain_B with target = ChainItem(file_path=<file_B>).
 
 Actions:
-- Write version A to `SPEC/b/_node.md`. Build `chain` pointing to it. Call `ChainHashCompute(chain)` → `hash_a`.
-- Overwrite `SPEC/b/_node.md` with version B. Call `ChainHashCompute(chain)` → `hash_b`.
+1. Call ChainHashCompute with Chain_A → hash_a.
+2. Call ChainHashCompute with Chain_B → hash_b.
 
-Expected outcome:
-- `hash_a` equals `hash_b`.
+Expected outcome: hash_a differs from hash_b — interior blank lines are preserved byte for byte.
 
 ---
 
-### Interior blank lines preserved
+### Target
+
+#### Target Public and Agent both contribute
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/b` — version A — with a `# Public` section where `## Interface` has a blank line between content lines:
-  ```
-  # Public
-
-  ## Interface
-  first line
-
-  second line
-  ```
-- Write `_node.md` for `SPEC/b` — version B — with the same content but no interior blank line:
-  ```
-  # Public
-
-  ## Interface
-  first line
-  second line
-  ```
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection and `# Agent` section with content.
+- Build a Chain with target = ChainItem for SPEC/a.
 
 Actions:
-- Write version A to `SPEC/b/_node.md`. Build `chain` pointing to it. Call `ChainHashCompute(chain)` → `hash_a`.
-- Overwrite `SPEC/b/_node.md` with version B. Call `ChainHashCompute(chain)` → `hash_b`.
+1. Call ChainHashCompute → hash_before.
+2. Remove the `# Agent` section from SPEC/a's file on disk (keep `# Public`).
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- `hash_a` differs from `hash_b`.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-## Target
-
-### Target Public and Agent both contribute
+#### Target without Agent — Agent skipped
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/a` with:
-  ```
-  # Public
-
-  ## Interface
-  some interface
-
-  # Agent
-  some agent guidance
-  ```
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection and no `# Agent` section.
+- Build a Chain with target = ChainItem for SPEC/a.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite `SPEC/a/_node.md`, removing the `# Agent` section entirely (keep only `# Public`).
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: No error is raised. A 27-character result is returned.
 
 ---
 
-### Target without Agent — Agent skipped
+### Input
+
+#### Input hashes full file content
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/a` with only:
-  ```
-  # Public
-
-  ## Interface
-  some interface
-  ```
-  (no `# Agent` section).
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create an artifact file with initial content.
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem for SPEC/a, input = ChainItem(unqualified_logical_name="ARTIFACT/input", file_path=<path to artifact file>).
 
 Actions:
-- Call `ChainHashCompute(chain)` → `result`.
+1. Call ChainHashCompute → hash_before.
+2. Modify the artifact file content on disk.
+3. Call ChainHashCompute → hash_after.
 
-Expected outcome:
-- No error.
-- `len(result)` equals 27.
+Expected outcome: hash_before differs from hash_after.
 
 ---
 
-## Input
-
-### Input hashes full file content
+#### No input — skipped
 
 Setup:
-- Create a temp directory.
-- Create an artifact file with content `original input content`.
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = ChainItem(unqualified_logical_name="ARTIFACT/input", file_path=<path to artifact file>, qualifier=absent)
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem for SPEC/a, input absent.
 
 Actions:
-- Call `ChainHashCompute(chain)` → `hash1`.
-- Overwrite the artifact file with `modified input content`.
-- Call `ChainHashCompute(chain)` → `hash2`.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- `hash1` differs from `hash2`.
+Expected outcome: No error is raised. A 27-character result is returned.
 
 ---
 
-### No input — skipped
+### Error cases
+
+#### Unreadable spec node file
 
 Setup:
-- Create a temp directory.
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Build a Chain with target = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to a non-existent file>).
 
 Actions:
-- Call `ChainHashCompute(chain)` → `result`.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- No error.
-- `len(result)` equals 27.
+Expected outcome: Error ParseFailure is raised.
 
 ---
 
-## Error Cases
-
-### Unreadable spec node file
+#### Unreadable artifact file
 
 Setup:
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = []
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to a non-existent file>, qualifier=absent)
-  - `input` = absent
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem for SPEC/a, dependencies = [ChainItem(unqualified_logical_name="ARTIFACT/out", file_path=<path to a non-existent file>)].
 
 Actions:
-- Call `ChainHashCompute(chain)`.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- Error `ParseFailure` is raised.
+Expected outcome: Error FileUnreadable is raised.
 
 ---
 
-### Unreadable artifact file
+#### Unreadable external file
 
 Setup:
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="ARTIFACT/x", file_path=<path to a non-existent file>, qualifier=absent)]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
+- Create `_node.md` for SPEC/a with `# Public` containing a `## Interface` subsection.
+- Build a Chain with target = ChainItem for SPEC/a, dependencies = [ChainItem(unqualified_logical_name="EXTERNAL/somefile", file_path=<path to a non-existent file>)].
 
 Actions:
-- Call `ChainHashCompute(chain)`.
+1. Call ChainHashCompute.
 
-Expected outcome:
-- Error `FileUnreadable` is raised.
-
----
-
-### Unreadable external file
-
-Setup:
-- Write `_node.md` for `SPEC/a` with a `# Public` section containing a `## Interface` subsection with some content.
-- Build a `Chain`:
-  - `ancestors` = []
-  - `dependencies` = [ChainItem(unqualified_logical_name="EXTERNAL/rules.md", file_path=<path to a non-existent file>, qualifier=absent)]
-  - `target` = ChainItem(unqualified_logical_name="SPEC/a", file_path=<path to SPEC/a/_node.md>, qualifier=absent)
-  - `input` = absent
-
-Actions:
-- Call `ChainHashCompute(chain)`.
-
-Expected outcome:
-- Error `FileUnreadable` is raised.
+Expected outcome: Error FileUnreadable is raised.

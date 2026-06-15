@@ -1,24 +1,22 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/node_parsing@yFCWkhJuW6ihyyeObtJqOfbfmxI)
+[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/node_parsing@PQ2cmGoJNFZEKE11PUf1vofmpOw)
 
 # Package `parsenode`
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode`
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode`
 
----
-
-## Structs
+## Types
 
 ```go
 package parsenode
 
-// NodeSubsection represents a level-2 heading and its content within a section.
+// NodeSubsection represents a level-2 heading block within a section.
 type NodeSubsection struct {
 	Heading    string
 	RawHeading string
 	Content    []string
 }
 
-// NodeSection represents a level-1 heading and its content within a node file.
+// NodeSection represents a level-1 heading block within a node file.
 type NodeSection struct {
 	Heading     string
 	RawHeading  string
@@ -26,7 +24,7 @@ type NodeSection struct {
 	Subsections []*NodeSubsection
 }
 
-// Node represents a parsed spec node file.
+// Node holds the parsed structure of a node file.
 type Node struct {
 	NameSection *NodeSection
 	Public      *NodeSection
@@ -34,8 +32,6 @@ type Node struct {
 	Private     *NodeSection
 }
 ```
-
----
 
 ## Error Sentinels
 
@@ -47,7 +43,7 @@ import "errors"
 var ErrNotASpecReference                    = errors.New("logical name is not a SPEC/ reference")
 var ErrHasQualifier                         = errors.New("logical name contains a parenthetical qualifier")
 var ErrFileUnreadable                       = errors.New("file cannot be opened or read")
-var ErrUnexpectedContentBeforeFirstHeading  = errors.New("file has non-blank content before the first level-1 heading, or has no level-1 heading")
+var ErrUnexpectedContentBeforeFirstHeading  = errors.New("file body has non-blank content before the first level-1 heading, or has no level-1 heading at all")
 var ErrNodeNameDoesNotMatch                 = errors.New("first heading does not match the logical name after normalization")
 var ErrDuplicatePublicSection               = errors.New("more than one Public section exists")
 var ErrDuplicateAgentSection                = errors.New("more than one Agent section exists")
@@ -56,20 +52,16 @@ var ErrUnrecognizedSection                  = errors.New("unrecognized level-1 h
 var ErrDuplicateSubsection                  = errors.New("two level-2 headings within the same section normalize to the same text")
 ```
 
----
-
 ## Functions
 
 ```go
 package parsenode
 
-// NodeParse reads and parses the spec node file identified by logical_name.
+// NodeParse reads and parses the node file for the given logical name.
 // The logical name must be a SPEC/ reference and must not contain a parenthetical qualifier.
-// Returns the parsed Node or an error describing the failure.
+// Returns a fully populated Node on success, or an error describing the first violation found.
 func NodeParse(logicalName string) (*Node, error)
 ```
-
----
 
 ## Usage Example
 
@@ -77,22 +69,15 @@ func NodeParse(logicalName string) (*Node, error)
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
 )
 
 func main() {
 	node, err := parsenode.NodeParse("SPEC/payments/fees")
 	if err != nil {
-		if errors.Is(err, parsenode.ErrNotASpecReference) {
-			log.Fatal("not a spec reference")
-		}
-		if errors.Is(err, parsenode.ErrFileUnreadable) {
-			log.Fatal("file unreadable")
-		}
 		log.Fatal(err)
 	}
 
@@ -107,6 +92,10 @@ func main() {
 
 	if node.Agent != nil {
 		fmt.Println("Agent section content lines:", len(node.Agent.Content))
+	}
+
+	if node.Private != nil {
+		fmt.Println("Private section content lines:", len(node.Private.Content))
 	}
 }
 ```

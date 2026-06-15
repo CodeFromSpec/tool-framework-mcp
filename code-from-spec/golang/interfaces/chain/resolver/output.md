@@ -1,26 +1,26 @@
-# code-from-spec: ROOT/golang/interfaces/chain/resolver@HX0dS1xcAcsBeMpISQVe4hpRz3c
+[//]: # (code-from-spec: SPEC/golang/interfaces/chain/resolver@jCG2U714TdT-5wF3xsZeLZ1SbWk)
 
 # Package `chainresolver`
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver`
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver`
 
----
-
-## Structs
+## Types
 
 ```go
 package chainresolver
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+import (
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
+)
 
-// ChainItem represents a single node position in a resolved chain.
+// ChainItem represents a single node in the resolved chain.
 type ChainItem struct {
 	UnqualifiedLogicalName string
 	FilePath               pathutils.PathCfs
 	Qualifier              *string
 }
 
-// Chain holds the fully resolved chain for a target node.
+// Chain is the fully resolved chain for a target logical name.
 type Chain struct {
 	Ancestors    []*ChainItem
 	Dependencies []*ChainItem
@@ -29,8 +29,6 @@ type Chain struct {
 }
 ```
 
----
-
 ## Error Sentinels
 
 ```go
@@ -38,11 +36,9 @@ package chainresolver
 
 import "errors"
 
-var ErrUnreadableFrontmatter = errors.New("a node's frontmatter cannot be parsed")
-var ErrUnresolvableArtifact  = errors.New("an ARTIFACT/ reference cannot be resolved")
+var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
+var ErrUnresolvableArtifact  = errors.New("unresolvable artifact")
 ```
-
----
 
 ## Functions
 
@@ -51,12 +47,10 @@ package chainresolver
 
 // ChainResolve returns the chain for the given target logical name.
 // The chain contains ancestors (root down to but not including the target),
-// dependencies (all depends_on entries sorted alphabetically), the target
-// itself, and optionally the target's input node.
+// dependencies (sorted alphabetically by logical name), the target itself,
+// and optionally the target's input.
 func ChainResolve(targetLogicalName string) (*Chain, error)
 ```
-
----
 
 ## Usage Example
 
@@ -67,11 +61,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
 )
 
 func main() {
-	chain, err := chainresolver.ChainResolve("SPEC/payments/invoices")
+	chain, err := chainresolver.ChainResolve("SPEC/payments/fees")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,20 +73,22 @@ func main() {
 	fmt.Println("Target:", chain.Target.UnqualifiedLogicalName)
 	fmt.Println("Target file:", chain.Target.FilePath.Value)
 
-	for _, ancestor := range chain.Ancestors {
-		fmt.Println("Ancestor:", ancestor.UnqualifiedLogicalName)
+	fmt.Println("Ancestors:")
+	for _, a := range chain.Ancestors {
+		fmt.Println(" ", a.UnqualifiedLogicalName, a.FilePath.Value)
 	}
 
-	for _, dep := range chain.Dependencies {
+	fmt.Println("Dependencies:")
+	for _, d := range chain.Dependencies {
 		qualifier := ""
-		if dep.Qualifier != nil {
-			qualifier = " (" + *dep.Qualifier + ")"
+		if d.Qualifier != nil {
+			qualifier = "(" + *d.Qualifier + ")"
 		}
-		fmt.Printf("Dependency: %s%s -> %s\n", dep.UnqualifiedLogicalName, qualifier, dep.FilePath.Value)
+		fmt.Println(" ", d.UnqualifiedLogicalName+qualifier, d.FilePath.Value)
 	}
 
 	if chain.Input != nil {
-		fmt.Println("Input:", chain.Input.UnqualifiedLogicalName)
+		fmt.Println("Input:", chain.Input.UnqualifiedLogicalName, chain.Input.FilePath.Value)
 	}
 }
 ```

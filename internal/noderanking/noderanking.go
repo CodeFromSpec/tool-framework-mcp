@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/utils/node_ranking@sD_ro_vqo4S3xmqepL86DF0X2aQ
+// code-from-spec: SPEC/golang/implementation/utils/node_ranking@WMufa4SxI52My2ZW_4q-Lqc-TAU
 package noderanking
 
 import (
@@ -7,11 +7,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 )
 
-var ErrUnresolvableReference = errors.New("a depends_on or input target cannot be resolved")
+var ErrUnresolvableReference = errors.New("unresolvable reference")
 
 type NodeRankInput struct {
 	LogicalName string
@@ -23,143 +23,127 @@ type NodeRankEntry struct {
 	Rank        int
 }
 
-type rankingEntry struct {
-	logicalName  string
-	dependencies []string
-	rank         int
+type rankEntry struct {
+	logicalName string
+	deps        []string
+	rank        int
 }
 
-func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles []string, err error) {
-	entryMap := make(map[string]*rankingEntry)
+func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, error) {
+	entryMap := make(map[string]*rankEntry)
 
 	for _, input := range entries {
-		entryMap[input.LogicalName] = &rankingEntry{
-			logicalName:  input.LogicalName,
-			dependencies: []string{},
-			rank:         0,
+		entryMap[input.LogicalName] = &rankEntry{
+			logicalName: input.LogicalName,
+			deps:        []string{},
+			rank:        0,
 		}
 
 		if input.Frontmatter != nil && input.Frontmatter.Output != "" {
 			bare := strings.TrimPrefix(input.LogicalName, "SPEC/")
 			artifactName := "ARTIFACT/" + bare
-			entryMap[artifactName] = &rankingEntry{
-				logicalName:  artifactName,
-				dependencies: []string{},
-				rank:         0,
+			entryMap[artifactName] = &rankEntry{
+				logicalName: artifactName,
+				deps:        []string{input.LogicalName},
+				rank:        0,
 			}
 		}
 	}
 
-	frontmatterByLogical := make(map[string]*frontmatter.Frontmatter)
 	for _, input := range entries {
-		frontmatterByLogical[input.LogicalName] = input.Frontmatter
-	}
+		entry := entryMap[input.LogicalName]
 
-	for logicalName, entry := range entryMap {
-		if !logicalnames.LogicalNameIsSpec(logicalName) {
+		if input.LogicalName == "SPEC" {
 			continue
 		}
 
-		if logicalName != "SPEC" {
-			parent, parentErr := logicalnames.LogicalNameGetParent(logicalName)
-			if parentErr != nil {
-				return nil, nil, fmt.Errorf("getting parent of %s: %w", logicalName, parentErr)
-			}
-			entry.dependencies = append(entry.dependencies, parent)
+		parent, err := logicalnames.LogicalNameGetParent(input.LogicalName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%w: %w", ErrUnresolvableReference, err)
 		}
+		entry.deps = append(entry.deps, parent)
 
-		fm := frontmatterByLogical[logicalName]
-		if fm == nil {
+		if input.Frontmatter == nil {
 			continue
 		}
 
-		for _, dep := range fm.DependsOn {
-			if strings.HasPrefix(dep, "ARTIFACT/") {
-				entry.dependencies = append(entry.dependencies, dep)
-			} else if logicalnames.LogicalNameIsSpec(dep) {
-				bare := logicalnames.LogicalNameStripQualifier(dep)
-				entry.dependencies = append(entry.dependencies, bare)
-			} else if strings.HasPrefix(dep, "EXTERNAL/") {
+		for _, ref := range input.Frontmatter.DependsOn {
+			if logicalnames.LogicalNameIsSpec(ref) {
+				bareName := logicalnames.LogicalNameStripQualifier(ref)
+				if _, ok := entryMap[bareName]; !ok {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
+				}
+				entry.deps = append(entry.deps, bareName)
+			} else if strings.HasPrefix(ref, "ARTIFACT/") {
+				if _, ok := entryMap[ref]; !ok {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
+				}
+				entry.deps = append(entry.deps, ref)
+			} else if strings.HasPrefix(ref, "EXTERNAL/") {
 				continue
+			} else {
+				return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
 			}
 		}
 
-		if fm.Input != "" {
-			if strings.HasPrefix(fm.Input, "ARTIFACT/") {
-				entry.dependencies = append(entry.dependencies, fm.Input)
-			} else if strings.HasPrefix(fm.Input, "EXTERNAL/") {
-				continue
-			}
-		}
-	}
-
-	for logicalName, entry := range entryMap {
-		if !strings.HasPrefix(logicalName, "ARTIFACT/") {
-			continue
-		}
-		bare := strings.TrimPrefix(logicalName, "ARTIFACT/")
-		generatorName := "SPEC/" + bare
-		entry.dependencies = append(entry.dependencies, generatorName)
-	}
-
-	for _, entry := range entryMap {
-		for _, dep := range entry.dependencies {
-			if _, exists := entryMap[dep]; !exists {
-				return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, dep)
+		if input.Frontmatter.Input != "" {
+			inp := input.Frontmatter.Input
+			if strings.HasPrefix(inp, "ARTIFACT/") {
+				if _, ok := entryMap[inp]; !ok {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, inp)
+				}
+				entry.deps = append(entry.deps, inp)
+			} else if strings.HasPrefix(inp, "EXTERNAL/") {
+				// skip
 			}
 		}
 	}
 
 	n := len(entryMap)
-	cycleParticipants := []string{}
-	converged := false
+	cycles := []string{}
+	changed := false
 
-	for pass := 0; pass < n; pass++ {
-		changed := false
+	for i := 1; i <= n; i++ {
+		changed = false
 
-		for logicalName, entry := range entryMap {
-			if logicalName == "SPEC" {
+		for _, entry := range entryMap {
+			if entry.logicalName == "SPEC" {
 				continue
 			}
 
-			maxDepRank := 0
-			for _, dep := range entry.dependencies {
-				depEntry := entryMap[dep]
-				if depEntry.rank > maxDepRank {
-					maxDepRank = depEntry.rank
-				}
-			}
-
-			newRank := 1 + maxDepRank
-			if newRank > entry.rank {
-				entry.rank = newRank
-				changed = true
-			}
-		}
-
-		if !changed {
-			converged = true
-			break
-		}
-
-		if pass == n-1 && !converged {
-			for _, entry := range entryMap {
-				maxDepRank := 0
-				for _, dep := range entry.dependencies {
-					depEntry := entryMap[dep]
+			maxDepRank := -1
+			for _, dep := range entry.deps {
+				if depEntry, ok := entryMap[dep]; ok {
 					if depEntry.rank > maxDepRank {
 						maxDepRank = depEntry.rank
 					}
 				}
-				newRank := 1 + maxDepRank
-				if newRank > entry.rank {
-					cycleParticipants = append(cycleParticipants, entry.logicalName)
+			}
+
+			newRank := 1 + maxDepRank
+			if maxDepRank == -1 {
+				newRank = 1
+			}
+
+			if newRank > entry.rank {
+				entry.rank = newRank
+				changed = true
+				if i == n {
+					cycles = append(cycles, entry.logicalName)
 				}
 			}
 		}
+
+		if !changed {
+			break
+		}
 	}
 
-	ranked = make([]*NodeRankEntry, 0, len(entryMap))
+	if !changed {
+		cycles = []string{}
+	}
+
+	ranked := make([]*NodeRankEntry, 0, len(entryMap))
 	for _, entry := range entryMap {
 		ranked = append(ranked, &NodeRankEntry{
 			LogicalName: entry.logicalName,
@@ -174,5 +158,5 @@ func NodeRankCompute(entries []*NodeRankInput) (ranked []*NodeRankEntry, cycles 
 		return ranked[i].LogicalName < ranked[j].LogicalName
 	})
 
-	return ranked, cycleParticipants, nil
+	return ranked, cycles, nil
 }

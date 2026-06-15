@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/parsing/artifact_tag@_Vp8KQedKa6loC8WBZr2ZT7VhWY
+// code-from-spec: SPEC/golang/implementation/parsing/artifact_tag@Y-xdNKBnrreaEyU6wQm7Xpcp0p0
 package artifacttag
 
 import (
@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 var ErrFileUnreadable = errors.New("file cannot be opened or read")
@@ -23,28 +23,31 @@ type ArtifactTag struct {
 }
 
 func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
-	reader, err := filereader.FileOpen(filePath)
+	if filePath == nil {
+		return nil, fmt.Errorf("%w: nil file path", ErrFileUnreadable)
+	}
+
+	reader, err := filereader.FileOpen(pathutils.PathCfs{Value: filePath.Value})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	foundLine := ""
-	done := false
 
-	for !done {
+	for {
 		line, err := filereader.FileReadLine(reader)
 		if errors.Is(err, filereader.ErrEndOfFile) {
-			done = true
 			break
 		}
 		if err != nil {
 			filereader.FileClose(reader)
-			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
+			return nil, fmt.Errorf("%w", err)
 		}
 
-		if strings.Contains(line, tagPrefix) {
-			foundLine = line
-			done = true
+		idx := strings.Index(line, tagPrefix)
+		if idx != -1 {
+			foundLine = line[idx+len(tagPrefix):]
+			break
 		}
 	}
 
@@ -54,22 +57,21 @@ func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
 		return nil, ErrNoTagFound
 	}
 
-	idx := strings.Index(foundLine, tagPrefix)
-	rawTag := strings.TrimLeft(foundLine[idx+len(tagPrefix):], " \t")
+	remainder := strings.TrimLeft(foundLine, " \t")
 
-	atIdx := strings.Index(rawTag, "@")
+	atIdx := strings.Index(remainder, "@")
 	if atIdx == -1 {
-		return nil, fmt.Errorf("%w: missing @ separator", ErrMalformedTag)
+		return nil, fmt.Errorf("%w: missing '@' separator", ErrMalformedTag)
 	}
 
-	logicalName := rawTag[:atIdx]
+	logicalName := remainder[:atIdx]
 	if logicalName == "" {
 		return nil, fmt.Errorf("%w: empty logical name", ErrMalformedTag)
 	}
 
-	hashCandidate := rawTag[atIdx+1:]
+	hashCandidate := remainder[atIdx+1:]
 	if len(hashCandidate) < hashLength {
-		return nil, fmt.Errorf("%w: hash too short", ErrMalformedTag)
+		return nil, fmt.Errorf("%w: hash too short (got %d, need %d)", ErrMalformedTag, len(hashCandidate), hashLength)
 	}
 
 	hash := hashCandidate[:hashLength]

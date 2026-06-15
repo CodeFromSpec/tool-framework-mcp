@@ -1,4 +1,4 @@
-<!-- code-from-spec: ROOT/functional/tests/utils/logical_names@HNyT4_9XAbVSZrY-hCEHolzXiJs -->
+<!-- code-from-spec: SPEC/functional/tests/utils/logical_names@KgxQvYiyLLOdJQ2h5yfcMRjZgZI -->
 
 ## Test suite: logical_names
 
@@ -6,652 +6,361 @@
 
 ### LogicalNameToPath
 
-#### Test: SPEC alone
+#### SPEC alone
 
-Actions:
-1. Call LogicalNameToPath with `"SPEC"`.
+Action: call LogicalNameToPath with `"SPEC"`.
+Expect: returns PathCfs `code-from-spec/_node.md`.
 
-Expected outcome:
-- Returns PathCfs `code-from-spec/_node.md`.
+#### SPEC with path
 
----
+Action: call LogicalNameToPath with `"SPEC/payments/processor"`.
+Expect: returns PathCfs `code-from-spec/payments/processor/_node.md`.
 
-#### Test: SPEC with path
+#### Strips qualifier before resolving
 
-Actions:
-1. Call LogicalNameToPath with `"SPEC/payments/processor"`.
+Action: call LogicalNameToPath with `"SPEC/x/y(interface)"`.
+Expect: returns PathCfs `code-from-spec/x/y/_node.md`.
 
-Expected outcome:
-- Returns PathCfs `code-from-spec/payments/processor/_node.md`.
+#### Rejects ROOT reference
 
----
+Action: call LogicalNameToPath with `"ROOT/x"`.
+Expect: raises error UnsupportedReference.
 
-#### Test: Strips qualifier before resolving
+#### Rejects ARTIFACT reference
 
-Actions:
-1. Call LogicalNameToPath with `"SPEC/x/y(interface)"`.
+Action: call LogicalNameToPath with `"ARTIFACT/x"`.
+Expect: raises error UnsupportedReference.
 
-Expected outcome:
-- Returns PathCfs `code-from-spec/x/y/_node.md`.
+#### Rejects EXTERNAL reference
 
----
+Action: call LogicalNameToPath with `"EXTERNAL/proto/api.proto"`.
+Expect: raises error UnsupportedReference.
 
-#### Test: Rejects ROOT reference
+#### Rejects unrecognized prefix
 
-Actions:
-1. Call LogicalNameToPath with `"ROOT/x"`.
+Action: call LogicalNameToPath with `"UNKNOWN/something"`.
+Expect: raises error UnsupportedReference.
 
-Expected outcome:
-- Raises error UnsupportedReference.
+#### Rejects empty string
 
----
-
-#### Test: Rejects ARTIFACT reference
-
-Actions:
-1. Call LogicalNameToPath with `"ARTIFACT/x"`.
-
-Expected outcome:
-- Raises error UnsupportedReference.
-
----
-
-#### Test: Rejects EXTERNAL reference
-
-Actions:
-1. Call LogicalNameToPath with `"EXTERNAL/proto/api.proto"`.
-
-Expected outcome:
-- Raises error UnsupportedReference.
-
----
-
-#### Test: Rejects unrecognized prefix
-
-Actions:
-1. Call LogicalNameToPath with `"UNKNOWN/something"`.
-
-Expected outcome:
-- Raises error UnsupportedReference.
-
----
-
-#### Test: Rejects empty string
-
-Actions:
-1. Call LogicalNameToPath with `""`.
-
-Expected outcome:
-- Raises error UnsupportedReference.
+Action: call LogicalNameToPath with `""`.
+Expect: raises error UnsupportedReference.
 
 ---
 
 ### LogicalNameFromPath
 
-#### Test: Root node
+#### Root node
 
-Actions:
-1. Call LogicalNameFromPath with PathCfs `code-from-spec/_node.md`.
+Action: call LogicalNameFromPath with PathCfs `code-from-spec/_node.md`.
+Expect: returns `"SPEC"`.
 
-Expected outcome:
-- Returns `"SPEC"`.
+#### Nested node
 
----
+Action: call LogicalNameFromPath with PathCfs `code-from-spec/x/y/_node.md`.
+Expect: returns `"SPEC/x/y"`.
 
-#### Test: Nested node
+#### Rejects non-node path
 
-Actions:
-1. Call LogicalNameFromPath with PathCfs `code-from-spec/x/y/_node.md`.
+Action: call LogicalNameFromPath with PathCfs `internal/config/config.go`.
+Expect: raises error InvalidPath.
 
-Expected outcome:
-- Returns `"SPEC/x/y"`.
+#### Rejects path without _node.md
 
----
-
-#### Test: Rejects non-node path
-
-Actions:
-1. Call LogicalNameFromPath with PathCfs `internal/config/config.go`.
-
-Expected outcome:
-- Raises error InvalidPath.
-
----
-
-#### Test: Rejects path without _node.md
-
-Actions:
-1. Call LogicalNameFromPath with PathCfs `code-from-spec/x/y/output.md`.
-
-Expected outcome:
-- Raises error InvalidPath.
+Action: call LogicalNameFromPath with PathCfs `code-from-spec/x/y/output.md`.
+Expect: raises error InvalidPath.
 
 ---
 
 ### LogicalNameGetParent
 
-#### Test: SPEC/x parent is SPEC
+#### SPEC/x parent is SPEC
 
-Actions:
-1. Call LogicalNameGetParent with `"SPEC/domain"`.
+Action: call LogicalNameGetParent with `"SPEC/domain"`.
+Expect: returns `"SPEC"`.
 
-Expected outcome:
-- Returns `"SPEC"`.
+#### SPEC/x/y parent is SPEC/x
 
----
+Action: call LogicalNameGetParent with `"SPEC/domain/config"`.
+Expect: returns `"SPEC/domain"`.
 
-#### Test: SPEC/x/y parent is SPEC/x
+#### Strips qualifier before computing parent
 
-Actions:
-1. Call LogicalNameGetParent with `"SPEC/domain/config"`.
+Action: call LogicalNameGetParent with `"SPEC/domain/config(interface)"`.
+Expect: returns `"SPEC/domain"`.
 
-Expected outcome:
-- Returns `"SPEC/domain"`.
+#### SPEC has no parent
 
----
+Action: call LogicalNameGetParent with `"SPEC"`.
+Expect: raises error NoParent.
 
-#### Test: Strips qualifier before computing parent
+#### Rejects ROOT reference
 
-Actions:
-1. Call LogicalNameGetParent with `"SPEC/domain/config(interface)"`.
+Action: call LogicalNameGetParent with `"ROOT/domain"`.
+Expect: raises error NotASpecReference.
 
-Expected outcome:
-- Returns `"SPEC/domain"`.
+#### Rejects ARTIFACT reference
 
----
+Action: call LogicalNameGetParent with `"ARTIFACT/x"`.
+Expect: raises error NotASpecReference.
 
-#### Test: SPEC has no parent
+#### Rejects EXTERNAL reference
 
-Actions:
-1. Call LogicalNameGetParent with `"SPEC"`.
-
-Expected outcome:
-- Raises error NoParent.
-
----
-
-#### Test: Rejects ROOT reference
-
-Actions:
-1. Call LogicalNameGetParent with `"ROOT/domain"`.
-
-Expected outcome:
-- Raises error NotASpecReference.
-
----
-
-#### Test: Rejects ARTIFACT reference
-
-Actions:
-1. Call LogicalNameGetParent with `"ARTIFACT/x"`.
-
-Expected outcome:
-- Raises error NotASpecReference.
-
----
-
-#### Test: Rejects EXTERNAL reference
-
-Actions:
-1. Call LogicalNameGetParent with `"EXTERNAL/x"`.
-
-Expected outcome:
-- Raises error NotASpecReference.
+Action: call LogicalNameGetParent with `"EXTERNAL/x"`.
+Expect: raises error NotASpecReference.
 
 ---
 
 ### LogicalNameGetQualifier
 
-#### Test: Extracts qualifier from SPEC reference
+#### Extracts qualifier from SPEC reference
 
-Actions:
-1. Call LogicalNameGetQualifier with `"SPEC/x/y(interface)"`.
+Action: call LogicalNameGetQualifier with `"SPEC/x/y(interface)"`.
+Expect: returns `"interface"`.
 
-Expected outcome:
-- Returns `"interface"`.
+#### ARTIFACT without qualifier returns absent
 
----
+Action: call LogicalNameGetQualifier with `"ARTIFACT/x/y"`.
+Expect: returns absent.
 
-#### Test: ARTIFACT without qualifier returns absent
+#### EXTERNAL without qualifier returns absent
 
-Actions:
-1. Call LogicalNameGetQualifier with `"ARTIFACT/x/y"`.
+Action: call LogicalNameGetQualifier with `"EXTERNAL/proto/api.proto"`.
+Expect: returns absent.
 
-Expected outcome:
-- Returns absent.
+#### Returns absent when no qualifier
 
----
+Action: call LogicalNameGetQualifier with `"SPEC/x/y"`.
+Expect: returns absent.
 
-#### Test: EXTERNAL without qualifier returns absent
+#### Returns absent for SPEC alone
 
-Actions:
-1. Call LogicalNameGetQualifier with `"EXTERNAL/proto/api.proto"`.
-
-Expected outcome:
-- Returns absent.
-
----
-
-#### Test: Returns absent when no qualifier
-
-Actions:
-1. Call LogicalNameGetQualifier with `"SPEC/x/y"`.
-
-Expected outcome:
-- Returns absent.
-
----
-
-#### Test: Returns absent for SPEC alone
-
-Actions:
-1. Call LogicalNameGetQualifier with `"SPEC"`.
-
-Expected outcome:
-- Returns absent.
+Action: call LogicalNameGetQualifier with `"SPEC"`.
+Expect: returns absent.
 
 ---
 
 ### LogicalNameStripQualifier
 
-#### Test: Strips qualifier from SPEC reference
+#### Strips qualifier from SPEC reference
 
-Actions:
-1. Call LogicalNameStripQualifier with `"SPEC/x/y(interface)"`.
+Action: call LogicalNameStripQualifier with `"SPEC/x/y(interface)"`.
+Expect: returns `"SPEC/x/y"`.
 
-Expected outcome:
-- Returns `"SPEC/x/y"`.
+#### ARTIFACT without qualifier returns unchanged
 
----
+Action: call LogicalNameStripQualifier with `"ARTIFACT/x/y"`.
+Expect: returns `"ARTIFACT/x/y"`.
 
-#### Test: ARTIFACT without qualifier returns unchanged
+#### EXTERNAL returns unchanged
 
-Actions:
-1. Call LogicalNameStripQualifier with `"ARTIFACT/x/y"`.
+Action: call LogicalNameStripQualifier with `"EXTERNAL/proto/api.proto"`.
+Expect: returns `"EXTERNAL/proto/api.proto"`.
 
-Expected outcome:
-- Returns `"ARTIFACT/x/y"`.
+#### No qualifier returns unchanged
 
----
+Action: call LogicalNameStripQualifier with `"SPEC/x/y"`.
+Expect: returns `"SPEC/x/y"`.
 
-#### Test: EXTERNAL returns unchanged
+#### SPEC alone returns unchanged
 
-Actions:
-1. Call LogicalNameStripQualifier with `"EXTERNAL/proto/api.proto"`.
+Action: call LogicalNameStripQualifier with `"SPEC"`.
+Expect: returns `"SPEC"`.
 
-Expected outcome:
-- Returns `"EXTERNAL/proto/api.proto"`.
+#### Empty string returns unchanged
 
----
-
-#### Test: No qualifier returns unchanged
-
-Actions:
-1. Call LogicalNameStripQualifier with `"SPEC/x/y"`.
-
-Expected outcome:
-- Returns `"SPEC/x/y"`.
-
----
-
-#### Test: SPEC alone returns unchanged
-
-Actions:
-1. Call LogicalNameStripQualifier with `"SPEC"`.
-
-Expected outcome:
-- Returns `"SPEC"`.
-
----
-
-#### Test: Empty string returns unchanged
-
-Actions:
-1. Call LogicalNameStripQualifier with `""`.
-
-Expected outcome:
-- Returns `""`.
+Action: call LogicalNameStripQualifier with `""`.
+Expect: returns `""`.
 
 ---
 
 ### LogicalNameHasParent
 
-#### Test: SPEC alone
+#### SPEC alone
 
-Actions:
-1. Call LogicalNameHasParent with `"SPEC"`.
+Action: call LogicalNameHasParent with `"SPEC"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns false.
+#### SPEC with path
 
----
+Action: call LogicalNameHasParent with `"SPEC/domain/config"`.
+Expect: returns true.
 
-#### Test: SPEC with path
+#### ARTIFACT reference
 
-Actions:
-1. Call LogicalNameHasParent with `"SPEC/domain/config"`.
+Action: call LogicalNameHasParent with `"ARTIFACT/x"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns true.
+#### EXTERNAL reference
 
----
+Action: call LogicalNameHasParent with `"EXTERNAL/x"`.
+Expect: returns false.
 
-#### Test: ARTIFACT reference
+#### Empty string
 
-Actions:
-1. Call LogicalNameHasParent with `"ARTIFACT/x"`.
-
-Expected outcome:
-- Returns false.
-
----
-
-#### Test: EXTERNAL reference
-
-Actions:
-1. Call LogicalNameHasParent with `"EXTERNAL/x"`.
-
-Expected outcome:
-- Returns false.
-
----
-
-#### Test: Empty string
-
-Actions:
-1. Call LogicalNameHasParent with `""`.
-
-Expected outcome:
-- Returns false.
+Action: call LogicalNameHasParent with `""`.
+Expect: returns false.
 
 ---
 
 ### LogicalNameHasQualifier
 
-#### Test: Without qualifier
+#### Without qualifier
 
-Actions:
-1. Call LogicalNameHasQualifier with `"SPEC/x"`.
+Action: call LogicalNameHasQualifier with `"SPEC/x"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns false.
+#### With qualifier
 
----
+Action: call LogicalNameHasQualifier with `"SPEC/x(y)"`.
+Expect: returns true.
 
-#### Test: With qualifier
+#### ARTIFACT without qualifier
 
-Actions:
-1. Call LogicalNameHasQualifier with `"SPEC/x(y)"`.
+Action: call LogicalNameHasQualifier with `"ARTIFACT/x"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns true.
+#### EXTERNAL without qualifier
 
----
+Action: call LogicalNameHasQualifier with `"EXTERNAL/x"`.
+Expect: returns false.
 
-#### Test: ARTIFACT without qualifier
+#### SPEC alone
 
-Actions:
-1. Call LogicalNameHasQualifier with `"ARTIFACT/x"`.
+Action: call LogicalNameHasQualifier with `"SPEC"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns false.
+#### Empty string
 
----
-
-#### Test: EXTERNAL without qualifier
-
-Actions:
-1. Call LogicalNameHasQualifier with `"EXTERNAL/x"`.
-
-Expected outcome:
-- Returns false.
-
----
-
-#### Test: SPEC alone
-
-Actions:
-1. Call LogicalNameHasQualifier with `"SPEC"`.
-
-Expected outcome:
-- Returns false.
-
----
-
-#### Test: Empty string
-
-Actions:
-1. Call LogicalNameHasQualifier with `""`.
-
-Expected outcome:
-- Returns false.
+Action: call LogicalNameHasQualifier with `""`.
+Expect: returns false.
 
 ---
 
 ### LogicalNameIsArtifact
 
-#### Test: ARTIFACT reference
+#### ARTIFACT reference
 
-Actions:
-1. Call LogicalNameIsArtifact with `"ARTIFACT/x"`.
+Action: call LogicalNameIsArtifact with `"ARTIFACT/x"`.
+Expect: returns true.
 
-Expected outcome:
-- Returns true.
+#### SPEC reference
 
----
+Action: call LogicalNameIsArtifact with `"SPEC/x(y)"`.
+Expect: returns false.
 
-#### Test: SPEC reference
+#### EXTERNAL reference
 
-Actions:
-1. Call LogicalNameIsArtifact with `"SPEC/x(y)"`.
+Action: call LogicalNameIsArtifact with `"EXTERNAL/x"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns false.
+#### Empty string
 
----
-
-#### Test: EXTERNAL reference
-
-Actions:
-1. Call LogicalNameIsArtifact with `"EXTERNAL/x"`.
-
-Expected outcome:
-- Returns false.
-
----
-
-#### Test: Empty string
-
-Actions:
-1. Call LogicalNameIsArtifact with `""`.
-
-Expected outcome:
-- Returns false.
+Action: call LogicalNameIsArtifact with `""`.
+Expect: returns false.
 
 ---
 
 ### LogicalNameIsSpec
 
-#### Test: SPEC alone
+#### SPEC alone
 
-Actions:
-1. Call LogicalNameIsSpec with `"SPEC"`.
+Action: call LogicalNameIsSpec with `"SPEC"`.
+Expect: returns true.
 
-Expected outcome:
-- Returns true.
+#### SPEC with path
 
----
+Action: call LogicalNameIsSpec with `"SPEC/x/y"`.
+Expect: returns true.
 
-#### Test: SPEC with path
+#### ROOT reference is not SPEC
 
-Actions:
-1. Call LogicalNameIsSpec with `"SPEC/x/y"`.
+Action: call LogicalNameIsSpec with `"ROOT/x"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns true.
+#### ARTIFACT reference
 
----
+Action: call LogicalNameIsSpec with `"ARTIFACT/x"`.
+Expect: returns false.
 
-#### Test: ROOT reference — not SPEC
+#### EXTERNAL reference
 
-Actions:
-1. Call LogicalNameIsSpec with `"ROOT/x"`.
+Action: call LogicalNameIsSpec with `"EXTERNAL/x"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns false.
+#### Empty string
 
----
-
-#### Test: ARTIFACT reference
-
-Actions:
-1. Call LogicalNameIsSpec with `"ARTIFACT/x"`.
-
-Expected outcome:
-- Returns false.
-
----
-
-#### Test: EXTERNAL reference
-
-Actions:
-1. Call LogicalNameIsSpec with `"EXTERNAL/x"`.
-
-Expected outcome:
-- Returns false.
-
----
-
-#### Test: Empty string
-
-Actions:
-1. Call LogicalNameIsSpec with `""`.
-
-Expected outcome:
-- Returns false.
+Action: call LogicalNameIsSpec with `""`.
+Expect: returns false.
 
 ---
 
 ### LogicalNameIsExternal
 
-#### Test: EXTERNAL reference
+#### EXTERNAL reference
 
-Actions:
-1. Call LogicalNameIsExternal with `"EXTERNAL/proto/api.proto"`.
+Action: call LogicalNameIsExternal with `"EXTERNAL/proto/api.proto"`.
+Expect: returns true.
 
-Expected outcome:
-- Returns true.
+#### SPEC reference
 
----
+Action: call LogicalNameIsExternal with `"SPEC/x"`.
+Expect: returns false.
 
-#### Test: SPEC reference
+#### ARTIFACT reference
 
-Actions:
-1. Call LogicalNameIsExternal with `"SPEC/x"`.
+Action: call LogicalNameIsExternal with `"ARTIFACT/x"`.
+Expect: returns false.
 
-Expected outcome:
-- Returns false.
+#### Empty string
 
----
-
-#### Test: ARTIFACT reference
-
-Actions:
-1. Call LogicalNameIsExternal with `"ARTIFACT/x"`.
-
-Expected outcome:
-- Returns false.
-
----
-
-#### Test: Empty string
-
-Actions:
-1. Call LogicalNameIsExternal with `""`.
-
-Expected outcome:
-- Returns false.
+Action: call LogicalNameIsExternal with `""`.
+Expect: returns false.
 
 ---
 
 ### LogicalNameGetArtifactGenerator
 
-#### Test: Simple artifact
+#### Simple artifact
 
-Actions:
-1. Call LogicalNameGetArtifactGenerator with `"ARTIFACT/x"`.
+Action: call LogicalNameGetArtifactGenerator with `"ARTIFACT/x"`.
+Expect: returns `"SPEC/x"`.
 
-Expected outcome:
-- Returns `"SPEC/x"`.
+#### Nested artifact
 
----
+Action: call LogicalNameGetArtifactGenerator with `"ARTIFACT/x/y/z"`.
+Expect: returns `"SPEC/x/y/z"`.
 
-#### Test: Nested artifact
+#### Rejects SPEC reference
 
-Actions:
-1. Call LogicalNameGetArtifactGenerator with `"ARTIFACT/x/y/z"`.
+Action: call LogicalNameGetArtifactGenerator with `"SPEC/x(y)"`.
+Expect: raises error NotAnArtifactReference.
 
-Expected outcome:
-- Returns `"SPEC/x/y/z"`.
+#### Rejects EXTERNAL reference
 
----
-
-#### Test: Rejects SPEC reference
-
-Actions:
-1. Call LogicalNameGetArtifactGenerator with `"SPEC/x(y)"`.
-
-Expected outcome:
-- Raises error NotAnArtifactReference.
-
----
-
-#### Test: Rejects EXTERNAL reference
-
-Actions:
-1. Call LogicalNameGetArtifactGenerator with `"EXTERNAL/x"`.
-
-Expected outcome:
-- Raises error NotAnArtifactReference.
+Action: call LogicalNameGetArtifactGenerator with `"EXTERNAL/x"`.
+Expect: raises error NotAnArtifactReference.
 
 ---
 
 ### LogicalNameExternalToPath
 
-#### Test: Simple path
+#### Simple path
 
-Actions:
-1. Call LogicalNameExternalToPath with `"EXTERNAL/proto/v1/api.proto"`.
+Action: call LogicalNameExternalToPath with `"EXTERNAL/proto/v1/api.proto"`.
+Expect: returns PathCfs `proto/v1/api.proto`.
 
-Expected outcome:
-- Returns PathCfs `proto/v1/api.proto`.
+#### Root-level file
 
----
+Action: call LogicalNameExternalToPath with `"EXTERNAL/docker-compose.yaml"`.
+Expect: returns PathCfs `docker-compose.yaml`.
 
-#### Test: Root-level file
+#### Rejects SPEC reference
 
-Actions:
-1. Call LogicalNameExternalToPath with `"EXTERNAL/docker-compose.yaml"`.
+Action: call LogicalNameExternalToPath with `"SPEC/x"`.
+Expect: raises error NotAnExternalReference.
 
-Expected outcome:
-- Returns PathCfs `docker-compose.yaml`.
+#### Rejects ARTIFACT reference
 
----
-
-#### Test: Rejects SPEC reference
-
-Actions:
-1. Call LogicalNameExternalToPath with `"SPEC/x"`.
-
-Expected outcome:
-- Raises error NotAnExternalReference.
-
----
-
-#### Test: Rejects ARTIFACT reference
-
-Actions:
-1. Call LogicalNameExternalToPath with `"ARTIFACT/x"`.
-
-Expected outcome:
-- Raises error NotAnExternalReference.
+Action: call LogicalNameExternalToPath with `"ARTIFACT/x"`.
+Expect: raises error NotAnExternalReference.

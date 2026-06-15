@@ -1,25 +1,22 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/frontmatter@bTUnWpbTD4K-9AaKo6TUA49WdAg)
+[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/frontmatter@gYbcS2Kej33rL2I4XjIxeL_VCqQ)
 
 # Package `frontmatter`
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter`
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter`
 
----
-
-## Structs
+## Types
 
 ```go
 package frontmatter
 
-// Frontmatter holds the parsed front matter fields from a spec node file.
+// Frontmatter holds the parsed fields extracted from a spec node file's
+// YAML front matter block.
 type Frontmatter struct {
 	DependsOn []string
 	Input     string
 	Output    string
 }
 ```
-
----
 
 ## Error Sentinels
 
@@ -28,26 +25,23 @@ package frontmatter
 
 import "errors"
 
-var ErrFileUnreadable = errors.New("file cannot be opened or read")
-var ErrMalformedYAML  = errors.New("content between --- delimiters is not valid YAML")
+var ErrFileUnreadable = errors.New("file unreadable")
+var ErrMalformedYAML  = errors.New("malformed YAML")
 ```
-
----
 
 ## Functions
 
 ```go
 package frontmatter
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 
-// FrontmatterParse opens the file at filePath, extracts the YAML block
-// delimited by --- markers, and returns the parsed Frontmatter.
-// All fields default to their zero values when absent from the YAML.
+// FrontmatterParse opens the file at filePath, extracts the YAML front matter
+// delimited by "---" markers, and returns the parsed Frontmatter.
+// All fields default to their zero value (empty list, empty string) when
+// absent from the YAML block.
 func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error)
 ```
-
----
 
 ## Usage Example
 
@@ -58,12 +52,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 func main() {
-	path := &pathutils.PathCfs{Value: "SPEC/payments/fees/_node.md"}
+	path := &pathutils.PathCfs{Value: "code-from-spec/functional/logic/_node.md"}
 
 	fm, err := frontmatter.FrontmatterParse(path)
 	if err != nil {

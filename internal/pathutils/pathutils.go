@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/path_utils@woTTwkNmuzmAO69YqPlstZvLuSg
+// code-from-spec: SPEC/golang/implementation/os/path_utils@M7JuIjFYIkfnIbYkr8xhAQPbrws
 package pathutils
 
 import (
@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+var ErrCannotDetermineRoot = errors.New("cannot determine project root")
+var ErrPathEmpty = errors.New("path is empty")
+var ErrPathAbsolute = errors.New("path must not be absolute")
+var ErrPathContainsBackslash = errors.New("path must not contain backslashes")
+var ErrDirectoryTraversal = errors.New("path contains directory traversal components")
+var ErrResolvesOutsideRoot = errors.New("path resolves outside the project root")
+
 type PathCfs struct {
 	Value string
 }
@@ -17,17 +24,10 @@ type PathOs struct {
 	Value string
 }
 
-var ErrCannotDetermineRoot = errors.New("cannot determine project root")
-var ErrPathEmpty = errors.New("path is empty")
-var ErrPathAbsolute = errors.New("path must be relative (no leading slash or drive letter)")
-var ErrPathContainsBackslash = errors.New("path contains backslash characters")
-var ErrDirectoryTraversal = errors.New("path contains directory traversal components")
-var ErrResolvesOutsideRoot = errors.New("path resolves outside the project root")
-
 func PathGetProjectRoot() (*PathOs, error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrCannotDetermineRoot, err)
+		return nil, fmt.Errorf("%w: %w", ErrCannotDetermineRoot, err)
 	}
 	return &PathOs{Value: wd}, nil
 }
@@ -37,10 +37,7 @@ func PathValidateCfs(value string) error {
 		return ErrPathEmpty
 	}
 
-	if strings.HasPrefix(value, "/") {
-		return ErrPathAbsolute
-	}
-	if len(value) >= 2 && value[1] == ':' {
+	if strings.HasPrefix(value, "/") || strings.Contains(value, ":") {
 		return ErrPathAbsolute
 	}
 
@@ -48,9 +45,8 @@ func PathValidateCfs(value string) error {
 		return ErrPathContainsBackslash
 	}
 
-	normalized := filepath.Clean(value)
-
-	for _, component := range strings.Split(normalized, string(filepath.Separator)) {
+	cleaned := filepath.ToSlash(filepath.Clean(value))
+	for _, component := range strings.Split(cleaned, "/") {
 		if component == ".." {
 			return ErrDirectoryTraversal
 		}
@@ -73,22 +69,22 @@ func PathCfsToOs(cfsPath *PathCfs) (*PathOs, error) {
 		return nil, err
 	}
 
-	nativePath := filepath.FromSlash(cfsPath.Value)
-	absPath := filepath.Join(root.Value, nativePath)
+	osRelative := filepath.FromSlash(cfsPath.Value)
+	absolutePath := filepath.Join(root.Value, osRelative)
 
-	_, statErr := os.Stat(absPath)
+	_, statErr := os.Stat(absolutePath)
 	if statErr == nil {
-		resolved, err := filepath.EvalSymlinks(absPath)
+		resolved, err := filepath.EvalSymlinks(absolutePath)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrResolvesOutsideRoot, err)
+			return nil, fmt.Errorf("failed to resolve symlinks: %w", err)
 		}
 		if !strings.HasPrefix(resolved, root.Value) {
 			return nil, ErrResolvesOutsideRoot
 		}
-		return &PathOs{Value: resolved}, nil
+		absolutePath = resolved
 	}
 
-	return &PathOs{Value: absPath}, nil
+	return &PathOs{Value: absolutePath}, nil
 }
 
 func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
@@ -101,14 +97,14 @@ func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
 		return nil, err
 	}
 
-	resolvedPath := osPath.Value
+	resolvedValue := osPath.Value
 	_, statErr := os.Stat(osPath.Value)
 	if statErr == nil {
 		resolved, err := filepath.EvalSymlinks(osPath.Value)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrResolvesOutsideRoot, err)
+			return nil, fmt.Errorf("failed to resolve symlinks: %w", err)
 		}
-		resolvedPath = resolved
+		resolvedValue = resolved
 	}
 
 	rootWithSep := root.Value
@@ -116,14 +112,17 @@ func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
 		rootWithSep = rootWithSep + string(filepath.Separator)
 	}
 
-	if resolvedPath != root.Value && !strings.HasPrefix(resolvedPath, rootWithSep) {
+	if resolvedValue != root.Value && !strings.HasPrefix(resolvedValue, rootWithSep) {
 		return nil, ErrResolvesOutsideRoot
 	}
 
-	relative := strings.TrimPrefix(resolvedPath, rootWithSep)
-	relative = strings.TrimPrefix(relative, string(filepath.Separator))
+	relativePath := strings.TrimPrefix(resolvedValue, rootWithSep)
+	if relativePath == resolvedValue {
+		relativePath = strings.TrimPrefix(resolvedValue, root.Value)
+		relativePath = strings.TrimPrefix(relativePath, string(filepath.Separator))
+	}
 
-	cfsValue := filepath.ToSlash(relative)
+	cfsValue := filepath.ToSlash(relativePath)
 
 	return &PathCfs{Value: cfsValue}, nil
 }

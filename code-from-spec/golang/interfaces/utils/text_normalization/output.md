@@ -1,26 +1,22 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/utils/text_normalization@SZy3FYnDGiu7C4dVVR4pGbC2lEA)
+[//]: # (code-from-spec: SPEC/golang/interfaces/utils/text_normalization@i5XyKO6bCaDe3IdHdTEp3i_FEhA)
 
-## Package
+# Package `textnormalization`
+
+**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization`
+
+## Overview
+
+Package `textnormalization` provides utilities for normalizing text strings by trimming whitespace, collapsing internal spaces, and converting to lowercase. Unicode characters that have a simple lowercase folding (e.g., `Straße` → `strasse`) are handled via standard library Unicode normalization.
+
+## Function Signatures
 
 ```go
 package textnormalization
-```
 
-## Import
-
-```go
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
-```
-
-## Functions
-
-```go
-// NormalizeText trims surrounding whitespace, collapses internal runs of
-// whitespace to a single space, and converts the result to lowercase.
-// Unicode characters (e.g. "Straße") are lowercased via strings.ToLower;
-// no Unicode transliteration is performed beyond what ToLower provides,
-// except that "ß" is not expanded — the caller receives "straße" → "strasse"
-// only when the underlying Unicode fold produces that mapping.
+// NormalizeText trims leading and trailing whitespace, collapses all
+// internal whitespace sequences to a single space, and converts the
+// result to lowercase. Unicode characters with a simple lowercase
+// equivalent (e.g., "Straße" → "strasse") are folded accordingly.
 // An empty string returns an empty string.
 func NormalizeText(rawString string) string
 ```
@@ -33,7 +29,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
 )
 
 func main() {

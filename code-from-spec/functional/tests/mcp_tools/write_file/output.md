@@ -1,160 +1,141 @@
-<!-- code-from-spec: ROOT/functional/tests/mcp_tools/write_file@bnQNzhf2ddB-FPg6Rb-l1_aYdLU -->
+<!-- code-from-spec: SPEC/functional/tests/mcp_tools/write_file@HlJQoVCh3gElvP9oUlBSFZQ7DZE -->
 
 ## Test suite: MCPWriteFile
 
----
 
 ### TC-01: Writes file successfully
 
 Setup:
-- Create spec tree with node "SPEC/a"
-- _node.md frontmatter: output = "output/file.go"
+- Create `SPEC/a/_node.md` with frontmatter: output = "output/file.go"
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a", path = "output/file.go", content = "package main")
 
-Expected outcome:
+Expected:
 - Return value equals "wrote output/file.go"
 - File exists on disk at "output/file.go"
 - File content equals "package main"
 
----
 
 ### TC-02: Creates intermediate directories
 
 Setup:
-- Create spec tree with node "SPEC/a"
-- _node.md frontmatter: output = "deep/nested/dir/file.go"
+- Create `SPEC/a/_node.md` with frontmatter: output = "deep/nested/dir/file.go"
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a", path = "deep/nested/dir/file.go", content = "package main")
 
-Expected outcome:
-- Return value equals "wrote deep/nested/dir/file.go"
-- Intermediate directories were created automatically
+Expected:
+- Return value indicates success
+- All intermediate directories are created automatically
 - File exists on disk at "deep/nested/dir/file.go"
 
----
 
 ### TC-03: Overwrites existing file
 
 Setup:
-- Create spec tree with node "SPEC/a"
-- _node.md frontmatter: output = "output/file.go"
+- Create `SPEC/a/_node.md` with frontmatter: output = "output/file.go"
 - Create "output/file.go" on disk with content "old"
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a", path = "output/file.go", content = "new")
 
-Expected outcome:
-- Return value equals "wrote output/file.go"
+Expected:
+- Return value indicates success
 - File content on disk equals "new"
 
----
 
-### TC-04: Error — invalid logical name, ARTIFACT reference
+### TC-04: Invalid logical name — ARTIFACT reference
 
 Setup:
-- No spec tree required
+- No files required
 
 Actions:
 - Call MCPWriteFile(logical_name = "ARTIFACT/x", path = "out.go", content = "")
 
-Expected outcome:
-- Error UnsupportedReference raised (propagated from LogicalNames via LogicalNameToPath)
+Expected:
+- Error UnsupportedReference (propagated from LogicalNames via LogicalNameToPath)
 
----
 
-### TC-05: Error — invalid logical name, with qualifier
+### TC-05: Invalid logical name — with qualifier
 
 Setup:
-- No spec tree required
+- No files required
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a(interface)", path = "out.go", content = "")
 
-Expected outcome:
-- Error QualifierNotAllowed raised
+Expected:
+- Error QualifierNotAllowed
 
----
 
-### TC-06: Error — nonexistent node file
+### TC-06: Nonexistent node file
 
 Setup:
-- No _node.md file exists for "SPEC/missing"
+- No `_node.md` file exists for the node "SPEC/missing"
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/missing", path = "out.go", content = "")
 
-Expected outcome:
-- Error UnreadableFrontmatter raised
+Expected:
+- Error UnreadableFrontmatter
 
----
 
-### TC-07: Error — no output declared
+### TC-07: No output declared
 
 Setup:
-- Create spec tree with node "SPEC/a"
-- _node.md frontmatter: empty (no output field)
+- Create `SPEC/a/_node.md` with empty frontmatter (no output field)
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a", path = "out.go", content = "")
 
-Expected outcome:
-- Error NoOutput raised
+Expected:
+- Error NoOutput
 
----
 
-### TC-08: Error — path not in output
+### TC-08: Path not in output
 
 Setup:
-- Create spec tree with node "SPEC/a"
-- _node.md frontmatter: output = "allowed/file.go"
+- Create `SPEC/a/_node.md` with frontmatter: output = "allowed/file.go"
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a", path = "other/file.go", content = "")
 
-Expected outcome:
-- Error PathNotInOutput raised
+Expected:
+- Error PathNotInOutput
 
----
 
-### TC-09: Error — empty path
+### TC-09: Path validation — empty path
 
 Setup:
-- Create spec tree with node "SPEC/a"
-- _node.md frontmatter: output = "out.go"
+- Create `SPEC/a/_node.md` with frontmatter: output = "out.go"
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a", path = "", content = "")
 
-Expected outcome:
-- Error PathEmpty raised (propagated from PathUtils via PathValidateCfs)
+Expected:
+- Error PathEmpty (propagated from PathUtils via PathValidateCfs)
 
----
 
-### TC-10: Error — directory traversal
+### TC-10: Path validation — traversal
 
 Setup:
-- Create spec tree with node "SPEC/a"
-- _node.md frontmatter: output = "out.go"
+- Create `SPEC/a/_node.md` with frontmatter: output = "out.go"
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a", path = "../../etc/passwd", content = "")
 
-Expected outcome:
-- Error DirectoryTraversal raised (propagated from PathUtils via PathValidateCfs)
+Expected:
+- Error DirectoryTraversal (propagated from PathUtils via PathValidateCfs)
 
----
 
-### TC-11: Error — backslash in path
+### TC-11: Path validation — backslash
 
 Setup:
-- Create spec tree with node "SPEC/a"
-- _node.md frontmatter: output = "out.go"
+- Create `SPEC/a/_node.md` with frontmatter: output = "out.go"
 
 Actions:
 - Call MCPWriteFile(logical_name = "SPEC/a", path = "output\\file.go", content = "")
 
-Expected outcome:
-- Error PathContainsBackslash raised (propagated from PathUtils via PathValidateCfs)
+Expected:
+- Error PathContainsBackslash (propagated from PathUtils via PathValidateCfs)

@@ -1,25 +1,21 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/parsing/artifact_tag@J35rln9Cz1AXRMO56qqD7A5ZvJY)
+[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/artifact_tag@AadiSpuWQgO-90Y3EuSYsujR5aA)
 
 # Package `artifacttag`
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/artifacttag`
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/artifacttag`
 
----
-
-## Structs
+## Struct Definitions
 
 ```go
 package artifacttag
 
-// ArtifactTag holds the parsed components of a code-from-spec tag
-// found inside a generated source file.
+// ArtifactTag holds the parsed contents of a code-from-spec tag found in a
+// generated file.
 type ArtifactTag struct {
 	LogicalName string
 	Hash        string
 }
 ```
-
----
 
 ## Error Sentinels
 
@@ -33,31 +29,24 @@ var ErrNoTagFound     = errors.New("file has no code-from-spec: tag")
 var ErrMalformedTag   = errors.New("tag exists but cannot be parsed")
 ```
 
----
-
-## Functions
+## Function Signatures
 
 ```go
 package artifacttag
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 
-// ArtifactTagExtract opens the file at filePath, scans each line for a
-// code-from-spec: tag, and returns the parsed ArtifactTag.
+// ArtifactTagExtract opens the file at filePath and scans its lines for a
+// code-from-spec: <logical-name>@<hash> tag. The tag may appear inside any
+// comment syntax; the function does not parse comment delimiters.
 //
-// The tag format is:
-//
-//	code-from-spec: <logical-name>@<hash>
-//
-// The tag may appear inside any comment syntax. Only the first occurrence
-// is used. Returns ErrFileUnreadable if the file cannot be opened or read,
-// ErrNoTagFound if no tag is present, and ErrMalformedTag if the tag
-// exists but lacks the @ separator, has an empty logical name, or has a
-// hash of the wrong length.
+// Returns ErrFileUnreadable if the file cannot be opened or read.
+// Returns ErrNoTagFound if no line contains the "code-from-spec:" substring.
+// Returns ErrMalformedTag if the tag is present but has no "@", an empty
+// logical name, or a hash of unexpected length.
+// Errors from the underlying file reader are propagated as-is.
 func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error)
 ```
-
----
 
 ## Usage Example
 
@@ -69,27 +58,27 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/artifacttag"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/artifacttag"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 func main() {
-	path := &pathutils.PathCfs{Value: "ARTIFACT/functional/fees/output.go"}
+	cfsPath := &pathutils.PathCfs{Value: "src/payments/fees.go"}
 
-	tag, err := artifacttag.ArtifactTagExtract(path)
+	tag, err := artifacttag.ArtifactTagExtract(cfsPath)
 	if err != nil {
 		if errors.Is(err, artifacttag.ErrNoTagFound) {
 			fmt.Println("file has not been generated from a spec")
 			return
 		}
 		if errors.Is(err, artifacttag.ErrMalformedTag) {
-			fmt.Println("file contains a malformed tag")
+			fmt.Println("tag is present but malformed")
 			return
 		}
 		log.Fatal(err)
 	}
 
-	fmt.Println("Logical name:", tag.LogicalName)
-	fmt.Println("Hash:        ", tag.Hash)
+	fmt.Printf("logical name : %s\n", tag.LogicalName)
+	fmt.Printf("hash         : %s\n", tag.Hash)
 }
 ```

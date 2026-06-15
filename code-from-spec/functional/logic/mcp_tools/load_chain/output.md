@@ -1,6 +1,7 @@
-<!-- code-from-spec: ROOT/functional/logic/mcp_tools/load_chain@3R8cIcCjMy-UfBV_1ASXkrdVnB0 -->
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/load_chain@LU7dz94z6YhD9jF1qhhV264Pr-8 -->
 
 namespace: mcploadchain
+
 
 function MCPLoadChain(logical_name: string) -> string
   errors:
@@ -12,159 +13,122 @@ function MCPLoadChain(logical_name: string) -> string
     - (NodeParsing.*): propagated from NodeParse.
     - (FileReader.*): propagated from FileOpen.
 
-  1. Call LogicalNameToPath(logical_name).
+  1. Call `LogicalNameToPath(logical_name)` to get the target node's file path.
      If it fails, propagate the error.
 
-  2. Call FrontmatterParse on the resolved path.
-     If frontmatter.output is empty, raise error "NoOutput".
-     Call PathValidateCfs(frontmatter.output).
+  2. Call `FrontmatterParse(target_file_path)` to read the target node's frontmatter.
+     If `frontmatter.output` is empty, raise error "NoOutput".
+     Call `PathValidateCfs(frontmatter.output)`.
      If it fails, raise error "InvalidOutputPath".
 
-  3. Call ChainResolve(logical_name) to get chain.
+  3. Call `ChainResolve(logical_name)` to get the resolved `Chain`.
      If it fails, propagate the error.
 
-  4. Call ChainHashCompute(chain) to get chain_hash.
+  4. Call `ChainHashCompute(chain)` with the resolved chain.
      If it fails, propagate the error.
+     Store the result as `chain_hash`.
 
-  5. Build the context stream as a single text block by
-     processing chain entries in assembly order.
-     Maintain a list of rendered blocks; each block is a
-     string ending with exactly one LF.
-     When appending blocks, separate them with exactly one
-     blank line.
+  5. Build the context stream:
 
-     Block extraction rules (applied to each spec node section
-     or subsection):
-       - Take the raw_heading line with trailing whitespace removed.
-       - Take the content lines.
-       - Remove all leading blank lines from the content.
-       - Remove all trailing blank lines from the content.
-       - Combine: heading line + LF + content lines (each
-         followed by LF) + exactly one trailing LF.
-       When content is empty, the block is just the heading
-       line + LF.
-       When concatenating multiple subsection blocks within
-       one entry, separate them with exactly one blank line.
+     Set `context_parts` to an empty list of strings.
 
-     5a. Ancestors (chain.ancestors, in order)
+     For each `ancestor` in `chain.ancestors` (in order):
+       Call `NodeParse(ancestor.unqualified_logical_name)`.
+       If `node.public` is absent or `node.public.subsections` is empty, skip.
+       Otherwise:
+         Build `block` by concatenating all subsections in document order:
+           For each subsection in `node.public.subsections`:
+             Add the subsection `raw_heading` (trailing whitespace removed).
+             Add each line in `subsection.content` with leading blank lines
+               after the heading removed and trailing blank lines removed.
+             Ensure the block ends with exactly one LF.
+           Separate consecutive subsection blocks with exactly one blank line.
+         Append `block` to `context_parts`.
 
-       For each ancestor in chain.ancestors:
-         Call NodeParse(ancestor.unqualified_logical_name).
-         If node.public is absent, skip this ancestor.
-         If node.public has no subsections, skip this ancestor.
+     For each `dep` in `chain.dependencies` (in order):
+       If `LogicalNameIsArtifact(dep.unqualified_logical_name)` is true:
+         Call `FileOpen(dep.file_path)`.
+         Read all lines with `FileReadLine` until `EndOfFile`.
+         Skip the first line that contains "code-from-spec:" (the artifact tag line).
+         Include all other lines.
+         Call `FileClose`.
+         Append the resulting text to `context_parts`.
+       Else if `LogicalNameIsExternal(dep.unqualified_logical_name)` is true:
+         Call `FileOpen(dep.file_path)`.
+         Read all lines with `FileReadLine` until `EndOfFile`.
+         Call `FileClose`.
+         Append the full file content to `context_parts`.
+       Else if `LogicalNameIsSpec(dep.unqualified_logical_name)` is true and `dep.qualifier` is absent:
+         Call `NodeParse(dep.unqualified_logical_name)`.
+         If `node.public` is absent or `node.public.subsections` is empty, skip.
          Otherwise:
-           Collect each subsection in node.public.subsections
-           (document order), applying block extraction to each.
-           Concatenate the subsection blocks, separated by
-           exactly one blank line.
-           Append the resulting block to the context stream.
+           Build `block` by concatenating all subsections in document order
+             (same boundary normalization rules as for ancestors).
+           Append `block` to `context_parts`.
+       Else if `LogicalNameIsSpec(dep.unqualified_logical_name)` is true and `dep.qualifier` is present:
+         Call `NodeParse(dep.unqualified_logical_name)`.
+         Compute `normalized_qualifier` = `NormalizeText(dep.qualifier)`.
+         Find the subsection in `node.public.subsections` whose `heading` equals `normalized_qualifier`.
+         If found:
+           Build `block` from the subsection `raw_heading` (trailing whitespace removed)
+             and its content (leading blank lines removed, trailing blank lines removed,
+             ends with exactly one LF).
+           Append `block` to `context_parts`.
 
-     5b. Dependencies (chain.dependencies, in order)
-
-       For each dep in chain.dependencies:
-
-         If LogicalNameIsArtifact(dep.unqualified_logical_name):
-           Call FileOpen(dep.file_path).
-           Read all lines with FileReadLine until EndOfFile.
-           Collect lines, removing the line that contains
-           "code-from-spec: <name>@<hash>" (the artifact tag line).
-           Call FileClose.
-           Join collected lines (each followed by LF), ensure
-           content ends with exactly one LF.
-           Append to context stream.
-
-         Else if LogicalNameIsExternal(dep.unqualified_logical_name):
-           Call FileOpen(dep.file_path).
-           Read all lines with FileReadLine until EndOfFile.
-           Call FileClose.
-           Join collected lines (each followed by LF), ensure
-           content ends with exactly one LF.
-           Append to context stream.
-
-         Else if LogicalNameIsSpec(dep.unqualified_logical_name)
-         and dep.qualifier is absent:
-           Call NodeParse(dep.unqualified_logical_name).
-           If node.public is absent or has no subsections, skip.
-           Otherwise:
-             Collect each subsection in node.public.subsections
-             (document order), applying block extraction to each.
-             Concatenate, separated by exactly one blank line.
-             Append to context stream.
-
-         Else if LogicalNameIsSpec(dep.unqualified_logical_name)
-         and dep.qualifier is present:
-           Call NodeParse(dep.unqualified_logical_name).
-           Compute target_heading = NormalizeText(dep.qualifier).
-           Find the subsection in node.public.subsections whose
-           heading equals target_heading.
-           If not found, skip.
-           Otherwise:
-             Apply block extraction to the subsection.
-             Append to context stream.
-
-     5c. Target Public and Target Agent (chain.target)
-
+     For the target node `chain.target`:
        Build a reduced frontmatter block:
-         Lines: "---" + LF + "output: <frontmatter.output>" + LF + "---"
-         followed by LF.
-         This is one block; append to context stream.
+         Line 1: "---"
+         Line 2: "output: <frontmatter.output>"
+         Line 3: "---"
+       Append this block to `context_parts`.
 
-       Call NodeParse(chain.target.unqualified_logical_name).
+       Call `NodeParse(chain.target.unqualified_logical_name)`.
+       If `node.public` is present and `node.public.subsections` is non-empty:
+         Build `block` by concatenating all subsections in document order
+           (same boundary normalization rules as above).
+         Append `block` to `context_parts`.
 
-       If node.public is present and has subsections:
-         Collect each subsection in node.public.subsections
-         (document order), applying block extraction to each.
-         Concatenate, separated by exactly one blank line.
-         Append to context stream.
-
-       If node.agent is present:
-         Build the agent block:
-           Start with node.agent.raw_heading with trailing
-           whitespace removed, followed by LF.
-           Take node.agent.content lines (leading blank lines
-           removed, trailing blank lines removed), each
-           followed by LF.
-           For each subsection in node.agent.subsections
-           (document order):
-             Separate from previous block with exactly one
-             blank line.
-             Apply block extraction to the subsection and append.
+       If `node.agent` is present:
+         Build `agent_block`:
+           Add `node.agent.raw_heading` (trailing whitespace removed).
+           Add each line in `node.agent.content`
+             (leading blank lines removed, trailing blank lines removed).
+           For each subsection in `node.agent.subsections`:
+             Separate from previous block with exactly one blank line.
+             Add the subsection `raw_heading` (trailing whitespace removed).
+             Add each line in `subsection.content`
+               (leading blank lines removed, trailing blank lines removed).
            Ensure the block ends with exactly one LF.
-         Append to context stream.
+         Append `agent_block` to `context_parts`.
 
-  6. Assemble the final output string:
+  6. Assemble the output string:
 
-     Start with:
-       "chain_hash: <chain_hash>" + LF
+     Start with line: "chain_hash: <chain_hash>"
+     Append line: "--- context ---"
+     Append the context stream: join all entries in `context_parts`
+       separated by exactly one blank line.
 
-     Append:
-       "--- context ---" + LF
+     If `chain.input` is present:
+       Append line: "--- input ---"
+       If `LogicalNameIsArtifact(chain.input.unqualified_logical_name)` is true:
+         Call `FileOpen(chain.input.file_path)`.
+         Read all lines with `FileReadLine` until `EndOfFile`.
+         Skip the first line that contains "code-from-spec:".
+         Include all other lines.
+         Call `FileClose`.
+         Append the resulting text.
+       Else (EXTERNAL/ or other):
+         Call `FileOpen(chain.input.file_path)`.
+         Read all lines with `FileReadLine` until `EndOfFile`.
+         Call `FileClose`.
+         Append the full file content.
 
-     Append the context stream (already ends with one LF).
+     If the file at `frontmatter.output` exists and is readable:
+       Append line: "--- existing artifact ---"
+       Call `FileOpen` with the PathCfs of `frontmatter.output`.
+       Read all lines with `FileReadLine` until `EndOfFile`.
+       Call `FileClose`.
+       Append the full file content.
+       If the file does not exist or cannot be read, omit this section silently.
 
-     If chain.input is present:
-       Append "--- input ---" + LF.
-       If LogicalNameIsArtifact(chain.input.unqualified_logical_name):
-         Call FileOpen(chain.input.file_path).
-         Read all lines until EndOfFile.
-         Remove the artifact tag line.
-         Call FileClose.
-         Append lines (each followed by LF).
-       Else (EXTERNAL/ input):
-         Call FileOpen(chain.input.file_path).
-         Read all lines until EndOfFile.
-         Call FileClose.
-         Append lines (each followed by LF).
-
-     If the output file at frontmatter.output exists and
-     is readable:
-       Call FileOpen(PathCfs of frontmatter.output).
-       If FileOpen succeeds:
-         Read all lines until EndOfFile.
-         Call FileClose.
-         Append "--- existing artifact ---" + LF.
-         Append lines (each followed by LF).
-       If FileOpen fails (file absent or unreadable):
-         Silently omit the section; do not raise an error.
-
-  7. Return the assembled string.
+  7. Return the assembled output string.

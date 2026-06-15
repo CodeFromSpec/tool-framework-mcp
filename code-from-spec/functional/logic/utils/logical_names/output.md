@@ -1,148 +1,226 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/logical_names@yYxk_riqK8gCTamx67MIcrSATC4 -->
+<!-- code-from-spec: SPEC/functional/logic/utils/logical_names@eTWWAItkM73cT3-I8ekwhtieCR0 -->
 
-function LogicalNameToPath(logical_name: string) -> pathutils.PathCfs
-  errors:
-    - UnsupportedReference: the logical name is not a SPEC/ reference
+# logical_names
 
-  1. Strip any qualifier from logical_name using LogicalNameStripQualifier.
-
-  2. If the stripped name is exactly "SPEC":
-       return PathCfs with value "code-from-spec/_node.md".
-
-  3. If the stripped name starts with "SPEC/":
-       Extract the part after "SPEC/" as <relative>.
-       Return PathCfs with value "code-from-spec/<relative>/_node.md".
-
-  4. Otherwise, raise error "UnsupportedReference".
+All functions are pure — no I/O.
 
 
-function LogicalNameFromPath(cfs_path: pathutils.PathCfs) -> string
-  errors:
-    - InvalidPath: the path is not a _node.md file under code-from-spec/
+## Records
 
-  1. Let <path_value> be cfs_path.value.
-
-  2. If <path_value> does not end with "_node.md":
-       raise error "InvalidPath".
-
-  3. If <path_value> is exactly "code-from-spec/_node.md":
-       return "SPEC".
-
-  4. If <path_value> starts with "code-from-spec/" and ends with "/_node.md":
-       Extract the part between "code-from-spec/" and "/_node.md" as <relative>.
-       Return "SPEC/<relative>".
-
-  5. Otherwise, raise error "InvalidPath".
+No records are declared in this module. Types referenced from
+pathutils are qualified as `pathutils.PathCfs`.
 
 
-function LogicalNameGetParent(logical_name: string) -> string
-  errors:
-    - NoParent: the logical name is SPEC itself
-    - NotASpecReference: the logical name is not a SPEC/ reference
+## Functions
 
-  1. Strip any qualifier from logical_name using LogicalNameStripQualifier.
-     Let <stripped> be the result.
+---
 
-  2. If <stripped> is not exactly "SPEC" and does not start with "SPEC/":
-       raise error "NotASpecReference".
+### LogicalNameToPath(logical_name: string) -> pathutils.PathCfs
 
-  3. If <stripped> is exactly "SPEC":
-       raise error "NoParent".
+Converts a `SPEC/` logical name to the `PathCfs` of the
+corresponding `_node.md` file.
 
-  4. Extract the part after "SPEC/" as <relative>.
+1. Call `LogicalNameStripQualifier(logical_name)` to remove any
+   parenthetical qualifier. Store the result as `stripped`.
 
-  5. Find the last "/" in <relative>.
-     If no "/" is found:
-       return "SPEC".
-     Else:
-       Let <parent_relative> be everything in <relative> before the last "/".
-       Return "SPEC/<parent_relative>".
+2. If `stripped` is not exactly `"SPEC"` and does not start with
+   `"SPEC/"`, raise error `UnsupportedReference`.
 
+3. If `stripped` is exactly `"SPEC"`, return a `pathutils.PathCfs`
+   with value `"code-from-spec/_node.md"`.
 
-function LogicalNameGetQualifier(logical_name: string) -> optional string
+4. Remove the leading `"SPEC/"` prefix from `stripped`.
+   Store the remainder as `relative_path`.
 
-  1. Find the last "(" in logical_name.
-     If not found, return absent.
+5. Return a `pathutils.PathCfs` with value
+   `"code-from-spec/" + relative_path + "/_node.md"`.
 
-  2. Find the ")" that follows the last "(".
-     If not found, return absent.
+Errors:
+- `UnsupportedReference`: the logical name (after stripping qualifier)
+  is not exactly `"SPEC"` and does not start with `"SPEC/"`.
 
-  3. Extract the text between "(" and ")" as <qualifier>.
+---
 
-  4. If ")" is not the last character of logical_name, return absent.
+### LogicalNameFromPath(cfs_path: pathutils.PathCfs) -> string
 
-  5. Return <qualifier>.
+Derives the `SPEC/` logical name from a `_node.md` file path.
 
+1. Let `path_value` be the `value` field of `cfs_path`.
 
-function LogicalNameStripQualifier(logical_name: string) -> string
+2. If `path_value` does not end with `"/_node.md"` and is not
+   exactly `"code-from-spec/_node.md"`, raise error `InvalidPath`.
 
-  1. Find the last "(" in logical_name.
-     If not found, return logical_name unchanged.
+3. If `path_value` does not start with `"code-from-spec/"`,
+   raise error `InvalidPath`.
 
-  2. Check that logical_name ends with ")".
-     If it does not, return logical_name unchanged.
+4. If `path_value` is exactly `"code-from-spec/_node.md"`,
+   return `"SPEC"`.
 
-  3. Return everything before the last "(".
+5. Remove the leading `"code-from-spec/"` prefix from `path_value`.
+   Remove the trailing `"/_node.md"` suffix.
+   Store the remainder as `relative_path`.
 
+6. Return `"SPEC/" + relative_path`.
 
-function LogicalNameHasParent(logical_name: string) -> boolean
+Errors:
+- `InvalidPath`: the path is not a `_node.md` file under
+  `code-from-spec/`.
 
-  1. Strip any qualifier using LogicalNameStripQualifier.
-     Let <stripped> be the result.
+---
 
-  2. If <stripped> starts with "SPEC/" and the part after "SPEC/" is non-empty:
-       return true.
+### LogicalNameGetParent(logical_name: string) -> string
 
-  3. Return false.
+Returns the logical name of the parent node.
 
+1. Call `LogicalNameStripQualifier(logical_name)` to remove any
+   parenthetical qualifier. Store the result as `stripped`.
 
-function LogicalNameHasQualifier(logical_name: string) -> boolean
+2. If `stripped` is not exactly `"SPEC"` and does not start with
+   `"SPEC/"`, raise error `NotASpecReference`.
 
-  1. Call LogicalNameGetQualifier(logical_name).
-     If the result is absent, return false.
-     Otherwise return true.
+3. If `stripped` is exactly `"SPEC"`, raise error `NoParent`.
 
+4. Remove the leading `"SPEC/"` prefix from `stripped`.
+   Store the remainder as `relative_path`.
 
-function LogicalNameIsArtifact(logical_name: string) -> boolean
+5. Find the last `"/"` character in `relative_path`.
 
-  1. If logical_name starts with "ARTIFACT/":
-       return true.
-  2. Return false.
+6. If no `"/"` is found, the parent is the root — return `"SPEC"`.
 
+7. Take the substring of `relative_path` up to (but not including)
+   the last `"/"`. Store as `parent_relative`.
 
-function LogicalNameIsSpec(logical_name: string) -> boolean
+8. Return `"SPEC/" + parent_relative`.
 
-  1. If logical_name is exactly "SPEC" or starts with "SPEC/":
-       return true.
-  2. Return false.
+Errors:
+- `NoParent`: the logical name (after stripping qualifier) is
+  exactly `"SPEC"`.
+- `NotASpecReference`: the logical name is not exactly `"SPEC"`
+  and does not start with `"SPEC/"`.
 
+---
 
-function LogicalNameIsExternal(logical_name: string) -> boolean
+### LogicalNameGetQualifier(logical_name: string) -> optional string
 
-  1. If logical_name starts with "EXTERNAL/":
-       return true.
-  2. Return false.
+Extracts the parenthetical qualifier from a logical name.
 
+1. Find the first `"("` character in `logical_name`.
 
-function LogicalNameGetArtifactGenerator(logical_name: string) -> string
-  errors:
-    - NotAnArtifactReference: the logical name does not start with ARTIFACT/
+2. If no `"("` is found, return absent.
 
-  1. If logical_name does not start with "ARTIFACT/":
-       raise error "NotAnArtifactReference".
+3. Find the first `")"` character in `logical_name` after the `"("`.
 
-  2. Extract the part after "ARTIFACT/" as <relative>.
+4. If no `")"` is found, return absent.
 
-  3. Return "SPEC/<relative>".
+5. Extract the substring between `"("` and `")"` (exclusive).
+   Store as `qualifier`.
 
+6. Return `qualifier`.
 
-function LogicalNameExternalToPath(logical_name: string) -> pathutils.PathCfs
-  errors:
-    - NotAnExternalReference: the logical name does not start with EXTERNAL/
+---
 
-  1. If logical_name does not start with "EXTERNAL/":
-       raise error "NotAnExternalReference".
+### LogicalNameStripQualifier(logical_name: string) -> string
 
-  2. Extract the part after "EXTERNAL/" as <relative>.
+Returns the logical name without the parenthetical qualifier.
 
-  3. Return PathCfs with value <relative>.
+1. Find the first `"("` character in `logical_name`.
+
+2. If no `"("` is found, return `logical_name` unchanged.
+
+3. Return the substring of `logical_name` up to (but not including)
+   the `"("`.
+
+---
+
+### LogicalNameHasParent(logical_name: string) -> boolean
+
+Returns true if the logical name is a `SPEC/` reference other than
+`SPEC` itself.
+
+1. Call `LogicalNameStripQualifier(logical_name)`. Store as `stripped`.
+
+2. If `stripped` starts with `"SPEC/"`, return true.
+
+3. Return false.
+
+---
+
+### LogicalNameHasQualifier(logical_name: string) -> boolean
+
+Returns true if the logical name contains a parenthetical qualifier.
+
+1. Call `LogicalNameGetQualifier(logical_name)`.
+
+2. If the result is absent, return false.
+
+3. Return true.
+
+---
+
+### LogicalNameIsArtifact(logical_name: string) -> boolean
+
+Returns true if the logical name starts with `ARTIFACT/`.
+
+1. If `logical_name` starts with `"ARTIFACT/"`, return true.
+
+2. Return false.
+
+---
+
+### LogicalNameIsSpec(logical_name: string) -> boolean
+
+Returns true if the logical name is exactly `SPEC` or starts with
+`SPEC/`.
+
+1. If `logical_name` is exactly `"SPEC"`, return true.
+
+2. If `logical_name` starts with `"SPEC/"`, return true.
+
+3. Return false.
+
+---
+
+### LogicalNameIsExternal(logical_name: string) -> boolean
+
+Returns true if the logical name starts with `EXTERNAL/`.
+
+1. If `logical_name` starts with `"EXTERNAL/"`, return true.
+
+2. Return false.
+
+---
+
+### LogicalNameGetArtifactGenerator(logical_name: string) -> string
+
+Returns the `SPEC/` logical name of the node that generates the
+referenced artifact.
+
+1. If `logical_name` does not start with `"ARTIFACT/"`, raise error
+   `NotAnArtifactReference`.
+
+2. Remove the leading `"ARTIFACT/"` prefix from `logical_name`.
+   Store the remainder as `relative_path`.
+
+3. Return `"SPEC/" + relative_path`.
+
+Errors:
+- `NotAnArtifactReference`: the logical name does not start with
+  `"ARTIFACT/"`.
+
+---
+
+### LogicalNameExternalToPath(logical_name: string) -> pathutils.PathCfs
+
+Converts an `EXTERNAL/` logical name to a `PathCfs`.
+
+1. If `logical_name` does not start with `"EXTERNAL/"`, raise error
+   `NotAnExternalReference`.
+
+2. Remove the leading `"EXTERNAL/"` prefix from `logical_name`.
+   Store the remainder as `relative_path`.
+
+3. Return a `pathutils.PathCfs` with value `relative_path`.
+
+Errors:
+- `NotAnExternalReference`: the logical name does not start with
+  `"EXTERNAL/"`.

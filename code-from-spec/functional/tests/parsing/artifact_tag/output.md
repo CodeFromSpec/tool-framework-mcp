@@ -1,6 +1,6 @@
-<!-- code-from-spec: ROOT/functional/tests/parsing/artifact_tag@xy-bdV7TeJNnvdOqZbpIa-ae5sI -->
+<!-- code-from-spec: SPEC/functional/tests/parsing/artifact_tag@Uhrb7YEP9pr7-Z4xmT6L3RqJuBY -->
 
-## Test cases for ArtifactTagExtract
+## Test suite: ArtifactTagExtract
 
 ---
 
@@ -8,100 +8,101 @@
 
 ---
 
-#### TC-1: Extracts tag from slash-slash comment
+#### TC-01: Extracts tag from slash-slash comment
 
 Setup:
-  Create a file containing the single line:
-  `// code-from-spec: ROOT/golang/implementation/internal/foo/code(bar)@abcdefghijklmnopqrstuvwxyza`
+  Create a file containing exactly:
+    `// code-from-spec: ROOT/golang/implementation/internal/foo/code(bar)@abcdefghijklmnopqrstuvwxyza`
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Returns an ArtifactTag record with:
-  - logical_name = `"ROOT/golang/implementation/internal/foo/code(bar)"`
-  - hash = `"abcdefghijklmnopqrstuvwxyza"`
+  Returns an ArtifactTag record where:
+    logical_name = `"ROOT/golang/implementation/internal/foo/code(bar)"`
+    hash = `"abcdefghijklmnopqrstuvwxyza"`
 
 ---
 
-#### TC-2: Extracts tag from hash comment
+#### TC-02: Extracts tag from hash comment
 
 Setup:
-  Create a file containing the single line:
-  `# code-from-spec: ROOT/some/node(id)@123456789012345678901234567`
+  Create a file containing exactly:
+    `# code-from-spec: ROOT/some/node(id)@123456789012345678901234567`
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Returns an ArtifactTag record with:
-  - logical_name = `"ROOT/some/node(id)"`
-  - hash = `"123456789012345678901234567"`
+  Returns an ArtifactTag record where:
+    logical_name = `"ROOT/some/node(id)"`
+    hash = `"123456789012345678901234567"`
 
 ---
 
-#### TC-3: Extracts tag from HTML comment
+#### TC-03: Extracts tag from HTML comment
 
 Setup:
-  Create a file containing the single line:
-  `<!-- code-from-spec: ROOT/docs/readme@abcdefghijklmnopqrstuvwxyza -->`
+  Create a file containing exactly:
+    `<!-- code-from-spec: ROOT/docs/readme@abcdefghijklmnopqrstuvwxyza -->`
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Returns an ArtifactTag record with:
-  - logical_name = `"ROOT/docs/readme"`
-  - hash = `"abcdefghijklmnopqrstuvwxyza"`
+  Returns an ArtifactTag record where:
+    logical_name = `"ROOT/docs/readme"`
+    hash = `"abcdefghijklmnopqrstuvwxyza"`
 
 ---
 
-#### TC-4: Stops reading at first match
+#### TC-04: Stops reading at first match
 
 Setup:
-  Create a file containing multiple lines each with a `code-from-spec:` tag,
-  with different logical names and hashes on each line.
+  Create a file containing multiple lines that each include `code-from-spec:`, for example:
+    Line 1: `// code-from-spec: ROOT/first/node@abcdefghijklmnopqrstuvwxyza`
+    Line 2: `// code-from-spec: ROOT/second/node@zyxwvutsrqponmlkjihgfedcbaz`
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Returns an ArtifactTag record corresponding only to the first matching line.
-  Subsequent matches are ignored.
+  Returns an ArtifactTag record matching only the first line:
+    logical_name = `"ROOT/first/node"`
+    hash = `"abcdefghijklmnopqrstuvwxyza"`
 
 ---
 
-#### TC-5: Tag on non-first line
+#### TC-05: Tag on non-first line
 
 Setup:
-  Create a file where lines 1 and 2 contain no `code-from-spec:` substring,
-  and line 3 contains:
-  `// code-from-spec: ROOT/some/node@abcdefghijklmnopqrstuvwxyza`
+  Create a file where the first two lines contain no `code-from-spec:` substring, and line 3 contains:
+    `// code-from-spec: ROOT/some/node@abcdefghijklmnopqrstuvwxyza`
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Returns an ArtifactTag record with:
-  - logical_name = `"ROOT/some/node"`
-  - hash = `"abcdefghijklmnopqrstuvwxyza"`
+  Returns an ArtifactTag record where:
+    logical_name = `"ROOT/some/node"`
+    hash = `"abcdefghijklmnopqrstuvwxyza"`
 
 ---
 
-#### TC-6: Extra whitespace before logical name
+#### TC-06: Extra whitespace before logical name
 
 Setup:
-  Create a file containing the single line:
-  `// code-from-spec:   ROOT/x(y)@abcdefghijklmnopqrstuvwxyza`
-  (two extra spaces after the colon before the logical name)
+  Create a file containing exactly:
+    `// code-from-spec:   ROOT/x(y)@abcdefghijklmnopqrstuvwxyza`
+  (Note: multiple spaces between `:` and the logical name.)
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Returns an ArtifactTag record with:
-  - logical_name = `"ROOT/x(y)"` (leading whitespace trimmed)
-  - hash = `"abcdefghijklmnopqrstuvwxyza"`
+  Returns an ArtifactTag record where:
+    logical_name = `"ROOT/x(y)"` (leading whitespace trimmed)
+    hash = `"abcdefghijklmnopqrstuvwxyza"`
 
 ---
 
@@ -109,7 +110,7 @@ Expected outcome:
 
 ---
 
-#### TC-7: Empty file
+#### TC-07: Empty file
 
 Setup:
   Create an empty file (zero bytes).
@@ -118,7 +119,7 @@ Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Error NoTagFound is returned.
+  Returns error NoTagFound.
 
 ---
 
@@ -126,85 +127,84 @@ Expected outcome:
 
 ---
 
-#### TC-8: File does not exist
+#### TC-08: File does not exist
 
 Setup:
-  No file is created. Use a path that does not exist on disk.
+  No file is created. Use a path that does not exist on the filesystem.
 
 Action:
-  Call `ArtifactTagExtract` with the non-existent path.
+  Call `ArtifactTagExtract` with that non-existent path.
 
 Expected outcome:
-  Error FileUnreadable is returned.
+  Returns error FileUnreadable.
 
 ---
 
-#### TC-9: Propagates path errors
+#### TC-09: Propagates path errors
 
 Setup:
-  Prepare an invalid `pathutils.PathCfs` value that represents a path
-  attempting directory traversal (e.g., `"../../outside"`).
+  Construct an invalid PathCfs value that represents a directory traversal, such as `"../../outside"`.
 
 Action:
-  Call `ArtifactTagExtract` with the invalid path.
+  Call `ArtifactTagExtract` with that invalid path.
 
 Expected outcome:
-  Error DirectoryTraversal is returned, propagated from FileOpen via PathUtils.
+  Returns error DirectoryTraversal, propagated from FileReader/PathUtils via FileOpen.
 
 ---
 
 #### TC-10: No tag in file
 
 Setup:
-  Create a file with content that contains no `code-from-spec:` substring.
+  Create a file whose contents contain no `code-from-spec:` substring anywhere.
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Error NoTagFound is returned.
+  Returns error NoTagFound.
 
 ---
 
 #### TC-11: Malformed tag — no @ separator
 
 Setup:
-  Create a file containing the single line:
-  `// code-from-spec: ROOT/foo/bar`
-  (no `@` character after the logical name)
+  Create a file containing exactly:
+    `// code-from-spec: ROOT/foo/bar`
+  (No `@` character in the tag value.)
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Error MalformedTag is returned.
+  Returns error MalformedTag.
 
 ---
 
 #### TC-12: Malformed tag — empty logical name
 
 Setup:
-  Create a file containing the single line:
-  `// code-from-spec: @abcdefghijklmnopqrstuvwxyza`
-  (nothing before the `@`)
+  Create a file containing exactly:
+    `// code-from-spec: @abcdefghijklmnopqrstuvwxyza`
+  (Nothing before the `@`.)
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Error MalformedTag is returned.
+  Returns error MalformedTag.
 
 ---
 
 #### TC-13: Malformed tag — wrong hash length
 
 Setup:
-  Create a file containing the single line:
-  `// code-from-spec: ROOT/foo(bar)@short`
-  (hash segment is shorter than the required 27 characters)
+  Create a file containing exactly:
+    `// code-from-spec: ROOT/foo(bar)@short`
+  (The hash `"short"` is fewer than 27 characters.)
 
 Action:
   Call `ArtifactTagExtract` with the path to that file.
 
 Expected outcome:
-  Error MalformedTag is returned.
+  Returns error MalformedTag.

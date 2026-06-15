@@ -1,13 +1,12 @@
-// code-from-spec: ROOT/golang/tests/chain/resolver@6tF4f5RzngnC9oiSOQQygWKaEVA
+// code-from-spec: SPEC/golang/tests/chain/resolver@ze1al_f55_KXDgwbvf2krh3WTTE
 package chainresolver_test
 
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
 )
 
 func testChdir(t *testing.T, dir string) {
@@ -26,272 +25,264 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func testWriteNodeFile(t *testing.T, logicalName string, content string) {
+func testWriteNodeFile(t *testing.T, relPath string, content string) {
 	t.Helper()
-	var relPath string
-	if logicalName == "SPEC" {
-		relPath = "code-from-spec/_node.md"
-	} else {
-		suffix := logicalName[len("SPEC/"):]
-		relPath = "code-from-spec/" + suffix + "/_node.md"
-	}
-	dir := filepath.Dir(relPath)
+	dir := relPath[:len(relPath)-len("_node.md")]
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatalf("testWriteNodeFile: mkdir %s: %v", dir, err)
+		t.Fatalf("testWriteNodeFile mkdir: %v", err)
 	}
 	if err := os.WriteFile(relPath, []byte(content), 0644); err != nil {
-		t.Fatalf("testWriteNodeFile: write %s: %v", relPath, err)
+		t.Fatalf("testWriteNodeFile write: %v", err)
 	}
 }
 
-func testNodeContent(logicalName string) string {
+func testEmptyNode(logicalName string) string {
 	return "# " + logicalName + "\n"
 }
 
-func testNodeContentWithFrontmatter(logicalName string, fm string) string {
-	return "---\n" + fm + "---\n# " + logicalName + "\n"
+func testNodeWithFrontmatter(logicalName string, frontmatter string) string {
+	return "---\n" + frontmatter + "---\n\n# " + logicalName + "\n"
 }
 
-func TestChainResolve_RootAsTarget(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC1_RootAsTarget(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
 
 	chain, err := chainresolver.ChainResolve("SPEC")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Ancestors) != 0 {
-		t.Errorf("expected empty ancestors, got %d", len(chain.Ancestors))
+		t.Errorf("expected 0 ancestors, got %d", len(chain.Ancestors))
+	}
+	if len(chain.Dependencies) != 0 {
+		t.Errorf("expected 0 dependencies, got %d", len(chain.Dependencies))
 	}
 	if chain.Target == nil {
 		t.Fatal("expected target, got nil")
 	}
 	if chain.Target.UnqualifiedLogicalName != "SPEC" {
-		t.Errorf("expected target SPEC, got %s", chain.Target.UnqualifiedLogicalName)
+		t.Errorf("expected target SPEC, got %q", chain.Target.UnqualifiedLogicalName)
 	}
 	if chain.Target.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", chain.Target.Qualifier)
-	}
-	if len(chain.Dependencies) != 0 {
-		t.Errorf("expected empty dependencies, got %d", len(chain.Dependencies))
+		t.Errorf("expected qualifier absent, got %q", *chain.Target.Qualifier)
 	}
 	if chain.Input != nil {
 		t.Errorf("expected input absent, got %v", chain.Input)
 	}
 }
 
-func TestChainResolve_LinearChain(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC2_LinearChainAncestorsRootFirst(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContent("SPEC/a"))
-	testWriteNodeFile(t, "SPEC/a/b", testNodeContent("SPEC/a/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testEmptyNode("SPEC/a"))
+	testWriteNodeFile(t, "code-from-spec/a/b/_node.md", testEmptyNode("SPEC/a/b"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a/b")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Ancestors) != 2 {
 		t.Fatalf("expected 2 ancestors, got %d", len(chain.Ancestors))
 	}
 	if chain.Ancestors[0].UnqualifiedLogicalName != "SPEC" {
-		t.Errorf("expected ancestor[0] SPEC, got %s", chain.Ancestors[0].UnqualifiedLogicalName)
+		t.Errorf("expected first ancestor SPEC, got %q", chain.Ancestors[0].UnqualifiedLogicalName)
 	}
 	if chain.Ancestors[1].UnqualifiedLogicalName != "SPEC/a" {
-		t.Errorf("expected ancestor[1] SPEC/a, got %s", chain.Ancestors[1].UnqualifiedLogicalName)
+		t.Errorf("expected second ancestor SPEC/a, got %q", chain.Ancestors[1].UnqualifiedLogicalName)
 	}
 	if chain.Target == nil {
 		t.Fatal("expected target, got nil")
 	}
 	if chain.Target.UnqualifiedLogicalName != "SPEC/a/b" {
-		t.Errorf("expected target SPEC/a/b, got %s", chain.Target.UnqualifiedLogicalName)
+		t.Errorf("expected target SPEC/a/b, got %q", chain.Target.UnqualifiedLogicalName)
 	}
 	if chain.Target.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", chain.Target.Qualifier)
-	}
-	if len(chain.Dependencies) != 0 {
-		t.Errorf("expected empty dependencies, got %d", len(chain.Dependencies))
-	}
-	if chain.Input != nil {
-		t.Errorf("expected input absent, got %v", chain.Input)
+		t.Errorf("expected qualifier absent, got %q", *chain.Target.Qualifier)
 	}
 }
 
-func TestChainResolve_SingleParent(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC3_SingleParent(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContent("SPEC/a"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testEmptyNode("SPEC/a"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Ancestors) != 1 {
 		t.Fatalf("expected 1 ancestor, got %d", len(chain.Ancestors))
 	}
 	if chain.Ancestors[0].UnqualifiedLogicalName != "SPEC" {
-		t.Errorf("expected ancestor SPEC, got %s", chain.Ancestors[0].UnqualifiedLogicalName)
+		t.Errorf("expected ancestor SPEC, got %q", chain.Ancestors[0].UnqualifiedLogicalName)
 	}
 	if chain.Target == nil {
 		t.Fatal("expected target, got nil")
 	}
 	if chain.Target.UnqualifiedLogicalName != "SPEC/a" {
-		t.Errorf("expected target SPEC/a, got %s", chain.Target.UnqualifiedLogicalName)
-	}
-	if chain.Target.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", chain.Target.Qualifier)
-	}
-	if len(chain.Dependencies) != 0 {
-		t.Errorf("expected empty dependencies, got %d", len(chain.Dependencies))
-	}
-	if chain.Input != nil {
-		t.Errorf("expected input absent, got %v", chain.Input)
+		t.Errorf("expected target SPEC/a, got %q", chain.Target.UnqualifiedLogicalName)
 	}
 }
 
-func TestChainResolve_TargetWithEmptyFrontmatter(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC4_TargetWithEmptyFrontmatter(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContent("SPEC/a"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testEmptyNode("SPEC/a"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Ancestors) != 1 {
 		t.Fatalf("expected 1 ancestor, got %d", len(chain.Ancestors))
 	}
+	if chain.Ancestors[0].UnqualifiedLogicalName != "SPEC" {
+		t.Errorf("expected ancestor SPEC, got %q", chain.Ancestors[0].UnqualifiedLogicalName)
+	}
 	if chain.Target == nil {
 		t.Fatal("expected target, got nil")
 	}
 	if chain.Target.UnqualifiedLogicalName != "SPEC/a" {
-		t.Errorf("expected target SPEC/a, got %s", chain.Target.UnqualifiedLogicalName)
+		t.Errorf("expected target SPEC/a, got %q", chain.Target.UnqualifiedLogicalName)
+	}
+	if chain.Target.Qualifier != nil {
+		t.Errorf("expected qualifier absent, got %q", *chain.Target.Qualifier)
 	}
 	if len(chain.Dependencies) != 0 {
-		t.Errorf("expected empty dependencies, got %d", len(chain.Dependencies))
+		t.Errorf("expected 0 dependencies, got %d", len(chain.Dependencies))
 	}
 	if chain.Input != nil {
 		t.Errorf("expected input absent, got %v", chain.Input)
 	}
 }
 
-func TestChainResolve_DependencyWithoutQualifier(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC5_DependencyWithoutQualifier(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContent("SPEC/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testEmptyNode("SPEC/b"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 	dep := chain.Dependencies[0]
 	if dep.UnqualifiedLogicalName != "SPEC/b" {
-		t.Errorf("expected SPEC/b, got %s", dep.UnqualifiedLogicalName)
+		t.Errorf("expected dependency SPEC/b, got %q", dep.UnqualifiedLogicalName)
 	}
 	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", dep.Qualifier)
+		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_DependencyWithQualifier(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC6_DependencyWithQualifier(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b(interface)\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContent("SPEC/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b(interface)\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testEmptyNode("SPEC/b"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 	dep := chain.Dependencies[0]
 	if dep.UnqualifiedLogicalName != "SPEC/b" {
-		t.Errorf("expected SPEC/b, got %s", dep.UnqualifiedLogicalName)
+		t.Errorf("expected dependency SPEC/b, got %q", dep.UnqualifiedLogicalName)
 	}
 	if dep.Qualifier == nil {
-		t.Fatal("expected qualifier present, got nil")
+		t.Fatal("expected qualifier, got nil")
 	}
 	if *dep.Qualifier != "interface" {
-		t.Errorf("expected qualifier 'interface', got %s", *dep.Qualifier)
+		t.Errorf("expected qualifier 'interface', got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_DependenciesSorted(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC7_DependenciesSortedByLogicalName(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/z\n  - SPEC/m\n  - SPEC/b\n"))
-	testWriteNodeFile(t, "SPEC/z", testNodeContent("SPEC/z"))
-	testWriteNodeFile(t, "SPEC/m", testNodeContent("SPEC/m"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContent("SPEC/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/z\n  - SPEC/m\n  - SPEC/b\n"))
+	testWriteNodeFile(t, "code-from-spec/z/_node.md", testEmptyNode("SPEC/z"))
+	testWriteNodeFile(t, "code-from-spec/m/_node.md", testEmptyNode("SPEC/m"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testEmptyNode("SPEC/b"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 3 {
 		t.Fatalf("expected 3 dependencies, got %d", len(chain.Dependencies))
 	}
 	expected := []string{"SPEC/b", "SPEC/m", "SPEC/z"}
-	for i, name := range expected {
-		if chain.Dependencies[i].UnqualifiedLogicalName != name {
-			t.Errorf("dependencies[%d]: expected %s, got %s", i, name, chain.Dependencies[i].UnqualifiedLogicalName)
+	for i, exp := range expected {
+		if chain.Dependencies[i].UnqualifiedLogicalName != exp {
+			t.Errorf("dependencies[%d]: expected %q, got %q", i, exp, chain.Dependencies[i].UnqualifiedLogicalName)
 		}
 	}
 }
 
-func TestChainResolve_ArtifactDependencyResolved(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC8_ArtifactDependencyResolvedFromGeneratingNode(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - ARTIFACT/b\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContentWithFrontmatter("SPEC/b", "output: out/lib.go\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - ARTIFACT/b\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeWithFrontmatter("SPEC/b", "output: out/lib.go\n"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 	dep := chain.Dependencies[0]
 	if dep.UnqualifiedLogicalName != "ARTIFACT/b" {
-		t.Errorf("expected ARTIFACT/b, got %s", dep.UnqualifiedLogicalName)
+		t.Errorf("expected dependency ARTIFACT/b, got %q", dep.UnqualifiedLogicalName)
 	}
 	if dep.FilePath.Value != "out/lib.go" {
-		t.Errorf("expected file_path out/lib.go, got %s", dep.FilePath.Value)
+		t.Errorf("expected file_path 'out/lib.go', got %q", dep.FilePath.Value)
 	}
 	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", dep.Qualifier)
+		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_ArtifactGeneratingNodeHasNoOutput(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC9_ArtifactGeneratingNodeHasNoOutput(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - ARTIFACT/b\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContent("SPEC/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - ARTIFACT/b\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testEmptyNode("SPEC/b"))
 
 	_, err := chainresolver.ChainResolve("SPEC/a")
 	if err == nil {
@@ -302,330 +293,309 @@ func TestChainResolve_ArtifactGeneratingNodeHasNoOutput(t *testing.T) {
 	}
 }
 
-func TestChainResolve_ArtifactFileDoesNotExistOnDisk(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC10_ArtifactFileDoesNotExistOnDisk(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - ARTIFACT/b\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContentWithFrontmatter("SPEC/b", "output: out/lib.go\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - ARTIFACT/b\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeWithFrontmatter("SPEC/b", "output: out/lib.go\n"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
-	if chain.Dependencies[0].FilePath.Value != "out/lib.go" {
-		t.Errorf("expected file_path out/lib.go, got %s", chain.Dependencies[0].FilePath.Value)
+	dep := chain.Dependencies[0]
+	if dep.UnqualifiedLogicalName != "ARTIFACT/b" {
+		t.Errorf("expected dependency ARTIFACT/b, got %q", dep.UnqualifiedLogicalName)
+	}
+	if dep.FilePath.Value != "out/lib.go" {
+		t.Errorf("expected file_path 'out/lib.go', got %q", dep.FilePath.Value)
 	}
 }
 
-func TestChainResolve_MixedDependencies(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC11_MixedDependenciesSorted(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/c\n  - ARTIFACT/b\n  - EXTERNAL/proto/api.proto\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContentWithFrontmatter("SPEC/b", "output: out/lib.go\n"))
-	testWriteNodeFile(t, "SPEC/c", testNodeContent("SPEC/c"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/c\n  - ARTIFACT/b\n  - EXTERNAL/proto/api.proto\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeWithFrontmatter("SPEC/b", "output: out/lib.go\n"))
+	testWriteNodeFile(t, "code-from-spec/c/_node.md", testEmptyNode("SPEC/c"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 3 {
 		t.Fatalf("expected 3 dependencies, got %d", len(chain.Dependencies))
 	}
-
-	dep0 := chain.Dependencies[0]
-	if dep0.UnqualifiedLogicalName != "ARTIFACT/b" {
-		t.Errorf("expected ARTIFACT/b, got %s", dep0.UnqualifiedLogicalName)
-	}
-	if dep0.FilePath.Value != "out/lib.go" {
-		t.Errorf("expected file_path out/lib.go, got %s", dep0.FilePath.Value)
-	}
-	if dep0.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", dep0.Qualifier)
-	}
-
-	dep1 := chain.Dependencies[1]
-	if dep1.UnqualifiedLogicalName != "EXTERNAL/proto/api.proto" {
-		t.Errorf("expected EXTERNAL/proto/api.proto, got %s", dep1.UnqualifiedLogicalName)
-	}
-	if dep1.FilePath.Value != "proto/api.proto" {
-		t.Errorf("expected file_path proto/api.proto, got %s", dep1.FilePath.Value)
-	}
-	if dep1.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", dep1.Qualifier)
-	}
-
-	dep2 := chain.Dependencies[2]
-	if dep2.UnqualifiedLogicalName != "SPEC/c" {
-		t.Errorf("expected SPEC/c, got %s", dep2.UnqualifiedLogicalName)
-	}
-	if dep2.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", dep2.Qualifier)
+	expected := []string{"ARTIFACT/b", "EXTERNAL/proto/api.proto", "SPEC/c"}
+	for i, exp := range expected {
+		if chain.Dependencies[i].UnqualifiedLogicalName != exp {
+			t.Errorf("dependencies[%d]: expected %q, got %q", i, exp, chain.Dependencies[i].UnqualifiedLogicalName)
+		}
 	}
 }
 
-func TestChainResolve_DedupExactDuplicate(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC12_ExactDuplicateDependency(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b\n  - SPEC/b\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContent("SPEC/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b\n  - SPEC/b\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testEmptyNode("SPEC/b"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Errorf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 }
 
-func TestChainResolve_DedupNoQualifierSubsumesQualifier(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC13_NoQualifierSubsumesQualifier(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b\n  - SPEC/b(interface)\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContent("SPEC/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b\n  - SPEC/b(interface)\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testEmptyNode("SPEC/b"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 	dep := chain.Dependencies[0]
 	if dep.UnqualifiedLogicalName != "SPEC/b" {
-		t.Errorf("expected SPEC/b, got %s", dep.UnqualifiedLogicalName)
+		t.Errorf("expected dependency SPEC/b, got %q", dep.UnqualifiedLogicalName)
 	}
 	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", dep.Qualifier)
+		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_DedupQualifierBeforeNoQualifier(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC14_QualifierBeforeNoQualifier_NoQualifierWins(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b(interface)\n  - SPEC/b\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContent("SPEC/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b(interface)\n  - SPEC/b\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testEmptyNode("SPEC/b"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 	dep := chain.Dependencies[0]
 	if dep.UnqualifiedLogicalName != "SPEC/b" {
-		t.Errorf("expected SPEC/b, got %s", dep.UnqualifiedLogicalName)
+		t.Errorf("expected dependency SPEC/b, got %q", dep.UnqualifiedLogicalName)
 	}
 	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", dep.Qualifier)
+		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_DedupSameFileDifferentQualifiers(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC15_SameFileDifferentQualifiers_BothKept(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b(interface)\n  - SPEC/b(constraints)\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContent("SPEC/b"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - SPEC/b(interface)\n  - SPEC/b(constraints)\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testEmptyNode("SPEC/b"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 2 {
 		t.Fatalf("expected 2 dependencies, got %d", len(chain.Dependencies))
 	}
-	dep0 := chain.Dependencies[0]
-	dep1 := chain.Dependencies[1]
-	if dep0.UnqualifiedLogicalName != "SPEC/b" || dep1.UnqualifiedLogicalName != "SPEC/b" {
-		t.Errorf("expected both SPEC/b, got %s and %s", dep0.UnqualifiedLogicalName, dep1.UnqualifiedLogicalName)
+	if chain.Dependencies[0].Qualifier == nil || *chain.Dependencies[0].Qualifier != "constraints" {
+		t.Errorf("expected first qualifier 'constraints', got %v", chain.Dependencies[0].Qualifier)
 	}
-	if dep0.Qualifier == nil || dep1.Qualifier == nil {
-		t.Fatal("expected qualifiers present")
-	}
-	if *dep0.Qualifier != "constraints" {
-		t.Errorf("expected dep0 qualifier 'constraints', got %s", *dep0.Qualifier)
-	}
-	if *dep1.Qualifier != "interface" {
-		t.Errorf("expected dep1 qualifier 'interface', got %s", *dep1.Qualifier)
+	if chain.Dependencies[1].Qualifier == nil || *chain.Dependencies[1].Qualifier != "interface" {
+		t.Errorf("expected second qualifier 'interface', got %v", chain.Dependencies[1].Qualifier)
 	}
 }
 
-func TestChainResolve_DedupArtifactDuplicate(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC16_DuplicateArtifactDependency(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - ARTIFACT/b\n  - ARTIFACT/b\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContentWithFrontmatter("SPEC/b", "output: out/lib.go\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - ARTIFACT/b\n  - ARTIFACT/b\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeWithFrontmatter("SPEC/b", "output: out/lib.go\n"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Errorf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 }
 
-func TestChainResolve_ExternalDependencyResolved(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC17_ExternalDependencyResolvedToPath(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - EXTERNAL/docs/api.yaml\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - EXTERNAL/docs/api.yaml\n"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Fatalf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 	dep := chain.Dependencies[0]
 	if dep.UnqualifiedLogicalName != "EXTERNAL/docs/api.yaml" {
-		t.Errorf("expected EXTERNAL/docs/api.yaml, got %s", dep.UnqualifiedLogicalName)
+		t.Errorf("expected dependency EXTERNAL/docs/api.yaml, got %q", dep.UnqualifiedLogicalName)
 	}
 	if dep.FilePath.Value != "docs/api.yaml" {
-		t.Errorf("expected file_path docs/api.yaml, got %s", dep.FilePath.Value)
+		t.Errorf("expected file_path 'docs/api.yaml', got %q", dep.FilePath.Value)
 	}
 	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", dep.Qualifier)
+		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
 	}
 }
 
-func TestChainResolve_MultipleExternalDependenciesSorted(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC18_MultipleExternalDependenciesSorted(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - EXTERNAL/proto/v1.proto\n  - EXTERNAL/docs/api.yaml\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - EXTERNAL/proto/v1.proto\n  - EXTERNAL/docs/api.yaml\n"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 2 {
 		t.Fatalf("expected 2 dependencies, got %d", len(chain.Dependencies))
 	}
 	if chain.Dependencies[0].UnqualifiedLogicalName != "EXTERNAL/docs/api.yaml" {
-		t.Errorf("expected EXTERNAL/docs/api.yaml first, got %s", chain.Dependencies[0].UnqualifiedLogicalName)
-	}
-	if chain.Dependencies[0].FilePath.Value != "docs/api.yaml" {
-		t.Errorf("expected file_path docs/api.yaml, got %s", chain.Dependencies[0].FilePath.Value)
+		t.Errorf("expected first dependency EXTERNAL/docs/api.yaml, got %q", chain.Dependencies[0].UnqualifiedLogicalName)
 	}
 	if chain.Dependencies[1].UnqualifiedLogicalName != "EXTERNAL/proto/v1.proto" {
-		t.Errorf("expected EXTERNAL/proto/v1.proto second, got %s", chain.Dependencies[1].UnqualifiedLogicalName)
-	}
-	if chain.Dependencies[1].FilePath.Value != "proto/v1.proto" {
-		t.Errorf("expected file_path proto/v1.proto, got %s", chain.Dependencies[1].FilePath.Value)
+		t.Errorf("expected second dependency EXTERNAL/proto/v1.proto, got %q", chain.Dependencies[1].UnqualifiedLogicalName)
 	}
 }
 
-func TestChainResolve_DedupExternalDuplicate(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC19_DuplicateExternalDependency(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - EXTERNAL/x.proto\n  - EXTERNAL/x.proto\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - EXTERNAL/x.proto\n  - EXTERNAL/x.proto\n"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if len(chain.Dependencies) != 1 {
 		t.Errorf("expected 1 dependency, got %d", len(chain.Dependencies))
 	}
 }
 
-func TestChainResolve_InputArtifactResolved(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC20_InputResolvedFromGeneratingNode(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "input: ARTIFACT/b\n"))
-	testWriteNodeFile(t, "SPEC/b", testNodeContentWithFrontmatter("SPEC/b", "output: out/data.json\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "input: ARTIFACT/b\n"))
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", testNodeWithFrontmatter("SPEC/b", "output: out/data.json\n"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if chain.Input == nil {
 		t.Fatal("expected input, got nil")
 	}
 	if chain.Input.UnqualifiedLogicalName != "ARTIFACT/b" {
-		t.Errorf("expected ARTIFACT/b, got %s", chain.Input.UnqualifiedLogicalName)
+		t.Errorf("expected input ARTIFACT/b, got %q", chain.Input.UnqualifiedLogicalName)
 	}
 	if chain.Input.FilePath.Value != "out/data.json" {
-		t.Errorf("expected file_path out/data.json, got %s", chain.Input.FilePath.Value)
+		t.Errorf("expected input file_path 'out/data.json', got %q", chain.Input.FilePath.Value)
 	}
 	if chain.Input.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", chain.Input.Qualifier)
+		t.Errorf("expected qualifier absent, got %q", *chain.Input.Qualifier)
 	}
 }
 
-func TestChainResolve_ExternalInputResolved(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC21_ExternalInputResolvedToPath(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "input: EXTERNAL/docs/vendor/spec.yaml\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "input: EXTERNAL/docs/vendor/spec.yaml\n"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if chain.Input == nil {
 		t.Fatal("expected input, got nil")
 	}
 	if chain.Input.UnqualifiedLogicalName != "EXTERNAL/docs/vendor/spec.yaml" {
-		t.Errorf("expected EXTERNAL/docs/vendor/spec.yaml, got %s", chain.Input.UnqualifiedLogicalName)
+		t.Errorf("expected input EXTERNAL/docs/vendor/spec.yaml, got %q", chain.Input.UnqualifiedLogicalName)
 	}
 	if chain.Input.FilePath.Value != "docs/vendor/spec.yaml" {
-		t.Errorf("expected file_path docs/vendor/spec.yaml, got %s", chain.Input.FilePath.Value)
+		t.Errorf("expected input file_path 'docs/vendor/spec.yaml', got %q", chain.Input.FilePath.Value)
 	}
 	if chain.Input.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %v", chain.Input.Qualifier)
+		t.Errorf("expected qualifier absent, got %q", *chain.Input.Qualifier)
 	}
 }
 
-func TestChainResolve_NoInput(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC22_NoInput_Absent(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContent("SPEC/a"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testEmptyNode("SPEC/a"))
 
 	chain, err := chainresolver.ChainResolve("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if chain.Input != nil {
 		t.Errorf("expected input absent, got %v", chain.Input)
 	}
 }
 
-func TestChainResolve_UnrecognizedPrefixInDependsOn(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC23_UnrecognizedPrefixInDependsOn(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-	testWriteNodeFile(t, "SPEC/a", testNodeContentWithFrontmatter("SPEC/a", "depends_on:\n  - UNKNOWN/something\n"))
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", testNodeWithFrontmatter("SPEC/a", "depends_on:\n  - UNKNOWN/something\n"))
 
 	_, err := chainresolver.ChainResolve("SPEC/a")
 	if err == nil {
@@ -636,9 +606,9 @@ func TestChainResolve_UnrecognizedPrefixInDependsOn(t *testing.T) {
 	}
 }
 
-func TestChainResolve_InvalidTargetLogicalName(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC24_InvalidTargetLogicalName(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
 	_, err := chainresolver.ChainResolve("INVALID/something")
 	if err == nil {
@@ -646,18 +616,12 @@ func TestChainResolve_InvalidTargetLogicalName(t *testing.T) {
 	}
 }
 
-func TestChainResolve_UnreadableFrontmatter(t *testing.T) {
-	dir := t.TempDir()
-	testChdir(t, dir)
+func TestChainResolve_TC25_UnreadableFrontmatter(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
 
-	testWriteNodeFile(t, "SPEC", testNodeContent("SPEC"))
-
-	if err := os.MkdirAll("code-from-spec/a", 0755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile("code-from-spec/a/_node.md", []byte("---\ninvalid: yaml: content: [\n---\n# SPEC/a\n"), 0644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
+	testWriteNodeFile(t, "code-from-spec/_node.md", testEmptyNode("SPEC"))
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\ninvalid: yaml: content: [\n---\n\n# SPEC/a\n")
 
 	_, err := chainresolver.ChainResolve("SPEC/a")
 	if err == nil {

@@ -1,50 +1,67 @@
-<!-- code-from-spec: ROOT/functional/tests/chain/resolver@FhtyO5A322vECd1NAmvZxpg_Jk4 -->
+<!-- code-from-spec: SPEC/functional/tests/chain/resolver@8OqkWMHlnFoY0By388EM-Ig2Hw8 -->
 
-# Tests: ChainResolve
+## Test suite: ChainResolve
 
-## Ancestors and Target
+---
 
-### Root as target
+### Ancestors and target
+
+---
+
+#### TC-1: Root as target
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC").
 
 Expected outcome:
 - ancestors = empty list.
-- target = ChainItem(unqualified_logical_name="SPEC", qualifier=absent).
 - dependencies = empty list.
+- target = ChainItem(unqualified_logical_name="SPEC", qualifier=absent).
 - input = absent.
 
 ---
 
-### Linear chain — ancestors in root-first order
+#### TC-2: Linear chain — ancestors in root-first order
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with empty frontmatter.
 - Create SPEC/a/b/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a/b").
 
 Expected outcome:
 - ancestors = [ChainItem("SPEC"), ChainItem("SPEC/a")] in that order.
 - target = ChainItem(unqualified_logical_name="SPEC/a/b", qualifier=absent).
-- dependencies = empty list.
-- input = absent.
 
 ---
 
-### Single parent
+#### TC-3: Single parent
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with empty frontmatter.
 
-Actions:
+Action:
+- Call ChainResolve("SPEC/a").
+
+Expected outcome:
+- ancestors = [ChainItem("SPEC")].
+- target = ChainItem(unqualified_logical_name="SPEC/a", qualifier=absent).
+
+---
+
+#### TC-4: Target with empty frontmatter
+
+Setup:
+- Create SPEC/_node.md with empty frontmatter.
+- Create SPEC/a/_node.md with empty frontmatter.
+
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
@@ -55,33 +72,18 @@ Expected outcome:
 
 ---
 
-### Target with empty frontmatter
-
-Setup:
-- Create SPEC/_node.md with empty frontmatter.
-- Create SPEC/a/_node.md with empty frontmatter.
-
-Actions:
-- Call ChainResolve("SPEC/a").
-
-Expected outcome:
-- ancestors = [ChainItem("SPEC")].
-- target = ChainItem(unqualified_logical_name="SPEC/a", qualifier=absent).
-- dependencies = empty list.
-- input = absent.
+### Dependencies — SPEC/ references
 
 ---
 
-## Dependencies — SPEC/ References
-
-### Dependency without qualifier
+#### TC-5: Dependency without qualifier
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["SPEC/b"].
 - Create SPEC/b/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
@@ -89,14 +91,14 @@ Expected outcome:
 
 ---
 
-### Dependency with qualifier
+#### TC-6: Dependency with qualifier
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["SPEC/b(interface)"].
 - Create SPEC/b/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
@@ -104,7 +106,7 @@ Expected outcome:
 
 ---
 
-### Dependencies sorted by logical name
+#### TC-7: Dependencies sorted by logical name
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
@@ -113,24 +115,26 @@ Setup:
 - Create SPEC/m/_node.md with empty frontmatter.
 - Create SPEC/b/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies = [ChainItem("SPEC/b"), ChainItem("SPEC/m"), ChainItem("SPEC/z")] in that order (alphabetical by logical name).
+- dependencies = [ChainItem("SPEC/b"), ChainItem("SPEC/m"), ChainItem("SPEC/z")] in that order.
 
 ---
 
-## Dependencies — ARTIFACT/ References
+### Dependencies — ARTIFACT/ references
 
-### ARTIFACT dependency resolved from generating node
+---
+
+#### TC-8: ARTIFACT dependency resolved from generating node
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["ARTIFACT/b"].
 - Create SPEC/b/_node.md with frontmatter: output = "out/lib.go".
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
@@ -138,22 +142,22 @@ Expected outcome:
 
 ---
 
-### ARTIFACT — generating node has no output
+#### TC-9: ARTIFACT — generating node has no output
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["ARTIFACT/b"].
 - Create SPEC/b/_node.md with empty frontmatter (no output field).
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- Raises error UnresolvableArtifact.
+- Error UnresolvableArtifact is raised.
 
 ---
 
-### ARTIFACT — artifact file does not exist on disk
+#### TC-10: ARTIFACT — artifact file does not exist on disk
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
@@ -161,16 +165,16 @@ Setup:
 - Create SPEC/b/_node.md with frontmatter: output = "out/lib.go".
 - Do NOT create "out/lib.go" on disk.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- No error raised.
-- dependencies contains one ChainItem with file_path="out/lib.go".
+- No error is raised.
+- dependencies contains one ChainItem with unqualified_logical_name="ARTIFACT/b", file_path="out/lib.go".
 
 ---
 
-### Mixed SPEC/, ARTIFACT/, and EXTERNAL/ dependencies
+#### TC-11: Mixed SPEC/, ARTIFACT/, and EXTERNAL/ dependencies
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
@@ -178,107 +182,104 @@ Setup:
 - Create SPEC/b/_node.md with frontmatter: output = "out/lib.go".
 - Create SPEC/c/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies contains three entries sorted by logical name:
-  1. ChainItem(unqualified_logical_name="ARTIFACT/b", file_path="out/lib.go", qualifier=absent).
-  2. ChainItem(unqualified_logical_name="EXTERNAL/proto/api.proto", file_path="proto/api.proto", qualifier=absent).
-  3. ChainItem(unqualified_logical_name="SPEC/c", qualifier=absent).
+- dependencies = [ChainItem("ARTIFACT/b"), ChainItem("EXTERNAL/proto/api.proto"), ChainItem("SPEC/c")] in that order (sorted by logical name).
 
 ---
 
-## Dependencies — Dedup
+### Dependencies — dedup
 
-### Exact duplicate — same file, same qualifier
+---
+
+#### TC-12: Exact duplicate — same file, same qualifier
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["SPEC/b", "SPEC/b"].
 - Create SPEC/b/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies contains exactly one entry for SPEC/b (not two).
+- dependencies contains exactly one ChainItem for SPEC/b.
 
 ---
 
-### No qualifier subsumes qualifier
+#### TC-13: No qualifier subsumes qualifier
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["SPEC/b", "SPEC/b(interface)"].
 - Create SPEC/b/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies contains exactly one entry for SPEC/b with qualifier=absent.
-- The "SPEC/b(interface)" entry is dropped.
+- dependencies contains exactly one ChainItem with unqualified_logical_name="SPEC/b", qualifier=absent.
 
 ---
 
-### Qualifier before no-qualifier — no-qualifier wins
+#### TC-14: Qualifier before no-qualifier — no-qualifier wins
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["SPEC/b(interface)", "SPEC/b"].
 - Create SPEC/b/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies contains exactly one entry for SPEC/b with qualifier=absent.
+- dependencies contains exactly one ChainItem with unqualified_logical_name="SPEC/b", qualifier=absent.
 
 ---
 
-### Same file, different qualifiers — both kept
+#### TC-15: Same file, different qualifiers — both kept
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["SPEC/b(interface)", "SPEC/b(constraints)"].
 - Create SPEC/b/_node.md with empty frontmatter.
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies contains two entries:
-  1. ChainItem(unqualified_logical_name="SPEC/b", qualifier="constraints").
-  2. ChainItem(unqualified_logical_name="SPEC/b", qualifier="interface").
-  (sorted by qualifier alphabetically)
+- dependencies contains two ChainItems: one with qualifier="constraints" and one with qualifier="interface" (sorted by qualifier).
 
 ---
 
-### Duplicate ARTIFACT — same logical name
+#### TC-16: Duplicate ARTIFACT — same logical name
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["ARTIFACT/b", "ARTIFACT/b"].
 - Create SPEC/b/_node.md with frontmatter: output = "out/lib.go".
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies contains exactly one ARTIFACT/b entry (not two).
+- dependencies contains exactly one ChainItem for ARTIFACT/b.
 
 ---
 
-## Dependencies — EXTERNAL/ References
+### Dependencies — EXTERNAL/ references
 
-### EXTERNAL dependency resolved to path
+---
+
+#### TC-17: EXTERNAL dependency resolved to path
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["EXTERNAL/docs/api.yaml"].
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
@@ -286,46 +287,46 @@ Expected outcome:
 
 ---
 
-### Multiple EXTERNAL dependencies sorted
+#### TC-18: Multiple EXTERNAL dependencies sorted
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["EXTERNAL/proto/v1.proto", "EXTERNAL/docs/api.yaml"].
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies sorted by logical name:
-  1. ChainItem(unqualified_logical_name="EXTERNAL/docs/api.yaml", file_path="docs/api.yaml").
-  2. ChainItem(unqualified_logical_name="EXTERNAL/proto/v1.proto", file_path="proto/v1.proto").
+- dependencies = [ChainItem("EXTERNAL/docs/api.yaml"), ChainItem("EXTERNAL/proto/v1.proto")] in that order.
 
 ---
 
-### Duplicate EXTERNAL — same logical name
+#### TC-19: Duplicate EXTERNAL — same logical name
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["EXTERNAL/x.proto", "EXTERNAL/x.proto"].
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- dependencies contains exactly one EXTERNAL/x.proto entry (not two).
+- dependencies contains exactly one ChainItem for EXTERNAL/x.proto.
 
 ---
 
-## Input
+### Input
 
-### Input resolved from generating node
+---
+
+#### TC-20: Input resolved from generating node
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: input = "ARTIFACT/b".
 - Create SPEC/b/_node.md with frontmatter: output = "out/data.json".
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
@@ -333,13 +334,13 @@ Expected outcome:
 
 ---
 
-### EXTERNAL input resolved to path
+#### TC-21: EXTERNAL input resolved to path
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: input = "EXTERNAL/docs/vendor/spec.yaml".
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
@@ -347,13 +348,13 @@ Expected outcome:
 
 ---
 
-### No input — absent
+#### TC-22: No input — absent
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with empty frontmatter (no input field).
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
@@ -361,43 +362,45 @@ Expected outcome:
 
 ---
 
-## Error Cases
+### Error cases
 
-### Unrecognized prefix in depends_on
+---
+
+#### TC-23: Unrecognized prefix in depends_on
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
 - Create SPEC/a/_node.md with frontmatter: depends_on = ["UNKNOWN/something"].
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- Raises error UnresolvableArtifact.
+- Error UnresolvableArtifact is raised.
 
 ---
 
-### Invalid target logical name
+#### TC-24: Invalid target logical name
 
 Setup:
 - No spec tree required.
 
-Actions:
+Action:
 - Call ChainResolve("INVALID/something").
 
 Expected outcome:
-- Raises an error propagated from LogicalNameGetParent or LogicalNameToPath.
+- Error propagated from LogicalNameGetParent or LogicalNameToPath is raised.
 
 ---
 
-### Unreadable frontmatter
+#### TC-25: Unreadable frontmatter
 
 Setup:
 - Create SPEC/_node.md with empty frontmatter.
-- Create SPEC/a/_node.md with invalid YAML content in the frontmatter block.
+- Create SPEC/a/_node.md with invalid YAML content (malformed frontmatter that cannot be parsed).
 
-Actions:
+Action:
 - Call ChainResolve("SPEC/a").
 
 Expected outcome:
-- Raises error UnreadableFrontmatter.
+- Error UnreadableFrontmatter is raised.

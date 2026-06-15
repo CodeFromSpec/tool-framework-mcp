@@ -1,24 +1,24 @@
-<!-- code-from-spec: ROOT/functional/logic/utils/text_normalization@6vLGbEZG-TgzpuPhdzZd9x2Qi0I -->
+<!-- code-from-spec: SPEC/functional/logic/utils/text_normalization@zZPhFivo301KTHUiVwAW85I0VGM -->
 
 function NormalizeText(raw_string) -> string
 
-  1. Trim leading and trailing occurrences of space (U+0020) and
-     horizontal tab (U+0009) from raw_string.
+  1. If raw_string is empty, return "".
 
-  2. Scan the trimmed string for runs of consecutive whitespace
-     characters, where whitespace is defined as space (U+0020)
-     or horizontal tab (U+0009).
-     Replace each such run with a single space (U+0020).
+  2. Trim leading and trailing whitespace characters from raw_string,
+     where whitespace is defined as space (U+0020) and horizontal tab (U+0009) only.
 
-  3. Apply Unicode simple case folding to the result, converting
-     each character to its lowercase equivalent.
+  3. Collapse each consecutive run of whitespace characters
+     (space U+0020 and horizontal tab U+0009) to a single space (U+0020).
 
-  4. Return the resulting string.
+  4. Apply Unicode simple case folding to the resulting string.
+     This converts uppercase characters to their lowercase equivalents,
+     including Unicode mappings (e.g., "Straße" -> "strasse").
 
-  Notes:
-  - If raw_string is empty or contains only whitespace, return "".
-  - This function is pure: no I/O, no side effects, no errors raised.
-  - Deterministic: identical inputs always produce identical outputs.
-  - Whitespace is strictly U+0020 and U+0009; do not use broad
-    library predicates that include U+00A0 or other whitespace-like
-    characters.
+  5. Return the normalized string.
+
+Contracts:
+  - Pure function — no I/O, no side effects, no errors raised.
+  - Deterministic — same input always produces the same output.
+  - Whitespace is defined strictly as U+0020 (space) and U+0009 (horizontal tab).
+    Do not use standard library "isspace" functions that may match U+00A0 or other
+    non-standard whitespace characters.

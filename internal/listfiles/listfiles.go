@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/os/list_files@VXWu7-OibVAQl3EroQAomVbW9uc
+// code-from-spec: SPEC/golang/implementation/os/list_files@gcbTjxDWOWm5_rEUkDJcV4gJtcA
 package listfiles
 
 import (
@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
-var ErrDirectoryNotFound = errors.New("directory does not exist")
-var ErrWalkError = errors.New("filesystem error while traversing directory")
+var ErrDirectoryNotFound = errors.New("directory not found")
+var ErrWalkError = errors.New("filesystem error occurred while traversing")
 
 func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
@@ -28,23 +28,24 @@ func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 
 	var results []*pathutils.PathCfs
 
-	walkErr := filepath.WalkDir(osPath.Value, func(path string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(osPath.Value, func(entryPath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrWalkError, err)
+			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		entryOs := &pathutils.PathOs{Value: path}
-		entryCfs, err := pathutils.PathOsToCfs(entryOs)
-		if err != nil {
-			return err
+		entryOsPath := &pathutils.PathOs{Value: entryPath}
+		entryCfsPath, convErr := pathutils.PathOsToCfs(entryOsPath)
+		if convErr != nil {
+			return convErr
 		}
-		results = append(results, entryCfs)
+		results = append(results, entryCfsPath)
 		return nil
 	})
+
 	if walkErr != nil {
-		return nil, walkErr
+		return nil, fmt.Errorf("%w: %w", ErrWalkError, walkErr)
 	}
 
 	sort.Slice(results, func(i, j int) bool {

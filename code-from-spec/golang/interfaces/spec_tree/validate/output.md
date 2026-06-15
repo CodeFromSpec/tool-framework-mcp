@@ -1,29 +1,28 @@
-[//]: # (code-from-spec: ROOT/golang/interfaces/spec_tree/validate@yRa3zlQHmAERCUMElnAaYPh72Ws)
+[//]: # (code-from-spec: SPEC/golang/interfaces/spec_tree/validate@S8-fnsTgw0a5BT1wriEvODOww-M)
 
 # Package `spectreevalidate`
 
-**Import path:** `github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate`
+Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectreevalidate`
 
----
-
-## Structs
+## Types
 
 ```go
 package spectreevalidate
 
 import (
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
 )
 
-// SpecTreeValidateInput holds a discovered node with its parsed frontmatter and body.
+// SpecTreeValidateInput holds a discovered node together with its parsed
+// frontmatter and body structure, as inputs to validation.
 type SpecTreeValidateInput struct {
 	LogicalName string
 	Frontmatter *frontmatter.Frontmatter
 	Node        *parsenode.Node
 }
 
-// FormatError describes a single validation violation for a node.
+// FormatError describes a single validation violation found in a node.
 type FormatError struct {
 	Node   string
 	Rule   string
@@ -31,21 +30,18 @@ type FormatError struct {
 }
 ```
 
----
-
 ## Functions
 
 ```go
 package spectreevalidate
 
-// SpecTreeValidate validates the full set of discovered nodes against format rules.
-// entries is the complete list of nodes with their parsed frontmatter and body.
-// allDirs is the list of all subdirectory paths found under code-from-spec/.
-// Returns a list of FormatErrors; the list is empty when all nodes are valid.
+// SpecTreeValidate validates all discovered nodes against the spec-tree
+// format rules. entries is the full set of nodes with their parsed
+// frontmatter and body. allDirs is the list of all subdirectory paths
+// found under code-from-spec/. Returns a list of FormatErrors (empty
+// when all nodes are valid).
 func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*FormatError
 ```
-
----
 
 ## Usage Example
 
@@ -55,9 +51,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/spectreevalidate"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectreevalidate"
 )
 
 func main() {
@@ -65,19 +61,29 @@ func main() {
 		{
 			LogicalName: "SPEC/payments/fees",
 			Frontmatter: &frontmatter.Frontmatter{
-				Output: "ARTIFACT/payments/fees/output.md",
+				Output: "src/fees.go",
 			},
 			Node: &parsenode.Node{
-				NameSection: &parsenode.NodeSection{Heading: "payments/fees"},
+				NameSection: &parsenode.NodeSection{
+					Heading: "payments/fees",
+				},
+				Public: &parsenode.NodeSection{
+					Heading: "Public",
+				},
 			},
 		},
 		{
-			LogicalName: "SPEC/payments/fees/calculate",
+			LogicalName: "SPEC/payments/fees/calculator",
 			Frontmatter: &frontmatter.Frontmatter{
-				Output: "ARTIFACT/payments/fees/calculate/output.md",
+				Output: "src/calculator.go",
 			},
 			Node: &parsenode.Node{
-				NameSection: &parsenode.NodeSection{Heading: "payments/fees/calculate"},
+				NameSection: &parsenode.NodeSection{
+					Heading: "payments/fees/calculator",
+				},
+				Public: &parsenode.NodeSection{
+					Heading: "Public",
+				},
 			},
 		},
 	}
@@ -85,7 +91,7 @@ func main() {
 	allDirs := []string{
 		"code-from-spec/payments",
 		"code-from-spec/payments/fees",
-		"code-from-spec/payments/fees/calculate",
+		"code-from-spec/payments/fees/calculator",
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)

@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/tests/parsing/node_parsing@svBa2y9uK793i2dRJGqNEdMZoyM
+// code-from-spec: SPEC/golang/tests/parsing/node_parsing@jrJ9NukLb3qsfowAoBzWUkqKvjw
 package parsenode_test
 
 import (
@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
 )
 
 func testChdir(t *testing.T, dir string) {
@@ -26,373 +26,389 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func testCreateNodeFile(t *testing.T, logicalName string, content string) {
+func testWriteNodeFile(t *testing.T, cfsPath string, content string) {
 	t.Helper()
-	parts := []string{"code-from-spec"}
-	if logicalName == "SPEC" {
-		parts = append(parts, "_node.md")
-	} else {
-		suffix := logicalName[len("SPEC/"):]
-		for _, seg := range splitPath(suffix) {
-			parts = append(parts, seg)
-		}
-		parts = append(parts, "_node.md")
-	}
-	path := filepath.Join(parts...)
-	dir := filepath.Dir(path)
+	dir := filepath.Dir(cfsPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatalf("testCreateNodeFile MkdirAll: %v", err)
+		t.Fatalf("testWriteNodeFile: mkdir %v: %v", dir, err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("testCreateNodeFile WriteFile: %v", err)
+	if err := os.WriteFile(cfsPath, []byte(content), 0644); err != nil {
+		t.Fatalf("testWriteNodeFile: write %v: %v", cfsPath, err)
 	}
 }
 
-func splitPath(p string) []string {
-	var parts []string
-	for {
-		dir, file := filepath.Split(p)
-		if file == "" {
-			break
-		}
-		parts = append([]string{file}, parts...)
-		p = filepath.Clean(dir)
-		if p == "." {
-			break
-		}
-	}
-	return parts
-}
-
-func TestNodeParse_HP01_MinimalNode(t *testing.T) {
+func TestNodeParse_MinimalNameSectionOnly(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	testCreateNodeFile(t, "SPEC/x", "# SPEC/x\nA simple node.\n")
+	testWriteNodeFile(t, "code-from-spec/x/_node.md", "# SPEC/x\nA simple node.\n")
 
 	node, err := parsenode.NodeParse("SPEC/x")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
+	if node.NameSection == nil {
+		t.Fatal("NameSection is nil")
+	}
 	if node.NameSection.Heading != "spec/x" {
-		t.Errorf("heading = %q, want %q", node.NameSection.Heading, "spec/x")
+		t.Errorf("Heading = %q, want %q", node.NameSection.Heading, "spec/x")
 	}
 	if node.NameSection.RawHeading != "# SPEC/x" {
-		t.Errorf("raw_heading = %q, want %q", node.NameSection.RawHeading, "# SPEC/x")
+		t.Errorf("RawHeading = %q, want %q", node.NameSection.RawHeading, "# SPEC/x")
 	}
 	if len(node.NameSection.Content) != 1 || node.NameSection.Content[0] != "A simple node." {
-		t.Errorf("content = %v, want [A simple node.]", node.NameSection.Content)
+		t.Errorf("Content = %v, want [\"A simple node.\"]", node.NameSection.Content)
 	}
 	if len(node.NameSection.Subsections) != 0 {
-		t.Errorf("subsections = %v, want empty", node.NameSection.Subsections)
+		t.Errorf("Subsections = %v, want empty", node.NameSection.Subsections)
 	}
 	if node.Public != nil {
-		t.Errorf("public = %v, want nil", node.Public)
+		t.Error("Public should be nil")
 	}
 	if node.Agent != nil {
-		t.Errorf("agent = %v, want nil", node.Agent)
+		t.Error("Agent should be nil")
 	}
 	if node.Private != nil {
-		t.Errorf("private = %v, want nil", node.Private)
+		t.Error("Private should be nil")
 	}
 }
 
-func TestNodeParse_HP02_FullNode(t *testing.T) {
+func TestNodeParse_FullNodeAllSections(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "---\noutput: some/path\n---\n# SPEC/payments/fees\nFee description line.\n# Public\n## Interface\nInterface content line.\n## Constraints\nConstraints content line.\n# Agent\nAgent content line.\n# Private\n## Decisions\nDecisions content line.\n## Rationale\nRationale content line.\n"
-	testCreateNodeFile(t, "SPEC/payments/fees", body)
+	content := `---
+depends_on: []
+---
+# SPEC/payments/fees
+Fees node description.
+# Public
+## Interface
+Interface line.
+## Constraints
+Constraints line.
+# Agent
+Agent guidance line.
+# Private
+## Decisions
+Decisions line.
+## Rationale
+Rationale line.
+`
+	testWriteNodeFile(t, "code-from-spec/payments/fees/_node.md", content)
 
 	node, err := parsenode.NodeParse("SPEC/payments/fees")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.NameSection.Heading != "spec/payments/fees" {
-		t.Errorf("heading = %q, want %q", node.NameSection.Heading, "spec/payments/fees")
+		t.Errorf("NameSection.Heading = %q, want %q", node.NameSection.Heading, "spec/payments/fees")
 	}
-	if len(node.NameSection.Content) != 1 || node.NameSection.Content[0] != "Fee description line." {
-		t.Errorf("name content = %v", node.NameSection.Content)
+	if len(node.NameSection.Content) != 1 || node.NameSection.Content[0] != "Fees node description." {
+		t.Errorf("NameSection.Content = %v", node.NameSection.Content)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if len(node.Public.Content) != 0 {
-		t.Errorf("public.content = %v, want empty", node.Public.Content)
+		t.Errorf("Public.Content = %v, want empty", node.Public.Content)
 	}
 	if len(node.Public.Subsections) != 2 {
-		t.Fatalf("public.subsections len = %d, want 2", len(node.Public.Subsections))
+		t.Fatalf("Public.Subsections len = %d, want 2", len(node.Public.Subsections))
 	}
 	if node.Public.Subsections[0].Heading != "interface" {
-		t.Errorf("subsection[0].heading = %q, want interface", node.Public.Subsections[0].Heading)
+		t.Errorf("Public.Subsections[0].Heading = %q, want %q", node.Public.Subsections[0].Heading, "interface")
 	}
-	if len(node.Public.Subsections[0].Content) != 1 || node.Public.Subsections[0].Content[0] != "Interface content line." {
-		t.Errorf("subsection[0].content = %v", node.Public.Subsections[0].Content)
+	if len(node.Public.Subsections[0].Content) != 1 || node.Public.Subsections[0].Content[0] != "Interface line." {
+		t.Errorf("Public.Subsections[0].Content = %v", node.Public.Subsections[0].Content)
 	}
 	if node.Public.Subsections[1].Heading != "constraints" {
-		t.Errorf("subsection[1].heading = %q, want constraints", node.Public.Subsections[1].Heading)
+		t.Errorf("Public.Subsections[1].Heading = %q, want %q", node.Public.Subsections[1].Heading, "constraints")
 	}
-	if len(node.Public.Subsections[1].Content) != 1 || node.Public.Subsections[1].Content[0] != "Constraints content line." {
-		t.Errorf("subsection[1].content = %v", node.Public.Subsections[1].Content)
+	if len(node.Public.Subsections[1].Content) != 1 || node.Public.Subsections[1].Content[0] != "Constraints line." {
+		t.Errorf("Public.Subsections[1].Content = %v", node.Public.Subsections[1].Content)
 	}
+
 	if node.Agent == nil {
-		t.Fatal("agent = nil, want present")
+		t.Fatal("Agent is nil")
 	}
-	if len(node.Agent.Content) != 1 || node.Agent.Content[0] != "Agent content line." {
-		t.Errorf("agent.content = %v", node.Agent.Content)
+	if len(node.Agent.Content) != 1 || node.Agent.Content[0] != "Agent guidance line." {
+		t.Errorf("Agent.Content = %v", node.Agent.Content)
 	}
+
 	if node.Private == nil {
-		t.Fatal("private = nil, want present")
+		t.Fatal("Private is nil")
 	}
 	if len(node.Private.Subsections) != 2 {
-		t.Fatalf("private.subsections len = %d, want 2", len(node.Private.Subsections))
+		t.Fatalf("Private.Subsections len = %d, want 2", len(node.Private.Subsections))
 	}
 	if node.Private.Subsections[0].Heading != "decisions" {
-		t.Errorf("private.subsections[0].heading = %q, want decisions", node.Private.Subsections[0].Heading)
+		t.Errorf("Private.Subsections[0].Heading = %q, want %q", node.Private.Subsections[0].Heading, "decisions")
+	}
+	if len(node.Private.Subsections[0].Content) != 1 || node.Private.Subsections[0].Content[0] != "Decisions line." {
+		t.Errorf("Private.Subsections[0].Content = %v", node.Private.Subsections[0].Content)
 	}
 	if node.Private.Subsections[1].Heading != "rationale" {
-		t.Errorf("private.subsections[1].heading = %q, want rationale", node.Private.Subsections[1].Heading)
+		t.Errorf("Private.Subsections[1].Heading = %q, want %q", node.Private.Subsections[1].Heading, "rationale")
+	}
+	if len(node.Private.Subsections[1].Content) != 1 || node.Private.Subsections[1].Content[0] != "Rationale line." {
+		t.Errorf("Private.Subsections[1].Content = %v", node.Private.Subsections[1].Content)
 	}
 }
 
-func TestNodeParse_HP03_NoPublicSection(t *testing.T) {
+func TestNodeParse_NoPublicSection(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/decisions\nContent line.\n# Private\n## Rationale\nRationale content.\n"
-	testCreateNodeFile(t, "SPEC/decisions", body)
+	content := "# SPEC/decisions\nDecision description.\n# Private\n## Rationale\nRationale content.\n"
+	testWriteNodeFile(t, "code-from-spec/decisions/_node.md", content)
 
 	node, err := parsenode.NodeParse("SPEC/decisions")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public != nil {
-		t.Errorf("public = %v, want nil", node.Public)
+		t.Error("Public should be nil")
 	}
 	if node.Agent != nil {
-		t.Errorf("agent = %v, want nil", node.Agent)
+		t.Error("Agent should be nil")
 	}
 	if node.Private == nil {
-		t.Fatal("private = nil, want present")
+		t.Fatal("Private is nil")
 	}
 	if len(node.Private.Subsections) != 1 {
-		t.Fatalf("private.subsections len = %d, want 1", len(node.Private.Subsections))
+		t.Fatalf("Private.Subsections len = %d, want 1", len(node.Private.Subsections))
 	}
 	if node.Private.Subsections[0].Heading != "rationale" {
-		t.Errorf("private.subsections[0].heading = %q, want rationale", node.Private.Subsections[0].Heading)
+		t.Errorf("Private.Subsections[0].Heading = %q, want %q", node.Private.Subsections[0].Heading, "rationale")
 	}
 	if len(node.Private.Subsections[0].Content) != 1 || node.Private.Subsections[0].Content[0] != "Rationale content." {
-		t.Errorf("private.subsections[0].content = %v", node.Private.Subsections[0].Content)
+		t.Errorf("Private.Subsections[0].Content = %v", node.Private.Subsections[0].Content)
 	}
 }
 
-func TestNodeParse_HP04_PublicContentBeforeSubsection(t *testing.T) {
+func TestNodeParse_PublicContentBeforeFirstSubsection(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\nPreamble line one.\nPreamble line two.\n## Interface\nInterface content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/a\nNode content.\n# Public\nPreamble line one.\nPreamble line two.\n## Interface\nInterface line.\n"
+	testWriteNodeFile(t, "code-from-spec/a/_node.md", content)
 
 	node, err := parsenode.NodeParse("SPEC/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
-	if len(node.Public.Content) != 2 || node.Public.Content[0] != "Preamble line one." || node.Public.Content[1] != "Preamble line two." {
-		t.Errorf("public.content = %v", node.Public.Content)
+	if len(node.Public.Content) != 2 {
+		t.Fatalf("Public.Content len = %d, want 2", len(node.Public.Content))
 	}
-	if len(node.Public.Subsections) != 1 || node.Public.Subsections[0].Heading != "interface" {
-		t.Errorf("public.subsections = %v", node.Public.Subsections)
+	if node.Public.Content[0] != "Preamble line one." {
+		t.Errorf("Public.Content[0] = %q", node.Public.Content[0])
 	}
-	if len(node.Public.Subsections[0].Content) != 1 || node.Public.Subsections[0].Content[0] != "Interface content." {
-		t.Errorf("public.subsections[0].content = %v", node.Public.Subsections[0].Content)
+	if node.Public.Content[1] != "Preamble line two." {
+		t.Errorf("Public.Content[1] = %q", node.Public.Content[1])
+	}
+	if len(node.Public.Subsections) != 1 {
+		t.Fatalf("Public.Subsections len = %d, want 1", len(node.Public.Subsections))
+	}
+	if node.Public.Subsections[0].Heading != "interface" {
+		t.Errorf("Public.Subsections[0].Heading = %q", node.Public.Subsections[0].Heading)
+	}
+	if len(node.Public.Subsections[0].Content) != 1 || node.Public.Subsections[0].Content[0] != "Interface line." {
+		t.Errorf("Public.Subsections[0].Content = %v", node.Public.Subsections[0].Content)
 	}
 }
 
-func TestNodeParse_HP05_PublicEmptyNoSubsections(t *testing.T) {
+func TestNodeParse_PublicNoContentOrSubsections(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n# Agent\nAgent content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/b\nNode content.\n# Public\n# Agent\nAgent line.\n"
+	testWriteNodeFile(t, "code-from-spec/b/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/b")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if len(node.Public.Content) != 0 {
-		t.Errorf("public.content = %v, want empty", node.Public.Content)
+		t.Errorf("Public.Content = %v, want empty", node.Public.Content)
 	}
 	if len(node.Public.Subsections) != 0 {
-		t.Errorf("public.subsections = %v, want empty", node.Public.Subsections)
-	}
-	if node.Agent == nil {
-		t.Fatal("agent = nil, want present")
-	}
-	if len(node.Agent.Content) != 1 || node.Agent.Content[0] != "Agent content." {
-		t.Errorf("agent.content = %v", node.Agent.Content)
+		t.Errorf("Public.Subsections = %v, want empty", node.Public.Subsections)
 	}
 }
 
-func TestNodeParse_HP06_AgentWithSubsections(t *testing.T) {
+func TestNodeParse_AgentSectionWithSubsections(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Agent\nAgent preamble.\n## Implementation guidance\nImplementation content.\n## Contracts\nContracts content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/c\nNode content.\n# Agent\nPreamble line.\n## Implementation guidance\nGuidance content.\n## Contracts\nContracts content.\n"
+	testWriteNodeFile(t, "code-from-spec/c/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/c")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Agent == nil {
-		t.Fatal("agent = nil, want present")
+		t.Fatal("Agent is nil")
 	}
-	if len(node.Agent.Content) != 1 || node.Agent.Content[0] != "Agent preamble." {
-		t.Errorf("agent.content = %v", node.Agent.Content)
+	if len(node.Agent.Content) != 1 || node.Agent.Content[0] != "Preamble line." {
+		t.Errorf("Agent.Content = %v", node.Agent.Content)
 	}
 	if node.Agent.RawHeading != "# Agent" {
-		t.Errorf("agent.raw_heading = %q, want %q", node.Agent.RawHeading, "# Agent")
+		t.Errorf("Agent.RawHeading = %q, want %q", node.Agent.RawHeading, "# Agent")
 	}
 	if len(node.Agent.Subsections) != 2 {
-		t.Fatalf("agent.subsections len = %d, want 2", len(node.Agent.Subsections))
+		t.Fatalf("Agent.Subsections len = %d, want 2", len(node.Agent.Subsections))
 	}
 	if node.Agent.Subsections[0].Heading != "implementation guidance" {
-		t.Errorf("agent.subsections[0].heading = %q, want implementation guidance", node.Agent.Subsections[0].Heading)
+		t.Errorf("Agent.Subsections[0].Heading = %q", node.Agent.Subsections[0].Heading)
 	}
-	if len(node.Agent.Subsections[0].Content) != 1 || node.Agent.Subsections[0].Content[0] != "Implementation content." {
-		t.Errorf("agent.subsections[0].content = %v", node.Agent.Subsections[0].Content)
+	if len(node.Agent.Subsections[0].Content) != 1 || node.Agent.Subsections[0].Content[0] != "Guidance content." {
+		t.Errorf("Agent.Subsections[0].Content = %v", node.Agent.Subsections[0].Content)
 	}
 	if node.Agent.Subsections[1].Heading != "contracts" {
-		t.Errorf("agent.subsections[1].heading = %q, want contracts", node.Agent.Subsections[1].Heading)
+		t.Errorf("Agent.Subsections[1].Heading = %q", node.Agent.Subsections[1].Heading)
 	}
 	if len(node.Agent.Subsections[1].Content) != 1 || node.Agent.Subsections[1].Content[0] != "Contracts content." {
-		t.Errorf("agent.subsections[1].content = %v", node.Agent.Subsections[1].Content)
+		t.Errorf("Agent.Subsections[1].Content = %v", node.Agent.Subsections[1].Content)
 	}
 }
 
-func TestNodeParse_HP07_PrivateWithSubsections(t *testing.T) {
+func TestNodeParse_PrivateSectionWithSubsections(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Private\n## TODO\nTodo content.\n## Decisions\nDecisions content.\n## Rationale\nRationale content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/d\nNode content.\n# Private\n## TODO\nTodo content.\n## Decisions\nDecisions content.\n## Rationale\nRationale content.\n"
+	testWriteNodeFile(t, "code-from-spec/d/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/d")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Private == nil {
-		t.Fatal("private = nil, want present")
+		t.Fatal("Private is nil")
 	}
 	if len(node.Private.Subsections) != 3 {
-		t.Fatalf("private.subsections len = %d, want 3", len(node.Private.Subsections))
+		t.Fatalf("Private.Subsections len = %d, want 3", len(node.Private.Subsections))
 	}
 	if node.Private.Subsections[0].Heading != "todo" {
-		t.Errorf("private.subsections[0].heading = %q, want todo", node.Private.Subsections[0].Heading)
+		t.Errorf("Private.Subsections[0].Heading = %q", node.Private.Subsections[0].Heading)
 	}
 	if node.Private.Subsections[1].Heading != "decisions" {
-		t.Errorf("private.subsections[1].heading = %q, want decisions", node.Private.Subsections[1].Heading)
+		t.Errorf("Private.Subsections[1].Heading = %q", node.Private.Subsections[1].Heading)
 	}
 	if node.Private.Subsections[2].Heading != "rationale" {
-		t.Errorf("private.subsections[2].heading = %q, want rationale", node.Private.Subsections[2].Heading)
+		t.Errorf("Private.Subsections[2].Heading = %q", node.Private.Subsections[2].Heading)
 	}
 }
 
-func TestNodeParse_HP08_ContentIsRawMarkdown(t *testing.T) {
+func TestNodeParse_ContentIsRawMarkdown(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Summary\n### A level-3 heading\n**Bold text here**\n```python\nx = 1\n```\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/f\nNode content.\n# Public\n## Interface\n### A level-3 heading\n**bold text**\n```\ncode here\n```\n"
+	testWriteNodeFile(t, "code-from-spec/f/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/f")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
-	if len(node.Public.Subsections) != 1 || node.Public.Subsections[0].Heading != "summary" {
-		t.Fatalf("public.subsections = %v", node.Public.Subsections)
+	if len(node.Public.Subsections) != 1 {
+		t.Fatalf("Public.Subsections len = %d, want 1", len(node.Public.Subsections))
 	}
-	want := []string{"### A level-3 heading", "**Bold text here**", "```python", "x = 1", "```"}
-	got := node.Public.Subsections[0].Content
-	if len(got) != len(want) {
-		t.Fatalf("subsection[0].content len = %d, want %d: %v", len(got), len(want), got)
+	sub := node.Public.Subsections[0]
+	expected := []string{"### A level-3 heading", "**bold text**", "```", "code here", "```"}
+	if len(sub.Content) != len(expected) {
+		t.Fatalf("Content len = %d, want %d; content = %v", len(sub.Content), len(expected), sub.Content)
 	}
-	for i, w := range want {
-		if got[i] != w {
-			t.Errorf("subsection[0].content[%d] = %q, want %q", i, got[i], w)
+	for i, want := range expected {
+		if sub.Content[i] != want {
+			t.Errorf("Content[%d] = %q, want %q", i, sub.Content[i], want)
 		}
 	}
 }
 
-func TestNodeParse_HN01_CaseInsensitivePublic(t *testing.T) {
+func TestNodeParse_CaseInsensitivePublicDetection(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# PUBLIC\nPublic content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/g\nNode content.\n# PUBLIC\n"
+	testWriteNodeFile(t, "code-from-spec/g/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/g")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if node.Public.Heading != "public" {
-		t.Errorf("public.heading = %q, want public", node.Public.Heading)
+		t.Errorf("Public.Heading = %q, want %q", node.Public.Heading, "public")
 	}
 }
 
-func TestNodeParse_HN02_PublicMixedCaseWhitespace(t *testing.T) {
+func TestNodeParse_PublicMixedCaseExtraWhitespace(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n#   PuBLiC\nPublic content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/h\nNode content.\n#   PuBLiC\n"
+	testWriteNodeFile(t, "code-from-spec/h/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/h")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if node.Public.Heading != "public" {
-		t.Errorf("public.heading = %q, want public", node.Public.Heading)
+		t.Errorf("Public.Heading = %q, want %q", node.Public.Heading, "public")
 	}
 }
 
-func TestNodeParse_HN03_NodeNameVariedWhitespace(t *testing.T) {
+func TestNodeParse_NodeNameWithVariedWhitespace(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "#   SPEC/e\nName content.\n"
-	testCreateNodeFile(t, "SPEC/e", body)
+	content := "#   SPEC/e\nNode content.\n"
+	testWriteNodeFile(t, "code-from-spec/e/_node.md", content)
 
 	node, err := parsenode.NodeParse("SPEC/e")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.NameSection.Heading != "spec/e" {
-		t.Errorf("heading = %q, want spec/e", node.NameSection.Heading)
+		t.Errorf("NameSection.Heading = %q, want %q", node.NameSection.Heading, "spec/e")
 	}
 }
 
-func TestNodeParse_HN04_RootXHeadingDoesNotMatchSpecX(t *testing.T) {
+func TestNodeParse_NodeNameROOTPrefixDoesNotMatchSPEC(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# ROOT/x\nContent.\n"
-	testCreateNodeFile(t, "SPEC/x", body)
+	content := "# ROOT/x\nNode content.\n"
+	testWriteNodeFile(t, "code-from-spec/x/_node.md", content)
 
 	_, err := parsenode.NodeParse("SPEC/x")
 	if !errors.Is(err, parsenode.ErrNodeNameDoesNotMatch) {
@@ -400,591 +416,599 @@ func TestNodeParse_HN04_RootXHeadingDoesNotMatchSpecX(t *testing.T) {
 	}
 }
 
-func TestNodeParse_HN05_SubsectionHeadingsNormalized(t *testing.T) {
+func TestNodeParse_SubsectionHeadingsNormalized(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n##   Interface\nInterface content.\n## CONSTRAINTS\nConstraints content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/i\nNode content.\n# Public\n##   Interface\nInterface content.\n## CONSTRAINTS\nConstraints content.\n"
+	testWriteNodeFile(t, "code-from-spec/i/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/i")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if len(node.Public.Subsections) != 2 {
-		t.Fatalf("public.subsections len = %d, want 2", len(node.Public.Subsections))
+		t.Fatalf("Public.Subsections len = %d, want 2", len(node.Public.Subsections))
 	}
 	if node.Public.Subsections[0].Heading != "interface" {
-		t.Errorf("subsection[0].heading = %q, want interface", node.Public.Subsections[0].Heading)
+		t.Errorf("Subsections[0].Heading = %q, want %q", node.Public.Subsections[0].Heading, "interface")
 	}
 	if node.Public.Subsections[1].Heading != "constraints" {
-		t.Errorf("subsection[1].heading = %q, want constraints", node.Public.Subsections[1].Heading)
+		t.Errorf("Subsections[1].Heading = %q, want %q", node.Public.Subsections[1].Heading, "constraints")
 	}
 }
 
-func TestNodeParse_HN06_ClosingHashesStripped(t *testing.T) {
+func TestNodeParse_ClosingHashesStripped(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Interface ##\nInterface content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/j\nNode content.\n# Public\n## Interface ##\nInterface content.\n"
+	testWriteNodeFile(t, "code-from-spec/j/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/j")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if len(node.Public.Subsections) != 1 {
-		t.Fatalf("public.subsections len = %d, want 1", len(node.Public.Subsections))
+		t.Fatalf("Public.Subsections len = %d, want 1", len(node.Public.Subsections))
 	}
 	if node.Public.Subsections[0].Heading != "interface" {
-		t.Errorf("subsection.heading = %q, want interface", node.Public.Subsections[0].Heading)
+		t.Errorf("Subsections[0].Heading = %q, want %q", node.Public.Subsections[0].Heading, "interface")
 	}
 	if node.Public.Subsections[0].RawHeading != "## Interface ##" {
-		t.Errorf("subsection.raw_heading = %q, want %q", node.Public.Subsections[0].RawHeading, "## Interface ##")
+		t.Errorf("Subsections[0].RawHeading = %q, want %q", node.Public.Subsections[0].RawHeading, "## Interface ##")
 	}
 }
 
-func TestNodeParse_RH01_RawHeadingPreservesOriginalLine(t *testing.T) {
+func TestNodeParse_RawHeadingPreservesOriginalLine(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Interface\nInterface content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/k\nNode content.\n# Public\n## Interface\nInterface content.\n"
+	testWriteNodeFile(t, "code-from-spec/k/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/k")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if node.Public.RawHeading != "# Public" {
-		t.Errorf("public.raw_heading = %q, want %q", node.Public.RawHeading, "# Public")
+		t.Errorf("Public.RawHeading = %q, want %q", node.Public.RawHeading, "# Public")
 	}
 	if len(node.Public.Subsections) != 1 {
-		t.Fatalf("public.subsections len = %d, want 1", len(node.Public.Subsections))
+		t.Fatalf("Public.Subsections len = %d, want 1", len(node.Public.Subsections))
 	}
 	if node.Public.Subsections[0].RawHeading != "## Interface" {
-		t.Errorf("subsection.raw_heading = %q, want %q", node.Public.Subsections[0].RawHeading, "## Interface")
+		t.Errorf("Subsections[0].RawHeading = %q, want %q", node.Public.Subsections[0].RawHeading, "## Interface")
 	}
 }
 
-func TestNodeParse_RH02_RawHeadingPreservesCase(t *testing.T) {
+func TestNodeParse_RawHeadingPreservesCase(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# PUBLIC\nPublic content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/l\nNode content.\n# PUBLIC\n"
+	testWriteNodeFile(t, "code-from-spec/l/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/l")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if node.Public.Heading != "public" {
-		t.Errorf("public.heading = %q, want public", node.Public.Heading)
+		t.Errorf("Public.Heading = %q, want %q", node.Public.Heading, "public")
 	}
 	if node.Public.RawHeading != "# PUBLIC" {
-		t.Errorf("public.raw_heading = %q, want %q", node.Public.RawHeading, "# PUBLIC")
+		t.Errorf("Public.RawHeading = %q, want %q", node.Public.RawHeading, "# PUBLIC")
 	}
 }
 
-func TestNodeParse_RH03_RawHeadingPreservesClosingHashes(t *testing.T) {
+func TestNodeParse_RawHeadingPreservesClosingHashes(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Foo ##\nFoo content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/m\nNode content.\n# Public\n## Foo ##\nFoo content.\n"
+	testWriteNodeFile(t, "code-from-spec/m/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/m")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if len(node.Public.Subsections) != 1 {
-		t.Fatalf("public.subsections len = %d, want 1", len(node.Public.Subsections))
+		t.Fatalf("Public.Subsections len = %d, want 1", len(node.Public.Subsections))
 	}
 	if node.Public.Subsections[0].Heading != "foo" {
-		t.Errorf("subsection.heading = %q, want foo", node.Public.Subsections[0].Heading)
+		t.Errorf("Subsections[0].Heading = %q, want %q", node.Public.Subsections[0].Heading, "foo")
 	}
 	if node.Public.Subsections[0].RawHeading != "## Foo ##" {
-		t.Errorf("subsection.raw_heading = %q, want %q", node.Public.Subsections[0].RawHeading, "## Foo ##")
+		t.Errorf("Subsections[0].RawHeading = %q, want %q", node.Public.Subsections[0].RawHeading, "## Foo ##")
 	}
 }
 
-func TestNodeParse_RH04_RawHeadingPreservesExtraWhitespace(t *testing.T) {
+func TestNodeParse_RawHeadingPreservesExtraWhitespace(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n#   Public\nPublic content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/n\nNode content.\n#   Public\n"
+	testWriteNodeFile(t, "code-from-spec/n/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/n")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if node.Public.Heading != "public" {
-		t.Errorf("public.heading = %q, want public", node.Public.Heading)
+		t.Errorf("Public.Heading = %q, want %q", node.Public.Heading, "public")
 	}
 	if node.Public.RawHeading != "#   Public" {
-		t.Errorf("public.raw_heading = %q, want %q", node.Public.RawHeading, "#   Public")
+		t.Errorf("Public.RawHeading = %q, want %q", node.Public.RawHeading, "#   Public")
 	}
 }
 
-func TestNodeParse_CB01_Level3AndDeeperAreContent(t *testing.T) {
+func TestNodeParse_Level3AndDeeperAreContent(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Summary\n### A deeper heading\n#### Even deeper\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/o\nNode content.\n# Public\n## Interface\n### A subsub heading\n#### Even deeper\nInterface content.\n"
+	testWriteNodeFile(t, "code-from-spec/o/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/o")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
-	if len(node.Public.Subsections) != 1 || node.Public.Subsections[0].Heading != "summary" {
-		t.Fatalf("public.subsections = %v", node.Public.Subsections)
+	if len(node.Public.Subsections) != 1 {
+		t.Fatalf("Public.Subsections len = %d, want 1", len(node.Public.Subsections))
 	}
-	want := []string{"### A deeper heading", "#### Even deeper"}
-	got := node.Public.Subsections[0].Content
-	if len(got) != len(want) {
-		t.Fatalf("subsection[0].content = %v, want %v", got, want)
-	}
-	for i, w := range want {
-		if got[i] != w {
-			t.Errorf("subsection[0].content[%d] = %q, want %q", i, got[i], w)
+	sub := node.Public.Subsections[0]
+	found3 := false
+	found4 := false
+	for _, line := range sub.Content {
+		if line == "### A subsub heading" {
+			found3 = true
+		}
+		if line == "#### Even deeper" {
+			found4 = true
 		}
 	}
+	if !found3 {
+		t.Errorf("Content missing '### A subsub heading'; content = %v", sub.Content)
+	}
+	if !found4 {
+		t.Errorf("Content missing '#### Even deeper'; content = %v", sub.Content)
+	}
 }
 
-func TestNodeParse_CB02_FencedCodeBlockBacktick(t *testing.T) {
+func TestNodeParse_FencedCodeBlockBacktickHeadingLike(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Interface\n```\n# looks like heading\n## also looks like heading\n```\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/p\nNode content.\n# Public\n## Interface\n```\n# looks like heading\n## also heading-like\n```\nNormal content.\n"
+	testWriteNodeFile(t, "code-from-spec/p/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/p")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
-	if len(node.Public.Subsections) != 1 || node.Public.Subsections[0].Heading != "interface" {
-		t.Fatalf("public.subsections = %v", node.Public.Subsections)
+	if len(node.Public.Subsections) != 1 {
+		t.Fatalf("Public.Subsections len = %d, want 1; subsections = %v", len(node.Public.Subsections), node.Public.Subsections)
 	}
-	content := node.Public.Subsections[0].Content
-	found1, found2 := false, false
-	for _, line := range content {
+	sub := node.Public.Subsections[0]
+	foundH1 := false
+	foundH2 := false
+	for _, line := range sub.Content {
 		if line == "# looks like heading" {
-			found1 = true
+			foundH1 = true
 		}
-		if line == "## also looks like heading" {
-			found2 = true
+		if line == "## also heading-like" {
+			foundH2 = true
 		}
 	}
-	if !found1 {
-		t.Errorf("expected '# looks like heading' in content %v", content)
+	if !foundH1 {
+		t.Errorf("Content missing '# looks like heading'; content = %v", sub.Content)
 	}
-	if !found2 {
-		t.Errorf("expected '## also looks like heading' in content %v", content)
+	if !foundH2 {
+		t.Errorf("Content missing '## also heading-like'; content = %v", sub.Content)
 	}
 }
 
-func TestNodeParse_CB03_FencedCodeBlockTilde(t *testing.T) {
+func TestNodeParse_FencedCodeBlockTildeFence(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Interface\n~~~\n# This looks like a heading\n~~~\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/ptilde\nNode content.\n# Public\n## Interface\n~~~\n# looks like heading\n~~~\n"
+	testWriteNodeFile(t, "code-from-spec/ptilde/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/ptilde")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
-	if len(node.Public.Subsections) != 1 || node.Public.Subsections[0].Heading != "interface" {
-		t.Fatalf("public.subsections = %v", node.Public.Subsections)
+	if len(node.Public.Subsections) != 1 {
+		t.Fatalf("Public.Subsections len = %d, want 1", len(node.Public.Subsections))
 	}
-	content := node.Public.Subsections[0].Content
+	sub := node.Public.Subsections[0]
 	found := false
-	for _, line := range content {
-		if line == "# This looks like a heading" {
+	for _, line := range sub.Content {
+		if line == "# looks like heading" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("expected '# This looks like a heading' in content %v", content)
+		t.Errorf("Content missing '# looks like heading' inside tilde fence; content = %v", sub.Content)
 	}
 }
 
-func TestNodeParse_CB04_FencedCodeBlockWithLanguageTag(t *testing.T) {
+func TestNodeParse_FencedCodeBlockWithLanguageTag(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Interface\n```python\n# This looks like a heading\n```\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/plang\nNode content.\n# Public\n## Interface\n```python\n# python comment that looks like heading\n```\n"
+	testWriteNodeFile(t, "code-from-spec/plang/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/plang")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
-	if len(node.Public.Subsections) != 1 || node.Public.Subsections[0].Heading != "interface" {
-		t.Fatalf("public.subsections = %v", node.Public.Subsections)
+	if len(node.Public.Subsections) != 1 {
+		t.Fatalf("Public.Subsections len = %d, want 1", len(node.Public.Subsections))
 	}
-	content := node.Public.Subsections[0].Content
+	sub := node.Public.Subsections[0]
 	found := false
-	for _, line := range content {
-		if line == "# This looks like a heading" {
+	for _, line := range sub.Content {
+		if line == "# python comment that looks like heading" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("expected '# This looks like a heading' in content %v", content)
+		t.Errorf("Content missing python comment; content = %v", sub.Content)
 	}
 }
 
-func TestNodeParse_CB05_BlankLinesBetweenHeadingAndContentPreserved(t *testing.T) {
+func TestNodeParse_BlankLinesBetweenHeadingAndContentPreserved(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n\nPublic content line.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/q\nNode content.\n# Public\n\nPublic content.\n"
+	testWriteNodeFile(t, "code-from-spec/q/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/q")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if node.Public == nil {
-		t.Fatal("public = nil, want present")
+		t.Fatal("Public is nil")
 	}
 	if len(node.Public.Content) != 2 {
-		t.Fatalf("public.content = %v, want [\"\", \"Public content line.\"]", node.Public.Content)
+		t.Fatalf("Public.Content len = %d, want 2; content = %v", len(node.Public.Content), node.Public.Content)
 	}
 	if node.Public.Content[0] != "" {
-		t.Errorf("public.content[0] = %q, want empty string", node.Public.Content[0])
+		t.Errorf("Public.Content[0] = %q, want empty string", node.Public.Content[0])
 	}
-	if node.Public.Content[1] != "Public content line." {
-		t.Errorf("public.content[1] = %q, want %q", node.Public.Content[1], "Public content line.")
+	if node.Public.Content[1] != "Public content." {
+		t.Errorf("Public.Content[1] = %q, want %q", node.Public.Content[1], "Public content.")
 	}
 }
 
-func TestNodeParse_FM01_FrontmatterIsSkipped(t *testing.T) {
+func TestNodeParse_FrontmatterIsSkipped(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "---\noutput: some/path\ndepends_on: []\n---\n# SPEC/a\nName content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "---\ndepends_on: []\n---\n# SPEC/r\nBody content.\n"
+	testWriteNodeFile(t, "code-from-spec/r/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/r")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if node.NameSection.Heading != "spec/a" {
-		t.Errorf("heading = %q, want spec/a", node.NameSection.Heading)
+
+	if node.NameSection.Heading != "spec/r" {
+		t.Errorf("NameSection.Heading = %q", node.NameSection.Heading)
 	}
-	if len(node.NameSection.Content) != 1 || node.NameSection.Content[0] != "Name content." {
-		t.Errorf("content = %v", node.NameSection.Content)
+	if len(node.NameSection.Content) != 1 || node.NameSection.Content[0] != "Body content." {
+		t.Errorf("NameSection.Content = %v", node.NameSection.Content)
 	}
 }
 
-func TestNodeParse_FM02_NoFrontmatterDelimiters(t *testing.T) {
+func TestNodeParse_NoFrontmatterDelimiters(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/s\nBody content.\n"
+	testWriteNodeFile(t, "code-from-spec/s/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/a")
+	node, err := parsenode.NodeParse("SPEC/s")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if node.NameSection.Heading != "spec/a" {
-		t.Errorf("heading = %q, want spec/a", node.NameSection.Heading)
+
+	if len(node.NameSection.Content) != 1 || node.NameSection.Content[0] != "Body content." {
+		t.Errorf("NameSection.Content = %v", node.NameSection.Content)
 	}
 }
 
-func TestNodeParse_FM03_UnclosedFrontmatter(t *testing.T) {
+func TestNodeParse_UnclosedFrontmatter(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "---\noutput: some/path\n# SPEC/a\nName content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "---\ndepends_on: []\n"
+	testWriteNodeFile(t, "code-from-spec/s2/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/s2")
 	if !errors.Is(err, parsenode.ErrUnexpectedContentBeforeFirstHeading) {
 		t.Errorf("error = %v, want ErrUnexpectedContentBeforeFirstHeading", err)
 	}
 }
 
-func TestNodeParse_FC01_ArtifactRejected(t *testing.T) {
+func TestNodeParse_ARTIFACTReferenceRejected(t *testing.T) {
 	_, err := parsenode.NodeParse("ARTIFACT/x")
 	if !errors.Is(err, parsenode.ErrNotASpecReference) {
 		t.Errorf("error = %v, want ErrNotASpecReference", err)
 	}
 }
 
-func TestNodeParse_FC02_ExternalRejected(t *testing.T) {
+func TestNodeParse_EXTERNALReferenceRejected(t *testing.T) {
 	_, err := parsenode.NodeParse("EXTERNAL/x")
 	if !errors.Is(err, parsenode.ErrNotASpecReference) {
 		t.Errorf("error = %v, want ErrNotASpecReference", err)
 	}
 }
 
-func TestNodeParse_FC03_QualifierRejected(t *testing.T) {
+func TestNodeParse_QualifierRejected(t *testing.T) {
 	_, err := parsenode.NodeParse("SPEC/x(interface)")
 	if !errors.Is(err, parsenode.ErrHasQualifier) {
 		t.Errorf("error = %v, want ErrHasQualifier", err)
 	}
 }
 
-func TestNodeParse_FC04_FileDoesNotExist(t *testing.T) {
+func TestNodeParse_FileDoesNotExist(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	_, err := parsenode.NodeParse("SPEC/nonexistent/node")
+	_, err := parsenode.NodeParse("SPEC/nonexistent/path")
 	if !errors.Is(err, parsenode.ErrFileUnreadable) {
 		t.Errorf("error = %v, want ErrFileUnreadable", err)
 	}
 }
 
-func TestNodeParse_FC05_PropagatesPathErrors(t *testing.T) {
+func TestNodeParse_ContentBeforeFirstHeading(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	_, err := parsenode.NodeParse("SPEC/../../escape")
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-}
+	content := "Some text before heading.\n# SPEC/t\nContent.\n"
+	testWriteNodeFile(t, "code-from-spec/t/_node.md", content)
 
-func TestNodeParse_FC06_ContentBeforeFirstHeading(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
-
-	body := "This is non-blank content.\n# SPEC/a\nName content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
-
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/t")
 	if !errors.Is(err, parsenode.ErrUnexpectedContentBeforeFirstHeading) {
 		t.Errorf("error = %v, want ErrUnexpectedContentBeforeFirstHeading", err)
 	}
 }
 
-func TestNodeParse_FC07_Level2BeforeLevel1(t *testing.T) {
+func TestNodeParse_Level2HeadingBeforeLevel1(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "## A subsection\n# SPEC/a\nName content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "## Interface\nContent.\n"
+	testWriteNodeFile(t, "code-from-spec/u/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/u")
 	if !errors.Is(err, parsenode.ErrUnexpectedContentBeforeFirstHeading) {
 		t.Errorf("error = %v, want ErrUnexpectedContentBeforeFirstHeading", err)
 	}
 }
 
-func TestNodeParse_FC08_EmptyBody(t *testing.T) {
+func TestNodeParse_EmptyBody(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	testCreateNodeFile(t, "SPEC/a", "")
+	testWriteNodeFile(t, "code-from-spec/v/_node.md", "")
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/v")
 	if !errors.Is(err, parsenode.ErrUnexpectedContentBeforeFirstHeading) {
 		t.Errorf("error = %v, want ErrUnexpectedContentBeforeFirstHeading", err)
 	}
 }
 
-func TestNodeParse_FC09_NodeNameDoesNotMatch(t *testing.T) {
+func TestNodeParse_NodeNameDoesNotMatchLogicalName(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/other\nName content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/wrong-name\nContent.\n"
+	testWriteNodeFile(t, "code-from-spec/correct-name/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/correct-name")
 	if !errors.Is(err, parsenode.ErrNodeNameDoesNotMatch) {
 		t.Errorf("error = %v, want ErrNodeNameDoesNotMatch", err)
 	}
 }
 
-func TestNodeParse_FC10_NodeNameCaseMismatchIsNotError(t *testing.T) {
+func TestNodeParse_NodeNameCaseMismatchIsNotError(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# spec/foo\nName content.\n"
-	testCreateNodeFile(t, "SPEC/FOO", body)
+	content := "# spec/mynode\nContent.\n"
+	testWriteNodeFile(t, "code-from-spec/MYNODE/_node.md", content)
 
-	node, err := parsenode.NodeParse("SPEC/FOO")
+	_, err := parsenode.NodeParse("SPEC/MYNODE")
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if node.NameSection.Heading != "spec/foo" {
-		t.Errorf("heading = %q, want spec/foo", node.NameSection.Heading)
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
-func TestNodeParse_FC11_DuplicatePublicSameCaseError(t *testing.T) {
+func TestNodeParse_DuplicatePublicSectionSameCase(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\nFirst public content.\n# Public\nSecond public content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/w\nContent.\n# Public\nPublic content.\n# Public\nMore public content.\n"
+	testWriteNodeFile(t, "code-from-spec/w/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/w")
 	if !errors.Is(err, parsenode.ErrDuplicatePublicSection) {
 		t.Errorf("error = %v, want ErrDuplicatePublicSection", err)
 	}
 }
 
-func TestNodeParse_FC12_DuplicatePublicDifferentCaseError(t *testing.T) {
+func TestNodeParse_DuplicatePublicSectionDifferentCase(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\nFirst public content.\n# PUBLIC\nSecond public content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/ww\nContent.\n# Public\nPublic content.\n# PUBLIC\nMore public content.\n"
+	testWriteNodeFile(t, "code-from-spec/ww/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/ww")
 	if !errors.Is(err, parsenode.ErrDuplicatePublicSection) {
 		t.Errorf("error = %v, want ErrDuplicatePublicSection", err)
 	}
 }
 
-func TestNodeParse_FC13_DuplicateAgentSection(t *testing.T) {
+func TestNodeParse_DuplicateAgentSection(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Agent\nFirst agent content.\n# Agent\nSecond agent content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/dupagent\nContent.\n# Agent\nAgent content.\n# Agent\nMore agent content.\n"
+	testWriteNodeFile(t, "code-from-spec/dupagent/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/dupagent")
 	if !errors.Is(err, parsenode.ErrDuplicateAgentSection) {
 		t.Errorf("error = %v, want ErrDuplicateAgentSection", err)
 	}
 }
 
-func TestNodeParse_FC14_DuplicatePrivateSection(t *testing.T) {
+func TestNodeParse_DuplicatePrivateSection(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Private\nFirst private content.\n# Private\nSecond private content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/duppriv\nContent.\n# Private\nPrivate content.\n# Private\nMore private content.\n"
+	testWriteNodeFile(t, "code-from-spec/duppriv/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/duppriv")
 	if !errors.Is(err, parsenode.ErrDuplicatePrivateSection) {
 		t.Errorf("error = %v, want ErrDuplicatePrivateSection", err)
 	}
 }
 
-func TestNodeParse_FC15_UnrecognizedSection(t *testing.T) {
+func TestNodeParse_UnrecognizedSectionDecisions(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Decisions\nSome content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/y\nContent.\n# Decisions\nDecisions content.\n"
+	testWriteNodeFile(t, "code-from-spec/y/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/y")
 	if !errors.Is(err, parsenode.ErrUnrecognizedSection) {
 		t.Errorf("error = %v, want ErrUnrecognizedSection", err)
 	}
 }
 
-func TestNodeParse_FC16_UnrecognizedSectionRationale(t *testing.T) {
+func TestNodeParse_UnrecognizedSectionRationale(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Rationale\nRationale content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/rationale\nContent.\n# Rationale\nRationale content.\n"
+	testWriteNodeFile(t, "code-from-spec/rationale/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/rationale")
 	if !errors.Is(err, parsenode.ErrUnrecognizedSection) {
 		t.Errorf("error = %v, want ErrUnrecognizedSection", err)
 	}
 }
 
-func TestNodeParse_FC17_UnrecognizedSectionTODO(t *testing.T) {
+func TestNodeParse_UnrecognizedSectionTODO(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# TODO\nTodo content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/todo\nContent.\n# TODO\nTodo content.\n"
+	testWriteNodeFile(t, "code-from-spec/todo/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/todo")
 	if !errors.Is(err, parsenode.ErrUnrecognizedSection) {
 		t.Errorf("error = %v, want ErrUnrecognizedSection", err)
 	}
 }
 
-func TestNodeParse_FC18_DuplicateSubsectionPublicSameCase(t *testing.T) {
+func TestNodeParse_DuplicateSubsectionPublicSameCase(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Interface\nFirst interface content.\n## Interface\nSecond interface content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/z\nContent.\n# Public\n## Interface\nContent A.\n## Interface\nContent B.\n"
+	testWriteNodeFile(t, "code-from-spec/z/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/z")
 	if !errors.Is(err, parsenode.ErrDuplicateSubsection) {
 		t.Errorf("error = %v, want ErrDuplicateSubsection", err)
 	}
 }
 
-func TestNodeParse_FC19_DuplicateSubsectionPublicDifferentCase(t *testing.T) {
+func TestNodeParse_DuplicateSubsectionPublicDifferentCase(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Interface\nFirst interface content.\n## INTERFACE\nSecond interface content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/z2\nContent.\n# Public\n## Interface\nContent A.\n## INTERFACE\nContent B.\n"
+	testWriteNodeFile(t, "code-from-spec/z2/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/z2")
 	if !errors.Is(err, parsenode.ErrDuplicateSubsection) {
 		t.Errorf("error = %v, want ErrDuplicateSubsection", err)
 	}
 }
 
-func TestNodeParse_FC20_DuplicateSubsectionPublicWhitespaceVariation(t *testing.T) {
+func TestNodeParse_DuplicateSubsectionPublicWhitespaceVariation(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Public\n## Interface\nFirst interface content.\n##   Interface\nSecond interface content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/z3\nContent.\n# Public\n## Interface\nContent A.\n##   Interface\nContent B.\n"
+	testWriteNodeFile(t, "code-from-spec/z3/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/z3")
 	if !errors.Is(err, parsenode.ErrDuplicateSubsection) {
 		t.Errorf("error = %v, want ErrDuplicateSubsection", err)
 	}
 }
 
-func TestNodeParse_FC21_DuplicateSubsectionAgent(t *testing.T) {
+func TestNodeParse_DuplicateSubsectionAgent(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 
-	body := "# SPEC/a\nName content.\n# Agent\n## Guidance\nFirst guidance content.\n## Guidance\nSecond guidance content.\n"
-	testCreateNodeFile(t, "SPEC/a", body)
+	content := "# SPEC/z4\nContent.\n# Agent\n## Guidance\nGuidance content.\n## Guidance\nDuplicate content.\n"
+	testWriteNodeFile(t, "code-from-spec/z4/_node.md", content)
 
-	_, err := parsenode.NodeParse("SPEC/a")
+	_, err := parsenode.NodeParse("SPEC/z4")
 	if !errors.Is(err, parsenode.ErrDuplicateSubsection) {
 		t.Errorf("error = %v, want ErrDuplicateSubsection", err)
 	}

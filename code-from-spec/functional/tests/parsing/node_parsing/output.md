@@ -1,1044 +1,748 @@
-<!-- code-from-spec: ROOT/functional/tests/parsing/node_parsing@X8NhxiEXQ0Kaqaq970yKnN2rQaI -->
+<!-- code-from-spec: SPEC/functional/tests/parsing/node_parsing@TV0Ik8lUgy5lfxoOkGqLdHVw4pA -->
 
-## Test Cases for NodeParse
+## Happy path
 
----
+### Minimal node — name section only
 
-### Happy Path
+Setup: Create a node file for `SPEC/x` with the following lines:
+  `# SPEC/x`
+  `A simple node.`
 
----
-
-#### TC-HP-01: Minimal node — name section only
-
-Setup:
-  Create a node file for logical name `"SPEC/x"`.
-  File body:
-    ```
-    # SPEC/x
-    A simple node.
-    ```
-
-Action:
-  Call `NodeParse("SPEC/x")`.
+Action: Call `NodeParse("SPEC/x")`.
 
 Expected outcome:
-  Returns a Node record where:
-  - `name_section.heading` = `"spec/x"`
-  - `name_section.raw_heading` = `"# SPEC/x"`
-  - `name_section.content` = `["A simple node."]`
-  - `name_section.subsections` = empty list
-  - `public` = absent
-  - `agent` = absent
-  - `private` = absent
+- `name_section.heading` = `"spec/x"`
+- `name_section.raw_heading` = `"# SPEC/x"`
+- `name_section.content` = `["A simple node."]`
+- `name_section.subsections` = empty list
+- `public` absent
+- `agent` absent
+- `private` absent
 
 ---
 
-#### TC-HP-02: Full node — all section types
+### Full node — all section types
 
-Setup:
-  Create a node file for logical name `"SPEC/payments/fees"`.
-  File body (with frontmatter):
-    ```
-    ---
-    output: some/path
-    ---
-    # SPEC/payments/fees
-    Fee description line.
-    # Public
-    ## Interface
-    Interface content line.
-    ## Constraints
-    Constraints content line.
-    # Agent
-    Agent content line.
-    # Private
-    ## Decisions
-    Decisions content line.
-    ## Rationale
-    Rationale content line.
-    ```
+Setup: Create a node file for `SPEC/payments/fees` with:
+  Frontmatter block (`---` ... `---`)
+  `# SPEC/payments/fees`
+  `Fees node description.`
+  `# Public`
+  `## Interface`
+  `Interface line.`
+  `## Constraints`
+  `Constraints line.`
+  `# Agent`
+  `Agent guidance line.`
+  `# Private`
+  `## Decisions`
+  `Decisions line.`
+  `## Rationale`
+  `Rationale line.`
 
-Action:
-  Call `NodeParse("SPEC/payments/fees")`.
+Action: Call `NodeParse("SPEC/payments/fees")`.
 
 Expected outcome:
-  Returns a Node record where:
-  - `name_section.heading` = `"spec/payments/fees"`
-  - `name_section.content` = `["Fee description line."]`
-  - `public` is present
-    - `public.content` = empty list
-    - `public.subsections` has two entries in order:
-      - entry 1: `heading` = `"interface"`, `content` = `["Interface content line."]`
-      - entry 2: `heading` = `"constraints"`, `content` = `["Constraints content line."]`
-  - `agent` is present
-    - `agent.content` = `["Agent content line."]`
-  - `private` is present
-    - `private.subsections` has two entries in order:
-      - entry 1: `heading` = `"decisions"`, `content` = `["Decisions content line."]`
-      - entry 2: `heading` = `"rationale"`, `content` = `["Rationale content line."]`
+- `name_section.heading` = `"spec/payments/fees"`
+- `name_section.content` = `["Fees node description."]`
+- `public` present
+- `public.content` = empty list
+- `public.subsections` has two entries in order:
+  - heading `"interface"`, content `["Interface line."]`
+  - heading `"constraints"`, content `["Constraints line."]`
+- `agent` present
+- `agent.content` = `["Agent guidance line."]`
+- `private` present
+- `private.subsections` has two entries in order:
+  - heading `"decisions"`, content `["Decisions line."]`
+  - heading `"rationale"`, content `["Rationale line."]`
 
 ---
 
-#### TC-HP-03: Node with no public section
+### Node with no public section
 
-Setup:
-  Create a node file for logical name `"SPEC/decisions"`.
-  File body:
-    ```
-    # SPEC/decisions
-    Content line.
-    # Private
-    ## Rationale
-    Rationale content.
-    ```
+Setup: Create a node file for `SPEC/decisions` with:
+  `# SPEC/decisions`
+  `Decision description.`
+  `# Private`
+  `## Rationale`
+  `Rationale content.`
 
-Action:
-  Call `NodeParse("SPEC/decisions")`.
+Action: Call `NodeParse("SPEC/decisions")`.
 
 Expected outcome:
-  Returns a Node record where:
-  - `public` = absent
-  - `agent` = absent
-  - `private` is present
-    - `private.subsections` has one entry:
-      - `heading` = `"rationale"`, `content` = `["Rationale content."]`
+- `public` absent
+- `agent` absent
+- `private` present with one subsection:
+  - heading `"rationale"`, content `["Rationale content."]`
 
 ---
 
-#### TC-HP-04: Public section with content before first subsection
+### Public section with content before first subsection
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    Preamble line one.
-    Preamble line two.
-    ## Interface
-    Interface content.
-    ```
+Setup: Create a node file for `SPEC/a` with:
+  `# SPEC/a`
+  `Node content.`
+  `# Public`
+  `Preamble line one.`
+  `Preamble line two.`
+  `## Interface`
+  `Interface line.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/a")`.
 
 Expected outcome:
-  Returns a Node record where:
-  - `public.content` = `["Preamble line one.", "Preamble line two."]`
-  - `public.subsections` has one entry:
-    - `heading` = `"interface"`, `content` = `["Interface content."]`
+- `public.content` = `["Preamble line one.", "Preamble line two."]`
+- `public.subsections` has one entry:
+  - heading `"interface"`, content `["Interface line."]`
 
 ---
 
-#### TC-HP-05: Public section with no content or subsections
+### Public section with no content or subsections
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    # Agent
-    Agent content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/b`
+  `Node content.`
+  `# Public`
+  `# Agent`
+  `Agent line.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/b")`.
 
 Expected outcome:
-  Returns a Node record where:
-  - `public` is present
-    - `public.content` = empty list
-    - `public.subsections` = empty list
-  - `agent` is present with `agent.content` = `["Agent content."]`
+- `public` present
+- `public.content` = empty list
+- `public.subsections` = empty list
 
 ---
 
-#### TC-HP-06: Agent section with subsections
+### Agent section with subsections
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Agent
-    Agent preamble.
-    ## Implementation guidance
-    Implementation content.
-    ## Contracts
-    Contracts content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/c`
+  `Node content.`
+  `# Agent`
+  `Preamble line.`
+  `## Implementation guidance`
+  `Guidance content.`
+  `## Contracts`
+  `Contracts content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/c")`.
 
 Expected outcome:
-  Returns a Node record where:
-  - `agent.content` = `["Agent preamble."]`
-  - `agent.raw_heading` = `"# Agent"`
-  - `agent.subsections` has two entries in order:
-    - entry 1: `heading` = `"implementation guidance"`, `content` = `["Implementation content."]`
-    - entry 2: `heading` = `"contracts"`, `content` = `["Contracts content."]`
+- `agent.content` = `["Preamble line."]`
+- `agent.raw_heading` = `"# Agent"`
+- `agent.subsections` has two entries:
+  - heading `"implementation guidance"`, content `["Guidance content."]`
+  - heading `"contracts"`, content `["Contracts content."]`
 
 ---
 
-#### TC-HP-07: Private section with subsections
+### Private section with subsections
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Private
-    ## TODO
-    Todo content.
-    ## Decisions
-    Decisions content.
-    ## Rationale
-    Rationale content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/d`
+  `Node content.`
+  `# Private`
+  `## TODO`
+  `Todo content.`
+  `## Decisions`
+  `Decisions content.`
+  `## Rationale`
+  `Rationale content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/d")`.
 
 Expected outcome:
-  Returns a Node record where:
-  - `private` is present
-    - `private.subsections` has three entries in order:
-      - entry 1: `heading` = `"todo"`
-      - entry 2: `heading` = `"decisions"`
-      - entry 3: `heading` = `"rationale"`
+- `private` present with three subsections in order:
+  - heading `"todo"`
+  - heading `"decisions"`
+  - heading `"rationale"`
 
 ---
 
-#### TC-HP-08: Content is raw markdown
+### Content is raw markdown
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Summary
-    ### A level-3 heading
-    **Bold text here**
-    ```python
-    x = 1
-    ```
-    ```
+Setup: Create a node file with:
+  `# SPEC/f`
+  `Node content.`
+  `# Public`
+  `## Interface`
+  `### A level-3 heading`
+  `**bold text**`
+  ` ``` `
+  `code here`
+  ` ``` `
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/f")`.
 
 Expected outcome:
-  Returns a Node record where:
-  - `public.subsections` has one entry with `heading` = `"summary"`
-  - That subsection's `content` = `["### A level-3 heading", "**Bold text here**", "```python", "x = 1", "```"]`
-    (all lines as raw strings, in order)
+- `public.subsections[0].content` = `["### A level-3 heading", "**bold text**", "` ``` `", "code here", "` ``` `"]`
+  (each line as a raw string, no structural interpretation)
 
 ---
 
-### Heading Normalization
+## Heading normalization
 
----
+### Case insensitive public detection
 
-#### TC-HN-01: Case insensitive public detection
+Setup: Create a node file with:
+  `# SPEC/g`
+  `Node content.`
+  `# PUBLIC`
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # PUBLIC
-    Public content.
-    ```
-
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/g")`.
 
 Expected outcome:
-  - `public` is present
-  - `public.heading` = `"public"`
+- `public` present
+- `public.heading` = `"public"`
 
 ---
 
-#### TC-HN-02: Public with mixed case and extra whitespace
+### Public with mixed case and extra whitespace
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    #   PuBLiC
-    Public content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/h`
+  `Node content.`
+  `#   PuBLiC`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/h")`.
 
 Expected outcome:
-  - `public` is present
-  - `public.heading` = `"public"`
+- `public` present
+- `public.heading` = `"public"`
 
 ---
 
-#### TC-HN-03: Node name with varied whitespace
+### Node name with varied whitespace
 
-Setup:
-  Create a node file for logical name `"SPEC/e"`.
-  File body:
-    ```
-    #   SPEC/e
-    Name content.
-    ```
+Setup: Create a node file with:
+  `#   SPEC/e`
+  `Node content.`
 
-Action:
-  Call `NodeParse("SPEC/e")`.
+Action: Call `NodeParse("SPEC/e")`.
 
 Expected outcome:
-  - No error
-  - `name_section.heading` = `"spec/e"`
+- `name_section.heading` = `"spec/e"`
 
 ---
 
-#### TC-HN-04: Node name with ROOT/ heading does not match SPEC/
+### Node name with ROOT/ heading does not match SPEC/
 
-Setup:
-  Create a node file with heading `# ROOT/x`.
-  File body:
-    ```
-    # ROOT/x
-    Content.
-    ```
+Setup: Create a node file with:
+  `# ROOT/x`
+  `Node content.`
 
-Action:
-  Call `NodeParse("SPEC/x")`.
+Action: Call `NodeParse("SPEC/x")`.
 
 Expected outcome:
-  - Error `NodeNameDoesNotMatch` — normalized heading `"root/x"` does not match `"spec/x"`
+- Error NodeNameDoesNotMatch (`"root/x"` does not match `"spec/x"`)
 
 ---
 
-#### TC-HN-05: Subsection headings are normalized
+### Subsection headings are normalized
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ##   Interface
-    Interface content.
-    ## CONSTRAINTS
-    Constraints content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/i`
+  `Node content.`
+  `# Public`
+  `##   Interface`
+  `Interface content.`
+  `## CONSTRAINTS`
+  `Constraints content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/i")`.
 
 Expected outcome:
-  - `public.subsections` has two entries:
-    - entry 1: `heading` = `"interface"`
-    - entry 2: `heading` = `"constraints"`
+- `public.subsections[0].heading` = `"interface"`
+- `public.subsections[1].heading` = `"constraints"`
 
 ---
 
-#### TC-HN-06: Closing hashes are stripped
+### Closing hashes are stripped
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Interface ##
-    Interface content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/j`
+  `Node content.`
+  `# Public`
+  `## Interface ##`
+  `Interface content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/j")`.
 
 Expected outcome:
-  - Subsection `heading` = `"interface"`
-  - Subsection `raw_heading` = `"## Interface ##"`
+- `public.subsections[0].heading` = `"interface"`
+- `public.subsections[0].raw_heading` = `"## Interface ##"`
 
 ---
 
-### Raw Heading Preservation
+## Raw heading preservation
 
----
+### Raw heading preserves original line
 
-#### TC-RH-01: Raw heading preserves original line
+Setup: Create a node file with:
+  `# SPEC/k`
+  `Node content.`
+  `# Public`
+  `## Interface`
+  `Interface content.`
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Interface
-    Interface content.
-    ```
-
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/k")`.
 
 Expected outcome:
-  - `public.raw_heading` = `"# Public"`
-  - The Interface subsection's `raw_heading` = `"## Interface"`
+- `public.raw_heading` = `"# Public"`
+- `public.subsections[0].raw_heading` = `"## Interface"`
 
 ---
 
-#### TC-RH-02: Raw heading preserves case
+### Raw heading preserves case
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # PUBLIC
-    Public content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/l`
+  `Node content.`
+  `# PUBLIC`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/l")`.
 
 Expected outcome:
-  - `public.heading` = `"public"` (normalized)
-  - `public.raw_heading` = `"# PUBLIC"` (original)
+- `public.heading` = `"public"`
+- `public.raw_heading` = `"# PUBLIC"`
 
 ---
 
-#### TC-RH-03: Raw heading preserves closing hashes
+### Raw heading preserves closing hashes
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Foo ##
-    Foo content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/m`
+  `Node content.`
+  `# Public`
+  `## Foo ##`
+  `Foo content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/m")`.
 
 Expected outcome:
-  - Subsection `heading` = `"foo"`
-  - Subsection `raw_heading` = `"## Foo ##"`
+- `public.subsections[0].heading` = `"foo"`
+- `public.subsections[0].raw_heading` = `"## Foo ##"`
 
 ---
 
-#### TC-RH-04: Raw heading preserves extra whitespace
+### Raw heading preserves extra whitespace
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    #   Public
-    Public content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/n`
+  `Node content.`
+  `#   Public`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/n")`.
 
 Expected outcome:
-  - `public.heading` = `"public"`
-  - `public.raw_heading` = `"#   Public"`
+- `public.heading` = `"public"`
+- `public.raw_heading` = `"#   Public"`
 
 ---
 
-### Content Boundaries
+## Content boundaries
 
----
+### Level-3 and deeper headings are content
 
-#### TC-CB-01: Level-3 and deeper headings are content
+Setup: Create a node file with:
+  `# SPEC/o`
+  `Node content.`
+  `# Public`
+  `## Interface`
+  `### A subsub heading`
+  `#### Even deeper`
+  `Interface content.`
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Summary
-    ### A deeper heading
-    #### Even deeper
-    ```
-
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/o")`.
 
 Expected outcome:
-  - `public.subsections` has one entry with `heading` = `"summary"`
-  - That subsection's `content` = `["### A deeper heading", "#### Even deeper"]`
+- `public.subsections[0].content` contains `"### A subsub heading"` and `"#### Even deeper"` as content lines
 
 ---
 
-#### TC-CB-02: Fenced code blocks with heading-like content (backtick)
+### Fenced code blocks with heading-like content (backtick fence)
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Interface
-    ` `` `
-    # looks like heading
-    ## also looks like heading
-    ` `` `
-    ```
-  (where the code fence is three backticks with no spaces)
+Setup: Create a node file with:
+  `# SPEC/p`
+  `Node content.`
+  `# Public`
+  `## Interface`
+  ` ``` `
+  `# looks like heading`
+  `## also heading-like`
+  ` ``` `
+  `Normal content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/p")`.
 
 Expected outcome:
-  - `public.subsections` has one entry with `heading` = `"interface"`
-  - That subsection's `content` includes the lines `"# looks like heading"` and `"## also looks like heading"` as raw content (not parsed as structural headings)
+- `public.subsections[0].content` includes the lines starting with `#` and `##` as raw content
+- No additional sections or subsections are created for those lines
 
 ---
 
-#### TC-CB-03: Fenced code block with tilde fence
+### Fenced code block with tilde fence
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Interface
-    ~~~
-    # This looks like a heading
-    ~~~
-    ```
+Setup: Create a node file with a subsection whose content contains:
+  ` ~~~ `
+  `# looks like heading`
+  ` ~~~ `
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse` on the file.
 
 Expected outcome:
-  - `public.subsections` has one entry with `heading` = `"interface"`
-  - That subsection's `content` includes `"# This looks like a heading"` as a raw content line, not treated as a structural heading
+- The line `"# looks like heading"` is treated as content, not a structural heading
 
 ---
 
-#### TC-CB-04: Fenced code block with language tag
+### Fenced code block with language tag
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Interface
-    ```python
-    # This looks like a heading
-    ` `` `
-    ```
-  (where the closing fence is three backticks with no spaces)
+Setup: Create a node file with a subsection whose content contains:
+  ` ```python `
+  `# python comment that looks like heading`
+  ` ``` `
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse` on the file.
 
 Expected outcome:
-  - `public.subsections` has one entry with `heading` = `"interface"`
-  - That subsection's `content` includes `"# This looks like a heading"` as a raw content line, not treated as a structural heading
+- The line `"# python comment that looks like heading"` is treated as content, not a structural heading
 
 ---
 
-#### TC-CB-05: Blank lines between heading and content are preserved
+### Blank lines between heading and content are preserved
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
+Setup: Create a node file with:
+  `# SPEC/q`
+  `Node content.`
+  `# Public`
+  (blank line)
+  `Public content.`
 
-    Public content line.
-    ```
-  (there is exactly one blank line between `# Public` and `Public content line.`)
-
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/q")`.
 
 Expected outcome:
-  - `public.content` = `["", "Public content line."]`
-    (the blank line is the empty string `""`, followed by the content line)
+- `public.content` = `["", "Public content."]`
+  (first element is an empty string representing the blank line)
 
 ---
 
-### Frontmatter Handling
+## Frontmatter handling
 
----
+### Frontmatter is skipped
 
-#### TC-FM-01: Frontmatter is skipped
+Setup: Create a node file with:
+  `---`
+  `depends_on: []`
+  `---`
+  `# SPEC/r`
+  `Body content.`
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File content:
-    ```
-    ---
-    output: some/path
-    depends_on: []
-    ---
-    # SPEC/a
-    Name content.
-    ```
-
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/r")`.
 
 Expected outcome:
-  - No error
-  - `name_section.heading` = `"spec/a"`
-  - `name_section.content` = `["Name content."]`
+- No error
+- `name_section.content` = `["Body content."]`
+- Frontmatter not present in any content lists
 
 ---
 
-#### TC-FM-02: No frontmatter delimiters
+### No frontmatter delimiters
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File content (no `---` delimiters):
-    ```
-    # SPEC/a
-    Name content.
-    ```
+Setup: Create a node file with no `---` delimiters:
+  `# SPEC/s`
+  `Body content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/s")`.
 
 Expected outcome:
-  - No error
-  - Body parsed correctly; `name_section.heading` = `"spec/a"`
+- No error
+- `name_section.content` = `["Body content."]`
 
 ---
 
-#### TC-FM-03: Unclosed frontmatter
+### Unclosed frontmatter
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File content:
-    ```
-    ---
-    output: some/path
-    # SPEC/a
-    Name content.
-    ```
-  (opening `---` present, no closing `---` before body)
+Setup: Create a node file with:
+  `---`
+  `depends_on: []`
+  (no closing `---`, rest is body-like content)
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/s2")`.
 
 Expected outcome:
-  - Error `UnexpectedContentBeforeFirstHeading`
+- Error UnexpectedContentBeforeFirstHeading
 
 ---
 
-### Failure Cases
+## Failure cases
 
----
+### ARTIFACT reference rejected
 
-#### TC-FC-01: ARTIFACT reference rejected
-
-Action:
-  Call `NodeParse("ARTIFACT/x")`.
+Action: Call `NodeParse("ARTIFACT/x")`.
 
 Expected outcome:
-  - Error `NotASpecReference`
+- Error NotASpecReference
 
 ---
 
-#### TC-FC-02: EXTERNAL reference rejected
+### EXTERNAL reference rejected
 
-Action:
-  Call `NodeParse("EXTERNAL/x")`.
+Action: Call `NodeParse("EXTERNAL/x")`.
 
 Expected outcome:
-  - Error `NotASpecReference`
+- Error NotASpecReference
 
 ---
 
-#### TC-FC-03: Qualifier rejected
+### Qualifier rejected
 
-Action:
-  Call `NodeParse("SPEC/x(interface)")`.
+Action: Call `NodeParse("SPEC/x(interface)")`.
 
 Expected outcome:
-  - Error `HasQualifier`
+- Error HasQualifier
 
 ---
 
-#### TC-FC-04: File does not exist
+### File does not exist
 
-Setup:
-  Use a logical name whose corresponding file does not exist on disk.
-
-Action:
-  Call `NodeParse` with that logical name.
+Action: Call `NodeParse` with a logical name whose corresponding file does not exist on disk.
 
 Expected outcome:
-  - Error `FileUnreadable`
+- Error FileUnreadable
 
 ---
 
-#### TC-FC-05: Propagates path errors
+### Propagates path errors
 
-Setup:
-  Use a logical name that resolves to a path with traversal or other path-level error.
-
-Action:
-  Call `NodeParse` with that logical name.
+Action: Call `NodeParse` with a logical name that when resolved produces a path error (e.g., traversal components).
 
 Expected outcome:
-  - The path error from the path resolution layer is propagated (a `FileReader.*` error)
+- The path error is propagated from the path resolution step
 
 ---
 
-#### TC-FC-06: Content before first heading
+### Content before first heading
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    This is non-blank content.
-    # SPEC/a
-    Name content.
-    ```
+Setup: Create a node file with:
+  `Some text before heading.`
+  `# SPEC/t`
+  `Content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/t")`.
 
 Expected outcome:
-  - Error `UnexpectedContentBeforeFirstHeading`
+- Error UnexpectedContentBeforeFirstHeading
 
 ---
 
-#### TC-FC-07: Level-2 heading before any level-1 heading
+### Level-2 heading before any level-1 heading
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    ## A subsection
-    # SPEC/a
-    Name content.
-    ```
+Setup: Create a node file with:
+  `## Interface`
+  `Content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/u")`.
 
 Expected outcome:
-  - Error `UnexpectedContentBeforeFirstHeading`
+- Error UnexpectedContentBeforeFirstHeading
 
 ---
 
-#### TC-FC-08: Empty body
+### Empty body
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File content is either empty or contains only frontmatter with no body after the closing `---`.
+Setup: Create a node file with only frontmatter and no body, or with an entirely empty file.
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/v")`.
 
 Expected outcome:
-  - Error `UnexpectedContentBeforeFirstHeading`
+- Error UnexpectedContentBeforeFirstHeading
 
 ---
 
-#### TC-FC-09: Node name does not match logical name
+### Node name does not match logical name
 
-Setup:
-  Create a node file with heading `# SPEC/other`.
-  File body:
-    ```
-    # SPEC/other
-    Name content.
-    ```
+Setup: Create a node file with heading `# SPEC/wrong-name`.
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/correct-name")`.
 
 Expected outcome:
-  - Error `NodeNameDoesNotMatch`
+- Error NodeNameDoesNotMatch
 
 ---
 
-#### TC-FC-10: Node name case mismatch is not an error
+### Node name case mismatch is not an error
 
-Setup:
-  Create a node file for logical name `"SPEC/foo"`.
-  File body:
-    ```
-    # spec/foo
-    Name content.
-    ```
-  (heading text is lowercase, logical name passed in is uppercase)
+Setup: Create a node file with heading `# spec/mynode` (lowercase).
 
-Action:
-  Call `NodeParse("SPEC/FOO")`.
+Action: Call `NodeParse("SPEC/MYNODE")`.
 
 Expected outcome:
-  - No error — normalization makes both `"spec/foo"`, they match
+- No error — normalization makes both `"spec/mynode"` and they match
 
 ---
 
-#### TC-FC-11: Duplicate public section — same case
+### Duplicate public section — same case
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    First public content.
-    # Public
-    Second public content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/w`
+  `Content.`
+  `# Public`
+  `Public content.`
+  `# Public`
+  `More public content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/w")`.
 
 Expected outcome:
-  - Error `DuplicatePublicSection`
+- Error DuplicatePublicSection
 
 ---
 
-#### TC-FC-12: Duplicate public section — different case
+### Duplicate public section — different case
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    First public content.
-    # PUBLIC
-    Second public content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/ww`
+  `Content.`
+  `# Public`
+  `Public content.`
+  `# PUBLIC`
+  `More public content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/ww")`.
 
 Expected outcome:
-  - Error `DuplicatePublicSection`
+- Error DuplicatePublicSection
 
 ---
 
-#### TC-FC-13: Duplicate agent section
+### Duplicate agent section
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Agent
-    First agent content.
-    # Agent
-    Second agent content.
-    ```
+Setup: Create a node file with two `# Agent` headings.
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse` on the file.
 
 Expected outcome:
-  - Error `DuplicateAgentSection`
+- Error DuplicateAgentSection
 
 ---
 
-#### TC-FC-14: Duplicate private section
+### Duplicate private section
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Private
-    First private content.
-    # Private
-    Second private content.
-    ```
+Setup: Create a node file with two `# Private` headings.
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse` on the file.
 
 Expected outcome:
-  - Error `DuplicatePrivateSection`
+- Error DuplicatePrivateSection
 
 ---
 
-#### TC-FC-15: Unrecognized section heading
+### Unrecognized section heading
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Decisions
-    Some content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/y`
+  `Content.`
+  `# Decisions`
+  `Decisions content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/y")`.
 
 Expected outcome:
-  - Error `UnrecognizedSection`
+- Error UnrecognizedSection
 
 ---
 
-#### TC-FC-16: Unrecognized section — Rationale
+### Unrecognized section — Rationale
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Rationale
-    Rationale content.
-    ```
+Setup: Create a node file with a `# Rationale` top-level heading (not inside Private).
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse` on the file.
 
 Expected outcome:
-  - Error `UnrecognizedSection`
+- Error UnrecognizedSection
 
 ---
 
-#### TC-FC-17: Unrecognized section — TODO
+### Unrecognized section — TODO
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # TODO
-    Todo content.
-    ```
+Setup: Create a node file with a `# TODO` top-level heading.
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse` on the file.
 
 Expected outcome:
-  - Error `UnrecognizedSection`
+- Error UnrecognizedSection
 
 ---
 
-#### TC-FC-18: Duplicate subsection in public — same case
+### Duplicate subsection in public — same case
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Interface
-    First interface content.
-    ## Interface
-    Second interface content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/z`
+  `Content.`
+  `# Public`
+  `## Interface`
+  `Content A.`
+  `## Interface`
+  `Content B.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/z")`.
 
 Expected outcome:
-  - Error `DuplicateSubsection`
+- Error DuplicateSubsection
 
 ---
 
-#### TC-FC-19: Duplicate subsection in public — different case
+### Duplicate subsection in public — different case
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Interface
-    First interface content.
-    ## INTERFACE
-    Second interface content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/z2`
+  `Content.`
+  `# Public`
+  `## Interface`
+  `Content A.`
+  `## INTERFACE`
+  `Content B.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/z2")`.
 
 Expected outcome:
-  - Error `DuplicateSubsection`
+- Error DuplicateSubsection
 
 ---
 
-#### TC-FC-20: Duplicate subsection in public — whitespace variation
+### Duplicate subsection in public — whitespace variation
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Public
-    ## Interface
-    First interface content.
-    ##   Interface
-    Second interface content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/z3`
+  `Content.`
+  `# Public`
+  `## Interface`
+  `Content A.`
+  `##   Interface`
+  `Content B.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/z3")`.
 
 Expected outcome:
-  - Error `DuplicateSubsection`
+- Error DuplicateSubsection
 
 ---
 
-#### TC-FC-21: Duplicate subsection in agent
+### Duplicate subsection in agent
 
-Setup:
-  Create a node file for logical name `"SPEC/a"`.
-  File body:
-    ```
-    # SPEC/a
-    Name content.
-    # Agent
-    ## Guidance
-    First guidance content.
-    ## Guidance
-    Second guidance content.
-    ```
+Setup: Create a node file with:
+  `# SPEC/z4`
+  `Content.`
+  `# Agent`
+  `## Guidance`
+  `Guidance content.`
+  `## Guidance`
+  `Duplicate content.`
 
-Action:
-  Call `NodeParse("SPEC/a")`.
+Action: Call `NodeParse("SPEC/z4")`.
 
 Expected outcome:
-  - Error `DuplicateSubsection`
+- Error DuplicateSubsection

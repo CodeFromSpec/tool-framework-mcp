@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/spec_tree/scan@uRTaU1GekXBr8Fkq1m6-SXpeD_U
+// code-from-spec: SPEC/golang/implementation/spec_tree/scan@Cn1Xvw_nzXTACiQb6h94HFzLV04
 package spectree
 
 import (
@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/listfiles"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/listfiles"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 var ErrNoNodesFound = errors.New("no _node.md files found under code-from-spec/")
@@ -20,18 +20,18 @@ type SpecTreeNode struct {
 }
 
 func SpecTreeScan() ([]*SpecTreeNode, error) {
-	rootDir := &pathutils.PathCfs{Value: "code-from-spec/"}
+	dir := &pathutils.PathCfs{Value: "code-from-spec"}
 
-	allFiles, err := listfiles.ListFiles(rootDir)
+	files, err := listfiles.ListFiles(dir)
 	if err != nil {
 		return nil, fmt.Errorf("listing files: %w", err)
 	}
 
-	var nodeFiles []*pathutils.PathCfs
-	for _, f := range allFiles {
+	var kept []*pathutils.PathCfs
+	for _, f := range files {
 		lastSlash := strings.LastIndex(f.Value, "/")
 		var fileName string
-		if lastSlash < 0 {
+		if lastSlash == -1 {
 			fileName = f.Value
 		} else {
 			fileName = f.Value[lastSlash+1:]
@@ -41,19 +41,19 @@ func SpecTreeScan() ([]*SpecTreeNode, error) {
 		}
 
 		remainder := strings.TrimPrefix(f.Value, "code-from-spec/")
-		firstSlash := strings.Index(remainder, "/")
-		if firstSlash >= 0 {
-			firstSegment := remainder[:firstSlash]
+		slashIdx := strings.Index(remainder, "/")
+		if slashIdx != -1 {
+			firstSegment := remainder[:slashIdx]
 			if strings.HasPrefix(firstSegment, "_") {
 				continue
 			}
 		}
 
-		nodeFiles = append(nodeFiles, f)
+		kept = append(kept, f)
 	}
 
 	var nodes []*SpecTreeNode
-	for _, f := range nodeFiles {
+	for _, f := range kept {
 		logicalName, err := logicalnames.LogicalNameFromPath(f)
 		if err != nil {
 			return nil, fmt.Errorf("deriving logical name from %s: %w", f.Value, err)

@@ -1,6 +1,8 @@
-<!-- code-from-spec: ROOT/functional/logic/chain/resolver@k1qrxIE2pNkx_or4KP_qH5vXCTM -->
+<!-- code-from-spec: SPEC/functional/logic/chain/resolver@IoM0RbJaIR89y1FKHWluHRGg5yw -->
 
 namespace: chainresolver
+
+---
 
 record ChainItem
   unqualified_logical_name: string
@@ -13,186 +15,165 @@ record Chain
   target: ChainItem
   input: optional ChainItem
 
+---
 
 function ChainResolve(target_logical_name: string) -> Chain
   errors:
-    - UnreadableFrontmatter: a node's frontmatter cannot be parsed.
-    - UnresolvableArtifact: an ARTIFACT/ reference cannot be resolved.
-    - (LogicalNames.*): propagated from LogicalNameToPath, LogicalNameGetParent.
-    - (Frontmatter.*): propagated from FrontmatterParse.
+    - UnreadableFrontmatter
+    - UnresolvableArtifact
+    - (LogicalNames.*): propagated from LogicalNameToPath, LogicalNameGetParent
+    - (Frontmatter.*): propagated from FrontmatterParse
 
-  Step 1 — Resolve ancestors and target
+  1. Resolve ancestors and target.
 
-  1. If target_logical_name is exactly "SPEC":
-       Resolve its file path by calling LogicalNameToPath with "SPEC".
-       If that fails, propagate the error.
-       Create a ChainItem with:
-         unqualified_logical_name = "SPEC"
+     If target_logical_name is "SPEC":
+       Resolve the file path by calling LogicalNameToPath(target_logical_name).
+       If LogicalNameToPath fails, propagate the error.
+       Create a ChainItem:
+         unqualified_logical_name = target_logical_name
          file_path = resolved path
          qualifier = absent
-       Set ancestors = empty list.
-       Set target = that ChainItem.
-       Go to Step 2.
+       Set ancestors to an empty list.
+       Set target to that ChainItem.
+       Skip to step 2.
 
-  2. Otherwise:
-       Initialize name_list = empty list.
-       Add target_logical_name to name_list.
-       Set current = target_logical_name.
-       Repeat:
-         Call LogicalNameGetParent(current).
-         If it fails with NoParent, stop the loop.
-         If it fails with any other error, propagate the error.
-         Set parent = result.
-         Add parent to name_list.
-         Set current = parent.
-       Sort name_list alphabetically.
+     Otherwise:
+       Initialize a name list containing target_logical_name.
+       Set current_name = target_logical_name.
+       Loop:
+         Call LogicalNameGetParent(current_name).
+         If LogicalNameGetParent fails, propagate the error.
+         Add the returned parent name to the name list.
+         Set current_name = parent name.
+         If current_name is "SPEC", stop the loop.
+
+       Sort the name list alphabetically.
        This produces root-first order (e.g. "SPEC", "SPEC/a", "SPEC/a/b").
 
-  3. For each name in name_list:
-       Call LogicalNameToPath(name).
-       If it fails, propagate the error.
-       Create a ChainItem with:
-         unqualified_logical_name = name
-         file_path = resolved path
-         qualifier = absent
-       Add it to items_list.
+       For each name in the sorted name list:
+         Call LogicalNameToPath(name).
+         If LogicalNameToPath fails, propagate the error.
+         Create a ChainItem:
+           unqualified_logical_name = name
+           file_path = resolved path
+           qualifier = absent
 
-  4. Set target = last item in items_list.
-     Set ancestors = all items in items_list except the last.
+       The last item in the sorted list becomes the target ChainItem.
+       All preceding items form the ancestors list.
 
-  Step 2 — Resolve dependencies
+  2. Resolve dependencies.
 
-  5. Call FrontmatterParse(target.file_path).
-     If it fails, raise error "unreadable frontmatter".
-     Set target_frontmatter = result.
+     Call FrontmatterParse(target.file_path).
+     If FrontmatterParse fails, raise error "UnreadableFrontmatter".
 
-  6. Initialize dependencies = empty list.
+     Initialize an empty dependency list.
 
-  7. For each entry in target_frontmatter.depends_on:
+     For each entry in frontmatter.depends_on:
 
        If LogicalNameIsSpec(entry) is true:
-         Call LogicalNameGetQualifier(entry).
-         Set qualifier = result (absent if none present).
-         Call LogicalNameStripQualifier(entry).
-         Set bare_name = result.
-         Call LogicalNameToPath(bare_name).
-         If it fails, propagate the error.
-         Create a ChainItem with:
-           unqualified_logical_name = bare_name
+         Call LogicalNameGetQualifier(entry) to get the qualifier (absent if none).
+         Call LogicalNameStripQualifier(entry) to get the bare logical name.
+         Call LogicalNameToPath(bare logical name).
+         If LogicalNameToPath fails, propagate the error.
+         Create a ChainItem:
+           unqualified_logical_name = bare logical name
            file_path = resolved path
-           qualifier = qualifier
-         Add to dependencies.
+           qualifier = extracted qualifier (absent if none)
+         Add the ChainItem to the dependency list.
 
        Else if LogicalNameIsArtifact(entry) is true:
-         Call LogicalNameGetArtifactGenerator(entry).
-         If it fails, propagate the error.
-         Set generator_name = result.
-         Call LogicalNameToPath(generator_name).
-         If it fails, propagate the error.
-         Set generator_path = result.
-         Call FrontmatterParse(generator_path).
-         If it fails, raise error "unreadable frontmatter".
-         Set generator_frontmatter = result.
-         If generator_frontmatter.output is empty:
-           Raise error "unresolvable artifact".
-         Create a ChainItem with:
-           unqualified_logical_name = entry
-           file_path = generator_frontmatter.output as PathCfs
+         Call LogicalNameGetArtifactGenerator(entry) to get the generating node's logical name.
+         If LogicalNameGetArtifactGenerator fails, propagate the error.
+         Call LogicalNameToPath(generating node's logical name).
+         If LogicalNameToPath fails, propagate the error.
+         Call FrontmatterParse(generating node's file path).
+         If FrontmatterParse fails, raise error "UnreadableFrontmatter".
+         If generating node's frontmatter.output is empty,
+           raise error "UnresolvableArtifact".
+         Create a ChainItem:
+           unqualified_logical_name = entry (the ARTIFACT/ logical name as-is)
+           file_path = generating node's frontmatter.output as PathCfs
            qualifier = absent
-         Add to dependencies.
+         Add the ChainItem to the dependency list.
 
        Else if LogicalNameIsExternal(entry) is true:
          Call LogicalNameExternalToPath(entry).
-         If it fails, propagate the error.
-         Create a ChainItem with:
-           unqualified_logical_name = entry
+         If LogicalNameExternalToPath fails, propagate the error.
+         Create a ChainItem:
+           unqualified_logical_name = entry (the EXTERNAL/ logical name as-is)
            file_path = resolved path
            qualifier = absent
-         Add to dependencies.
+         Add the ChainItem to the dependency list.
 
        Else:
-         Raise error "unresolvable artifact".
+         raise error "UnresolvableArtifact".
 
-  8. Sort dependencies alphabetically by unqualified_logical_name.
-     For entries with the same unqualified_logical_name, sort by qualifier:
-       absent qualifier sorts before present qualifier.
+     Sort the dependency list alphabetically by unqualified_logical_name,
+     then by qualifier (absent sorts before present), in a single pass.
 
-  Step 3 — Deduplicate dependencies
+  3. Deduplicate dependencies.
 
-  9. Initialize deduped = empty list.
+     Initialize an empty seen-entries tracking structure.
+     Initialize an empty deduplicated dependency list.
 
-  10. For each item in dependencies (in order):
-        Determine its type using LogicalNameIsArtifact, LogicalNameIsSpec,
-        and LogicalNameIsExternal.
+     For each entry in the sorted dependency list:
 
-        If LogicalNameIsSpec(item.unqualified_logical_name) is true:
-          Check if deduped already contains an entry with the same
-          unqualified_logical_name and qualifier = absent.
-          If yes, skip this item (the full section already covers all subsections).
-          Check if deduped already contains an entry with the same
-          unqualified_logical_name and the same qualifier.
-          If yes, skip this item (exact duplicate).
-          Otherwise, add item to deduped.
-          Additionally, if item.qualifier is absent, remove from deduped any
-          previously added entry with the same unqualified_logical_name and
-          a non-absent qualifier (they are now redundant).
+       If LogicalNameIsSpec(entry.unqualified_logical_name) is true:
+         Check if an entry with the same unqualified_logical_name and the same qualifier
+         already exists in the deduplicated list.
+         If yes, skip this entry (duplicate).
+         Also check if an entry with the same unqualified_logical_name and no qualifier
+         already exists in the deduplicated list.
+         If yes, skip this entry (the full section covers every subsection).
+         Otherwise, add this entry to the deduplicated list.
 
-        If LogicalNameIsArtifact(item.unqualified_logical_name) is true:
-          Check if deduped already contains an entry with the same
-          unqualified_logical_name.
-          If yes, skip this item.
-          Otherwise, add item to deduped.
+       Else if LogicalNameIsArtifact(entry.unqualified_logical_name) is true:
+         Check if an entry with the same unqualified_logical_name already exists
+         in the deduplicated list.
+         If yes, skip this entry (duplicate).
+         Otherwise, add this entry to the deduplicated list.
 
-        If LogicalNameIsExternal(item.unqualified_logical_name) is true:
-          Check if deduped already contains an entry with the same
-          unqualified_logical_name.
-          If yes, skip this item.
-          Otherwise, add item to deduped.
+       Else if LogicalNameIsExternal(entry.unqualified_logical_name) is true:
+         Check if an entry with the same unqualified_logical_name already exists
+         in the deduplicated list.
+         If yes, skip this entry (duplicate).
+         Otherwise, add this entry to the deduplicated list.
 
-  11. Set dependencies = deduped.
+     Replace the dependency list with the deduplicated list.
 
-  Step 4 — Resolve input
+  4. Resolve input.
 
-  12. If target_frontmatter.input is empty:
-        Set chain_input = absent.
-        Go to Step 5.
+     If frontmatter.input is empty:
+       Set the Chain's input field to absent.
+     Else:
+       Set input_entry = frontmatter.input.
 
-  13. Set input_entry = target_frontmatter.input.
+       If LogicalNameIsArtifact(input_entry) is true:
+         Call LogicalNameGetArtifactGenerator(input_entry) to get the generating node's logical name.
+         If LogicalNameGetArtifactGenerator fails, propagate the error.
+         Call LogicalNameToPath(generating node's logical name).
+         If LogicalNameToPath fails, propagate the error.
+         Call FrontmatterParse(generating node's file path).
+         If FrontmatterParse fails, raise error "UnreadableFrontmatter".
+         If generating node's frontmatter.output is empty,
+           raise error "UnresolvableArtifact".
+         Create a ChainItem:
+           unqualified_logical_name = input_entry (the ARTIFACT/ logical name as-is)
+           file_path = generating node's frontmatter.output as PathCfs
+           qualifier = absent
+         Set the Chain's input field to that ChainItem.
 
-      If LogicalNameIsArtifact(input_entry) is true:
-        Call LogicalNameGetArtifactGenerator(input_entry).
-        If it fails, propagate the error.
-        Set generator_name = result.
-        Call LogicalNameToPath(generator_name).
-        If it fails, propagate the error.
-        Set generator_path = result.
-        Call FrontmatterParse(generator_path).
-        If it fails, raise error "unreadable frontmatter".
-        Set generator_frontmatter = result.
-        If generator_frontmatter.output is empty:
-          Raise error "unresolvable artifact".
-        Create a ChainItem with:
-          unqualified_logical_name = input_entry
-          file_path = generator_frontmatter.output as PathCfs
-          qualifier = absent
-        Set chain_input = that ChainItem.
+       Else if LogicalNameIsExternal(input_entry) is true:
+         Call LogicalNameExternalToPath(input_entry).
+         If LogicalNameExternalToPath fails, propagate the error.
+         Create a ChainItem:
+           unqualified_logical_name = input_entry (the EXTERNAL/ logical name as-is)
+           file_path = resolved path
+           qualifier = absent
+         Set the Chain's input field to that ChainItem.
 
-      Else if LogicalNameIsExternal(input_entry) is true:
-        Call LogicalNameExternalToPath(input_entry).
-        If it fails, propagate the error.
-        Create a ChainItem with:
-          unqualified_logical_name = input_entry
-          file_path = resolved path
-          qualifier = absent
-        Set chain_input = that ChainItem.
-
-      Else:
-        Raise error "unresolvable artifact".
-
-  Step 5 — Return
-
-  14. Return a Chain with:
-        ancestors = ancestors
-        dependencies = dependencies
-        target = target
-        input = chain_input
+  5. Return a Chain:
+       ancestors = ancestors list (root-first, qualifier absent for all)
+       dependencies = deduplicated dependency list (sorted)
+       target = target ChainItem
+       input = resolved input ChainItem or absent

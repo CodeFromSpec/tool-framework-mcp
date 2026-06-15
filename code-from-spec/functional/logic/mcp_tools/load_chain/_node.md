@@ -1,17 +1,17 @@
 ---
 depends_on:
-  - ROOT/functional/logic/chain/resolver
-  - ROOT/functional/logic/chain/hash
-  - ROOT/functional/logic/parsing/node_parsing
-  - ROOT/functional/logic/parsing/frontmatter
-  - ROOT/functional/logic/os/file_reader
-  - ROOT/functional/logic/os/path_utils(interface)
-  - ROOT/functional/logic/utils/logical_names(interface)
-  - ROOT/functional/logic/utils/text_normalization(interface)
+  - SPEC/functional/logic/chain/resolver
+  - SPEC/functional/logic/chain/hash
+  - SPEC/functional/logic/parsing/node_parsing
+  - SPEC/functional/logic/parsing/frontmatter
+  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/path_utils(interface)
+  - SPEC/functional/logic/utils/logical_names(interface)
+  - SPEC/functional/logic/utils/text_normalization(interface)
 output: code-from-spec/functional/logic/mcp_tools/load_chain/output.md
 ---
 
-# ROOT/functional/logic/mcp_tools/load_chain
+# SPEC/functional/logic/mcp_tools/load_chain
 
 Loads the complete spec chain for a given node and
 returns everything the subagent needs in a single
@@ -130,10 +130,10 @@ first `##`).
 
 For each dependency:
 - If `LogicalNameIsArtifact(dep.unqualified_logical_name)`: open
-  the file at `dep.file_path` with `FileOpen`, read all
-  lines, remove the artifact tag line (the line
-  containing `code-from-spec: <name>@<hash>`), include
-  remaining content. Call `FileClose`.
+  the file at `dep.file_path` with `FileOpen`, read each
+  line at a time, ignore the artifact tag line (the first
+  line containing `code-from-spec:`), include all other
+  lines. Call `FileClose`.
 - If `LogicalNameIsExternal(dep.unqualified_logical_name)`: open
   the file at `dep.file_path` with `FileOpen`, read all
   content. Call `FileClose`.
@@ -184,10 +184,11 @@ delimiter lines:
 
 4. If `chain.input` is present: a line containing
    exactly `--- input ---`, followed by the content of
-   the input file. For `ARTIFACT/` input, the artifact
-   tag line is removed (read with `FileOpen`/
-   `FileReadLine`/`FileClose`). For `EXTERNAL/` input,
-   the full file content is included.
+   the input file. For `ARTIFACT/` input, read each line
+   at a time, ignore the artifact tag line (the first
+   line containing `code-from-spec:`), include all other
+   lines. For `EXTERNAL/` input, the full file content
+   is included.
 
 5. If the output file (at `frontmatter.output`) exists
    on disk and is readable: a line containing exactly

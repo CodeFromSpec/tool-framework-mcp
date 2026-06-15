@@ -1,16 +1,14 @@
-// code-from-spec: ROOT/golang/implementation/spec_tree/validate@hFtVtHn0C9rma0H6ASDOFsZScpg
+// code-from-spec: SPEC/golang/implementation/spec_tree/validate@MAbawU8Ck4ym3u0e2wSAf9i7Ie4
 package spectreevalidate
 
 import (
-	"fmt"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
 	"strings"
-
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/filereader"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/parsenode"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/textnormalization"
 )
 
 type SpecTreeValidateInput struct {
@@ -26,201 +24,201 @@ type FormatError struct {
 }
 
 func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*FormatError {
-	var errs []*FormatError
+	var errors []*FormatError
 
 	knownNames := make(map[string]bool)
 	for _, entry := range entries {
 		knownNames[entry.LogicalName] = true
 		if entry.Frontmatter != nil && entry.Frontmatter.Output != "" {
-			barePath := strings.TrimPrefix(entry.LogicalName, "SPEC/")
-			artifactName := "ARTIFACT/" + barePath
+			suffix := strings.TrimPrefix(entry.LogicalName, "SPEC/")
+			artifactName := "ARTIFACT/" + suffix
 			knownNames[artifactName] = true
 		}
 	}
 
+	hasChildren := make(map[string]bool)
 	for _, entry := range entries {
-		hasChildren := false
-		for _, other := range entries {
-			if strings.HasPrefix(other.LogicalName, entry.LogicalName+"/") {
-				hasChildren = true
-				break
+		hasChildren[entry.LogicalName] = false
+	}
+	for _, a := range entries {
+		for _, b := range entries {
+			if a.LogicalName != b.LogicalName {
+				if strings.HasPrefix(b.LogicalName, a.LogicalName+"/") {
+					hasChildren[a.LogicalName] = true
+				}
 			}
 		}
+	}
 
+	for _, entry := range entries {
 		if entry.Node != nil && entry.Node.NameSection != nil {
 			normalizedHeading := textnormalization.NormalizeText(entry.Node.NameSection.Heading)
 			normalizedName := textnormalization.NormalizeText(entry.LogicalName)
 			if normalizedHeading != normalizedName {
-				errs = append(errs, &FormatError{
+				errors = append(errors, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "name_heading",
-					Detail: "name section heading does not match logical name",
+					Detail: "first heading " + entry.Node.NameSection.RawHeading + " does not match node logical name " + entry.LogicalName,
 				})
 			}
 		}
 
-		if hasChildren && entry.Frontmatter != nil {
-			if len(entry.Frontmatter.DependsOn) > 0 {
-				errs = append(errs, &FormatError{
+		if hasChildren[entry.LogicalName] {
+			if entry.Frontmatter != nil && len(entry.Frontmatter.DependsOn) > 0 {
+				errors = append(errors, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "leaf_only_fields",
-					Detail: "depends_on is only permitted on leaf nodes",
+					Detail: "field depends_on is only permitted on leaf nodes",
 				})
 			}
-			if entry.Frontmatter.Input != "" {
-				errs = append(errs, &FormatError{
+			if entry.Frontmatter != nil && entry.Frontmatter.Input != "" {
+				errors = append(errors, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "leaf_only_fields",
-					Detail: "input is only permitted on leaf nodes",
+					Detail: "field input is only permitted on leaf nodes",
 				})
 			}
-			if entry.Frontmatter.Output != "" {
-				errs = append(errs, &FormatError{
+			if entry.Frontmatter != nil && entry.Frontmatter.Output != "" {
+				errors = append(errors, &FormatError{
 					Node:   entry.LogicalName,
 					Rule:   "leaf_only_fields",
-					Detail: "output is only permitted on leaf nodes",
+					Detail: "field output is only permitted on leaf nodes",
 				})
 			}
 		}
 
-		if hasChildren && entry.Node != nil && entry.Node.Agent != nil {
-			errs = append(errs, &FormatError{
-				Node:   entry.LogicalName,
-				Rule:   "leaf_only_agent",
-				Detail: "# Agent section is only permitted on leaf nodes",
-			})
+		if hasChildren[entry.LogicalName] {
+			if entry.Node != nil && entry.Node.Agent != nil {
+				errors = append(errors, &FormatError{
+					Node:   entry.LogicalName,
+					Rule:   "leaf_only_agent",
+					Detail: "# Agent section is only permitted on leaf nodes",
+				})
+			}
 		}
 
 		if entry.Frontmatter != nil {
 			for _, dep := range entry.Frontmatter.DependsOn {
 				if logicalnames.LogicalNameIsSpec(dep) {
-					bare := logicalnames.LogicalNameStripQualifier(dep)
-					if !knownNames[bare] {
-						errs = append(errs, &FormatError{
+					bareName := logicalnames.LogicalNameStripQualifier(dep)
+					if !knownNames[bareName] {
+						errors = append(errors, &FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
-							Detail: fmt.Sprintf("depends_on target %s does not exist", dep),
+							Detail: "depends_on target " + dep + " does not exist",
 						})
-						continue
-					}
-					if bare == entry.LogicalName {
-						errs = append(errs, &FormatError{
+					} else if bareName == entry.LogicalName {
+						errors = append(errors, &FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
-							Detail: fmt.Sprintf("depends_on target %s points to the node itself", dep),
+							Detail: "depends_on target " + dep + " refers to the node itself",
 						})
-						continue
-					}
-					if strings.HasPrefix(entry.LogicalName, bare+"/") {
-						errs = append(errs, &FormatError{
+					} else if strings.HasPrefix(entry.LogicalName, bareName+"/") {
+						errors = append(errors, &FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
-							Detail: fmt.Sprintf("depends_on target %s points to an ancestor", dep),
+							Detail: "depends_on target " + dep + " is an ancestor of this node",
 						})
-						continue
-					}
-					if strings.HasPrefix(bare, entry.LogicalName+"/") {
-						errs = append(errs, &FormatError{
+					} else if strings.HasPrefix(bareName, entry.LogicalName+"/") {
+						errors = append(errors, &FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
-							Detail: fmt.Sprintf("depends_on target %s points to a descendant", dep),
+							Detail: "depends_on target " + dep + " is a descendant of this node",
 						})
-						continue
 					}
 				} else if logicalnames.LogicalNameIsArtifact(dep) {
-					bare := logicalnames.LogicalNameStripQualifier(dep)
-					if !knownNames[bare] {
-						errs = append(errs, &FormatError{
+					bareRef := logicalnames.LogicalNameStripQualifier(dep)
+					if !knownNames[bareRef] {
+						errors = append(errors, &FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
-							Detail: fmt.Sprintf("depends_on target %s does not exist", dep),
+							Detail: "depends_on target " + dep + " does not exist",
 						})
 					}
 				} else if logicalnames.LogicalNameIsExternal(dep) {
-					extPathCfs, err := logicalnames.LogicalNameExternalToPath(dep)
+					cfsPath, err := logicalnames.LogicalNameExternalToPath(dep)
 					if err != nil {
-						errs = append(errs, &FormatError{
+						errors = append(errors, &FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
-							Detail: fmt.Sprintf("depends_on external target %s is not readable", dep),
+							Detail: "depends_on external target " + dep + " is not readable",
 						})
 					} else {
-						reader, err := filereader.FileOpen(extPathCfs)
+						reader, err := filereader.FileOpen(*cfsPath)
 						if err != nil {
-							errs = append(errs, &FormatError{
+							errors = append(errors, &FormatError{
 								Node:   entry.LogicalName,
 								Rule:   "dependency_targets",
-								Detail: fmt.Sprintf("depends_on external target %s is not readable", dep),
+								Detail: "depends_on external target " + dep + " is not readable",
 							})
 						} else {
 							filereader.FileClose(reader)
 						}
 					}
 				} else {
-					errs = append(errs, &FormatError{
+					errors = append(errors, &FormatError{
 						Node:   entry.LogicalName,
 						Rule:   "dependency_targets",
-						Detail: fmt.Sprintf("depends_on entry %s has an unrecognized prefix", dep),
+						Detail: "depends_on entry " + dep + " has an unrecognized prefix",
 					})
 				}
 			}
+		}
 
+		if entry.Frontmatter != nil && entry.Frontmatter.Input != "" {
 			inp := entry.Frontmatter.Input
-			if inp != "" {
-				if logicalnames.LogicalNameIsArtifact(inp) {
-					bare := logicalnames.LogicalNameStripQualifier(inp)
-					if !knownNames[bare] {
-						errs = append(errs, &FormatError{
-							Node:   entry.LogicalName,
-							Rule:   "input_target",
-							Detail: fmt.Sprintf("input target %s does not exist", inp),
-						})
-					}
-				} else if logicalnames.LogicalNameIsExternal(inp) {
-					extPathCfs, err := logicalnames.LogicalNameExternalToPath(inp)
-					if err != nil {
-						errs = append(errs, &FormatError{
-							Node:   entry.LogicalName,
-							Rule:   "input_target",
-							Detail: fmt.Sprintf("input external target %s is not readable", inp),
-						})
-					} else {
-						reader, err := filereader.FileOpen(extPathCfs)
-						if err != nil {
-							errs = append(errs, &FormatError{
-								Node:   entry.LogicalName,
-								Rule:   "input_target",
-								Detail: fmt.Sprintf("input external target %s is not readable", inp),
-							})
-						} else {
-							filereader.FileClose(reader)
-						}
-					}
-				} else {
-					errs = append(errs, &FormatError{
+			if logicalnames.LogicalNameIsArtifact(inp) {
+				bareRef := logicalnames.LogicalNameStripQualifier(inp)
+				if !knownNames[bareRef] {
+					errors = append(errors, &FormatError{
 						Node:   entry.LogicalName,
 						Rule:   "input_target",
-						Detail: "input must start with ARTIFACT/ or EXTERNAL/",
+						Detail: "input target " + inp + " does not exist",
 					})
 				}
-			}
-
-			if entry.Frontmatter.Output != "" {
-				err := pathutils.PathValidateCfs(entry.Frontmatter.Output)
+			} else if logicalnames.LogicalNameIsExternal(inp) {
+				cfsPath, err := logicalnames.LogicalNameExternalToPath(inp)
 				if err != nil {
-					errs = append(errs, &FormatError{
+					errors = append(errors, &FormatError{
 						Node:   entry.LogicalName,
-						Rule:   "output_paths",
-						Detail: fmt.Sprintf("output path is invalid: %s", err.Error()),
+						Rule:   "input_target",
+						Detail: "input external target " + inp + " is not readable",
 					})
+				} else {
+					reader, err := filereader.FileOpen(*cfsPath)
+					if err != nil {
+						errors = append(errors, &FormatError{
+							Node:   entry.LogicalName,
+							Rule:   "input_target",
+							Detail: "input external target " + inp + " is not readable",
+						})
+					} else {
+						filereader.FileClose(reader)
+					}
 				}
+			} else {
+				errors = append(errors, &FormatError{
+					Node:   entry.LogicalName,
+					Rule:   "input_target",
+					Detail: "input field must start with ARTIFACT/ or EXTERNAL/",
+				})
+			}
+		}
+
+		if entry.Frontmatter != nil && entry.Frontmatter.Output != "" {
+			if err := pathutils.PathValidateCfs(entry.Frontmatter.Output); err != nil {
+				errors = append(errors, &FormatError{
+					Node:   entry.LogicalName,
+					Rule:   "output_paths",
+					Detail: "output path " + entry.Frontmatter.Output + " is invalid: " + err.Error(),
+				})
 			}
 		}
 
 		if entry.Node != nil && entry.Node.Public != nil {
 			for _, line := range entry.Node.Public.Content {
 				if strings.TrimSpace(line) != "" {
-					errs = append(errs, &FormatError{
+					errors = append(errors, &FormatError{
 						Node:   entry.LogicalName,
 						Rule:   "public_subsection_required",
 						Detail: "content in # Public must be under a ## subsection",
@@ -232,55 +230,47 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*For
 			if len(entry.Node.Public.Subsections) > 0 {
 				seenHeadings := make(map[string]bool)
 				for _, subsection := range entry.Node.Public.Subsections {
-					normalized := textnormalization.NormalizeText(subsection.Heading)
-					if seenHeadings[normalized] {
-						errs = append(errs, &FormatError{
+					norm := textnormalization.NormalizeText(subsection.Heading)
+					if seenHeadings[norm] {
+						errors = append(errors, &FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "duplicate_subsections",
-							Detail: fmt.Sprintf("duplicate ## subsection heading %s in # Public", subsection.RawHeading),
+							Detail: "duplicate ## subsection heading " + subsection.RawHeading + " in # Public",
 						})
 					} else {
-						seenHeadings[normalized] = true
+						seenHeadings[norm] = true
 					}
 				}
 			}
 		}
 	}
 
+	knownPaths := make(map[string]bool)
+	for _, entry := range entries {
+		nodePath, err := logicalnames.LogicalNameToPath(entry.LogicalName)
+		if err == nil && nodePath != nil {
+			knownPaths[nodePath.Value] = true
+		}
+	}
+
 	for _, dirPath := range allDirs {
-		if dirPath == "code-from-spec/" {
+		if dirPath == "code-from-spec" || dirPath == "code-from-spec/" {
 			continue
 		}
-
-		remainder := strings.TrimPrefix(dirPath, "code-from-spec/")
-		firstSegment := remainder
-		if idx := strings.Index(remainder, "/"); idx >= 0 {
-			firstSegment = remainder[:idx]
+		relativePart := strings.TrimPrefix(dirPath, "code-from-spec/")
+		if relativePart == dirPath || relativePart == "" {
+			continue
+		}
+		firstSegment := relativePart
+		if idx := strings.Index(relativePart, "/"); idx >= 0 {
+			firstSegment = relativePart[:idx]
 		}
 		if strings.HasPrefix(firstSegment, "_") {
 			continue
 		}
-
-		expectedFile := dirPath
-		if !strings.HasSuffix(expectedFile, "/") {
-			expectedFile += "/"
-		}
-		expectedFile += "_node.md"
-
-		found := false
-		for _, entry := range entries {
-			nodePath, err := logicalnames.LogicalNameToPath(entry.LogicalName)
-			if err != nil {
-				continue
-			}
-			if nodePath.Value == expectedFile {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			errs = append(errs, &FormatError{
+		candidatePath := dirPath + "/_node.md"
+		if !knownPaths[candidatePath] {
+			errors = append(errors, &FormatError{
 				Node:   dirPath,
 				Rule:   "missing_node_md",
 				Detail: "subdirectory has no _node.md",
@@ -288,5 +278,5 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*For
 		}
 	}
 
-	return errs
+	return errors
 }

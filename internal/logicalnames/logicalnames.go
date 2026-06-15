@@ -1,4 +1,4 @@
-// code-from-spec: ROOT/golang/implementation/utils/logical_names@z-V3tDrkWaua4riPv-wND8vh1jM
+// code-from-spec: SPEC/golang/implementation/utils/logical_names@Rm5gcQpWGLkzNwtKhOPblj9lIY8
 package logicalnames
 
 import (
@@ -6,153 +6,135 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v3/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
-var ErrUnsupportedReference = errors.New("unsupported reference: not a SPEC/ reference")
-var ErrInvalidPath = errors.New("invalid path: not a _node.md file under code-from-spec/")
-var ErrNoParent = errors.New("no parent: logical name is SPEC itself")
-var ErrNotASpecReference = errors.New("not a SPEC/ reference")
-var ErrNotAnArtifactReference = errors.New("not an ARTIFACT/ reference")
-var ErrNotAnExternalReference = errors.New("not an EXTERNAL/ reference")
+var ErrUnsupportedReference = errors.New("logical name is not a SPEC/ reference")
+var ErrInvalidPath = errors.New("path is not a _node.md file under code-from-spec/")
+var ErrNoParent = errors.New("logical name is SPEC itself")
+var ErrNotASpecReference = errors.New("logical name is not a SPEC/ reference")
+var ErrNotAnArtifactReference = errors.New("logical name does not start with ARTIFACT/")
+var ErrNotAnExternalReference = errors.New("logical name does not start with EXTERNAL/")
 
-func LogicalNameToPath(logical_name string) (*pathutils.PathCfs, error) {
-	stripped := LogicalNameStripQualifier(logical_name)
+func LogicalNameToPath(logicalName string) (*pathutils.PathCfs, error) {
+	stripped := LogicalNameStripQualifier(logicalName)
+
+	if stripped != "SPEC" && !strings.HasPrefix(stripped, "SPEC/") {
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedReference, logicalName)
+	}
 
 	if stripped == "SPEC" {
 		return &pathutils.PathCfs{Value: "code-from-spec/_node.md"}, nil
 	}
 
-	if strings.HasPrefix(stripped, "SPEC/") {
-		relative := strings.TrimPrefix(stripped, "SPEC/")
-		return &pathutils.PathCfs{Value: "code-from-spec/" + relative + "/_node.md"}, nil
-	}
-
-	return nil, fmt.Errorf("%w", ErrUnsupportedReference)
+	relativePath := strings.TrimPrefix(stripped, "SPEC/")
+	return &pathutils.PathCfs{Value: "code-from-spec/" + relativePath + "/_node.md"}, nil
 }
 
-func LogicalNameFromPath(cfs_path *pathutils.PathCfs) (string, error) {
-	if cfs_path == nil {
-		return "", fmt.Errorf("%w", ErrInvalidPath)
+func LogicalNameFromPath(cfsPath *pathutils.PathCfs) (string, error) {
+	pathValue := cfsPath.Value
+
+	if pathValue != "code-from-spec/_node.md" && !strings.HasSuffix(pathValue, "/_node.md") {
+		return "", fmt.Errorf("%w: %s", ErrInvalidPath, pathValue)
 	}
 
-	pathValue := cfs_path.Value
-
-	if !strings.HasSuffix(pathValue, "_node.md") {
-		return "", fmt.Errorf("%w", ErrInvalidPath)
+	if !strings.HasPrefix(pathValue, "code-from-spec/") {
+		return "", fmt.Errorf("%w: %s", ErrInvalidPath, pathValue)
 	}
 
 	if pathValue == "code-from-spec/_node.md" {
 		return "SPEC", nil
 	}
 
-	if strings.HasPrefix(pathValue, "code-from-spec/") && strings.HasSuffix(pathValue, "/_node.md") {
-		relative := strings.TrimPrefix(pathValue, "code-from-spec/")
-		relative = strings.TrimSuffix(relative, "/_node.md")
-		return "SPEC/" + relative, nil
-	}
-
-	return "", fmt.Errorf("%w", ErrInvalidPath)
+	relativePath := strings.TrimPrefix(pathValue, "code-from-spec/")
+	relativePath = strings.TrimSuffix(relativePath, "/_node.md")
+	return "SPEC/" + relativePath, nil
 }
 
-func LogicalNameGetParent(logical_name string) (string, error) {
-	stripped := LogicalNameStripQualifier(logical_name)
+func LogicalNameGetParent(logicalName string) (string, error) {
+	stripped := LogicalNameStripQualifier(logicalName)
 
 	if stripped != "SPEC" && !strings.HasPrefix(stripped, "SPEC/") {
-		return "", fmt.Errorf("%w", ErrNotASpecReference)
+		return "", fmt.Errorf("%w: %s", ErrNotASpecReference, logicalName)
 	}
 
 	if stripped == "SPEC" {
-		return "", fmt.Errorf("%w", ErrNoParent)
+		return "", fmt.Errorf("%w: %s", ErrNoParent, logicalName)
 	}
 
-	relative := strings.TrimPrefix(stripped, "SPEC/")
+	relativePath := strings.TrimPrefix(stripped, "SPEC/")
 
-	lastSlash := strings.LastIndex(relative, "/")
+	lastSlash := strings.LastIndex(relativePath, "/")
 	if lastSlash == -1 {
 		return "SPEC", nil
 	}
 
-	parentRelative := relative[:lastSlash]
+	parentRelative := relativePath[:lastSlash]
 	return "SPEC/" + parentRelative, nil
 }
 
-func LogicalNameGetQualifier(logical_name string) (string, bool) {
-	lastOpen := strings.LastIndex(logical_name, "(")
-	if lastOpen == -1 {
+func LogicalNameGetQualifier(logicalName string) (string, bool) {
+	openIdx := strings.Index(logicalName, "(")
+	if openIdx == -1 {
 		return "", false
 	}
 
-	closeIdx := strings.Index(logical_name[lastOpen:], ")")
+	closeIdx := strings.Index(logicalName[openIdx:], ")")
 	if closeIdx == -1 {
 		return "", false
 	}
 
-	closeIdx = lastOpen + closeIdx
-
-	if closeIdx != len(logical_name)-1 {
-		return "", false
-	}
-
-	qualifier := logical_name[lastOpen+1 : closeIdx]
+	qualifier := logicalName[openIdx+1 : openIdx+closeIdx]
 	return qualifier, true
 }
 
-func LogicalNameStripQualifier(logical_name string) string {
-	lastOpen := strings.LastIndex(logical_name, "(")
-	if lastOpen == -1 {
-		return logical_name
+func LogicalNameStripQualifier(logicalName string) string {
+	openIdx := strings.Index(logicalName, "(")
+	if openIdx == -1 {
+		return logicalName
 	}
-
-	if !strings.HasSuffix(logical_name, ")") {
-		return logical_name
-	}
-
-	return logical_name[:lastOpen]
+	return logicalName[:openIdx]
 }
 
-func LogicalNameHasParent(logical_name string) bool {
-	stripped := LogicalNameStripQualifier(logical_name)
-
-	if strings.HasPrefix(stripped, "SPEC/") {
-		relative := strings.TrimPrefix(stripped, "SPEC/")
-		return relative != ""
-	}
-
-	return false
+func LogicalNameHasParent(logicalName string) bool {
+	stripped := LogicalNameStripQualifier(logicalName)
+	return strings.HasPrefix(stripped, "SPEC/")
 }
 
-func LogicalNameHasQualifier(logical_name string) bool {
-	_, ok := LogicalNameGetQualifier(logical_name)
+func LogicalNameHasQualifier(logicalName string) bool {
+	_, ok := LogicalNameGetQualifier(logicalName)
 	return ok
 }
 
-func LogicalNameIsArtifact(logical_name string) bool {
-	return strings.HasPrefix(logical_name, "ARTIFACT/")
+func LogicalNameIsArtifact(logicalName string) bool {
+	return strings.HasPrefix(logicalName, "ARTIFACT/")
 }
 
-func LogicalNameIsSpec(logical_name string) bool {
-	return logical_name == "SPEC" || strings.HasPrefix(logical_name, "SPEC/")
+func LogicalNameIsSpec(logicalName string) bool {
+	if logicalName == "SPEC" {
+		return true
+	}
+	return strings.HasPrefix(logicalName, "SPEC/")
 }
 
-func LogicalNameIsExternal(logical_name string) bool {
-	return strings.HasPrefix(logical_name, "EXTERNAL/")
+func LogicalNameIsExternal(logicalName string) bool {
+	return strings.HasPrefix(logicalName, "EXTERNAL/")
 }
 
-func LogicalNameGetArtifactGenerator(logical_name string) (string, error) {
-	if !strings.HasPrefix(logical_name, "ARTIFACT/") {
-		return "", fmt.Errorf("%w", ErrNotAnArtifactReference)
+func LogicalNameGetArtifactGenerator(logicalName string) (string, error) {
+	if !strings.HasPrefix(logicalName, "ARTIFACT/") {
+		return "", fmt.Errorf("%w: %s", ErrNotAnArtifactReference, logicalName)
 	}
 
-	relative := strings.TrimPrefix(logical_name, "ARTIFACT/")
-	return "SPEC/" + relative, nil
+	relativePath := strings.TrimPrefix(logicalName, "ARTIFACT/")
+	return "SPEC/" + relativePath, nil
 }
 
-func LogicalNameExternalToPath(logical_name string) (*pathutils.PathCfs, error) {
-	if !strings.HasPrefix(logical_name, "EXTERNAL/") {
-		return nil, fmt.Errorf("%w", ErrNotAnExternalReference)
+func LogicalNameExternalToPath(logicalName string) (*pathutils.PathCfs, error) {
+	if !strings.HasPrefix(logicalName, "EXTERNAL/") {
+		return nil, fmt.Errorf("%w: %s", ErrNotAnExternalReference, logicalName)
 	}
 
-	relative := strings.TrimPrefix(logical_name, "EXTERNAL/")
-	return &pathutils.PathCfs{Value: relative}, nil
+	relativePath := strings.TrimPrefix(logicalName, "EXTERNAL/")
+	return &pathutils.PathCfs{Value: relativePath}, nil
 }
