@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@N2X9yAovHP5Y2NtkYC81q4lDJhE
+// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@hfVZs4r2QmYvy5IQaPvxGcb_MqY
 package mcpvalidatespecs
 
 import (
@@ -113,19 +113,11 @@ func MCPValidateSpecs() *ValidationReport {
 
 		rankedEntries, rankCycles, rankErr := noderanking.NodeRankCompute(rankInputs)
 		if rankErr != nil {
-			if errors.Is(rankErr, noderanking.ErrUnresolvableReference) {
-				report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
-					Node:   "",
-					Rule:   "ranking",
-					Detail: rankErr.Error(),
-				})
-			} else {
-				report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
-					Node:   "",
-					Rule:   "ranking",
-					Detail: rankErr.Error(),
-				})
-			}
+			report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
+				Node:   "",
+				Rule:   "ranking",
+				Detail: rankErr.Error(),
+			})
 		} else {
 			for _, re := range rankedEntries {
 				rankMap[re.LogicalName] = re.Rank
@@ -199,7 +191,7 @@ func MCPValidateSpecs() *ValidationReport {
 				continue
 			}
 
-			if errors.Is(tagErr, artifacttag.ErrMalformedTag) {
+			if errors.Is(tagErr, artifacttag.ErrNoTagFound) || errors.Is(tagErr, artifacttag.ErrMalformedTag) {
 				report.Staleness = append(report.Staleness, &StalenessEntry{
 					Node:         entry.logicalName,
 					ArtifactPath: entry.fm.Output,
@@ -249,9 +241,13 @@ func discoverAllDirs() []string {
 
 	baseDir := filepath.Join(root.Value, "code-from-spec")
 
+	if _, statErr := os.Stat(baseDir); statErr != nil {
+		return []string{}
+	}
+
 	var dirs []string
-	_ = filepath.WalkDir(baseDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
+	_ = filepath.WalkDir(baseDir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
 			return nil
 		}
 		if !d.IsDir() {
@@ -264,14 +260,9 @@ func discoverAllDirs() []string {
 		if relErr != nil {
 			return nil
 		}
-		cfsPath := filepath.ToSlash(rel)
-		dirs = append(dirs, cfsPath)
+		dirs = append(dirs, filepath.ToSlash(rel))
 		return nil
 	})
-
-	if _, statErr := os.Stat(baseDir); statErr != nil {
-		return []string{}
-	}
 
 	return dirs
 }

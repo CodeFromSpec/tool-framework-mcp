@@ -1,14 +1,15 @@
-// code-from-spec: SPEC/golang/implementation/spec_tree/validate@MAbawU8Ck4ym3u0e2wSAf9i7Ie4
+// code-from-spec: SPEC/golang/implementation/spec_tree/validate@rIQ57m6tnu6Ww2Awp1BHt6amA2I
 package spectreevalidate
 
 import (
+	"strings"
+
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
-	"strings"
 )
 
 type SpecTreeValidateInput struct {

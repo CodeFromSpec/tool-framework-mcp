@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/artifact_tag@Y-xdNKBnrreaEyU6wQm7Xpcp0p0
+// code-from-spec: SPEC/golang/implementation/parsing/artifact_tag@VrVGuOKq-qkB3kZlDR1MrfKZkcE
 package artifacttag
 
 import (
@@ -11,8 +11,8 @@ import (
 )
 
 var ErrFileUnreadable = errors.New("file cannot be opened or read")
+var ErrNoTagFound     = errors.New("file has no code-from-spec: tag")
 var ErrMalformedTag   = errors.New("tag exists but cannot be parsed")
-var ErrNoTagFound     = errors.New("no artifact tag found in file")
 
 const tagPrefix = "code-from-spec: "
 const hashLength = 27

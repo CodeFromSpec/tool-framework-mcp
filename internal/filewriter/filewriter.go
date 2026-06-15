@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/os/file_writer@1UiGhv-iaqm2xRCyfShn8P5dG2M
+// code-from-spec: SPEC/golang/implementation/os/file_writer@YmkD9JQKzqNMZPrH6OO-rTuPnWA
 package filewriter
 
 import (

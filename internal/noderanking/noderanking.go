@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/utils/node_ranking@WMufa4SxI52My2ZW_4q-Lqc-TAU
+// code-from-spec: SPEC/golang/implementation/utils/node_ranking@S0bKOaJguwnMhdZ-ALmqoD4bVu8
 package noderanking
 
 import (
@@ -94,7 +94,7 @@ func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, erro
 				}
 				entry.deps = append(entry.deps, inp)
 			} else if strings.HasPrefix(inp, "EXTERNAL/") {
-				// skip
+				// external — skip
 			}
 		}
 	}

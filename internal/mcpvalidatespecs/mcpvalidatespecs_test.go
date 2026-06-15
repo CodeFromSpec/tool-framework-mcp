@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/mcp_tools/validate_specs@PhAgsXNWzAZodPkRtRUt0OrO4r8
+// code-from-spec: SPEC/golang/tests/mcp_tools/validate_specs@63bi_UVpA3oNpMEzCwd1_asfmyc
 package mcpvalidatespecs_test
 
 import (

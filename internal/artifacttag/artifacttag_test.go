@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/parsing/artifact_tag@aTerD9NwtKjIogEeiA-qBXpXeWY
+// code-from-spec: SPEC/golang/tests/parsing/artifact_tag@_q9_u6KjpTSJcq-28kUBCJ2qlEI
 package artifacttag_test
 
 import (
@@ -94,7 +94,7 @@ func TestArtifactTagExtract_TC04_StopsAtFirstMatch(t *testing.T) {
 	testChdir(t, tmpDir)
 
 	content := "// code-from-spec: ROOT/first/node@abcdefghijklmnopqrstuvwxyza\n" +
-		"// code-from-spec: ROOT/second/node@abcdefghijklmnopqrstuvwxyza\n"
+		"// code-from-spec: ROOT/second/node@zyxwvutsrqponmlkjihgfedcbaz\n"
 	if err := os.WriteFile("file.go", []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -116,6 +116,7 @@ func TestArtifactTagExtract_TC05_TagOnNonFirstLine(t *testing.T) {
 	testChdir(t, tmpDir)
 
 	content := "package foo\n" +
+		"// no tag here\n" +
 		"// code-from-spec: ROOT/some/node@abcdefghijklmnopqrstuvwxyza\n"
 	if err := os.WriteFile("file.go", []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -204,7 +205,7 @@ func TestArtifactTagExtract_TC11_MalformedTag_NoAtSeparator(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	content := "// code-from-spec: ROOT/some/nodeAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n"
+	content := "// code-from-spec: ROOT/foo/bar\n"
 	if err := os.WriteFile("file.go", []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -234,7 +235,7 @@ func TestArtifactTagExtract_TC13_MalformedTag_WrongHashLength(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	content := "// code-from-spec: ROOT/some/node@short\n"
+	content := "// code-from-spec: ROOT/foo(bar)@short\n"
 	if err := os.WriteFile("file.go", []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
