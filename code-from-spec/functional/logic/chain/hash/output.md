@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/chain/hash@hgt6-Bvv4wozCAprYtb5yHGTmqU -->
+<!-- code-from-spec: SPEC/functional/logic/chain/hash@_lAkgFOCT9hTCjmvgbYPsZW_vL8 -->
 
 ## Namespace
 
