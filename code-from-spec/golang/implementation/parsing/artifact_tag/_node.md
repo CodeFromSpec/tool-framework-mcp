@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ARTIFACT/golang/interfaces/parsing/artifact_tag
-  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/os/path_utils
 input: ARTIFACT/functional/logic/parsing/artifact_tag
 output: internal/artifacttag/artifacttag.go
@@ -15,7 +15,7 @@ Implement the pseudocode from the input as a Go package.
 
 ## Go-specific guidance
 
-- Use the `filereader` package to open and read the file
+- Use the `file` package to open and read the file
   line by line.
 - Error sentinels with `errors.New`.
 - Error wrapping: wrap all errors with `fmt.Errorf` using

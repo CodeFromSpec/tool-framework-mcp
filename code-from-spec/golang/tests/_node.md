@@ -76,7 +76,7 @@ When a function propagates an error from another package
 (e.g. `FrontmatterParse` propagating from `FileOpen`),
 the error chain preserves the original sentinel. Use
 `errors.Is` with the sentinel from the **originating**
-package (e.g. `filereader.ErrFileUnreadable`), not a
+package (e.g. `file.ErrFileUnreadable`), not a
 re-declared sentinel in the calling package — unless
 the calling package's interface explicitly declares its
 own sentinel and wraps it.

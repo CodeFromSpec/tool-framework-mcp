@@ -3,7 +3,7 @@ depends_on:
   - ARTIFACT/golang/interfaces/mcp_tools/load_chain
   - ARTIFACT/golang/interfaces/chain/resolver
   - ARTIFACT/golang/interfaces/chain/hash
-  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/os/path_utils
   - ARTIFACT/golang/interfaces/parsing/frontmatter
   - ARTIFACT/golang/interfaces/parsing/node_parsing

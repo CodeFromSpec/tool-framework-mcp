@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ARTIFACT/golang/interfaces/spec_tree/validate
-  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/os/path_utils
   - ARTIFACT/golang/interfaces/utils/text_normalization
   - ARTIFACT/golang/interfaces/parsing/frontmatter

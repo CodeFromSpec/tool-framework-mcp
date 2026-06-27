@@ -2,7 +2,7 @@
 depends_on:
   - ARTIFACT/golang/interfaces/mcp_tools/write_file
   - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/file_writer
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/parsing/frontmatter
   - ARTIFACT/golang/interfaces/utils/logical_names
 input: ARTIFACT/functional/tests/mcp_tools/write_file

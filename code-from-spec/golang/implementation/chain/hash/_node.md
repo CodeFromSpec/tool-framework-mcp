@@ -2,7 +2,7 @@
 depends_on:
   - ARTIFACT/golang/interfaces/chain/hash
   - ARTIFACT/golang/interfaces/chain/resolver
-  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/os/path_utils
   - ARTIFACT/golang/interfaces/parsing/frontmatter
   - ARTIFACT/golang/interfaces/parsing/node_parsing
@@ -24,7 +24,7 @@ Implement the pseudocode from the input as a Go package.
   `ChainItem` records.
 - Use the `parsenode` package for `NodeParse` and the
   `Node`, `NodeSection`, `NodeSubsection` records.
-- Use the `filereader` package for `FileOpen`,
+- Use the `file` package for `FileOpen`,
   `FileReadLine`, `FileSkipLines`, `FileClose`.
 - Use the `pathutils` package for `PathCfs`.
 - Use the `logicalnames` package for

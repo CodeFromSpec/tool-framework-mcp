@@ -2,7 +2,7 @@
 depends_on:
   - ARTIFACT/golang/interfaces/mcp_tools/write_file
   - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/file_writer
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/parsing/frontmatter
   - ARTIFACT/golang/interfaces/utils/logical_names
 input: ARTIFACT/functional/logic/mcp_tools/write_file
@@ -21,7 +21,8 @@ Implement the pseudocode from the input as a Go package.
 - Use the `frontmatter` package for `FrontmatterParse`.
 - Use the `pathutils` package for `PathValidateCfs` and
   `PathCfs`.
-- Use the `filewriter` package for `FileWrite`.
+- Use the `file` package for `FileOpen`, `FileWrite`,
+  `FileClose`.
 - The package name should be `mcpwritefile`.
 - The function receives plain strings from the MCP
   transport layer. Construct `PathCfs` internally.

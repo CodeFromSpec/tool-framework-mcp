@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ARTIFACT/golang/interfaces/spec_tree/validate
-  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/os/list_files
   - ARTIFACT/golang/interfaces/os/path_utils
   - ARTIFACT/golang/interfaces/utils/logical_names
@@ -20,7 +20,7 @@ Implement the pseudocode from the input as a Go package.
 
 ## Go-specific guidance
 
-- Use the `filereader` package for `FileOpen`, `FileReadLine`,
+- Use the `file` package for `FileOpen`, `FileReadLine`,
   `FileSkipLines`, `FileClose`.
 - Use the `pathutils` package for `PathValidateCfs` and `PathCfs`.
 - Use the `textnormalization` package for `NormalizeText`.

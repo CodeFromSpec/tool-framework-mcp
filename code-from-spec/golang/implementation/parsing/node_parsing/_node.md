@@ -1,7 +1,7 @@
 ---
 depends_on:
   - ARTIFACT/golang/interfaces/parsing/node_parsing
-  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/os/path_utils
   - ARTIFACT/golang/interfaces/utils/logical_names
   - ARTIFACT/golang/interfaces/utils/text_normalization
@@ -21,6 +21,6 @@ Implement the pseudocode from the input as a Go package.
   comparisons.
 - Use `logicalnames.LogicalNameToPath` to resolve logical
   names to file paths.
-- Use the `filereader` package for file I/O: `FileOpen`,
+- Use the `file` package for file I/O: `FileOpen`,
   `FileReadLine`, `FileClose`.
 - The package name should be `parsenode`.

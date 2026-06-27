@@ -2,7 +2,7 @@
 depends_on:
   - ARTIFACT/golang/interfaces/chain/resolver
   - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/file_reader
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/parsing/frontmatter
   - ARTIFACT/golang/interfaces/utils/logical_names
 input: ARTIFACT/functional/logic/chain/resolver
