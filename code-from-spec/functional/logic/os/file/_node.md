@@ -16,7 +16,7 @@ Handle-based file operations with automatic locking.
 record FileHandle
   mode: string
 
-function FileOpen(cfs_path: pathutils.PathCfs, mode: string) -> FileHandle
+function FileOpen(cfs_path: pathutils.PathCfs, mode: string, timeout_ms: integer) -> FileHandle
   errors:
     - FileUnreadable: mode is "read" and the file cannot be
       opened (does not exist, permission denied, or other
@@ -27,6 +27,8 @@ function FileOpen(cfs_path: pathutils.PathCfs, mode: string) -> FileHandle
       the file cannot be opened for writing.
     - InvalidMode: mode is not "read", "overwrite", or
       "append".
+    - LockTimeout: the lock could not be acquired within
+      the specified timeout.
     - (PathUtils.*): propagated from PathCfsToOs.
 
 function FileReadLine(handle: FileHandle) -> string
@@ -70,6 +72,13 @@ Opens a file and acquires a lock based on the mode:
 - `"append"` — exclusive lock. Creates the file if it does
   not exist, or opens it without truncating. Creates
   intermediate directories as needed.
+
+The `timeout_ms` parameter controls how long to wait for
+the lock. Must be zero or positive.
+- Positive value: wait up to that many milliseconds.
+  Raises `LockTimeout` if the lock is not acquired in time.
+- Zero: non-blocking. Try to acquire the lock immediately,
+  raise `LockTimeout` if it is not available.
 
 The caller must call `FileClose` when done — failing to do
 so leaks the file handle and the lock.

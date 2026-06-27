@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - SPEC/functional/dependencies/owasp-path-traversal
+  - SPEC/domain/owasp-path-traversal
 output: code-from-spec/functional/logic/os/path_utils/output.md
 ---
 
@@ -163,7 +163,7 @@ Returns the working directory of the process as a
 
 ### Security
 
-See `SPEC/functional/dependencies/owasp-path-traversal`
+See `SPEC/domain/owasp-path-traversal`
 for the threat model. PathCfsToOs is the primary defense
 against path traversal attacks.
 
