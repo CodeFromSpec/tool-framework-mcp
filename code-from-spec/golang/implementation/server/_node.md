@@ -4,7 +4,7 @@ depends_on:
   - ARTIFACT/golang/interfaces/mcp_tools/load_chain
   - ARTIFACT/golang/interfaces/mcp_tools/write_file
   - ARTIFACT/golang/interfaces/mcp_tools/validate_specs
-  - ARTIFACT/golang/interfaces/mcp_tools/chain_hash
+  - SPEC/golang/implementation/mcp_tools/chain_hash(interface)
 output: cmd/framework-mcp/main.go
 ---
 

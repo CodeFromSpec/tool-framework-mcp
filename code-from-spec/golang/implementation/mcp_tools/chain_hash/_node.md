@@ -1,24 +1,89 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/mcp_tools/chain_hash
   - ARTIFACT/golang/interfaces/chain/resolver
   - ARTIFACT/golang/interfaces/chain/hash
-  - ARTIFACT/golang/interfaces/os/path_utils
   - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/os/path_utils
   - ARTIFACT/golang/interfaces/utils/logical_names
-input: ARTIFACT/functional/logic/mcp_tools/chain_hash
 output: internal/mcpchainhash/mcpchainhash.go
 ---
 
 # SPEC/golang/implementation/mcp_tools/chain_hash
 
+Computes the chain hash for a given node without
+assembling the full context stream. Lighter than
+`load_chain` when only the hash is needed.
+
+# Public
+
+## Package
+
+`package mcpchainhash`
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpchainhash"`
+
+## Interface
+
+```go
+var ErrNoOutput = errors.New("no output")
+
+func MCPChainHash(logicalName string) (string, error)
+```
+
+### Input
+
+| Parameter | Required | Description |
+|---|---|---|
+| `logicalName` | yes | Logical name of the target node. |
+
+### Output
+
+The 27-character base64url chain hash.
+
+### Errors
+
+- `ErrNoOutput`: target node has no `output` field.
+- Propagated from `logicalnames.LogicalNameToPath`.
+- Propagated from `frontmatter.FrontmatterParse`.
+- Propagated from `chainresolver.ChainResolve`.
+- Propagated from `chainhash.ChainHashCompute`.
+
 # Agent
+
+Implement the `mcpchainhash` package.
+
+## Steps
+
+### Step 1 — Validate
+
+Resolve the logical name to a file path using
+`logicalnames.LogicalNameToPath`. If it fails,
+wrap and return the error.
+
+Parse the target node's frontmatter using
+`frontmatter.FrontmatterParse`. If `fm.Output`
+is empty, return `ErrNoOutput`.
+
+### Step 2 — Resolve chain
+
+Call `chainresolver.ChainResolve(logicalName)`.
+If it fails, wrap and return the error.
+
+### Step 3 — Compute hash
+
+Call `chainhash.ChainHashCompute(chain)`.
+If it fails, wrap and return the error.
+Return the hash string.
 
 ## Go-specific guidance
 
-- The package name is `mcpchainhash`.
 - Import `chainresolver`, `chainhash`, `frontmatter`,
-  `logicalnames`, and `pathutils` packages.
-- The function is simple: resolve, parse frontmatter,
-  check output exists, resolve chain, compute hash,
-  return.
+  `logicalnames` packages.
+- Wrap each error with `fmt.Errorf("context: %w", err)`
+  to preserve the sentinel chain.
+
+## Contracts
+
+- Returns only the hash string — no context, no input.
+- If any file in the chain is unreadable, returns an
+  error.
