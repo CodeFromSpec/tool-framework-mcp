@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/tests/os/file@pQ9xybyGeL94JKgDoQkhAgVsqp4 -->
+<!-- code-from-spec: SPEC/functional/tests/os/file@o47vjhWho28M4Ifhf_utdVvZfFg -->
 
 ## Test: Opens and reads all lines
 
@@ -385,3 +385,54 @@ Setup: a path that does not exist.
 
 Actions:
 1. Call `FileDelete` with the non-existent path. Expect CannotDelete.
+
+---
+
+## Test: Shared lock allows concurrent readers
+
+Setup: a file with content `"data"`.
+
+Actions:
+1. Call `FileOpen` with mode `"read"` to get handle1. Expect a FileHandle.
+2. Concurrently, call `FileOpen` with mode `"read"` on the same file to get handle2. Expect handle2 to open successfully — shared lock does not block other shared locks.
+3. Call `FileClose` on handle1.
+4. Call `FileClose` on handle2.
+
+---
+
+## Test: Exclusive lock blocks other exclusive locks
+
+Setup: a file with content `"data"`.
+
+Actions:
+1. Call `FileOpen` with mode `"overwrite"` to get handle1. Expect a FileHandle (exclusive lock acquired).
+2. Concurrently, call `FileOpen` with mode `"overwrite"` on the same file. Expect the second open to block and not return immediately.
+3. Call `FileClose` on handle1.
+4. Expect the second open to succeed after handle1 is closed. Receive handle2.
+5. Call `FileClose` on handle2.
+
+---
+
+## Test: Exclusive lock blocks shared locks
+
+Setup: a file with content `"data"`.
+
+Actions:
+1. Call `FileOpen` with mode `"overwrite"` to get handle1. Expect a FileHandle (exclusive lock acquired).
+2. Concurrently, call `FileOpen` with mode `"read"` on the same file. Expect the read open to block.
+3. Call `FileClose` on handle1.
+4. Expect the read open to succeed after handle1 is closed. Receive handle2.
+5. Call `FileClose` on handle2.
+
+---
+
+## Test: Append mode acquires exclusive lock
+
+Setup: a file with content `"data"`.
+
+Actions:
+1. Call `FileOpen` with mode `"append"` to get handle1. Expect a FileHandle (exclusive lock acquired).
+2. Concurrently, call `FileOpen` with mode `"read"` on the same file. Expect the read open to block.
+3. Call `FileClose` on handle1.
+4. Expect the read open to succeed after handle1 is closed. Receive handle2.
+5. Call `FileClose` on handle2.

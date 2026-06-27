@@ -1,11 +1,13 @@
-// code-from-spec: SPEC/golang/tests/os/file@8vYY_AQKUUvTSCRzgE0D-325nTg
+// code-from-spec: SPEC/golang/tests/os/file@IlnYoaCz_m0F-1YyK9oKFVfBVo4
 package file_test
 
 import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
@@ -774,4 +776,146 @@ func TestFileDeleteNonExistentFile(t *testing.T) {
 	if !errors.Is(err, file.ErrCannotDelete) {
 		t.Errorf("expected ErrCannotDelete, got %v", err)
 	}
+}
+
+func TestFileSharedLockAllowsConcurrentReaders(t *testing.T) {
+	tmpDir := t.TempDir()
+	testChdir(t, tmpDir)
+
+	if err := os.WriteFile("test.txt", []byte("data\n"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	if err != nil {
+		t.Fatalf("FileOpen handle1: %v", err)
+	}
+
+	handle2, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	if err != nil {
+		t.Fatalf("FileOpen handle2 (shared lock should not block): %v", err)
+	}
+
+	file.FileClose(handle1)
+	file.FileClose(handle2)
+}
+
+func TestFileExclusiveLockBlocksOtherExclusiveLocks(t *testing.T) {
+	tmpDir := t.TempDir()
+	testChdir(t, tmpDir)
+
+	if err := os.WriteFile("test.txt", []byte("data\n"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	if err != nil {
+		t.Fatalf("FileOpen handle1: %v", err)
+	}
+
+	var handle2 *file.FileHandle
+	var handle2Err error
+	var wg sync.WaitGroup
+	opened := make(chan struct{})
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+		close(opened)
+	}()
+
+	select {
+	case <-opened:
+		t.Error("second exclusive open returned before first was closed")
+		file.FileClose(handle1)
+	case <-time.After(100 * time.Millisecond):
+		file.FileClose(handle1)
+		wg.Wait()
+	}
+
+	if handle2Err != nil {
+		t.Fatalf("FileOpen handle2: %v", handle2Err)
+	}
+	file.FileClose(handle2)
+}
+
+func TestFileExclusiveLockBlocksSharedLocks(t *testing.T) {
+	tmpDir := t.TempDir()
+	testChdir(t, tmpDir)
+
+	if err := os.WriteFile("test.txt", []byte("data\n"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	if err != nil {
+		t.Fatalf("FileOpen handle1: %v", err)
+	}
+
+	var handle2 *file.FileHandle
+	var handle2Err error
+	var wg sync.WaitGroup
+	opened := make(chan struct{})
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+		close(opened)
+	}()
+
+	select {
+	case <-opened:
+		t.Error("read open returned before exclusive lock was released")
+		file.FileClose(handle1)
+	case <-time.After(100 * time.Millisecond):
+		file.FileClose(handle1)
+		wg.Wait()
+	}
+
+	if handle2Err != nil {
+		t.Fatalf("FileOpen handle2: %v", handle2Err)
+	}
+	file.FileClose(handle2)
+}
+
+func TestFileAppendModeAcquiresExclusiveLock(t *testing.T) {
+	tmpDir := t.TempDir()
+	testChdir(t, tmpDir)
+
+	if err := os.WriteFile("test.txt", []byte("data\n"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "append")
+	if err != nil {
+		t.Fatalf("FileOpen handle1: %v", err)
+	}
+
+	var handle2 *file.FileHandle
+	var handle2Err error
+	var wg sync.WaitGroup
+	opened := make(chan struct{})
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+		close(opened)
+	}()
+
+	select {
+	case <-opened:
+		t.Error("read open returned before append exclusive lock was released")
+		file.FileClose(handle1)
+	case <-time.After(100 * time.Millisecond):
+		file.FileClose(handle1)
+		wg.Wait()
+	}
+
+	if handle2Err != nil {
+		t.Fatalf("FileOpen handle2: %v", handle2Err)
+	}
+	file.FileClose(handle2)
 }

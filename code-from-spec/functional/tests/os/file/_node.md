@@ -264,6 +264,44 @@ Create a file at `"target.txt"`. Call `FileDelete` with
 Call `FileDelete` with a path that does not exist. Expect
 CannotDelete error.
 
+### Locking — concurrency
+
+#### Shared lock allows concurrent readers
+
+Create a file with content `"data"`. Call `FileOpen` with
+mode `"read"` to get handle1. In a separate goroutine,
+call `FileOpen` with mode `"read"` on the same file to
+get handle2. Expect handle2 to open successfully (shared
+lock does not block other shared locks). Close both
+handles.
+
+#### Exclusive lock blocks other exclusive locks
+
+Create a file with content `"data"`. Call `FileOpen` with
+mode `"overwrite"` to get handle1 (exclusive lock). In a
+separate goroutine, call `FileOpen` with mode `"overwrite"`
+on the same file. Expect the second open to block (not
+return immediately). Close handle1. Expect the second open
+to succeed after handle1 is closed. Close both handles.
+
+#### Exclusive lock blocks shared locks
+
+Create a file with content `"data"`. Call `FileOpen` with
+mode `"overwrite"` to get handle1 (exclusive lock). In a
+separate goroutine, call `FileOpen` with mode `"read"` on
+the same file. Expect the read open to block. Close
+handle1. Expect the read open to succeed. Close both
+handles.
+
+#### Append mode acquires exclusive lock
+
+Create a file with content `"data"`. Call `FileOpen` with
+mode `"append"` to get handle1 (exclusive lock). In a
+separate goroutine, call `FileOpen` with mode `"read"` on
+the same file. Expect the read open to block. Close
+handle1. Expect the read open to succeed. Close both
+handles.
+
 # Agent
 
 Generate a test specification document listing each test

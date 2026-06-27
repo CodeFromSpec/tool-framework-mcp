@@ -6,6 +6,7 @@ depends_on:
   - ARTIFACT/golang/interfaces/chain/hash
   - ARTIFACT/golang/interfaces/os/path_utils
   - ARTIFACT/golang/interfaces/parsing/frontmatter
+  - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/utils/logical_names
 input: ARTIFACT/functional/tests/mcp_tools/chain_hash
 output: internal/mcpchainhash/mcpchainhash_test.go

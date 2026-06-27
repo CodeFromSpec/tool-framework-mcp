@@ -1,9 +1,10 @@
-// code-from-spec: SPEC/golang/implementation/os/file@EbBJjjpAiwxP-pNi4MjLD0TXyjM
+// code-from-spec: SPEC/golang/implementation/os/file/impl@_xlZehQmVfwydy9_BGNXPEuDOeM
 
 package file
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -29,6 +30,27 @@ var ErrWrongMode = errors.New("wrong mode")
 var ErrCannotWriteFile = errors.New("cannot write file")
 var ErrCannotRename = errors.New("cannot rename")
 var ErrCannotDelete = errors.New("cannot delete")
+
+func scanLinesNoCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexByte(data, '\n'); i >= 0 {
+		line := data[:i]
+		if len(line) > 0 && line[len(line)-1] == '\r' {
+			line = line[:len(line)-1]
+		}
+		return i + 1, line, nil
+	}
+	if atEOF {
+		line := data
+		if len(line) > 0 && line[len(line)-1] == '\r' {
+			line = line[:len(line)-1]
+		}
+		return len(data), line, nil
+	}
+	return 0, nil, nil
+}
 
 func FileOpen(cfsPath *pathutils.PathCfs, mode string) (*FileHandle, error) {
 	if mode != "read" && mode != "overwrite" && mode != "append" {
@@ -56,7 +78,9 @@ func FileOpen(cfsPath *pathutils.PathCfs, mode string) (*FileHandle, error) {
 			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
 		handle.stream = f
-		handle.scanner = bufio.NewScanner(f)
+		scanner := bufio.NewScanner(f)
+		scanner.Split(scanLinesNoCRLF)
+		handle.scanner = scanner
 
 	case "overwrite":
 		dir := filepath.Dir(osPath.Value)
@@ -78,7 +102,7 @@ func FileOpen(cfsPath *pathutils.PathCfs, mode string) (*FileHandle, error) {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrCannotCreateDirectory, err)
 		}
-		f, err := os.OpenFile(osPath.Value, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		f, err := os.OpenFile(osPath.Value, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrCannotOpenFile, err)
 		}
@@ -108,8 +132,7 @@ func FileReadLine(handle *FileHandle) (string, error) {
 	if !handle.scanner.Scan() {
 		return "", ErrEndOfFile
 	}
-	line := handle.scanner.Text()
-	return line, nil
+	return handle.scanner.Text(), nil
 }
 
 func FileWrite(handle *FileHandle, content string) error {

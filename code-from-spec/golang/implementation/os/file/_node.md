@@ -1,28 +1,22 @@
----
-depends_on:
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/os/path_utils
-input: ARTIFACT/functional/logic/os/file
-output: internal/file/file.go
----
-
 # SPEC/golang/implementation/os/file
 
-# Agent
+Go implementation of the file operations component,
+split into three artifacts: the main implementation
+and two platform-specific locking files.
 
-Implement the `file` package, including its interface.
+# Public
 
-## Go-specific guidance
+## Locking interface
 
-- Use `bufio.Scanner` for line reading.
-- Use `os.OpenFile` with appropriate flags for each mode:
-  read = `O_RDONLY`, overwrite = `O_WRONLY|O_CREATE|O_TRUNC`,
-  append = `O_WRONLY|O_CREATE|O_APPEND`.
-- Normalize CRLF to LF before splitting lines.
-- For file locking on Unix, use `syscall.Flock` with
-  `LOCK_SH` (shared) or `LOCK_EX` (exclusive).
-- For file locking on Windows, use `LockFileEx` via
-  `golang.org/x/sys/windows`.
-- Use `os.Rename` for `FileRename`.
-- Use `os.Remove` for `FileDelete`.
-- Create intermediate directories with `os.MkdirAll`.
+The main implementation calls two unexported functions
+for file locking. These are defined in platform-specific
+files within the same package:
+
+```go
+func fileLockShared(f *os.File) error
+func fileLockExclusive(f *os.File) error
+```
+
+Both functions block until the lock is acquired. They
+operate on the file descriptor of the given `*os.File`.
+Errors are returned if the lock cannot be acquired.
