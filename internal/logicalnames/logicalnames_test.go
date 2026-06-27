@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/utils/logical_names@kpD3x3JufFRCX2uF2cX8Xe5h3W8
+// code-from-spec: SPEC/golang/tests/utils/logical_names@F8c0CclBpMDaD_84OfzmKBqtNGU
 package logicalnames_test
 
 import (
@@ -11,10 +11,10 @@ import (
 
 func TestLogicalNameToPath(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		wantPath    string
-		wantErr     error
+		name     string
+		input    string
+		wantPath string
+		wantErr  error
 	}{
 		{
 			name:     "SPEC alone",
@@ -202,10 +202,10 @@ func TestLogicalNameGetParent(t *testing.T) {
 
 func TestLogicalNameGetQualifier(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantQual  string
-		wantOk    bool
+		name     string
+		input    string
+		wantQual string
+		wantOk   bool
 	}{
 		{
 			name:     "Extracts qualifier from SPEC reference",

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/artifact_tag@VrVGuOKq-qkB3kZlDR1MrfKZkcE
+// code-from-spec: SPEC/golang/implementation/parsing/artifact_tag@KpMgRYz_KFjRkQcxgHjsrkR-ttc
 package artifacttag
 
 import (
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
@@ -27,7 +27,7 @@ func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
 		return nil, fmt.Errorf("%w: nil file path", ErrFileUnreadable)
 	}
 
-	reader, err := filereader.FileOpen(pathutils.PathCfs{Value: filePath.Value})
+	handle, err := file.FileOpen(filePath, "read")
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
@@ -35,12 +35,12 @@ func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
 	foundLine := ""
 
 	for {
-		line, err := filereader.FileReadLine(reader)
-		if errors.Is(err, filereader.ErrEndOfFile) {
+		line, err := file.FileReadLine(handle)
+		if errors.Is(err, file.ErrEndOfFile) {
 			break
 		}
 		if err != nil {
-			filereader.FileClose(reader)
+			file.FileClose(handle)
 			return nil, fmt.Errorf("%w", err)
 		}
 
@@ -51,7 +51,7 @@ func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
 		}
 	}
 
-	filereader.FileClose(reader)
+	file.FileClose(handle)
 
 	if foundLine == "" {
 		return nil, ErrNoTagFound

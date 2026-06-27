@@ -1,9 +1,10 @@
-// code-from-spec: SPEC/golang/tests/spec_tree/scan@WUtpVjqvMNISZe-hO3Kvy6UNYDg
+// code-from-spec: SPEC/golang/tests/spec_tree/scan@x9n7vsxU7Y0ZWlhbzXkAKmLnJ9w
 package spectree_test
 
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/listfiles"
@@ -28,21 +29,12 @@ func testChdir(t *testing.T, dir string) {
 
 func testMkFile(t *testing.T, path string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		t.Fatalf("testMkFile MkdirAll: %v", err)
 	}
 	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
 		t.Fatalf("testMkFile WriteFile: %v", err)
 	}
-}
-
-func filepath(p string) string {
-	for i := len(p) - 1; i >= 0; i-- {
-		if p[i] == '/' {
-			return p[:i]
-		}
-	}
-	return "."
 }
 
 func TestSpecTreeScan_TC01_RootNodeOnly(t *testing.T) {

@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/chain/hash@_lAkgFOCT9hTCjmvgbYPsZW_vL8 -->
+<!-- code-from-spec: SPEC/functional/logic/chain/hash@4SjkzZ7RZtyRtHB_SA-AHqfI6Mc -->
 
 ## Namespace
 
@@ -67,20 +67,21 @@ Receives a `Chain` (as returned by `ChainResolve`) and returns a
 **HashAgentSection(node: parsenode.Node) -> optional raw bytes (20)**
 
 1. If `node.agent` is absent, return absent.
-2. Let `text` = `FormatSection(node.agent.raw_heading, node.agent.content)`.
-3. For each subsection in `node.agent.subsections`:
+2. If `node.agent.content` is empty (after blank-line removal) and `node.agent.subsections` is empty,
+   return absent.
+3. Let `text` = `FormatSection(node.agent.raw_heading, node.agent.content)`.
+4. For each subsection in `node.agent.subsections`:
    a. Let `sub_block` = `FormatSection(subsection.raw_heading, subsection.content)`.
    b. If `sub_block` is not empty, append `\n` then `sub_block` to `text`.
-4. If `text` is empty (no heading content, no subsections with content), return absent.
 5. Compute SHA-1 of `text` (UTF-8 bytes). Return the raw 20 bytes.
 
 **HashFileContent(file_path: pathutils.PathCfs, neutralize_artifact_tag: boolean) -> raw bytes (20)**
 
-1. Call `FileOpen(file_path)`.
+1. Call `FileOpen(file_path, mode="read")`.
    If `FileOpen` raises `FileUnreadable`, raise error `"file unreadable"`.
 2. Let `lines` = empty list.
 3. Loop:
-   a. Call `FileReadLine(reader)`.
+   a. Call `FileReadLine(handle)`.
    b. If `EndOfFile` is raised, exit loop.
    c. If `neutralize_artifact_tag` is true, apply neutralization to the line:
       - If the line matches the pattern
@@ -89,7 +90,7 @@ Receives a `Chain` (as returned by `ChainResolve`) and returns a
         `"---------------------------"`.
       - The rest of the line (including the logical name) is unchanged.
    d. Append the line followed by `"\n"` to `lines`.
-4. Call `FileClose(reader)`.
+4. Call `FileClose(handle)`.
    (Call `FileClose` in error paths too before re-raising.)
 5. Let `text` = concatenation of all strings in `lines`.
 6. Compute SHA-1 of `text` (UTF-8 bytes). Return the raw 20 bytes.

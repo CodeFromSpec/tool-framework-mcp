@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@LlYjrkw9KerLWbKrZ2Ip7jVrZJQ
+// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@GJaPJXjFz1eju00UqRVaCQHZKm4
 package parsenode
 
 import (
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
 )
@@ -56,30 +56,30 @@ func NodeParse(logicalName string) (*Node, error) {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
-	reader, err := filereader.FileOpen(*cfsPath)
+	handle, err := file.FileOpen(cfsPath, "read")
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	var firstBodyLine *string
-	firstLine, err := filereader.FileReadLine(reader)
+	firstLine, err := file.FileReadLine(handle)
 	if err != nil {
-		if errors.Is(err, filereader.ErrEndOfFile) {
+		if errors.Is(err, file.ErrEndOfFile) {
 			// empty file — will fail at step 7
 		} else {
-			filereader.FileClose(reader)
+			file.FileClose(handle)
 			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
 	} else {
 		if firstLine == "---" {
 			for {
-				line, err := filereader.FileReadLine(reader)
+				line, err := file.FileReadLine(handle)
 				if err != nil {
-					if errors.Is(err, filereader.ErrEndOfFile) {
-						filereader.FileClose(reader)
+					if errors.Is(err, file.ErrEndOfFile) {
+						file.FileClose(handle)
 						return nil, fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
 					}
-					filereader.FileClose(reader)
+					file.FileClose(handle)
 					return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 				}
 				if line == "---" {
@@ -225,15 +225,15 @@ func NodeParse(logicalName string) (*Node, error) {
 
 	if firstBodyLine != nil {
 		if err := processLine(*firstBodyLine); err != nil {
-			filereader.FileClose(reader)
+			file.FileClose(handle)
 			return nil, err
 		}
 	}
 
 	for {
-		line, err := filereader.FileReadLine(reader)
+		line, err := file.FileReadLine(handle)
 		if err != nil {
-			if errors.Is(err, filereader.ErrEndOfFile) {
+			if errors.Is(err, file.ErrEndOfFile) {
 				if currentSubsection != nil {
 					currentSection.Subsections = append(currentSection.Subsections, currentSubsection)
 					currentSubsection = nil
@@ -241,21 +241,21 @@ func NodeParse(logicalName string) (*Node, error) {
 				currentSection = nil
 				break
 			}
-			filereader.FileClose(reader)
+			file.FileClose(handle)
 			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
 		if err := processLine(line); err != nil {
-			filereader.FileClose(reader)
+			file.FileClose(handle)
 			return nil, err
 		}
 	}
 
 	if nameSection == nil {
-		filereader.FileClose(reader)
+		file.FileClose(handle)
 		return nil, fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
 	}
 
-	filereader.FileClose(reader)
+	file.FileClose(handle)
 
 	return &Node{
 		NameSection: nameSection,

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/frontmatter@0QVTBn-vNbNOgysfrOsEloJnhOE
+// code-from-spec: SPEC/golang/implementation/parsing/frontmatter@8_N7YzFZFwopfIXxZIgmM96v1fs
 package frontmatter
 
 import (
@@ -8,7 +8,7 @@ import (
 
 	yaml "github.com/goccy/go-yaml"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
@@ -32,35 +32,35 @@ func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
 		return nil, fmt.Errorf("%w: nil file path", ErrFileUnreadable)
 	}
 
-	reader, err := filereader.FileOpen(*filePath)
+	handle, err := file.FileOpen(filePath, "read")
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
-	firstLine, err := filereader.FileReadLine(reader)
+	firstLine, err := file.FileReadLine(handle)
 	if err != nil {
-		if errors.Is(err, filereader.ErrEndOfFile) {
-			filereader.FileClose(reader)
+		if errors.Is(err, file.ErrEndOfFile) {
+			file.FileClose(handle)
 			return &Frontmatter{DependsOn: []string{}}, nil
 		}
-		filereader.FileClose(reader)
+		file.FileClose(handle)
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
 	if firstLine != "---" {
-		filereader.FileClose(reader)
+		file.FileClose(handle)
 		return &Frontmatter{DependsOn: []string{}}, nil
 	}
 
 	var yamlLines []string
 	for {
-		line, err := filereader.FileReadLine(reader)
+		line, err := file.FileReadLine(handle)
 		if err != nil {
-			if errors.Is(err, filereader.ErrEndOfFile) {
-				filereader.FileClose(reader)
+			if errors.Is(err, file.ErrEndOfFile) {
+				file.FileClose(handle)
 				return nil, fmt.Errorf("%w: missing closing delimiter", ErrMalformedYAML)
 			}
-			filereader.FileClose(reader)
+			file.FileClose(handle)
 			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
 		if line == "---" {
@@ -69,7 +69,7 @@ func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
 		yamlLines = append(yamlLines, line)
 	}
 
-	filereader.FileClose(reader)
+	file.FileClose(handle)
 
 	if len(yamlLines) == 0 {
 		return &Frontmatter{DependsOn: []string{}}, nil

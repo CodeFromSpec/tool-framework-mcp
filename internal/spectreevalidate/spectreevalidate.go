@@ -1,10 +1,10 @@
-// code-from-spec: SPEC/golang/implementation/spec_tree/validate@rIQ57m6tnu6Ww2Awp1BHt6amA2I
+// code-from-spec: SPEC/golang/implementation/spec_tree/validate@Jurq6LbdxFB01QYOOGtcHLZl3Ac
 package spectreevalidate
 
 import (
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
@@ -145,7 +145,7 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*For
 							Detail: "depends_on external target " + dep + " is not readable",
 						})
 					} else {
-						reader, err := filereader.FileOpen(*cfsPath)
+						handle, err := file.FileOpen(cfsPath, "read")
 						if err != nil {
 							errors = append(errors, &FormatError{
 								Node:   entry.LogicalName,
@@ -153,7 +153,7 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*For
 								Detail: "depends_on external target " + dep + " is not readable",
 							})
 						} else {
-							filereader.FileClose(reader)
+							file.FileClose(handle)
 						}
 					}
 				} else {
@@ -186,7 +186,7 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*For
 						Detail: "input external target " + inp + " is not readable",
 					})
 				} else {
-					reader, err := filereader.FileOpen(*cfsPath)
+					handle, err := file.FileOpen(cfsPath, "read")
 					if err != nil {
 						errors = append(errors, &FormatError{
 							Node:   entry.LogicalName,
@@ -194,7 +194,7 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []*For
 							Detail: "input external target " + inp + " is not readable",
 						})
 					} else {
-						filereader.FileClose(reader)
+						file.FileClose(handle)
 					}
 				}
 			} else {

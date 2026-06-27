@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/mcp_tools/write_file@44gaq70qsiJr7pV3QE43WVgDNu8 -->
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/write_file@fUdbXIZfco3uFIolmatOStyIMAI -->
 
 function MCPWriteFile(logical_name: string, path: string, content: string) -> string
 
@@ -22,7 +22,13 @@ function MCPWriteFile(logical_name: string, path: string, content: string) -> st
      raise error "path not in output".
 
   7. Construct a PathCfs record with value set to path.
-     Call FileWrite with that PathCfs and content.
+     Call FileOpen with that PathCfs and mode "overwrite".
      If it fails, propagate the error.
+     Store the result as handle.
 
-  8. Return "wrote <path>" where <path> is the path string.
+  8. Call FileWrite with handle and content.
+     If it fails, call FileClose with handle, then propagate the error.
+
+  9. Call FileClose with handle.
+
+  10. Return "wrote <path>" where <path> is the path string.

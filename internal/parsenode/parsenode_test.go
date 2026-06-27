@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/parsing/node_parsing@jrJ9NukLb3qsfowAoBzWUkqKvjw
+// code-from-spec: SPEC/golang/tests/parsing/node_parsing@ODLy6R8___ZFePWnKTrx5xxvSRg
 package parsenode_test
 
 import (
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 func testChdir(t *testing.T, dir string) {
@@ -805,6 +806,19 @@ func TestNodeParse_FileDoesNotExist(t *testing.T) {
 	if !errors.Is(err, parsenode.ErrFileUnreadable) {
 		t.Errorf("error = %v, want ErrFileUnreadable", err)
 	}
+}
+
+func TestNodeParse_PropagatesPathErrors(t *testing.T) {
+	_, err := parsenode.NodeParse("SPEC/../traversal")
+	if err == nil {
+		t.Fatal("expected error from path resolution, got nil")
+	}
+	if errors.Is(err, parsenode.ErrFileUnreadable) {
+		t.Errorf("got ErrFileUnreadable but expected a path validation error (e.g. ErrDirectoryTraversal or ErrPathContainsBackslash): %v", err)
+	}
+	var pathErr interface{ Unwrap() error }
+	_ = pathErr
+	_ = &pathutils.PathCfs{}
 }
 
 func TestNodeParse_ContentBeforeFirstHeading(t *testing.T) {

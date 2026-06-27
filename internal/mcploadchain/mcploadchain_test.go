@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/mcp_tools/load_chain@aki7cOIZUhtmLilddJvbJOflQJc
+// code-from-spec: SPEC/golang/tests/mcp_tools/load_chain@xQmGwmj1jW31TCjJbDNMwxBYp9k
 package mcploadchain_test
 
 import (
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcploadchain"
 )
@@ -96,8 +96,7 @@ func TestMCPLoadChain_TC01_SimpleLeafNode(t *testing.T) {
 	if !strings.HasPrefix(firstLine, "chain_hash: ") {
 		t.Errorf("first line should start with 'chain_hash: ', got: %q", firstLine)
 	}
-	hashPart := strings.TrimPrefix(firstLine, "chain_hash: ")
-	hashPart = strings.TrimSpace(hashPart)
+	hashPart := strings.TrimSpace(strings.TrimPrefix(firstLine, "chain_hash: "))
 	if len(hashPart) != 27 {
 		t.Errorf("hash should be 27 characters, got %d: %q", len(hashPart), hashPart)
 	}
@@ -403,7 +402,7 @@ func TestMCPLoadChain_TC12_InputPresentInSeparateSection(t *testing.T) {
 
 	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
 	testWriteFile(t, "code-from-spec/b/_node.md", "---\noutput: out/data.json\n---\n# SPEC/b\n")
-	testWriteFile(t, "out/data.json", "{\"key\": \"value\"}\n")
+	testWriteFile(t, "out/data.json", "// code-from-spec: SPEC/b@AAAAAAAAAAAAAAAAAAAAAAAAAAA\n{\"key\": \"value\"}\n")
 	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\ninput: ARTIFACT/b\n---\n# SPEC/a\n")
 
 	result, err := mcploadchain.MCPLoadChain("SPEC/a")
@@ -558,8 +557,8 @@ func TestMCPLoadChain_TC19_NonexistentNodeFile(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, filereader.ErrFileUnreadable) {
-		t.Errorf("expected ErrFileUnreadable, got: %v", err)
+	if !errors.Is(err, file.ErrFileUnreadable) {
+		t.Errorf("expected file.ErrFileUnreadable, got: %v", err)
 	}
 }
 
