@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/mcp_tools/validate_specs@Y7wJK5sbStvDmZq78IzOc9EKUw4 -->
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/validate_specs@09roF36KWSa7jRixdrAoln8t7lA -->
 
 namespace: mcpvalidatespecs
 

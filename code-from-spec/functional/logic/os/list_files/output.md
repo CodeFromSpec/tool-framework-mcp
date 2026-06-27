@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/os/list_files@Jkxg1JkZVHt4lXxqTxaNW_JYNcw -->
+<!-- code-from-spec: SPEC/functional/logic/os/list_files@CTNCcxnGTSG-lFm6vUnV5njnY5E -->
 
 function ListFiles(cfs_path: pathutils.PathCfs) -> list of pathutils.PathCfs
 

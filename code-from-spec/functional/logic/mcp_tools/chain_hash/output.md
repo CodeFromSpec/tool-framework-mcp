@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/mcp_tools/chain_hash@o-Z7gRAHXVs9Yw9lZc2IzZgKz_I -->
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/chain_hash@ak8OzIf9CL4BrwDtin-xK---S2o -->
 
 namespace: mcpchainhash
 

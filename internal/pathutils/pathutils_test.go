@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/os/path_utils@ZgHSn53KHCF2T9UXwqOHdRgcm0o
+// code-from-spec: SPEC/golang/tests/os/path_utils@wkRM_mGL3Z8Ro-IOfy-MkIClr5k
 package pathutils_test
 
 import (

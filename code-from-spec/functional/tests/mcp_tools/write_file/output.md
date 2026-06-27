@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/tests/mcp_tools/write_file@HlJQoVCh3gElvP9oUlBSFZQ7DZE -->
+<!-- code-from-spec: SPEC/functional/tests/mcp_tools/write_file@hAJhuFwHe6QmUw0JC_AKRcmGAu0 -->
 
 ## Test suite: MCPWriteFile
 

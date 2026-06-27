@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/chain/resolver@IoM0RbJaIR89y1FKHWluHRGg5yw -->
+<!-- code-from-spec: SPEC/functional/logic/chain/resolver@pxs-UBJUbpCGFVt_7Q9_sm49vng -->
 
 namespace: chainresolver
 

@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/tests/mcp_tools/chain_hash@uV5OZlvpTcL0bxtt_uWsqQtuJbI -->
+<!-- code-from-spec: SPEC/functional/tests/mcp_tools/chain_hash@FQ8Fm2kn5jssMYJKLc1w_Rgywak -->
 
 ## Test Suite: MCPChainHash
 

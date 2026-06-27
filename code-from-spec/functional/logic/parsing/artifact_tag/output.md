@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/parsing/artifact_tag@Thn4Qw2HqQ6_ck8SOaig6aU40mM -->
+<!-- code-from-spec: SPEC/functional/logic/parsing/artifact_tag@L_iOtCX3inCWw5dF4Q8ed4mV8to -->
 
 namespace: artifacttag
 

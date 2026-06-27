@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/utils/logical_names@eTWWAItkM73cT3-I8ekwhtieCR0 -->
+<!-- code-from-spec: SPEC/functional/logic/utils/logical_names@xMfASyiw_aEIhfHlheVbMz3PzEQ -->
 
 # logical_names
 

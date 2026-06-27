@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/parsing/node_parsing@LSRGDOT3oscqosSBbn8E0ila5aA -->
+<!-- code-from-spec: SPEC/functional/logic/parsing/node_parsing@erLXzJ_LOf05PZu3k79ny4F-ov8 -->
 
 namespace: parsenode
 

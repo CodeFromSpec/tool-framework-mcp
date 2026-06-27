@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/os/list_files@DzXcwwCsluGO9SpOvjSUNTEI2Gk
+// code-from-spec: SPEC/golang/tests/os/list_files@Eg2H4YNxjg8c_JiqnkvHruI_zs8
 package listfiles_test
 
 import (

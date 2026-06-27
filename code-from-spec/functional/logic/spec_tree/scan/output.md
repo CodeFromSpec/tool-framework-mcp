@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/spec_tree/scan@AiSB9MdxqO4RTvNyULD3L5lLsBY -->
+<!-- code-from-spec: SPEC/functional/logic/spec_tree/scan@zG6bYVv3TGYhm3S1FkfhxZB5l1o -->
 
 namespace: spectreescan
 

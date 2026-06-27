@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/mcp_tools/write_file@LyR8O4k4uHtbP5bz9eD9jxU6UH4)
+[//]: # (code-from-spec: SPEC/golang/interfaces/mcp_tools/write_file@Hh2f6U7UdpaChp4vo_hlDPwT7Zc)
 
 # Package `mcpwritefile`
 
@@ -11,10 +11,10 @@ package mcpwritefile
 
 import "errors"
 
-var ErrQualifierNotAllowed  = errors.New("qualifier not allowed")
+var ErrQualifierNotAllowed   = errors.New("qualifier not allowed")
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-var ErrNoOutput             = errors.New("no output")
-var ErrPathNotInOutput      = errors.New("path not in output")
+var ErrNoOutput              = errors.New("no output")
+var ErrPathNotInOutput       = errors.New("path not in output")
 ```
 
 ## Functions
