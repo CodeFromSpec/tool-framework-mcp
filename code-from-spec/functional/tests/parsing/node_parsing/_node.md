@@ -280,9 +280,12 @@ not exist. Expect error FileUnreadable.
 
 #### Propagates path errors
 
-Call `NodeParse` with an invalid logical name that
-causes a path error (e.g., after resolving to a path
-with traversal). Expect the path error is propagated.
+Call `NodeParse` with a logical name containing a
+backslash (e.g., `"SPEC/tra\\versal"`). The backslash
+passes through `LogicalNameToPath` into the resulting
+path, where `PathValidateCfs` rejects it. Expect the
+path error (PathContainsBackslash) is propagated, not
+FileUnreadable.
 
 #### Content before first heading
 

@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/tests/parsing/node_parsing@TV0Ik8lUgy5lfxoOkGqLdHVw4pA -->
+<!-- code-from-spec: SPEC/functional/tests/parsing/node_parsing@G5VKqBrI6ygCWL0EjOOWkxwQCoM -->
 
 ## Happy path
 
@@ -517,10 +517,10 @@ Expected outcome:
 
 ### Propagates path errors
 
-Action: Call `NodeParse` with a logical name that when resolved produces a path error (e.g., traversal components).
+Action: Call `NodeParse("SPEC/tra\\versal")`. The backslash passes through `LogicalNameToPath` into the resulting path, where `PathValidateCfs` rejects it with PathContainsBackslash.
 
 Expected outcome:
-- The path error is propagated from the path resolution step
+- Error PathContainsBackslash propagated from path resolution, not FileUnreadable
 
 ---
 
