@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/chain/hash@C9dDYmJ0RbLTOB1gsq3pFSEEPGY
+// code-from-spec: SPEC/golang/implementation/chain/hash@Wz7k6KNV3IFddbIVxvwfHvLkrtg
 package chainhash
 
 import (
@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
@@ -91,15 +91,15 @@ func hashAgentSection(node *parsenode.Node) []byte {
 	if node.Agent == nil {
 		return nil
 	}
+	if extractBlock(node.Agent.Content) == "" && len(node.Agent.Subsections) == 0 {
+		return nil
+	}
 	text := formatSection(node.Agent.RawHeading, node.Agent.Content)
 	for _, sub := range node.Agent.Subsections {
 		subBlock := formatSection(sub.RawHeading, sub.Content)
 		if subBlock != "" {
 			text += "\n" + subBlock
 		}
-	}
-	if text == "" {
-		return nil
 	}
 	sum := sha1.Sum([]byte(text))
 	return sum[:]
@@ -128,19 +128,22 @@ func neutralizeLine(line string) string {
 }
 
 func hashFileContent(filePath pathutils.PathCfs, neutralizeArtifactTag bool) ([]byte, error) {
-	reader, err := filereader.FileOpen(filePath)
+	handle, err := file.FileOpen(&filePath, "read")
+	if errors.Is(err, file.ErrFileUnreadable) {
+		return nil, fmt.Errorf("file unreadable: %w", err)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrParseFailure, err)
+		return nil, fmt.Errorf("opening file %s: %w", filePath.Value, err)
 	}
 
 	var sb strings.Builder
 	for {
-		line, err := filereader.FileReadLine(reader)
-		if errors.Is(err, filereader.ErrEndOfFile) {
+		line, err := file.FileReadLine(handle)
+		if errors.Is(err, file.ErrEndOfFile) {
 			break
 		}
 		if err != nil {
-			filereader.FileClose(reader)
+			file.FileClose(handle)
 			return nil, fmt.Errorf("reading file %s: %w", filePath.Value, err)
 		}
 		if neutralizeArtifactTag {
@@ -149,7 +152,7 @@ func hashFileContent(filePath pathutils.PathCfs, neutralizeArtifactTag bool) ([]
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
-	filereader.FileClose(reader)
+	file.FileClose(handle)
 
 	text := sb.String()
 	sum := sha1.Sum([]byte(text))
