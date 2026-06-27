@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/file
   - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/parsing/frontmatter/output.md
 ---

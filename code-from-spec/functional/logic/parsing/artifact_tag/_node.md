@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/file
   - SPEC/functional/logic/os/path_utils(interface)
 output: code-from-spec/functional/logic/parsing/artifact_tag/output.md
 ---
@@ -48,7 +48,7 @@ regardless of context.
 
 ### Detection
 
-Open the file with `file_reader`. Read line by line
+Open the file with `file`. Read line by line
 using `ReadLine`. For each line, look for the substring
 `code-from-spec: `. Stop reading as soon as a match is
 found. Close the reader when done (whether a match was

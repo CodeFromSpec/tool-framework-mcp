@@ -52,7 +52,7 @@ from LogicalNameToPath).
 #### Nonexistent node file
 
 Call MCPChainHash with "SPEC/nonexistent" (no _node.md
-on disk). Expect error filereader.FileUnreadable
+on disk). Expect error file.FileUnreadable
 (propagated from FrontmatterParse).
 
 #### No output declared

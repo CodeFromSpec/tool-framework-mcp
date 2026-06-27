@@ -65,8 +65,8 @@ public API — in frontmatter fields (`output`, `input`),
 in logical names, and in tool parameters.
 
 Examples:
-- `internal/filereader/filereader.go`
-- `code-from-spec/functional/logic/os/file_reader/_node.md`
+- `internal/file/file.go`
+- `code-from-spec/functional/logic/os/file/_node.md`
 
 ### PathOs
 
@@ -79,8 +79,8 @@ It exists only inside the `os/` layer for interacting
 with the filesystem.
 
 Examples:
-- `/home/user/myproject/internal/filereader/filereader.go` (Unix)
-- `C:\Users\user\myproject\internal\filereader\filereader.go` (Windows)
+- `/home/user/myproject/internal/file/file.go` (Unix)
+- `C:\Users\user\myproject\internal\file\file.go` (Windows)
 
 ### PathGetProjectRoot
 

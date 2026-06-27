@@ -3,7 +3,7 @@ depends_on:
   - SPEC/functional/logic/utils/logical_names
   - SPEC/functional/logic/parsing/frontmatter
   - SPEC/functional/logic/os/path_utils
-  - SPEC/functional/logic/os/file_writer
+  - SPEC/functional/logic/os/file
 output: code-from-spec/functional/logic/mcp_tools/write_file/output.md
 ---
 
@@ -29,7 +29,7 @@ function MCPWriteFile(logical_name: string, path: string, content: string) -> st
     - (LogicalNames.*): propagated from
       LogicalNameToPath.
     - (PathUtils.*): propagated from PathValidateCfs.
-    - (FileWriter.*): propagated from FileWrite.
+    - (FileReader.*): propagated from FileOpen, FileWrite.
 ```
 
 ### Input
@@ -78,8 +78,13 @@ string match). If no match, raise "path not in output".
 
 ### Step 4 — Write file
 
-Call `FileWrite` with the `PathCfs` and `content`. If
-it fails, propagate the error.
+Call `FileOpen` with the `PathCfs` and mode `"overwrite"`.
+If it fails, propagate the error.
+
+Call `FileWrite` with the handle and `content`. If it
+fails, call `FileClose` and propagate the error.
+
+Call `FileClose` to release the handle.
 
 Return `"wrote <path>"` where `<path>` is the path
 string.
@@ -89,8 +94,9 @@ string.
 - Only writes to paths declared in the node's `output`.
 - Path validation uses `PathValidateCfs` — same rules
   as the OS layer.
-- File writing uses `FileWrite` — creates intermediate
-  directories, overwrites existing files.
+- File writing uses `FileOpen`/`FileWrite`/`FileClose` —
+  creates intermediate directories, overwrites existing
+  files, acquires exclusive lock during write.
 - Writes exactly one file per call.
 
 # Private

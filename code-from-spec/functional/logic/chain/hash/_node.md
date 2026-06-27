@@ -1,7 +1,7 @@
 ---
 depends_on:
   - SPEC/functional/logic/chain/resolver(interface)
-  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/file
   - SPEC/functional/logic/os/path_utils(interface)
   - SPEC/functional/logic/parsing/frontmatter(interface)
   - SPEC/functional/logic/parsing/node_parsing
@@ -43,7 +43,7 @@ and computes the final SHA-1 of the concatenation.
 Given a resolved `Chain`, compute the chain hash. For
 spec nodes (`_node.md` files), use `NodeParse` to
 extract sections. For artifact files and external files,
-use `file_reader` directly.
+use `file` directly.
 
 ### Block extraction
 
@@ -232,7 +232,7 @@ the concatenation. Encode the 20-byte result as base64url
   exactly what is delivered in the chain — hash and
   delivery never diverge.
 - Artifact and external file content is read via
-  `file_reader` directly.
+  `file` directly.
 - The only normalization before hashing is CRLF → LF
   (handled by `FileReadLine` and `NodeParse`) and block
   boundary normalization for spec nodes.

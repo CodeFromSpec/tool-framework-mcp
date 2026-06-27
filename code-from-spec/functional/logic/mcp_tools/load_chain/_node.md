@@ -4,7 +4,7 @@ depends_on:
   - SPEC/functional/logic/chain/hash
   - SPEC/functional/logic/parsing/node_parsing
   - SPEC/functional/logic/parsing/frontmatter
-  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/file
   - SPEC/functional/logic/os/path_utils(interface)
   - SPEC/functional/logic/utils/logical_names(interface)
   - SPEC/functional/logic/utils/text_normalization(interface)
@@ -114,7 +114,7 @@ dependencies, and so on through the entire chain
 assembly order.
 
 For each entry, use `NodeParse` for spec nodes and
-`file_reader` for artifacts and external files.
+`file` for artifacts and external files.
 
 **Ancestors** (from `chain.ancestors`)
 

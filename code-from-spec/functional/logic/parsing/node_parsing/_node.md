@@ -1,7 +1,7 @@
 ---
 depends_on:
   - SPEC/functional/logic/utils/logical_names(interface)
-  - SPEC/functional/logic/os/file_reader(interface)
+  - SPEC/functional/logic/os/file(interface)
   - SPEC/functional/logic/utils/text_normalization(interface)
 output: code-from-spec/functional/logic/parsing/node_parsing/output.md
 ---

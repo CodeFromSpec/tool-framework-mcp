@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - SPEC/functional/logic/os/file_reader
+  - SPEC/functional/logic/os/file
   - SPEC/functional/logic/os/path_utils
   - SPEC/functional/logic/os/list_files
   - SPEC/functional/logic/utils/logical_names
