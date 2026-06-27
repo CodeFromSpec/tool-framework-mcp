@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@3XL-DBYReHaSyVBr376i3nUYWDU
+// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@x29jLThfNassT8aIIqf6pgrGg7s
 package mcploadchain
 
 import (
@@ -167,7 +167,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 }
 
 func readFileAll(cfsPath *pathutils.PathCfs) (string, error) {
-	handle, err := file.FileOpen(cfsPath, "read")
+	handle, err := file.FileOpen(cfsPath, "read", 30000)
 	if err != nil {
 		return "", err
 	}
@@ -194,7 +194,7 @@ func readFileAll(cfsPath *pathutils.PathCfs) (string, error) {
 }
 
 func readFileSkippingArtifactTag(cfsPath *pathutils.PathCfs) (string, error) {
-	handle, err := file.FileOpen(cfsPath, "read")
+	handle, err := file.FileOpen(cfsPath, "read", 30000)
 	if err != nil {
 		return "", err
 	}

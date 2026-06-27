@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/tests/os/file@o47vjhWho28M4Ifhf_utdVvZfFg -->
+<!-- code-from-spec: SPEC/functional/tests/os/file@58wfuJ4Ja_uGqzbkuqyA8JMaw_Q -->
 
 ## Test: Opens and reads all lines
 

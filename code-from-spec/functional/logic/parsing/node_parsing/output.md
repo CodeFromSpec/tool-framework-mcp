@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/parsing/node_parsing@erLXzJ_LOf05PZu3k79ny4F-ov8 -->
+<!-- code-from-spec: SPEC/functional/logic/parsing/node_parsing@H-50gyHE9F0S4mDtSO-hnams22Q -->
 
 namespace: parsenode
 
@@ -42,7 +42,7 @@ function NodeParse(logical_name: string) -> Node
 
   3. Let cfs_path = LogicalNameToPath(logical_name).
 
-  4. Let reader = FileOpen(cfs_path).
+  4. Let reader = FileOpen(cfs_path, mode "read", timeout_ms 30000).
        If FileOpen raises FileUnreadable or any PathUtils error,
          raise error "file unreadable".
 
@@ -81,13 +81,13 @@ function NodeParse(logical_name: string) -> Node
                   Let fence_char = that character.
                   Let fence_width = that count.
                   Set in_fence = true.
-                  Append line to current content (see below).
+                  Append line to current content (see step c).
                   Continue to next line.
               Else (in_fence is true):
                 Check if stripped consists entirely of fence_char characters
                 and its length >= fence_width.
                   If so, set in_fence = false, fence_char = absent, fence_width = 0.
-                Append line to current content (see below).
+                Append line to current content (see step c).
                 Continue to next line.
 
          b. Heading recognition (only when in_fence is false):
@@ -152,10 +152,10 @@ function NodeParse(logical_name: string) -> Node
                   Set current_subsection = that subsection.
 
                 Else (level >= 3):
-                  Append line to current content (see below).
+                  Append line to current content (see step c).
 
               Else (not a heading):
-                Append line to current content (see below).
+                Append line to current content (see step c).
 
               Continue to next line.
 

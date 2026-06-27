@@ -1,53 +1,75 @@
-<!-- code-from-spec: SPEC/functional/logic/parsing/artifact_tag@L_iOtCX3inCWw5dF4Q8ed4mV8to -->
+<!-- code-from-spec: SPEC/functional/logic/parsing/artifact_tag@n5Mn707Y0plZRPRyWGqLzdgtrBE -->
 
-namespace: artifacttag
+# artifact_tag
 
+## Records
+
+```
 record ArtifactTag
   logical_name: string
   hash: string
+```
 
+## Functions
+
+### ArtifactTagExtract
+
+```
 function ArtifactTagExtract(file_path: pathutils.PathCfs) -> ArtifactTag
-  errors:
-    - FileUnreadable: the file cannot be opened or read.
-    - NoTagFound: the file has no "code-from-spec:" substring.
-    - MalformedTag: the tag exists but cannot be parsed
-      (no @, empty name, wrong hash length).
-    - (FileReader.*): propagated from FileOpen.
+```
 
-  1. Call FileOpen(file_path) to obtain a reader.
-     If FileOpen raises any error, propagate it.
+Parameters:
+- `file_path` — CFS path to the file to scan
 
-  2. Set found_line to empty.
-     Set reader_open to true.
+Returns: `ArtifactTag` with `logical_name` and `hash` fields
 
-  3. Loop:
-     a. Call FileReadLine(reader).
-        If EndOfFile is raised, break out of the loop.
-     b. If the line contains the substring "code-from-spec: ":
-        Set found_line to this line.
-        Break out of the loop.
+Errors:
+- `NoTagFound`: no line in the file contains the substring `"code-from-spec: "`
+- `MalformedTag`: a matching line was found but the tag cannot be parsed (`@` is absent, logical name is empty, or fewer than 27 characters follow `@`)
+- `(File.*)`: propagated from `FileOpen` or `FileReadLine`
 
-  4. Call FileClose(reader).
+Steps:
 
-  5. If found_line is empty, raise error NoTagFound.
+1. Call `FileOpen(file_path, "read", 30000)`.
+   If `FileOpen` raises an error, propagate it.
+   Store the result as `handle`.
 
-  6. Find the position of "code-from-spec: " in found_line.
-     Take the substring starting immediately after "code-from-spec: ".
-     Trim leading whitespace from this substring.
-     Call this remainder.
+2. Set `tag_line` to empty (not yet found).
 
-  7. Find the first occurrence of "@" in remainder.
-     If "@" is not found, raise error MalformedTag.
+3. Loop:
+   a. Call `FileReadLine(handle)`.
+      If it raises `EndOfFile`, exit the loop.
+      If it raises any other error, call `FileClose(handle)` then propagate the error.
+   b. Store the returned line as `line`.
+   c. If `line` contains the substring `"code-from-spec: "`:
+      set `tag_line` to `line` and exit the loop.
 
-  8. Set logical_name to the substring of remainder from the start
-     up to (but not including) the "@".
-     If logical_name is empty, raise error MalformedTag.
+4. Call `FileClose(handle)`.
 
-  9. Set hash_candidate to the substring of remainder starting
-     immediately after the "@".
-     If hash_candidate has fewer than 27 characters, raise error MalformedTag.
-     Set hash to the first 27 characters of hash_candidate.
+5. If `tag_line` is empty:
+   raise error `NoTagFound`.
 
-  10. Return ArtifactTag with:
-        logical_name = logical_name
-        hash = hash
+6. Find the index of `"code-from-spec: "` within `tag_line`.
+   Take the substring of `tag_line` starting immediately after that occurrence.
+   Store it as `remainder`.
+
+7. Trim leading whitespace from `remainder`.
+
+8. Find the index of the first `"@"` in `remainder`.
+   If `"@"` is not found:
+     raise error `MalformedTag`.
+
+9. Set `logical_name` to the substring of `remainder` from position 0 up to (not including) the `"@"`.
+   If `logical_name` is empty:
+     raise error `MalformedTag`.
+
+10. Set `after_at` to the substring of `remainder` starting immediately after `"@"`.
+    If the length of `after_at` is less than 27:
+      raise error `MalformedTag`.
+
+11. Set `hash` to the first 27 characters of `after_at`.
+
+12. Return `ArtifactTag` with:
+    - `logical_name` = `logical_name`
+    - `hash` = `hash`
+```

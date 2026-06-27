@@ -130,12 +130,12 @@ first `##`).
 
 For each dependency:
 - If `LogicalNameIsArtifact(dep.unqualified_logical_name)`: open
-  the file at `dep.file_path` with `FileOpen`, read each
+  the file at `dep.file_path` with `FileOpen` (mode `"read"`, timeout 30000), read each
   line at a time, ignore the artifact tag line (the first
   line containing `code-from-spec:`), include all other
   lines. Call `FileClose`.
 - If `LogicalNameIsExternal(dep.unqualified_logical_name)`: open
-  the file at `dep.file_path` with `FileOpen`, read all
+  the file at `dep.file_path` with `FileOpen` (mode `"read"`, timeout 30000), read all
   content. Call `FileClose`.
 - If `LogicalNameIsSpec(dep.unqualified_logical_name)` and
   `dep.qualifier` is absent: call `NodeParse` with
@@ -193,7 +193,7 @@ delimiter lines:
 5. If the output file (at `frontmatter.output`) exists
    on disk and is readable: a line containing exactly
    `--- existing artifact ---`, followed by the full
-   file content (read with `FileOpen`/`FileReadLine`/
+   file content (read with `FileOpen` (mode `"read"`, timeout 30000)/`FileReadLine`/
    `FileClose`, no frontmatter stripping). If the file
    does not exist or cannot be read, omit this section
    silently (no error).

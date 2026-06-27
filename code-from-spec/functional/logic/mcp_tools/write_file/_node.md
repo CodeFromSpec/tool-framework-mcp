@@ -78,7 +78,7 @@ string match). If no match, raise "path not in output".
 
 ### Step 4 — Write file
 
-Call `FileOpen` with the `PathCfs` and mode `"overwrite"`.
+Call `FileOpen` with the `PathCfs`, mode `"overwrite"`, and timeout 30000.
 If it fails, propagate the error.
 
 Call `FileWrite` with the handle and `content`. If it

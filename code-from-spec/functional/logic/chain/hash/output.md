@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/chain/hash@4SjkzZ7RZtyRtHB_SA-AHqfI6Mc -->
+<!-- code-from-spec: SPEC/functional/logic/chain/hash@T51vpn-fCclf6BHbxC-6JteoA5I -->
 
 ## Namespace
 
@@ -77,7 +77,7 @@ Receives a `Chain` (as returned by `ChainResolve`) and returns a
 
 **HashFileContent(file_path: pathutils.PathCfs, neutralize_artifact_tag: boolean) -> raw bytes (20)**
 
-1. Call `FileOpen(file_path, mode="read")`.
+1. Call `FileOpen(file_path, mode="read", timeout_ms=30000)`.
    If `FileOpen` raises `FileUnreadable`, raise error `"file unreadable"`.
 2. Let `lines` = empty list.
 3. Loop:

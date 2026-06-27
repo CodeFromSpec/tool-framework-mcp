@@ -38,7 +38,7 @@ absent from the YAML.
 
 ## Behavior
 
-Open the file with `FileOpen`. Read line by line using
+Open the file with `FileOpen` (mode `"read"`, timeout 30000). Read line by line using
 `FileReadLine`. Close the reader with `FileClose` when done.
 
 The frontmatter is an optional YAML block delimited by `---` at

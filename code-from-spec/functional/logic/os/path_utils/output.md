@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/os/path_utils@PDNm_dCNJ3fsoMGPKCSQgyIZW2c -->
+<!-- code-from-spec: SPEC/functional/logic/os/path_utils@g-03uldw5PN7GINZ5z-DhwTNN04 -->
 
 namespace: pathutils
 

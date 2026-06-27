@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/frontmatter@8_N7YzFZFwopfIXxZIgmM96v1fs
+// code-from-spec: SPEC/golang/implementation/parsing/frontmatter@wyOra5J0Ic7yzbKBF562nfSR4tk
 package frontmatter
 
 import (
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	yaml "github.com/goccy/go-yaml"
+	goyaml "github.com/goccy/go-yaml"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
@@ -28,11 +28,7 @@ type yamlFrontmatter struct {
 }
 
 func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
-	if filePath == nil {
-		return nil, fmt.Errorf("%w: nil file path", ErrFileUnreadable)
-	}
-
-	handle, err := file.FileOpen(filePath, "read")
+	handle, err := file.FileOpen(filePath, "read", 30000)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
@@ -75,11 +71,11 @@ func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
 		return &Frontmatter{DependsOn: []string{}}, nil
 	}
 
-	raw := strings.Join(yamlLines, "\n")
+	joined := strings.Join(yamlLines, "\n")
 
 	var parsed yamlFrontmatter
-	if err := yaml.Unmarshal([]byte(raw), &parsed); err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrMalformedYAML, err)
+	if err := goyaml.Unmarshal([]byte(joined), &parsed); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrMalformedYAML, err)
 	}
 
 	dependsOn := parsed.DependsOn

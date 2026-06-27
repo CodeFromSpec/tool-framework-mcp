@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/chain/resolver@t--nc4KG51Xdy0kGF-EUrpnG_gM
+// code-from-spec: SPEC/golang/implementation/chain/resolver@afnuHGcOWb-anSqLriBhHysc-Qs
 package chainresolver
 
 import (

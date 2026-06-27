@@ -96,7 +96,7 @@ Given a logical name:
    "has qualifier" — this function parses the full node,
    not a subsection.
 3. Resolve the file path using `LogicalNameToPath`.
-4. Open the file with `FileOpen`. If it fails, raise
+4. Open the file with `FileOpen` (mode `"read"`, timeout 30000). If it fails, raise
    "file unreadable".
 5. Skip the frontmatter: if the first line is exactly
    `---`, read and discard lines until the next `---`.

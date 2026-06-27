@@ -1,16 +1,16 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/artifact_tag@AadiSpuWQgO-90Y3EuSYsujR5aA)
+[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/artifact_tag@rt76MxbWb7ubNOQ7tMf6r3aPeo8)
 
 # Package `artifacttag`
 
 Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/artifacttag`
 
-## Struct Definitions
+## Types
 
 ```go
 package artifacttag
 
-// ArtifactTag holds the parsed contents of a code-from-spec tag found in a
-// generated file.
+// ArtifactTag holds the parsed contents of a code-from-spec tag
+// found inside a generated file.
 type ArtifactTag struct {
 	LogicalName string
 	Hash        string
@@ -24,27 +24,23 @@ package artifacttag
 
 import "errors"
 
-var ErrFileUnreadable = errors.New("file cannot be opened or read")
-var ErrNoTagFound     = errors.New("file has no code-from-spec: tag")
-var ErrMalformedTag   = errors.New("tag exists but cannot be parsed")
+var ErrNoTagFound   = errors.New("no code-from-spec tag found in file")
+var ErrMalformedTag = errors.New("code-from-spec tag is malformed")
 ```
 
-## Function Signatures
+## Functions
 
 ```go
 package artifacttag
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 
-// ArtifactTagExtract opens the file at filePath and scans its lines for a
-// code-from-spec: <logical-name>@<hash> tag. The tag may appear inside any
-// comment syntax; the function does not parse comment delimiters.
-//
-// Returns ErrFileUnreadable if the file cannot be opened or read.
-// Returns ErrNoTagFound if no line contains the "code-from-spec:" substring.
-// Returns ErrMalformedTag if the tag is present but has no "@", an empty
-// logical name, or a hash of unexpected length.
-// Errors from the underlying file reader are propagated as-is.
+// ArtifactTagExtract scans the file at file_path line by line, looking for
+// a "code-from-spec: <logical-name>@<hash>" pattern. It returns the first
+// match parsed into an ArtifactTag. Returns ErrNoTagFound if no line
+// contains the pattern, or ErrMalformedTag if the pattern is present but
+// cannot be parsed (missing "@", empty name, or wrong hash length).
+// File-related errors from opening or reading the file are propagated as-is.
 func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error)
 ```
 
@@ -63,22 +59,22 @@ import (
 )
 
 func main() {
-	cfsPath := &pathutils.PathCfs{Value: "src/payments/fees.go"}
+	filePath := &pathutils.PathCfs{Value: "code-from-spec/functional/payments/fees/output.md"}
 
-	tag, err := artifacttag.ArtifactTagExtract(cfsPath)
+	tag, err := artifacttag.ArtifactTagExtract(filePath)
 	if err != nil {
 		if errors.Is(err, artifacttag.ErrNoTagFound) {
-			fmt.Println("file has not been generated from a spec")
+			fmt.Println("File has not been generated from a spec.")
 			return
 		}
 		if errors.Is(err, artifacttag.ErrMalformedTag) {
-			fmt.Println("tag is present but malformed")
+			fmt.Println("File contains a malformed artifact tag.")
 			return
 		}
 		log.Fatal(err)
 	}
 
-	fmt.Printf("logical name : %s\n", tag.LogicalName)
-	fmt.Printf("hash         : %s\n", tag.Hash)
+	fmt.Printf("Logical name: %s\n", tag.LogicalName)
+	fmt.Printf("Hash:         %s\n", tag.Hash)
 }
 ```

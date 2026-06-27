@@ -1,12 +1,15 @@
-<!-- code-from-spec: SPEC/functional/logic/parsing/frontmatter@SEPK5Dia33SWXJSoowYf-zSTy6o -->
+<!-- code-from-spec: SPEC/functional/logic/parsing/frontmatter@f9pMNcGf5cVzeNKJ0RRXY9AyOEE -->
 
 namespace: frontmatter
+
+---
 
 record Frontmatter
   depends_on: list of strings
   input: string
   output: string
 
+---
 
 function FrontmatterParse(file_path: pathutils.PathCfs) -> Frontmatter
   errors:
@@ -15,37 +18,39 @@ function FrontmatterParse(file_path: pathutils.PathCfs) -> Frontmatter
       or an opening --- is found but no closing --- follows.
     - (FileReader.*): propagated from FileOpen.
 
-  1. Call FileOpen(file_path) to obtain a reader.
-     If FileOpen raises FileUnreadable or any PathUtils error, propagate it.
+  1. Call FileOpen(file_path, "read", 30000).
+     If FileOpen raises FileUnreadable or any propagated error, re-raise as FileUnreadable.
 
-  2. Call FileReadLine(reader) to read the first line.
-     If it raises EndOfFile, call FileClose(reader) and return an empty
-     Frontmatter record with depends_on = [], input = "", output = "".
-     If the line is not exactly "---", call FileClose(reader) and return
-     the same empty Frontmatter record.
+  2. Call FileReadLine to read the first line.
+     If EndOfFile is raised, call FileClose and return an empty Frontmatter record
+       with depends_on = [], input = "", output = "".
+     If the first line is not exactly "---", call FileClose and return an empty
+       Frontmatter record with depends_on = [], input = "", output = "".
 
-  3. Collect YAML lines into a list, starting empty.
+  3. Collect YAML lines:
+     Initialize yaml_lines as an empty list of strings.
      Repeat:
-       a. Call FileReadLine(reader).
-          If it raises EndOfFile, call FileClose(reader) and
-          raise error "malformed YAML".
-       b. If the line is exactly "---", stop collecting.
-       c. Otherwise append the line to the YAML lines list and continue.
+       Call FileReadLine.
+       If EndOfFile is raised:
+         Call FileClose.
+         Raise error "malformed YAML".
+       If the line is exactly "---":
+         Stop collecting.
+       Else:
+         Append the line to yaml_lines.
 
-  4. Call FileClose(reader).
+  4. Call FileClose.
 
-  5. If the YAML lines list is empty, return an empty Frontmatter record
+  5. If yaml_lines is empty, return an empty Frontmatter record
      with depends_on = [], input = "", output = "".
 
-  6. Join the collected YAML lines with newline characters into a single
-     string. Parse the result as YAML.
+  6. Join yaml_lines into a single string, each line separated by a newline character.
+     Parse the joined string as YAML.
      If parsing fails, raise error "malformed YAML".
 
-  7. From the parsed YAML mapping, extract the following fields,
-     defaulting each to empty when absent:
-     - depends_on: list of strings — default []
-     - input: string — default ""
-     - output: string — default ""
-     Silently ignore any other keys present in the mapping.
+  7. From the parsed YAML, extract the following fields, ignoring all other keys:
+     - depends_on: list of strings. If absent or null, use [].
+     - input: string. If absent or null, use "".
+     - output: string. If absent or null, use "".
 
-  8. Return the populated Frontmatter record.
+  8. Return a Frontmatter record with the extracted field values.

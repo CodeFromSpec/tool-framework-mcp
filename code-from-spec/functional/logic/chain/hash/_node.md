@@ -145,7 +145,7 @@ If not found, skip.
 ### Hashing artifact files
 
 For `ARTIFACT/` dependencies and `input`: open the file
-at `file_path` with `FileOpen`. If `FileOpen` fails,
+at `file_path` with `FileOpen` (timeout 30000). If `FileOpen` fails,
 raise "file unreadable". Read all lines.
 
 Before computing the hash, neutralize the artifact tag:
@@ -165,7 +165,7 @@ Call `FileClose` in all cases — including error paths.
 ### Hashing external files
 
 For `EXTERNAL/` dependencies and `EXTERNAL/` input:
-open the file at `file_path` with `FileOpen`. If
+open the file at `file_path` with `FileOpen` (timeout 30000). If
 `FileOpen` fails, raise "file unreadable". Read all
 lines with `FileReadLine`, append `\n` after each line.
 Compute SHA-1. Call `FileClose`.

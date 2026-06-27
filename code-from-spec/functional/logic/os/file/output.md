@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/os/file@jWU0Bn-dNYVVrKxUntjows2G_3A -->
+<!-- code-from-spec: SPEC/functional/logic/os/file@F40m4zXDezGv6LBzozTGajpwzTQ -->
 
 namespace: filereader
 
@@ -15,38 +15,50 @@ record FileHandle
 
 ## Functions
 
-function FileOpen(cfs_path: pathutils.PathCfs, mode: string) -> FileHandle
+function FileOpen(cfs_path: pathutils.PathCfs, mode: string, timeout_ms: integer) -> FileHandle
 
   1. If mode is not "read", "overwrite", or "append",
      raise error "InvalidMode".
 
   2. Call PathCfsToOs(cfs_path).
      If PathCfsToOs raises a PathUtils error, propagate it.
+     Store the result as os_path.
 
   3. If mode is "read":
-       Open the file at the resulting PathOs for sequential reading,
-       acquiring a shared lock.
+       Attempt to acquire a shared lock on the file at os_path,
+       waiting up to timeout_ms milliseconds.
+       If timeout_ms is zero, attempt non-blocking acquisition.
+       If the lock cannot be acquired within the allowed time,
+       raise error "LockTimeout".
+       Open the file for sequential reading.
        If the file cannot be opened (does not exist, permission
        denied, or other OS error), raise error "FileUnreadable".
 
   4. If mode is "overwrite":
        Create all intermediate directories leading to the file.
        If any directory cannot be created, raise error "CannotCreateDirectory".
-       Open the file at the resulting PathOs for writing,
-       truncating any existing content, acquiring an exclusive lock.
+       Attempt to acquire an exclusive lock on the file at os_path,
+       waiting up to timeout_ms milliseconds.
+       If timeout_ms is zero, attempt non-blocking acquisition.
+       If the lock cannot be acquired within the allowed time,
+       raise error "LockTimeout".
+       Open the file for writing, truncating any existing content.
        If the file cannot be opened, raise error "CannotOpenFile".
 
   5. If mode is "append":
        Create all intermediate directories leading to the file.
        If any directory cannot be created, raise error "CannotCreateDirectory".
-       Open the file at the resulting PathOs for writing
-       without truncating (append to existing content),
-       acquiring an exclusive lock.
+       Attempt to acquire an exclusive lock on the file at os_path,
+       waiting up to timeout_ms milliseconds.
+       If timeout_ms is zero, attempt non-blocking acquisition.
+       If the lock cannot be acquired within the allowed time,
+       raise error "LockTimeout".
+       Open the file for writing without truncating (append to existing content).
        If the file cannot be opened, raise error "CannotOpenFile".
 
   6. Return a FileHandle record with:
      - mode set to mode
-     - os_path set to the resolved PathOs
+     - os_path set to os_path
      - stream set to the opened file stream handle
      - closed set to false
      - line_buffer set to a buffered line reader wrapping the stream

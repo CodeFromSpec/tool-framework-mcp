@@ -114,29 +114,30 @@ Generate pseudocode for each function in the interface.
 1. If `.manifest` does not exist, return immediately
    with empty entries. Do not create any files.
 2. If `.manifest` exists:
-   a. Try `FileOpen` on the lock file with mode `"read"`
-      for shared lock.
+   a. Try `FileOpen` on the lock file with mode `"read"`,
+      timeout 30000, for shared lock.
    b. If the lock file does not exist: try `FileOpen`
-      with mode `"append"` then `FileClose`
+      with mode `"append"`, timeout 0, then `FileClose`
       (best-effort, ignore errors). Then retry
-      `FileOpen` with mode `"read"`.
+      `FileOpen` with mode `"read"`, timeout 30000.
    c. Read and parse `.manifest` into entries map.
    d. Close the lock file (release shared lock).
    e. Return handle with snapshot. No resource held.
 
 ### Write mode
 
-1. `FileOpen` on the lock file with mode `"append"` —
-   creates the lock file if it does not exist, acquires
-   exclusive lock. Lock held until save or discard.
+1. `FileOpen` on the lock file with mode `"append"`,
+   timeout 30000 — creates the lock file if it does not
+   exist, acquires exclusive lock. Lock held until save
+   or discard.
 2. Try to read `.manifest` — if it does not exist,
    entries map is empty.
 3. Return handle with lock held.
 
 ### ManifestSave
 
-1. Use `FileOpen` with mode `"overwrite"` to write
-   `.manifest`.
+1. Use `FileOpen` with mode `"overwrite"`, timeout 30000,
+   to write `.manifest`.
 2. Close the lock file handle (release exclusive lock).
 
 ### ManifestDiscard

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@GJaPJXjFz1eju00UqRVaCQHZKm4
+// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@4Yo7CTnpeDWMEs48_IDVudonM9I
 package parsenode
 
 import (
@@ -56,7 +56,7 @@ func NodeParse(logicalName string) (*Node, error) {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}
 
-	handle, err := file.FileOpen(cfsPath, "read")
+	handle, err := file.FileOpen(cfsPath, "read", 30000)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 	}

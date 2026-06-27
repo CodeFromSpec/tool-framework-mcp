@@ -21,12 +21,11 @@ record ArtifactTag
 
 function ArtifactTagExtract(file_path: pathutils.PathCfs) -> ArtifactTag
   errors:
-    - FileUnreadable: the file cannot be opened or read.
     - NoTagFound: the file has no code-from-spec:
       substring.
     - MalformedTag: the tag exists but cannot be parsed
       (no @, empty name, wrong hash length).
-    - (FileReader.*): propagated from FileOpen.
+    - (File.*): propagated from FileOpen, FileReadLine.
 ```
 
 ### Artifact tag format
@@ -48,7 +47,7 @@ regardless of context.
 
 ### Detection
 
-Open the file with `file`. Read line by line
+Open the file with `FileOpen` (mode `"read"`, timeout 30000). Read line by line
 using `ReadLine`. For each line, look for the substring
 `code-from-spec: `. Stop reading as soon as a match is
 found. Close the reader when done (whether a match was

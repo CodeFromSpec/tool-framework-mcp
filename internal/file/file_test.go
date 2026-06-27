@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/os/file@IlnYoaCz_m0F-1YyK9oKFVfBVo4
+// code-from-spec: SPEC/golang/tests/os/file@-VdD3kn5mlinY2EtqWzyoRgaNrw
 package file_test
 
 import (
@@ -38,7 +38,7 @@ func TestFileOpenReadsAllLines(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestFileReadLineNormalizesCRLF(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestFileReadLineNoTrailingNewline(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestFileSkipLinesAdvancesReader(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestFileSkipLinesPastEndOfFile(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestFileReadLinePreservesLeadingWhitespace(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestFileReadLinePreservesTrailingWhitespace(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestFileReadLinePreservesInternalWhitespace(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestFileReadLinePreservesEmptyLines(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -283,7 +283,7 @@ func TestFileReadLinePreservesNonASCII(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -308,7 +308,7 @@ func TestFileOpenEmptyFile(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -328,7 +328,7 @@ func TestFileReadLineSingleLineWithoutNewline(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -352,7 +352,7 @@ func TestFileOpenFileDoesNotExist(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	_, err := file.FileOpen(&pathutils.PathCfs{Value: "nonexistent/file.txt"}, "read")
+	_, err := file.FileOpen(&pathutils.PathCfs{Value: "nonexistent/file.txt"}, "read", 500)
 	if !errors.Is(err, file.ErrFileUnreadable) {
 		t.Errorf("expected ErrFileUnreadable, got %v", err)
 	}
@@ -366,7 +366,7 @@ func TestFileReadLineAfterClose(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -387,7 +387,7 @@ func TestFileSkipLinesAfterClose(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -403,7 +403,7 @@ func TestFileWriteNewFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "newfile.txt"}, "overwrite")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "newfile.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestFileWriteOverwritesExistingFile(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -453,7 +453,7 @@ func TestFileOpenCreatesIntermediateDirectories(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "a/b/c/file.txt"}, "overwrite")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "a/b/c/file.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -476,7 +476,7 @@ func TestFileWritePreservesUTF8(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -500,7 +500,7 @@ func TestFileWritePreservesLineEndings(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -524,7 +524,7 @@ func TestFileWriteEmptyContent(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -547,7 +547,7 @@ func TestFileOpenPropagatesValidationErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	_, err := file.FileOpen(&pathutils.PathCfs{Value: "../../outside"}, "overwrite")
+	_, err := file.FileOpen(&pathutils.PathCfs{Value: "../../outside"}, "overwrite", 500)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -561,7 +561,7 @@ func TestFileOpenCannotCreateDirectory(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	_, err := file.FileOpen(&pathutils.PathCfs{Value: "blockingfile/subdir/file.txt"}, "overwrite")
+	_, err := file.FileOpen(&pathutils.PathCfs{Value: "blockingfile/subdir/file.txt"}, "overwrite", 500)
 	if !errors.Is(err, file.ErrCannotCreateDirectory) {
 		t.Errorf("expected ErrCannotCreateDirectory, got %v", err)
 	}
@@ -575,7 +575,7 @@ func TestFileOpenCannotOpenFilePathIsDirectory(t *testing.T) {
 		t.Fatalf("Mkdir: %v", err)
 	}
 
-	_, err := file.FileOpen(&pathutils.PathCfs{Value: "mydir"}, "overwrite")
+	_, err := file.FileOpen(&pathutils.PathCfs{Value: "mydir"}, "overwrite", 500)
 	if !errors.Is(err, file.ErrCannotOpenFile) {
 		t.Errorf("expected ErrCannotOpenFile, got %v", err)
 	}
@@ -589,7 +589,7 @@ func TestFileAppendDoesNotTruncate(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "append")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "append", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -608,7 +608,7 @@ func TestFileAppendCreatesFileIfNotExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "newfile.txt"}, "append")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "newfile.txt"}, "append", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -623,7 +623,7 @@ func TestFileReadLineFailsInOverwriteMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -639,7 +639,7 @@ func TestFileReadLineFailsInAppendMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "append")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "append", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -659,7 +659,7 @@ func TestFileWriteFailsInReadMode(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -674,7 +674,7 @@ func TestFileSkipLinesFailsInOverwriteMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	handle, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen: %v", err)
 	}
@@ -686,7 +686,7 @@ func TestFileSkipLinesFailsInOverwriteMode(t *testing.T) {
 }
 
 func TestFileOpenRejectsUnknownMode(t *testing.T) {
-	_, err := file.FileOpen(&pathutils.PathCfs{Value: "any.txt"}, "invalid")
+	_, err := file.FileOpen(&pathutils.PathCfs{Value: "any.txt"}, "invalid", 500)
 	if !errors.Is(err, file.ErrInvalidMode) {
 		t.Errorf("expected ErrInvalidMode, got %v", err)
 	}
@@ -786,12 +786,12 @@ func TestFileSharedLockAllowsConcurrentReaders(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen handle1: %v", err)
 	}
 
-	handle2, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+	handle2, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 500)
 	if err != nil {
 		t.Fatalf("FileOpen handle2 (shared lock should not block): %v", err)
 	}
@@ -808,7 +808,7 @@ func TestFileExclusiveLockBlocksOtherExclusiveLocks(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen handle1: %v", err)
 	}
@@ -821,7 +821,7 @@ func TestFileExclusiveLockBlocksOtherExclusiveLocks(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 5000)
 		close(opened)
 	}()
 
@@ -848,7 +848,7 @@ func TestFileExclusiveLockBlocksSharedLocks(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite")
+	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "overwrite", 500)
 	if err != nil {
 		t.Fatalf("FileOpen handle1: %v", err)
 	}
@@ -861,7 +861,7 @@ func TestFileExclusiveLockBlocksSharedLocks(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 5000)
 		close(opened)
 	}()
 
@@ -888,7 +888,7 @@ func TestFileAppendModeAcquiresExclusiveLock(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "append")
+	handle1, err := file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "append", 500)
 	if err != nil {
 		t.Fatalf("FileOpen handle1: %v", err)
 	}
@@ -901,7 +901,7 @@ func TestFileAppendModeAcquiresExclusiveLock(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read")
+		handle2, handle2Err = file.FileOpen(&pathutils.PathCfs{Value: "test.txt"}, "read", 5000)
 		close(opened)
 	}()
 

@@ -77,14 +77,15 @@ Expect error NoTagFound.
 #### File does not exist
 
 Call `ArtifactTagExtract` with a non-existent path.
-Expect error FileUnreadable.
+Expect error propagated from file component
+(file.FileUnreadable).
 
 #### Propagates path errors
 
 Call `ArtifactTagExtract` with an invalid `PathCfs`
 (e.g., `"../../outside"`). Expect error
-DirectoryTraversal (propagated from FileReader/PathUtils
-via FileOpen).
+DirectoryTraversal (propagated from pathutils via
+FileOpen).
 
 #### No tag in file
 

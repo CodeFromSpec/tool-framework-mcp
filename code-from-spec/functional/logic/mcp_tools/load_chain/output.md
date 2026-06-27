@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/mcp_tools/load_chain@cd7qGpBCQk8YeC8PXu4JCFLPumM -->
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/load_chain@vvsydp-6zcj8tMjlG60PVEcHGWg -->
 
 namespace: mcploadchain
 
@@ -47,14 +47,14 @@ function MCPLoadChain(logical_name: string) -> string
 
      For each `dep` in `chain.dependencies` (in order):
        If `LogicalNameIsArtifact(dep.unqualified_logical_name)` is true:
-         Call `FileOpen(dep.file_path, "read")`.
+         Call `FileOpen(dep.file_path, "read", 30000)`.
          Read all lines with `FileReadLine` until `EndOfFile`.
          Skip the first line that contains "code-from-spec:" (the artifact tag line).
          Include all other lines.
          Call `FileClose`.
          Append the resulting text to `context_parts`.
        Else if `LogicalNameIsExternal(dep.unqualified_logical_name)` is true:
-         Call `FileOpen(dep.file_path, "read")`.
+         Call `FileOpen(dep.file_path, "read", 30000)`.
          Read all lines with `FileReadLine` until `EndOfFile`.
          Call `FileClose`.
          Append the full file content to `context_parts`.
@@ -111,21 +111,21 @@ function MCPLoadChain(logical_name: string) -> string
      If `chain.input` is present:
        Append line: "--- input ---"
        If `LogicalNameIsArtifact(chain.input.unqualified_logical_name)` is true:
-         Call `FileOpen(chain.input.file_path, "read")`.
+         Call `FileOpen(chain.input.file_path, "read", 30000)`.
          Read all lines with `FileReadLine` until `EndOfFile`.
          Skip the first line that contains "code-from-spec:".
          Include all other lines.
          Call `FileClose`.
          Append the resulting text.
        Else (EXTERNAL/ or other):
-         Call `FileOpen(chain.input.file_path, "read")`.
+         Call `FileOpen(chain.input.file_path, "read", 30000)`.
          Read all lines with `FileReadLine` until `EndOfFile`.
          Call `FileClose`.
          Append the full file content.
 
      If the file at `frontmatter.output` exists and is readable:
        Append line: "--- existing artifact ---"
-       Call `FileOpen` with the `PathCfs` of `frontmatter.output` in "read" mode.
+       Call `FileOpen` with the `PathCfs` of `frontmatter.output` in "read" mode with timeout 30000.
        Read all lines with `FileReadLine` until `EndOfFile`.
        Call `FileClose`.
        Append the full file content.

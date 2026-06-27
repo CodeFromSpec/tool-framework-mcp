@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/chain/resolver@55qCnCjoJBCoJM8PTnRKfrzJd60
+// code-from-spec: SPEC/golang/tests/chain/resolver@X0JqdXm4KafPpskDfLjtsB78dCY
 package chainresolver_test
 
 import (

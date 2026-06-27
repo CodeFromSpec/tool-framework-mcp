@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/os/file@ETByvr5_wxTha65XxaWHrTmFa8k)
+[//]: # (code-from-spec: SPEC/golang/interfaces/os/file@CUL7HCwDQTOyNqnHpx-Pk_APnPI)
 
 # Package `file`
 
@@ -30,6 +30,7 @@ var ErrFileUnreadable        = errors.New("file unreadable")
 var ErrCannotCreateDirectory = errors.New("cannot create directory")
 var ErrCannotOpenFile        = errors.New("cannot open file")
 var ErrInvalidMode           = errors.New("invalid mode")
+var ErrLockTimeout           = errors.New("lock timeout")
 var ErrEndOfFile             = errors.New("end of file")
 var ErrWrongMode             = errors.New("wrong mode")
 var ErrCannotWriteFile       = errors.New("cannot write file")
@@ -54,16 +55,24 @@ import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 //   - "append"    — exclusive lock; creates intermediate directories as needed,
 //                   then creates or opens the file without truncating.
 //
+// The timeoutMs parameter controls how long to wait for the lock:
+//   - Positive value: wait up to that many milliseconds; returns ErrLockTimeout
+//                     if the lock is not acquired in time.
+//   - Zero: non-blocking; returns ErrLockTimeout immediately if the lock is
+//           not available.
+//
 // The caller must call FileClose when done — failing to do so leaks the file
 // handle and lock.
 //
 // Returns ErrInvalidMode if mode is not one of the three values above.
+// Returns ErrFileUnreadable if mode is "read" and the file cannot be opened.
 // Returns ErrCannotCreateDirectory if intermediate directories cannot be created
 // (modes "overwrite" and "append" only).
 // Returns ErrCannotOpenFile if the file cannot be opened for writing
 // (modes "overwrite" and "append" only).
+// Returns ErrLockTimeout if the lock could not be acquired within timeoutMs.
 // Errors from pathutils.PathCfsToOs are propagated as-is.
-func FileOpen(cfsPath *pathutils.PathCfs, mode string) (*FileHandle, error)
+func FileOpen(cfsPath *pathutils.PathCfs, mode string, timeoutMs int) (*FileHandle, error)
 
 // FileReadLine reads the next line from the file, normalizes CRLF to LF,
 // and returns the line without the line terminator.
@@ -118,7 +127,7 @@ func main() {
 	src := &pathutils.PathCfs{Value: "SPEC/myproject/draft.md"}
 	dst := &pathutils.PathCfs{Value: "SPEC/myproject/final.md"}
 
-	writeHandle, err := file.FileOpen(src, "overwrite")
+	writeHandle, err := file.FileOpen(src, "overwrite", 500)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -131,7 +140,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	readHandle, err := file.FileOpen(dst, "read")
+	readHandle, err := file.FileOpen(dst, "read", 500)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@NNecHDDTL1J6K6IF15B-l6yalbw
+// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@NaHpCniq3-70y9BAy4fXckw2Tdw
 package mcpwritefile
 
 import (
@@ -44,7 +44,7 @@ func MCPWriteFile(logicalName string, path string, content string) (string, erro
 	}
 
 	cfsPath := &pathutils.PathCfs{Value: path}
-	handle, err := file.FileOpen(cfsPath, "overwrite")
+	handle, err := file.FileOpen(cfsPath, "overwrite", 30000)
 	if err != nil {
 		return "", fmt.Errorf("opening file: %w", err)
 	}

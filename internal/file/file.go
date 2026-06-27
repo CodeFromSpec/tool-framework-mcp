@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/os/file/impl@_xlZehQmVfwydy9_BGNXPEuDOeM
+// code-from-spec: SPEC/golang/implementation/os/file/impl@3VjL91XkWZ9bEMsQAM-CCF7NkoI
 
 package file
 
@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
@@ -25,6 +26,7 @@ var ErrFileUnreadable = errors.New("file unreadable")
 var ErrCannotCreateDirectory = errors.New("cannot create directory")
 var ErrCannotOpenFile = errors.New("cannot open file")
 var ErrInvalidMode = errors.New("invalid mode")
+var ErrLockTimeout = errors.New("lock timeout")
 var ErrEndOfFile = errors.New("end of file")
 var ErrWrongMode = errors.New("wrong mode")
 var ErrCannotWriteFile = errors.New("cannot write file")
@@ -52,7 +54,39 @@ func scanLinesNoCRLF(data []byte, atEOF bool) (advance int, token []byte, err er
 	return 0, nil, nil
 }
 
-func FileOpen(cfsPath *pathutils.PathCfs, mode string) (*FileHandle, error) {
+func acquireLockWithTimeout(f *os.File, shared bool, timeoutMs int) error {
+	type result struct {
+		err error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		var err error
+		if shared {
+			err = fileLockShared(f)
+		} else {
+			err = fileLockExclusive(f)
+		}
+		ch <- result{err: err}
+	}()
+
+	var timeout <-chan time.Time
+	if timeoutMs == 0 {
+		c := make(chan time.Time)
+		close(c)
+		timeout = c
+	} else {
+		timeout = time.After(time.Duration(timeoutMs) * time.Millisecond)
+	}
+
+	select {
+	case res := <-ch:
+		return res.err
+	case <-timeout:
+		return ErrLockTimeout
+	}
+}
+
+func FileOpen(cfsPath *pathutils.PathCfs, mode string, timeoutMs int) (*FileHandle, error) {
 	if mode != "read" && mode != "overwrite" && mode != "append" {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidMode, mode)
 	}
@@ -73,8 +107,11 @@ func FileOpen(cfsPath *pathutils.PathCfs, mode string) (*FileHandle, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
-		if err := fileLockShared(f); err != nil {
+		if err := acquireLockWithTimeout(f, true, timeoutMs); err != nil {
 			f.Close()
+			if errors.Is(err, ErrLockTimeout) {
+				return nil, ErrLockTimeout
+			}
 			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
 		handle.stream = f
@@ -91,8 +128,11 @@ func FileOpen(cfsPath *pathutils.PathCfs, mode string) (*FileHandle, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrCannotOpenFile, err)
 		}
-		if err := fileLockExclusive(f); err != nil {
+		if err := acquireLockWithTimeout(f, false, timeoutMs); err != nil {
 			f.Close()
+			if errors.Is(err, ErrLockTimeout) {
+				return nil, ErrLockTimeout
+			}
 			return nil, fmt.Errorf("%w: %w", ErrCannotOpenFile, err)
 		}
 		handle.stream = f
@@ -106,8 +146,11 @@ func FileOpen(cfsPath *pathutils.PathCfs, mode string) (*FileHandle, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrCannotOpenFile, err)
 		}
-		if err := fileLockExclusive(f); err != nil {
+		if err := acquireLockWithTimeout(f, false, timeoutMs); err != nil {
 			f.Close()
+			if errors.Is(err, ErrLockTimeout) {
+				return nil, ErrLockTimeout
+			}
 			return nil, fmt.Errorf("%w: %w", ErrCannotOpenFile, err)
 		}
 		handle.stream = f

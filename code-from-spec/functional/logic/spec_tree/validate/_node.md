@@ -121,9 +121,10 @@ Each `depends_on` entry must be valid:
 
 - **`EXTERNAL/` references**: convert to a path using
   `LogicalNameExternalToPath`. Create a `PathCfs` from
-  the result. Open the file with `FileOpen`. If it fails
-  (file does not exist or not readable), report a format
-  error. If it succeeds, call `FileClose` immediately.
+  the result. Open the file with `FileOpen` (mode `"read"`,
+  timeout 30000). If it fails (file does not exist or not
+  readable), report a format error. If it succeeds, call
+  `FileClose` immediately.
 
 - **Unrecognized prefix**: report a format error.
 
@@ -144,9 +145,9 @@ If not, report a format error.
 
 For `EXTERNAL/` references: convert to a path using
 `LogicalNameExternalToPath`. Create a `PathCfs` from the
-result. Open the file with `FileOpen`. If it fails,
-report a format error. If it succeeds, call `FileClose`
-immediately.
+result. Open the file with `FileOpen` (mode `"read"`,
+timeout 30000). If it fails, report a format error. If
+it succeeds, call `FileClose` immediately.
 
 #### missing_node_md
 
