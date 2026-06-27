@@ -11,6 +11,10 @@ navigating the spec tree hierarchy.
 
 # Public
 
+## Namespace
+
+    namespace: logicalnames
+
 ## Interface
 
 ```

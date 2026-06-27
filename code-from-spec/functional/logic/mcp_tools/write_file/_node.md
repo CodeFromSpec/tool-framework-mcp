@@ -14,6 +14,10 @@ the path against the node's declared output.
 
 # Public
 
+## Namespace
+
+    namespace: mcpwritefile
+
 ## Interface
 
 ```

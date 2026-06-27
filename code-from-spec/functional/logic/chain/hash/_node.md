@@ -18,6 +18,10 @@ all chain positions from disk and hashing their content.
 
 # Public
 
+## Namespace
+
+    namespace: chainhash
+
 ## Interface
 
 ```

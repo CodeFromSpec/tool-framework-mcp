@@ -12,6 +12,10 @@ staleness detection.
 
 # Public
 
+## Namespace
+
+    namespace: artifacttag
+
 ## Interface
 
 ```

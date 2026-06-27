@@ -12,6 +12,10 @@ with cycle detection as a side effect.
 
 # Public
 
+## Namespace
+
+    namespace: noderanking
+
 ## Interface
 
 ```

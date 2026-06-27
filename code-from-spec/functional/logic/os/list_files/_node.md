@@ -10,6 +10,10 @@ Recursively lists all files under a directory.
 
 # Public
 
+## Namespace
+
+    namespace: listfiles
+
 ## Interface
 
 ```

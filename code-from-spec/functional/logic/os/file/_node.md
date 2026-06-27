@@ -10,6 +10,10 @@ Handle-based file operations with automatic locking.
 
 # Public
 
+## Namespace
+
+    namespace: file
+
 ## Interface
 
 ```
