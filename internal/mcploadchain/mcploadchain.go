@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@wYbzFjc968FPik0Qzx5l4PNso2A
+// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@N2JHW7OYFfgMn-KVVHvcu0tIHyM
 package mcploadchain
 
 import (
@@ -86,7 +86,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("parsing dependency node %q: %w", dep.UnqualifiedLogicalName, err)
 			}
-			if dep.Qualifier == nil {
+			if dep.Qualifier == "" {
 				if node.Public == nil || len(node.Public.Subsections) == 0 {
 					continue
 				}
@@ -96,7 +96,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 				if node.Public == nil {
 					continue
 				}
-				normalizedQualifier := textnormalization.NormalizeText(*dep.Qualifier)
+				normalizedQualifier := textnormalization.NormalizeText(dep.Qualifier)
 				var found *parsenode.NodeSubsection
 				for _, sub := range node.Public.Subsections {
 					if sub.Heading == normalizedQualifier {

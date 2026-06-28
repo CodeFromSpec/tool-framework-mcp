@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/chain/hash@EyLKNFgpwMup0p_9hq_QtFF-mew
+// code-from-spec: SPEC/golang/implementation/chain/hash@zISXcPuRJuHbuD627Lo62CXV74E
 package chainhash
 
 import (
@@ -168,7 +168,7 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 		}
 		node, err := parsenode.NodeParse(ancestor.UnqualifiedLogicalName)
 		if err != nil {
-			return "", fmt.Errorf("%w: %s: %w", ErrParseFailure, ancestor.UnqualifiedLogicalName, err)
+			return "", fmt.Errorf("%w: ancestor %s: %s", ErrParseFailure, ancestor.UnqualifiedLogicalName, err)
 		}
 		h := hashPublicSubsections(node)
 		if h != nil {
@@ -195,15 +195,15 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) {
 			node, err := parsenode.NodeParse(dep.UnqualifiedLogicalName)
 			if err != nil {
-				return "", fmt.Errorf("%w: %s: %w", ErrParseFailure, dep.UnqualifiedLogicalName, err)
+				return "", fmt.Errorf("%w: dependency %s: %s", ErrParseFailure, dep.UnqualifiedLogicalName, err)
 			}
-			if dep.Qualifier == nil {
+			if dep.Qualifier == "" {
 				h := hashPublicSubsections(node)
 				if h != nil {
 					hashes = append(hashes, h)
 				}
 			} else {
-				h := hashQualifiedSubsection(node, *dep.Qualifier)
+				h := hashQualifiedSubsection(node, dep.Qualifier)
 				if h != nil {
 					hashes = append(hashes, h)
 				}
@@ -216,7 +216,7 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 	}
 	targetNode, err := parsenode.NodeParse(chain.Target.UnqualifiedLogicalName)
 	if err != nil {
-		return "", fmt.Errorf("%w: %s: %w", ErrParseFailure, chain.Target.UnqualifiedLogicalName, err)
+		return "", fmt.Errorf("%w: target %s: %s", ErrParseFailure, chain.Target.UnqualifiedLogicalName, err)
 	}
 	h := hashPublicSubsections(targetNode)
 	if h != nil {

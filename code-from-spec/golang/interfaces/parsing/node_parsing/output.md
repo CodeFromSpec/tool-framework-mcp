@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/node_parsing@PQ2cmGoJNFZEKE11PUf1vofmpOw)
+[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/node_parsing@ydK16VHic1_MNy1I9UeVeNx-g-Y)
 
 # Package `parsenode`
 

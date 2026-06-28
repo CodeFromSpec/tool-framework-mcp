@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/chain/hash@dFoUD-NCn07tdOD4CyMtc0uBQiE
+// code-from-spec: SPEC/golang/tests/chain/hash@kLviuEI2jKXjGzh-x3K0JoEguvI
 package chainhash_test
 
 import (
@@ -55,11 +55,10 @@ func testChainItem(logicalName string, filePath string) *chainresolver.ChainItem
 }
 
 func testChainItemQualified(logicalName string, filePath string, qualifier string) *chainresolver.ChainItem {
-	q := qualifier
 	return &chainresolver.ChainItem{
 		UnqualifiedLogicalName: logicalName,
 		FilePath:               pathutils.PathCfs{Value: filePath},
-		Qualifier:              &q,
+		Qualifier:              qualifier,
 	}
 }
 

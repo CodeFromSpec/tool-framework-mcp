@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/chain/resolver@jCG2U714TdT-5wF3xsZeLZ1SbWk)
+[//]: # (code-from-spec: SPEC/golang/interfaces/chain/resolver@uOOBUYs_inRFEhw2KHlQcZpO0MI)
 
 # Package `chainresolver`
 
@@ -17,7 +17,7 @@ import (
 type ChainItem struct {
 	UnqualifiedLogicalName string
 	FilePath               pathutils.PathCfs
-	Qualifier              *string
+	Qualifier              string
 }
 
 // Chain is the fully resolved chain for a target logical name.
@@ -81,8 +81,8 @@ func main() {
 	fmt.Println("Dependencies:")
 	for _, d := range chain.Dependencies {
 		qualifier := ""
-		if d.Qualifier != nil {
-			qualifier = "(" + *d.Qualifier + ")"
+		if d.Qualifier != "" {
+			qualifier = "(" + d.Qualifier + ")"
 		}
 		fmt.Println(" ", d.UnqualifiedLogicalName+qualifier, d.FilePath.Value)
 	}

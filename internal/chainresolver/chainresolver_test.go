@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/chain/resolver@X0JqdXm4KafPpskDfLjtsB78dCY
+// code-from-spec: SPEC/golang/tests/chain/resolver@NGSEs7JvU3MjS3uryi7eJsazrPo
 package chainresolver_test
 
 import (
@@ -40,8 +40,8 @@ func testEmptyNode(logicalName string) string {
 	return "# " + logicalName + "\n"
 }
 
-func testNodeWithFrontmatter(logicalName string, frontmatter string) string {
-	return "---\n" + frontmatter + "---\n\n# " + logicalName + "\n"
+func testNodeWithFrontmatter(logicalName string, fm string) string {
+	return "---\n" + fm + "---\n\n# " + logicalName + "\n"
 }
 
 func TestChainResolve_TC1_RootAsTarget(t *testing.T) {
@@ -67,8 +67,8 @@ func TestChainResolve_TC1_RootAsTarget(t *testing.T) {
 	if chain.Target.UnqualifiedLogicalName != "SPEC" {
 		t.Errorf("expected target SPEC, got %q", chain.Target.UnqualifiedLogicalName)
 	}
-	if chain.Target.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *chain.Target.Qualifier)
+	if chain.Target.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", chain.Target.Qualifier)
 	}
 	if chain.Input != nil {
 		t.Errorf("expected input absent, got %v", chain.Input)
@@ -103,8 +103,8 @@ func TestChainResolve_TC2_LinearChainAncestorsRootFirst(t *testing.T) {
 	if chain.Target.UnqualifiedLogicalName != "SPEC/a/b" {
 		t.Errorf("expected target SPEC/a/b, got %q", chain.Target.UnqualifiedLogicalName)
 	}
-	if chain.Target.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *chain.Target.Qualifier)
+	if chain.Target.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", chain.Target.Qualifier)
 	}
 }
 
@@ -158,8 +158,8 @@ func TestChainResolve_TC4_TargetWithEmptyFrontmatter(t *testing.T) {
 	if chain.Target.UnqualifiedLogicalName != "SPEC/a" {
 		t.Errorf("expected target SPEC/a, got %q", chain.Target.UnqualifiedLogicalName)
 	}
-	if chain.Target.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *chain.Target.Qualifier)
+	if chain.Target.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", chain.Target.Qualifier)
 	}
 	if len(chain.Dependencies) != 0 {
 		t.Errorf("expected 0 dependencies, got %d", len(chain.Dependencies))
@@ -189,8 +189,8 @@ func TestChainResolve_TC5_DependencyWithoutQualifier(t *testing.T) {
 	if dep.UnqualifiedLogicalName != "SPEC/b" {
 		t.Errorf("expected dependency SPEC/b, got %q", dep.UnqualifiedLogicalName)
 	}
-	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
+	if dep.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", dep.Qualifier)
 	}
 }
 
@@ -214,11 +214,8 @@ func TestChainResolve_TC6_DependencyWithQualifier(t *testing.T) {
 	if dep.UnqualifiedLogicalName != "SPEC/b" {
 		t.Errorf("expected dependency SPEC/b, got %q", dep.UnqualifiedLogicalName)
 	}
-	if dep.Qualifier == nil {
-		t.Fatal("expected qualifier, got nil")
-	}
-	if *dep.Qualifier != "interface" {
-		t.Errorf("expected qualifier 'interface', got %q", *dep.Qualifier)
+	if dep.Qualifier != "interface" {
+		t.Errorf("expected qualifier 'interface', got %q", dep.Qualifier)
 	}
 }
 
@@ -271,8 +268,8 @@ func TestChainResolve_TC8_ArtifactDependencyResolvedFromGeneratingNode(t *testin
 	if dep.FilePath.Value != "out/lib.go" {
 		t.Errorf("expected file_path 'out/lib.go', got %q", dep.FilePath.Value)
 	}
-	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
+	if dep.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", dep.Qualifier)
 	}
 }
 
@@ -381,8 +378,8 @@ func TestChainResolve_TC13_NoQualifierSubsumesQualifier(t *testing.T) {
 	if dep.UnqualifiedLogicalName != "SPEC/b" {
 		t.Errorf("expected dependency SPEC/b, got %q", dep.UnqualifiedLogicalName)
 	}
-	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
+	if dep.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", dep.Qualifier)
 	}
 }
 
@@ -406,8 +403,8 @@ func TestChainResolve_TC14_QualifierBeforeNoQualifier_NoQualifierWins(t *testing
 	if dep.UnqualifiedLogicalName != "SPEC/b" {
 		t.Errorf("expected dependency SPEC/b, got %q", dep.UnqualifiedLogicalName)
 	}
-	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
+	if dep.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", dep.Qualifier)
 	}
 }
 
@@ -427,11 +424,11 @@ func TestChainResolve_TC15_SameFileDifferentQualifiers_BothKept(t *testing.T) {
 	if len(chain.Dependencies) != 2 {
 		t.Fatalf("expected 2 dependencies, got %d", len(chain.Dependencies))
 	}
-	if chain.Dependencies[0].Qualifier == nil || *chain.Dependencies[0].Qualifier != "constraints" {
-		t.Errorf("expected first qualifier 'constraints', got %v", chain.Dependencies[0].Qualifier)
+	if chain.Dependencies[0].Qualifier != "constraints" {
+		t.Errorf("expected first qualifier 'constraints', got %q", chain.Dependencies[0].Qualifier)
 	}
-	if chain.Dependencies[1].Qualifier == nil || *chain.Dependencies[1].Qualifier != "interface" {
-		t.Errorf("expected second qualifier 'interface', got %v", chain.Dependencies[1].Qualifier)
+	if chain.Dependencies[1].Qualifier != "interface" {
+		t.Errorf("expected second qualifier 'interface', got %q", chain.Dependencies[1].Qualifier)
 	}
 }
 
@@ -475,8 +472,8 @@ func TestChainResolve_TC17_ExternalDependencyResolvedToPath(t *testing.T) {
 	if dep.FilePath.Value != "docs/api.yaml" {
 		t.Errorf("expected file_path 'docs/api.yaml', got %q", dep.FilePath.Value)
 	}
-	if dep.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *dep.Qualifier)
+	if dep.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", dep.Qualifier)
 	}
 }
 
@@ -542,8 +539,8 @@ func TestChainResolve_TC20_InputResolvedFromGeneratingNode(t *testing.T) {
 	if chain.Input.FilePath.Value != "out/data.json" {
 		t.Errorf("expected input file_path 'out/data.json', got %q", chain.Input.FilePath.Value)
 	}
-	if chain.Input.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *chain.Input.Qualifier)
+	if chain.Input.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", chain.Input.Qualifier)
 	}
 }
 
@@ -568,8 +565,8 @@ func TestChainResolve_TC21_ExternalInputResolvedToPath(t *testing.T) {
 	if chain.Input.FilePath.Value != "docs/vendor/spec.yaml" {
 		t.Errorf("expected input file_path 'docs/vendor/spec.yaml', got %q", chain.Input.FilePath.Value)
 	}
-	if chain.Input.Qualifier != nil {
-		t.Errorf("expected qualifier absent, got %q", *chain.Input.Qualifier)
+	if chain.Input.Qualifier != "" {
+		t.Errorf("expected qualifier absent, got %q", chain.Input.Qualifier)
 	}
 }
 

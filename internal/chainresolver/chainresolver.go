@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/chain/resolver@afnuHGcOWb-anSqLriBhHysc-Qs
+// code-from-spec: SPEC/golang/implementation/chain/resolver@G0YnJUblsuJTkZllX6EJu7VCPV0
 package chainresolver
 
 import (
@@ -17,7 +17,7 @@ var ErrUnresolvableArtifact = errors.New("unresolvable artifact")
 type ChainItem struct {
 	UnqualifiedLogicalName string
 	FilePath               pathutils.PathCfs
-	Qualifier              *string
+	Qualifier              string
 }
 
 type Chain struct {
@@ -67,7 +67,7 @@ func resolveAncestorsAndTarget(targetLogicalName string) ([]*ChainItem, *ChainIt
 		item := &ChainItem{
 			UnqualifiedLogicalName: targetLogicalName,
 			FilePath:               *path,
-			Qualifier:              nil,
+			Qualifier:              "",
 		}
 		return []*ChainItem{}, item, nil
 	}
@@ -97,7 +97,7 @@ func resolveAncestorsAndTarget(targetLogicalName string) ([]*ChainItem, *ChainIt
 		items = append(items, &ChainItem{
 			UnqualifiedLogicalName: name,
 			FilePath:               *path,
-			Qualifier:              nil,
+			Qualifier:              "",
 		})
 	}
 
@@ -121,16 +121,13 @@ func resolveDependencies(fm *frontmatter.Frontmatter) ([]*ChainItem, error) {
 		if deps[i].UnqualifiedLogicalName != deps[j].UnqualifiedLogicalName {
 			return deps[i].UnqualifiedLogicalName < deps[j].UnqualifiedLogicalName
 		}
-		if deps[i].Qualifier == nil && deps[j].Qualifier != nil {
+		if deps[i].Qualifier == "" && deps[j].Qualifier != "" {
 			return true
 		}
-		if deps[i].Qualifier != nil && deps[j].Qualifier == nil {
+		if deps[i].Qualifier != "" && deps[j].Qualifier == "" {
 			return false
 		}
-		if deps[i].Qualifier != nil && deps[j].Qualifier != nil {
-			return *deps[i].Qualifier < *deps[j].Qualifier
-		}
-		return false
+		return deps[i].Qualifier < deps[j].Qualifier
 	})
 
 	return deps, nil
@@ -147,10 +144,10 @@ func resolveEntry(entry string) (*ChainItem, error) {
 		item := &ChainItem{
 			UnqualifiedLogicalName: bare,
 			FilePath:               *path,
-			Qualifier:              nil,
+			Qualifier:              "",
 		}
 		if hasQualifier {
-			item.Qualifier = &qualifier
+			item.Qualifier = qualifier
 		}
 		return item, nil
 	}
@@ -167,7 +164,7 @@ func resolveEntry(entry string) (*ChainItem, error) {
 		return &ChainItem{
 			UnqualifiedLogicalName: entry,
 			FilePath:               *path,
-			Qualifier:              nil,
+			Qualifier:              "",
 		}, nil
 	}
 
@@ -193,7 +190,7 @@ func resolveArtifactEntry(entry string) (*ChainItem, error) {
 	return &ChainItem{
 		UnqualifiedLogicalName: entry,
 		FilePath:               pathutils.PathCfs{Value: generatorFm.Output},
-		Qualifier:              nil,
+		Qualifier:              "",
 	}, nil
 }
 
@@ -221,10 +218,10 @@ func isSpecDuplicate(existing []*ChainItem, candidate *ChainItem) bool {
 		if e.UnqualifiedLogicalName != candidate.UnqualifiedLogicalName {
 			continue
 		}
-		if e.Qualifier == nil {
+		if e.Qualifier == "" {
 			return true
 		}
-		if candidate.Qualifier != nil && e.Qualifier != nil && *e.Qualifier == *candidate.Qualifier {
+		if candidate.Qualifier != "" && e.Qualifier == candidate.Qualifier {
 			return true
 		}
 	}
@@ -259,7 +256,7 @@ func resolveInput(fm *frontmatter.Frontmatter) (*ChainItem, error) {
 		return &ChainItem{
 			UnqualifiedLogicalName: entry,
 			FilePath:               *path,
-			Qualifier:              nil,
+			Qualifier:              "",
 		}, nil
 	}
 

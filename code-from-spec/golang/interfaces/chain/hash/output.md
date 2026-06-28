@@ -1,4 +1,4 @@
-# code-from-spec: SPEC/golang/interfaces/chain/hash@0rAyBFlXg0ABfNv7xOZ605LC40M
+# code-from-spec: SPEC/golang/interfaces/chain/hash@N6K4GEL-u7SlqClZ13QBPw2UDCg
 
 ## Package
 

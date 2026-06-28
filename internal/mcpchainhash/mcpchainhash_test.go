@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/mcp_tools/chain_hash@kc1ks9w0tBcGtQ4_1CFkH9fjajs
+// code-from-spec: SPEC/golang/tests/mcp_tools/chain_hash@xSBVj9FlIcL3xt9FQy8-j9aQkCk
 package mcpchainhash_test
 
 import (
