@@ -8,7 +8,6 @@ depends_on:
   - ARTIFACT/golang/interfaces/utils/text_normalization
   - ARTIFACT/golang/interfaces/parsing/frontmatter
   - ARTIFACT/golang/interfaces/parsing/node_parsing
-input: ARTIFACT/functional/logic/spec_tree/validate
 output: internal/spectreevalidate/spectreevalidate.go
 ---
 
@@ -16,20 +15,193 @@ output: internal/spectreevalidate/spectreevalidate.go
 
 # Agent
 
-Implement the pseudocode from the input as a Go package.
+Implement the spec tree validation as a Go package.
+
+## Logic
+
+1. Initialize `errors` as an empty list of FormatError.
+
+2. Build `known_logical_names` as an empty set of strings.
+   For each entry in entries:
+     Add entry.logical_name to `known_logical_names`.
+     If entry.frontmatter.output is non-empty:
+       Derive the artifact logical name by stripping
+       the `SPEC/` prefix from entry.logical_name and
+       prepending `ARTIFACT/`.
+       Add the artifact logical name to
+       `known_logical_names`.
+
+3. For each entry in entries, determine `has_children`:
+   `has_children` is true if any other entry in entries
+   has a logical_name that starts with this entry's
+   logical_name followed by `"/"`.
+
+4. For each entry in entries, run all validation rules
+   below. Collect all errors — do not stop at the first.
+
+### Rule: name_heading
+
+   Normalize entry.logical_name using NormalizeText.
+   Normalize entry.node.name_section.heading using
+   NormalizeText. If the two normalized values are not
+   equal: Append FormatError:
+     node: entry.logical_name
+     rule: "name_heading"
+     detail: "first heading does not match the node
+     logical name"
+
+### Rule: leaf_only_fields
+
+   If `has_children` is true:
+     If entry.frontmatter.depends_on is non-empty:
+       Append FormatError with rule "leaf_only_fields",
+       detail "depends_on is only permitted on leaf
+       nodes".
+     If entry.frontmatter.input is non-empty:
+       Append FormatError with rule "leaf_only_fields",
+       detail "input is only permitted on leaf nodes".
+     If entry.frontmatter.output is non-empty:
+       Append FormatError with rule "leaf_only_fields",
+       detail "output is only permitted on leaf nodes".
+
+### Rule: leaf_only_agent
+
+   If `has_children` is true and entry.node.agent is
+   present: Append FormatError with rule
+   "leaf_only_agent", detail "# Agent section is only
+   permitted on leaf nodes".
+
+### Rule: dependency_targets
+
+   For each dep in entry.frontmatter.depends_on:
+
+     If LogicalNameIsSpec(dep) is true:
+       Let bare = LogicalNameStripQualifier(dep).
+       If bare is not in `known_logical_names`:
+         error "depends_on references unknown SPEC
+         node: <dep>"
+       Else if bare equals entry.logical_name:
+         error "depends_on must not reference the node
+         itself: <dep>"
+       Else if bare followed by "/" is a prefix of
+       entry.logical_name:
+         error "depends_on must not reference an
+         ancestor: <dep>"
+       Else if entry.logical_name followed by "/" is a
+       prefix of bare:
+         error "depends_on must not reference a
+         descendant: <dep>"
+
+     Else if LogicalNameIsArtifact(dep) is true:
+       Let bare = LogicalNameStripQualifier(dep).
+       If bare is not in `known_logical_names`:
+         error "depends_on references unknown
+         ARTIFACT: <dep>"
+
+     Else if LogicalNameIsExternal(dep) is true:
+       Let cfs_path = LogicalNameExternalToPath(dep).
+       Attempt FileOpen(cfs_path, "read", 30000).
+       If FileOpen raises any error:
+         error "depends_on references unreadable
+         EXTERNAL file: <dep>"
+       Else: Call FileClose on the returned handle.
+
+     Else:
+       error "depends_on entry has unrecognized
+       prefix: <dep>"
+
+### Rule: input_target
+
+   If entry.frontmatter.input is non-empty:
+     Let inp = entry.frontmatter.input.
+
+     If LogicalNameIsArtifact(inp) is true:
+       Let bare = LogicalNameStripQualifier(inp).
+       If bare is not in `known_logical_names`:
+         error "input references unknown ARTIFACT:
+         <inp>"
+
+     Else if LogicalNameIsExternal(inp) is true:
+       Let cfs_path = LogicalNameExternalToPath(inp).
+       Attempt FileOpen(cfs_path, "read", 30000).
+       If FileOpen raises any error:
+         error "input references unreadable EXTERNAL
+         file: <inp>"
+       Else: Call FileClose on the returned handle.
+
+     Else:
+       error "input must start with ARTIFACT/ or
+       EXTERNAL/"
+
+### Rule: missing_node_md
+
+   For each dir in all_dirs:
+     If dir equals "code-from-spec/" or dir equals
+     "code-from-spec": Skip.
+     Derive the first path segment after
+     "code-from-spec/" in dir. If that first segment
+     starts with "_": Skip.
+     Let expected_node_path = dir + "/_node.md"
+       (normalized to use forward slashes, no trailing
+       slash on dir).
+     Check whether any entry in entries has a file path
+     equal to expected_node_path. If no such entry
+     exists: Append FormatError with node = dir,
+     rule = "missing_node_md", detail = "subdirectory
+     has no _node.md".
+
+### Rule: output_paths
+
+   If entry.frontmatter.output is non-empty:
+     Call PathValidateCfs(entry.frontmatter.output).
+     If PathValidateCfs raises any error:
+       Append FormatError with rule "output_paths",
+       detail "output path is invalid: <error message>".
+
+### Rule: public_subsection_required
+
+   If entry.node.public is present:
+     For each line in entry.node.public.content:
+       If the line is not blank (contains at least one
+       non-whitespace character):
+         Append FormatError with rule
+         "public_subsection_required", detail "content
+         in # Public must be under a ## subsection".
+         Break — report at most one error per node.
+
+### Rule: duplicate_subsections
+
+   If entry.node.public is present and
+   entry.node.public.subsections is non-empty:
+     Initialize `seen_headings` as an empty set.
+     For each subsection in
+     entry.node.public.subsections:
+       Let normalized = NormalizeText(
+       subsection.heading).
+       If normalized is already in `seen_headings`:
+         Append FormatError with rule
+         "duplicate_subsections", detail "duplicate ##
+         subsection heading in # Public:
+         <subsection.raw_heading>".
+       Else: Add normalized to `seen_headings`.
+
+5. Return `errors`.
 
 ## Go-specific guidance
 
 - Use the `file` package for `FileOpen`, `FileReadLine`,
   `FileSkipLines`, `FileClose`.
-- Use the `pathutils` package for `PathValidateCfs` and `PathCfs`.
+- Use the `pathutils` package for `PathValidateCfs` and
+  `PathCfs`.
 - Use the `textnormalization` package for `NormalizeText`.
-- Use the `frontmatter` package for the `Frontmatter` record.
+- Use the `frontmatter` package for the `Frontmatter`
+  record.
 - Use the `parsenode` package for the `Node` record.
 - The package name should be `spectreevalidate`.
-- `SpecTreeValidateInput` and `FormatError` are exported structs
-  in this package.
-- The function never returns an error — all problems are collected
-  as FormatError entries in the returned list.
+- `SpecTreeValidateInput` and `FormatError` are exported
+  structs in this package.
+- The function never returns an error — all problems
+  are collected as FormatError entries in the returned
+  list.
 - For SHA-1 and base64url, use `crypto/sha1` and
   `encoding/base64` (base64.RawURLEncoding).

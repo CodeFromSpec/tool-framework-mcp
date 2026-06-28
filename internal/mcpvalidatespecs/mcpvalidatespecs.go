@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@quCbeQLD2zh_oUc6ZMnTm_jhKP8
+// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@HmNOPN5KW9UnUKYzr6Z3C2OZooQ
 package mcpvalidatespecs
 
 import (
@@ -57,7 +57,6 @@ func MCPValidateSpecs() *ValidationReport {
 		Staleness:    []*StalenessEntry{},
 	}
 
-	// Step 1: Scan for all spec nodes.
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
 		report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
@@ -68,7 +67,6 @@ func MCPValidateSpecs() *ValidationReport {
 		return report
 	}
 
-	// Step 2: Discover all subdirectory paths under "code-from-spec/".
 	allDirs, err := collectSubdirs("code-from-spec")
 	if err != nil {
 		report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
@@ -79,7 +77,6 @@ func MCPValidateSpecs() *ValidationReport {
 		return report
 	}
 
-	// Step 3: Parse frontmatter and node body for each discovered node.
 	type parsedEntry struct {
 		logicalName string
 		fm          *frontmatter.Frontmatter
@@ -119,7 +116,6 @@ func MCPValidateSpecs() *ValidationReport {
 		})
 	}
 
-	// Step 4: Build SpecTreeValidateInput and run SpecTreeValidate.
 	validateInputs := make([]*spectreevalidate.SpecTreeValidateInput, 0, len(parsed))
 	for _, e := range parsed {
 		validateInputs = append(validateInputs, &spectreevalidate.SpecTreeValidateInput{
@@ -132,7 +128,6 @@ func MCPValidateSpecs() *ValidationReport {
 	formatErrs := spectreevalidate.SpecTreeValidate(validateInputs, allDirs)
 	report.FormatErrors = append(report.FormatErrors, formatErrs...)
 
-	// Step 5: Rank nodes (only if no format errors so far).
 	rankedEntries := []*noderanking.NodeRankEntry{}
 	cycles := []string{}
 
@@ -160,14 +155,11 @@ func MCPValidateSpecs() *ValidationReport {
 
 	report.Cycles = cycles
 
-	// Build a rank lookup map keyed by logical name.
 	rankByName := make(map[string]int, len(rankedEntries))
 	for _, re := range rankedEntries {
 		rankByName[re.LogicalName] = re.Rank
 	}
 
-	// Step 6: Determine processing order and check staleness.
-	// Only process nodes that have a non-empty output in their frontmatter.
 	type orderedNode struct {
 		logicalName string
 		fm          *frontmatter.Frontmatter
@@ -208,7 +200,6 @@ func MCPValidateSpecs() *ValidationReport {
 	for _, on := range toCheck {
 		nodeRank := on.rank
 
-		// Step 6a: Resolve the chain.
 		chain, chainErr := chainresolver.ChainResolve(on.logicalName)
 		if chainErr != nil {
 			stalenessEntries = append(stalenessEntries, &StalenessEntry{
@@ -221,7 +212,6 @@ func MCPValidateSpecs() *ValidationReport {
 			continue
 		}
 
-		// Step 6b: Compute the chain hash.
 		expectedHash, hashErr := chainhash.ChainHashCompute(chain)
 		if hashErr != nil {
 			stalenessEntries = append(stalenessEntries, &StalenessEntry{
@@ -234,7 +224,6 @@ func MCPValidateSpecs() *ValidationReport {
 			continue
 		}
 
-		// Step 6c: Extract the artifact tag from the output file.
 		outputPath := &pathutils.PathCfs{Value: on.fm.Output}
 		tag, tagErr := artifacttag.ArtifactTagExtract(outputPath)
 		if tagErr != nil {
@@ -269,7 +258,6 @@ func MCPValidateSpecs() *ValidationReport {
 		}
 	}
 
-	// Step 7: Sort staleness entries by rank ascending, then logical name ascending.
 	sort.Slice(stalenessEntries, func(i, j int) bool {
 		if stalenessEntries[i].Rank != stalenessEntries[j].Rank {
 			return stalenessEntries[i].Rank < stalenessEntries[j].Rank

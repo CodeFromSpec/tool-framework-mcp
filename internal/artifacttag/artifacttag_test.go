@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/parsing/artifact_tag@AIk5dXsXveMQapj03hGtyPlO5zw
+// code-from-spec: SPEC/golang/tests/parsing/artifact_tag@wujUyrN_lS8brWADgoJXXVUSOP4
 package artifacttag_test
 
 import (

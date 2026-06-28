@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/chain/hash@gY7x5oNEcsIHSGf3VyaLaBmQFF8
+// code-from-spec: SPEC/golang/tests/chain/hash@dFoUD-NCn07tdOD4CyMtc0uBQiE
 package chainhash_test
 
 import (

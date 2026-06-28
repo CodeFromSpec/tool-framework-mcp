@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/utils/node_ranking@_GE-wze4pr2JQ06vZi26j_OuHPQ)
+[//]: # (code-from-spec: SPEC/golang/interfaces/utils/node_ranking@wQ0XNEvAtWZmOdo9HqwYM5Hqcv8)
 
 # Package `noderanking`
 

@@ -1,4 +1,4 @@
-# code-from-spec: SPEC/golang/interfaces/spec_tree/scan@j8xWADoWKb5oSRIIN6TG-uQJtDo
+# code-from-spec: SPEC/golang/interfaces/spec_tree/scan@bZCMfl_7gogJBEGz2I4eAYyAZk0
 
 # Package `spectree` — SpecTreeScan
 

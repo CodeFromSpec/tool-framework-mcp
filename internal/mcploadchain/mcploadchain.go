@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@tK1-eqlF_FwNqPgGj-49G1HXagU
+// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@wYbzFjc968FPik0Qzx5l4PNso2A
 package mcploadchain
 
 import (
