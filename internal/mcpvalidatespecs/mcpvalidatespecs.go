@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@iEV8rx6dz0wunSX5WJRmTeptsP8
+// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@quCbeQLD2zh_oUc6ZMnTm_jhKP8
 package mcpvalidatespecs
 
 import (
@@ -147,19 +147,11 @@ func MCPValidateSpecs() *ValidationReport {
 
 		ranked, detectedCycles, rankErr := noderanking.NodeRankCompute(rankInputs)
 		if rankErr != nil {
-			if errors.Is(rankErr, noderanking.ErrUnresolvableReference) {
-				report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
-					Node:   "",
-					Rule:   "ranking",
-					Detail: rankErr.Error(),
-				})
-			} else {
-				report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
-					Node:   "",
-					Rule:   "ranking",
-					Detail: rankErr.Error(),
-				})
-			}
+			report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
+				Node:   "",
+				Rule:   "ranking",
+				Detail: rankErr.Error(),
+			})
 		} else {
 			rankedEntries = ranked
 			cycles = detectedCycles

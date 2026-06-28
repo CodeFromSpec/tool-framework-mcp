@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@NaHpCniq3-70y9BAy4fXckw2Tdw
+// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@c7mQbB9rvtcBjxvtWi_MWkLa9nY
 package mcpwritefile
 
 import (
