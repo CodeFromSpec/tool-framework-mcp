@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/chain/hash@PUke3CyZJ7RxNZWxGtQ1R4-dsMU
+// code-from-spec: SPEC/golang/implementation/chain/hash@2ocQDHyeDy3KJjNkWay66tM7kS8
 package chainhash
 
 import (
@@ -10,7 +10,6 @@ import (
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
@@ -180,19 +179,19 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 		if dep == nil {
 			continue
 		}
-		if logicalnames.LogicalNameIsArtifact(dep.UnqualifiedLogicalName) {
+		if strings.HasPrefix(dep.UnqualifiedLogicalName, "ARTIFACT/") {
 			h, err := hashFileContent(dep.FilePath, true)
 			if err != nil {
 				return "", err
 			}
 			hashes = append(hashes, h)
-		} else if logicalnames.LogicalNameIsExternal(dep.UnqualifiedLogicalName) {
+		} else if strings.HasPrefix(dep.UnqualifiedLogicalName, "EXTERNAL/") {
 			h, err := hashFileContent(dep.FilePath, false)
 			if err != nil {
 				return "", err
 			}
 			hashes = append(hashes, h)
-		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) {
+		} else if strings.HasPrefix(dep.UnqualifiedLogicalName, "SPEC/") || dep.UnqualifiedLogicalName == "SPEC" {
 			node, err := parsenode.NodeParse(dep.UnqualifiedLogicalName)
 			if err != nil {
 				return "", fmt.Errorf("%w: dependency %s: %s", ErrParseFailure, dep.UnqualifiedLogicalName, err)
@@ -230,13 +229,13 @@ func ChainHashCompute(chain *chainresolver.Chain) (string, error) {
 
 	if chain.Input != nil {
 		input := chain.Input
-		if logicalnames.LogicalNameIsArtifact(input.UnqualifiedLogicalName) {
+		if strings.HasPrefix(input.UnqualifiedLogicalName, "ARTIFACT/") {
 			h, err := hashFileContent(input.FilePath, true)
 			if err != nil {
 				return "", err
 			}
 			hashes = append(hashes, h)
-		} else if logicalnames.LogicalNameIsExternal(input.UnqualifiedLogicalName) {
+		} else if strings.HasPrefix(input.UnqualifiedLogicalName, "EXTERNAL/") {
 			h, err := hashFileContent(input.FilePath, false)
 			if err != nil {
 				return "", err

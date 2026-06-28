@@ -338,8 +338,7 @@ Expected: Error ErrUnresolvableArtifact.
 Actions:
 1. Call ChainResolve("INVALID/something").
 
-Expected: Error propagated from LogicalNameGetParent
-or LogicalNameToPath.
+Expected: Error propagated from LogicalNameParse.
 
 #### Unreadable frontmatter
 

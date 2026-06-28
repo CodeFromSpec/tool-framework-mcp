@@ -13,312 +13,242 @@ Unit tests for the logicalnames package.
 
 ## Context
 
-Pure function tests — no filesystem or temp directories
-needed. Each test calls the function with a string input
-and asserts the output.
+Tests for `LogicalNameParse` and `LogicalNameFromPath`.
+
+SPEC and EXTERNAL tests are pure string parsing — no
+filesystem needed. ARTIFACT tests require a temp
+directory with a `_node.md` file containing frontmatter
+with an `output` field, because `LogicalNameParse` reads
+the generator's frontmatter.
+
+ARTIFACT tests use the `testChdir` pattern: create a
+temp dir, chdir to it, create the necessary
+`code-from-spec/.../_node.md` files, then call
+`LogicalNameParse`.
 
 ## Test cases
 
-### LogicalNameToPath
+### LogicalNameParse — SPEC type
 
 #### SPEC alone
 
-Input: "SPEC". Expect: PathCfs
-`code-from-spec/_node.md`.
+Input: "SPEC".
+Expect: Type = NodeTypeSpec, Name = "SPEC",
+Qualifier = nil, Path = "code-from-spec/_node.md",
+Parent = nil.
 
-#### SPEC with path
+#### SPEC with single segment
 
-Input: "SPEC/payments/processor". Expect: PathCfs
-`code-from-spec/payments/processor/_node.md`.
+Input: "SPEC/domain".
+Expect: Type = NodeTypeSpec, Name = "SPEC/domain",
+Qualifier = nil,
+Path = "code-from-spec/domain/_node.md",
+Parent = pointer to "SPEC".
 
-#### Strips qualifier before resolving
+#### SPEC with nested path
 
-Input: "SPEC/x/y(interface)". Expect: PathCfs
-`code-from-spec/x/y/_node.md`.
+Input: "SPEC/payments/fees/calculation".
+Expect: Type = NodeTypeSpec,
+Name = "SPEC/payments/fees/calculation",
+Qualifier = nil,
+Path = "code-from-spec/payments/fees/calculation/_node.md",
+Parent = pointer to "SPEC/payments/fees".
 
-#### Rejects ROOT reference
+#### SPEC with qualifier
 
-Input: "ROOT/x". Expect error ErrUnsupportedReference.
+Input: "SPEC/x/y(interface)".
+Expect: Type = NodeTypeSpec, Name = "SPEC/x/y",
+Qualifier = pointer to "interface",
+Path = "code-from-spec/x/y/_node.md",
+Parent = pointer to "SPEC/x".
 
-#### Rejects ARTIFACT reference
+#### SPEC with qualifier — root level
 
-Input: "ARTIFACT/x". Expect error
-ErrUnsupportedReference.
+Input: "SPEC(context)".
+Expect: Type = NodeTypeSpec, Name = "SPEC",
+Qualifier = pointer to "context",
+Path = "code-from-spec/_node.md",
+Parent = nil.
 
-#### Rejects EXTERNAL reference
+#### SPEC with qualifier — parent is computed from unqualified name
 
-Input: "EXTERNAL/proto/api.proto". Expect error
-ErrUnsupportedReference.
+Input: "SPEC/domain/config(interface)".
+Expect: Type = NodeTypeSpec,
+Name = "SPEC/domain/config",
+Qualifier = pointer to "interface",
+Path = "code-from-spec/domain/config/_node.md",
+Parent = pointer to "SPEC/domain".
 
-#### Rejects unrecognized prefix
+### LogicalNameParse — EXTERNAL type
 
-Input: "UNKNOWN/something". Expect error
-ErrUnsupportedReference.
+#### Simple external path
 
-#### Rejects empty string
+Input: "EXTERNAL/proto/v1/api.proto".
+Expect: Type = NodeTypeExternal,
+Name = "EXTERNAL/proto/v1/api.proto",
+Qualifier = nil, Path = "proto/v1/api.proto",
+Parent = nil.
 
-Input: "". Expect error ErrUnsupportedReference.
+#### Root-level external file
+
+Input: "EXTERNAL/docker-compose.yaml".
+Expect: Type = NodeTypeExternal,
+Name = "EXTERNAL/docker-compose.yaml",
+Qualifier = nil, Path = "docker-compose.yaml",
+Parent = nil.
+
+#### Deeply nested external path
+
+Input: "EXTERNAL/a/b/c/d/schema.proto".
+Expect: Type = NodeTypeExternal,
+Name = "EXTERNAL/a/b/c/d/schema.proto",
+Qualifier = nil, Path = "a/b/c/d/schema.proto",
+Parent = nil.
+
+### LogicalNameParse — ARTIFACT type
+
+These tests use the `testChdir` pattern. Before each
+test, create a temp dir, chdir to it, and create the
+generator's `_node.md` with frontmatter.
+
+#### Simple artifact
+
+Setup: create file
+`code-from-spec/extraction/proto/_node.md` with:
+```
+---
+output: internal/extraction/proto.go
+---
+# SPEC/extraction/proto
+```
+
+Input: "ARTIFACT/extraction/proto".
+Expect: Type = NodeTypeArtifact,
+Name = "ARTIFACT/extraction/proto",
+Qualifier = nil,
+Path = "internal/extraction/proto.go",
+Parent = pointer to "SPEC/extraction/proto".
+
+#### Artifact with nested generator
+
+Setup: create file
+`code-from-spec/payments/fees/calculation/_node.md` with:
+```
+---
+output: internal/fees/calculation.go
+---
+# SPEC/payments/fees/calculation
+```
+
+Input: "ARTIFACT/payments/fees/calculation".
+Expect: Type = NodeTypeArtifact,
+Name = "ARTIFACT/payments/fees/calculation",
+Qualifier = nil,
+Path = "internal/fees/calculation.go",
+Parent = pointer to "SPEC/payments/fees/calculation".
+
+#### Artifact generator has no output
+
+Setup: create file
+`code-from-spec/docs/overview/_node.md` with:
+```
+---
+---
+# SPEC/docs/overview
+```
+
+Input: "ARTIFACT/docs/overview".
+Expect error: ErrNoOutput.
+
+#### Artifact generator does not exist on disk
+
+Input: "ARTIFACT/nonexistent/node".
+Expect error: propagated from FrontmatterParse
+(generator's _node.md file is missing).
+
+### LogicalNameParse — errors
+
+#### Unrecognized prefix
+
+Input: "UNKNOWN/something".
+Expect error: ErrUnrecognizedPrefix.
+
+#### Empty string
+
+Input: "".
+Expect error: ErrUnrecognizedPrefix.
+
+#### ROOT prefix
+
+Input: "ROOT/x".
+Expect error: ErrUnrecognizedPrefix.
+
+#### SPEC/ with empty relative path
+
+Input: "SPEC/".
+Expect error: ErrInvalidName.
+
+#### ARTIFACT/ with empty relative path
+
+Input: "ARTIFACT/".
+Expect error: ErrInvalidName.
+
+#### EXTERNAL/ with empty relative path
+
+Input: "EXTERNAL/".
+Expect error: ErrInvalidName.
 
 ### LogicalNameFromPath
 
 #### Root node
 
-Input: PathCfs `code-from-spec/_node.md`.
-Expect: "SPEC".
+Input: PathCfs "code-from-spec/_node.md".
+Expect: Type = NodeTypeSpec, Name = "SPEC",
+Qualifier = nil,
+Path = "code-from-spec/_node.md",
+Parent = nil.
 
 #### Nested node
 
-Input: PathCfs `code-from-spec/x/y/_node.md`.
-Expect: "SPEC/x/y".
+Input: PathCfs "code-from-spec/x/y/_node.md".
+Expect: Type = NodeTypeSpec, Name = "SPEC/x/y",
+Qualifier = nil,
+Path = "code-from-spec/x/y/_node.md",
+Parent = pointer to "SPEC/x".
 
-#### Rejects non-node path
+#### Deeply nested node
 
-Input: PathCfs `internal/config/config.go`.
-Expect error ErrInvalidPath.
+Input: PathCfs "code-from-spec/a/b/c/d/_node.md".
+Expect: Type = NodeTypeSpec, Name = "SPEC/a/b/c/d",
+Qualifier = nil,
+Path = "code-from-spec/a/b/c/d/_node.md",
+Parent = pointer to "SPEC/a/b/c".
+
+#### Rejects non-spec path
+
+Input: PathCfs "internal/config/config.go".
+Expect error: ErrInvalidPath.
 
 #### Rejects path without _node.md
 
-Input: PathCfs `code-from-spec/x/y/output.md`.
-Expect error ErrInvalidPath.
+Input: PathCfs "code-from-spec/x/y/output.md".
+Expect error: ErrInvalidPath.
 
-### LogicalNameGetParent
+#### Rejects path not starting with code-from-spec/
 
-#### SPEC/x parent is SPEC
-
-Input: "SPEC/domain". Expect: "SPEC".
-
-#### SPEC/x/y parent is SPEC/x
-
-Input: "SPEC/domain/config". Expect: "SPEC/domain".
-
-#### Strips qualifier before computing parent
-
-Input: "SPEC/domain/config(interface)".
-Expect: "SPEC/domain".
-
-#### SPEC has no parent
-
-Input: "SPEC". Expect error ErrNoParent.
-
-#### Rejects ROOT reference
-
-Input: "ROOT/domain". Expect error
-ErrNotASpecReference.
-
-#### Rejects ARTIFACT reference
-
-Input: "ARTIFACT/x". Expect error
-ErrNotASpecReference.
-
-#### Rejects EXTERNAL reference
-
-Input: "EXTERNAL/x". Expect error
-ErrNotASpecReference.
-
-### LogicalNameGetQualifier
-
-#### Extracts qualifier from SPEC reference
-
-Input: "SPEC/x/y(interface)". Expect: "interface",
-true.
-
-#### ARTIFACT without qualifier returns absent
-
-Input: "ARTIFACT/x/y". Expect: "", false.
-
-#### EXTERNAL without qualifier returns absent
-
-Input: "EXTERNAL/proto/api.proto". Expect: "", false.
-
-#### Returns absent when no qualifier
-
-Input: "SPEC/x/y". Expect: "", false.
-
-#### Returns absent for SPEC alone
-
-Input: "SPEC". Expect: "", false.
-
-### LogicalNameStripQualifier
-
-#### Strips qualifier from SPEC reference
-
-Input: "SPEC/x/y(interface)". Expect: "SPEC/x/y".
-
-#### ARTIFACT without qualifier — returns unchanged
-
-Input: "ARTIFACT/x/y". Expect: "ARTIFACT/x/y".
-
-#### EXTERNAL — returns unchanged
-
-Input: "EXTERNAL/proto/api.proto".
-Expect: "EXTERNAL/proto/api.proto".
-
-#### No qualifier — returns unchanged
-
-Input: "SPEC/x/y". Expect: "SPEC/x/y".
-
-#### SPEC alone — returns unchanged
-
-Input: "SPEC". Expect: "SPEC".
-
-#### Empty string — returns unchanged
-
-Input: "". Expect: "".
-
-### LogicalNameHasParent
-
-#### SPEC alone
-
-Input: "SPEC". Expect: false.
-
-#### SPEC with path
-
-Input: "SPEC/domain/config". Expect: true.
-
-#### ARTIFACT reference
-
-Input: "ARTIFACT/x". Expect: false.
-
-#### EXTERNAL reference
-
-Input: "EXTERNAL/x". Expect: false.
-
-#### Empty string
-
-Input: "". Expect: false.
-
-### LogicalNameHasQualifier
-
-#### Without qualifier
-
-Input: "SPEC/x". Expect: false.
-
-#### With qualifier
-
-Input: "SPEC/x(y)". Expect: true.
-
-#### ARTIFACT without qualifier
-
-Input: "ARTIFACT/x". Expect: false.
-
-#### EXTERNAL without qualifier
-
-Input: "EXTERNAL/x". Expect: false.
-
-#### SPEC alone
-
-Input: "SPEC". Expect: false.
-
-#### Empty string
-
-Input: "". Expect: false.
-
-### LogicalNameIsArtifact
-
-#### ARTIFACT reference
-
-Input: "ARTIFACT/x". Expect: true.
-
-#### SPEC reference
-
-Input: "SPEC/x(y)". Expect: false.
-
-#### EXTERNAL reference
-
-Input: "EXTERNAL/x". Expect: false.
-
-#### Empty string
-
-Input: "". Expect: false.
-
-### LogicalNameIsSpec
-
-#### SPEC alone
-
-Input: "SPEC". Expect: true.
-
-#### SPEC with path
-
-Input: "SPEC/x/y". Expect: true.
-
-#### ROOT reference — not SPEC
-
-Input: "ROOT/x". Expect: false.
-
-#### ARTIFACT reference
-
-Input: "ARTIFACT/x". Expect: false.
-
-#### EXTERNAL reference
-
-Input: "EXTERNAL/x". Expect: false.
-
-#### Empty string
-
-Input: "". Expect: false.
-
-### LogicalNameIsExternal
-
-#### EXTERNAL reference
-
-Input: "EXTERNAL/proto/api.proto". Expect: true.
-
-#### SPEC reference
-
-Input: "SPEC/x". Expect: false.
-
-#### ARTIFACT reference
-
-Input: "ARTIFACT/x". Expect: false.
-
-#### Empty string
-
-Input: "". Expect: false.
-
-### LogicalNameGetArtifactGenerator
-
-#### Simple artifact
-
-Input: "ARTIFACT/x". Expect: "SPEC/x".
-
-#### Nested artifact
-
-Input: "ARTIFACT/x/y/z". Expect: "SPEC/x/y/z".
-
-#### Rejects SPEC reference
-
-Input: "SPEC/x(y)". Expect error
-ErrNotAnArtifactReference.
-
-#### Rejects EXTERNAL reference
-
-Input: "EXTERNAL/x". Expect error
-ErrNotAnArtifactReference.
-
-### LogicalNameExternalToPath
-
-#### Simple path
-
-Input: "EXTERNAL/proto/v1/api.proto".
-Expect: PathCfs `proto/v1/api.proto`.
-
-#### Root-level file
-
-Input: "EXTERNAL/docker-compose.yaml".
-Expect: PathCfs `docker-compose.yaml`.
-
-#### Rejects SPEC reference
-
-Input: "SPEC/x". Expect error
-ErrNotAnExternalReference.
-
-#### Rejects ARTIFACT reference
-
-Input: "ARTIFACT/x". Expect error
-ErrNotAnExternalReference.
+Input: PathCfs "other/x/_node.md".
+Expect error: ErrInvalidPath.
 
 ## Go-specific guidance
 
 - The package name is `logicalnames_test` (external
   test package).
-- Pure function tests — no file I/O needed.
+- SPEC and EXTERNAL tests are pure — no filesystem
+  needed.
+- ARTIFACT tests and LogicalNameFromPath tests do not
+  need filesystem either — except for the ARTIFACT
+  tests that call `LogicalNameParse` (which reads
+  frontmatter). Those use the `testChdir` pattern.
+- Use table-driven tests where appropriate.
+- Compare pointer fields: for nil, check `== nil`;
+  for non-nil, dereference and compare the string value.

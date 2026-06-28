@@ -1,13 +1,15 @@
 ---
 depends_on:
   - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/frontmatter
 output: internal/logicalnames/logicalnames.go
 ---
 
 # SPEC/golang/implementation/utils/logical_names
 
-Maps logical names to file paths and provides utilities
-for navigating the spec tree hierarchy.
+Parses logical names into a structured representation
+with all resolved information: type, unqualified name,
+qualifier, file path, and parent.
 
 # Public
 
@@ -22,43 +24,74 @@ for navigating the spec tree hierarchy.
 ## Interface
 
 ```go
-func LogicalNameToPath(logicalName string) (pathutils.PathCfs, error)
-func LogicalNameFromPath(cfsPath pathutils.PathCfs) (string, error)
-func LogicalNameGetParent(logicalName string) (string, error)
-func LogicalNameGetQualifier(logicalName string) (string, bool)
-func LogicalNameStripQualifier(logicalName string) string
-func LogicalNameHasParent(logicalName string) bool
-func LogicalNameHasQualifier(logicalName string) bool
-func LogicalNameIsArtifact(logicalName string) bool
-func LogicalNameIsSpec(logicalName string) bool
-func LogicalNameIsExternal(logicalName string) bool
-func LogicalNameGetArtifactGenerator(logicalName string) (string, error)
-func LogicalNameExternalToPath(logicalName string) (pathutils.PathCfs, error)
+type NodeType int
+
+const (
+    NodeTypeSpec     NodeType = iota
+    NodeTypeArtifact
+    NodeTypeExternal
+)
+
+type LogicalName struct {
+    Type      NodeType
+    Name      string
+    Qualifier *string
+    Path      string
+    Parent    *string
+}
+
+func LogicalNameParse(logicalName string) (*LogicalName, error)
+func LogicalNameFromPath(cfsPath pathutils.PathCfs) (*LogicalName, error)
 ```
 
-### Errors
+### LogicalName fields
 
-- `ErrUnsupportedReference` (LogicalNameToPath)
-- `ErrInvalidPath` (LogicalNameFromPath)
-- `ErrNoParent` (LogicalNameGetParent)
-- `ErrNotASpecReference` (LogicalNameGetParent)
-- `ErrNotAnArtifactReference` (LogicalNameGetArtifactGenerator)
-- `ErrNotAnExternalReference` (LogicalNameExternalToPath)
+- **Type** — `NodeTypeSpec`, `NodeTypeArtifact`, or
+  `NodeTypeExternal`.
+- **Name** — the unqualified logical name including the
+  prefix. For `SPEC/x/y(z)`, Name is `SPEC/x/y`. For
+  `ARTIFACT/x`, Name is `ARTIFACT/x`. For
+  `EXTERNAL/f.go`, Name is `EXTERNAL/f.go`.
+- **Qualifier** — nil if absent. For `SPEC/x/y(z)`,
+  Qualifier points to `"z"`.
+- **Path** — resolved file path as a PathCfs value:
+  - SPEC: the `_node.md` path
+    (e.g. `code-from-spec/x/y/_node.md`).
+  - EXTERNAL: the file path relative to project root
+    (e.g. `README.md`).
+  - ARTIFACT: the value of `output` from the generator
+    node's frontmatter (e.g. `internal/foo/foo.go`).
+- **Parent** — nil for root SPEC nodes and EXTERNAL
+  references. For non-root SPEC nodes, the parent's
+  logical name (e.g. `SPEC/x` for `SPEC/x/y`). For
+  ARTIFACT references, the generator node's logical
+  name (e.g. `SPEC/x/y` for `ARTIFACT/x/y`).
 
-### Path resolution
+### LogicalNameParse
 
-| Logical name | PathCfs |
-|---|---|
-| `SPEC` | `code-from-spec/_node.md` |
-| `SPEC/x/y` | `code-from-spec/x/y/_node.md` |
-| `SPEC/x/y(z)` | `code-from-spec/x/y/_node.md` |
+Parses a logical name string into a fully resolved
+`LogicalName` struct.
 
-### Reverse resolution
+Errors:
+- `ErrUnrecognizedPrefix`: the string does not start
+  with `SPEC/`, `SPEC` (exact), `ARTIFACT/`, or
+  `EXTERNAL/`.
+- `ErrInvalidName`: the path portion is empty or
+  invalid after stripping the prefix.
+- `ErrNoOutput`: an ARTIFACT reference's generator node
+  has no `output` field in its frontmatter.
+- Propagated errors from `frontmatter.FrontmatterParse`.
 
-| PathCfs | Logical name |
-|---|---|
-| `code-from-spec/_node.md` | `SPEC` |
-| `code-from-spec/x/y/_node.md` | `SPEC/x/y` |
+### LogicalNameFromPath
+
+Reverse resolution: takes a PathCfs value like
+`code-from-spec/x/y/_node.md` and returns a
+`LogicalName` with Type = `NodeTypeSpec`, fully
+resolved.
+
+Errors:
+- `ErrInvalidPath`: the path does not match the
+  expected `code-from-spec/.../_node.md` pattern.
 
 # Agent
 
@@ -66,118 +99,97 @@ Implement the logical names component as a Go package.
 
 ## Logic
 
-### LogicalNameToPath(logical_name: string) -> pathutils.PathCfs
+### LogicalNameParse(logicalName: string) -> *LogicalName
 
-1. Call LogicalNameStripQualifier(logical_name) to
-   remove any qualifier. Store as `stripped`.
-2. If `stripped` is not exactly "SPEC" and does not
-   start with "SPEC/", raise error
-   UnsupportedReference.
-3. If `stripped` is exactly "SPEC", return PathCfs
-   with value "code-from-spec/_node.md".
-4. Remove the leading "SPEC/" prefix from `stripped`.
-   Store as `relative_path`.
-5. Return PathCfs with value
-   "code-from-spec/" + relative_path + "/_node.md".
+1. **Extract qualifier.** Find the first `(` in
+   logicalName. If found, find the matching `)` after
+   it. Extract the text between them as the qualifier
+   string. Let `stripped` be the portion before `(`.
+   If no `(`, qualifier is nil and `stripped` is
+   logicalName unchanged.
 
-### LogicalNameFromPath(cfs_path: pathutils.PathCfs) -> string
+2. **Classify by prefix.** Examine `stripped`:
 
-1. Let `path_value` be the value field of cfs_path.
-2. If path_value does not end with "/_node.md" and is
-   not exactly "code-from-spec/_node.md", raise error
-   InvalidPath.
-3. If path_value does not start with "code-from-spec/",
-   raise error InvalidPath.
-4. If path_value is exactly "code-from-spec/_node.md",
-   return "SPEC".
-5. Remove the leading "code-from-spec/" prefix. Remove
-   the trailing "/_node.md" suffix. Store as
-   `relative_path`.
-6. Return "SPEC/" + relative_path.
+   a. If `stripped` is exactly `"SPEC"`:
+      Return LogicalName with Type = NodeTypeSpec,
+      Name = "SPEC", Qualifier = qualifier,
+      Path = "code-from-spec/_node.md",
+      Parent = nil.
 
-### LogicalNameGetParent(logical_name: string) -> string
+   b. If `stripped` starts with `"SPEC/"`:
+      Let `relative` = stripped with "SPEC/" removed.
+      If `relative` is empty, raise ErrInvalidName.
+      Let path = "code-from-spec/" + relative +
+      "/_node.md".
+      Compute parent: find the last "/" in relative.
+      If no "/" found, parent = "SPEC".
+      If "/" found, parent = "SPEC/" + substring
+      before the last "/".
+      Return LogicalName with Type = NodeTypeSpec,
+      Name = stripped, Qualifier = qualifier,
+      Path = path, Parent = pointer to parent.
 
-1. Call LogicalNameStripQualifier(logical_name). Store
-   as `stripped`.
-2. If `stripped` is not exactly "SPEC" and does not
-   start with "SPEC/", raise error NotASpecReference.
-3. If `stripped` is exactly "SPEC", raise error
-   NoParent.
-4. Remove the leading "SPEC/" prefix. Store as
-   `relative_path`.
-5. Find the last "/" in `relative_path`.
-6. If no "/" is found, return "SPEC".
-7. Take the substring up to the last "/". Store as
-   `parent_relative`.
-8. Return "SPEC/" + parent_relative.
+   c. If `stripped` starts with `"ARTIFACT/"`:
+      Let `relative` = stripped with "ARTIFACT/" removed.
+      If `relative` is empty, raise ErrInvalidName.
+      Let generatorName = "SPEC/" + relative.
+      Let generatorPath = "code-from-spec/" + relative
+      + "/_node.md".
+      Call FrontmatterParse(PathCfs{Value:
+      generatorPath}). If it fails, propagate the error.
+      If frontmatter.Output is empty, raise ErrNoOutput.
+      Return LogicalName with Type = NodeTypeArtifact,
+      Name = stripped, Qualifier = nil,
+      Path = frontmatter.Output,
+      Parent = pointer to generatorName.
 
-### LogicalNameGetQualifier(logical_name: string) -> optional string
+   d. If `stripped` starts with `"EXTERNAL/"`:
+      Let `relative` = stripped with "EXTERNAL/" removed.
+      If `relative` is empty, raise ErrInvalidName.
+      Return LogicalName with Type = NodeTypeExternal,
+      Name = stripped, Qualifier = nil,
+      Path = relative, Parent = nil.
 
-1. Find the first "(" in logical_name.
-2. If no "(", return absent.
-3. Find the first ")" after the "(".
-4. If no ")", return absent.
-5. Extract substring between "(" and ")" (exclusive).
-6. Return it.
+   e. Otherwise: raise ErrUnrecognizedPrefix.
 
-### LogicalNameStripQualifier(logical_name: string) -> string
+### LogicalNameFromPath(cfsPath: PathCfs) -> *LogicalName
 
-1. Find the first "(" in logical_name.
-2. If no "(", return logical_name unchanged.
-3. Return the substring up to (not including) the "(".
+1. Let `value` = cfsPath.Value.
 
-### LogicalNameHasParent(logical_name: string) -> boolean
+2. If `value` does not start with "code-from-spec/",
+   raise ErrInvalidPath.
 
-1. Call LogicalNameStripQualifier(logical_name). Store
-   as `stripped`.
-2. If `stripped` starts with "SPEC/", return true.
-3. Return false.
+3. If `value` is exactly "code-from-spec/_node.md":
+   Return LogicalName with Type = NodeTypeSpec,
+   Name = "SPEC", Qualifier = nil,
+   Path = "code-from-spec/_node.md",
+   Parent = nil.
 
-### LogicalNameHasQualifier(logical_name: string) -> boolean
+4. If `value` does not end with "/_node.md",
+   raise ErrInvalidPath.
 
-1. Call LogicalNameGetQualifier(logical_name).
-2. If absent, return false.
-3. Return true.
+5. Remove "code-from-spec/" prefix and "/_node.md"
+   suffix. Let `relative` = the remainder.
+   If `relative` is empty, raise ErrInvalidPath.
 
-### LogicalNameIsArtifact(logical_name: string) -> boolean
+6. Let name = "SPEC/" + relative.
+   Compute parent: find the last "/" in relative.
+   If no "/" found, parent = "SPEC".
+   If "/" found, parent = "SPEC/" + substring before
+   the last "/".
 
-1. If logical_name starts with "ARTIFACT/", return true.
-2. Return false.
-
-### LogicalNameIsSpec(logical_name: string) -> boolean
-
-1. If logical_name is exactly "SPEC", return true.
-2. If logical_name starts with "SPEC/", return true.
-3. Return false.
-
-### LogicalNameIsExternal(logical_name: string) -> boolean
-
-1. If logical_name starts with "EXTERNAL/", return true.
-2. Return false.
-
-### LogicalNameGetArtifactGenerator(logical_name: string) -> string
-
-1. If logical_name does not start with "ARTIFACT/",
-   raise error NotAnArtifactReference.
-2. Remove the leading "ARTIFACT/" prefix. Store as
-   `relative_path`.
-3. Return "SPEC/" + relative_path.
-
-### LogicalNameExternalToPath(logical_name: string) -> pathutils.PathCfs
-
-1. If logical_name does not start with "EXTERNAL/",
-   raise error NotAnExternalReference.
-2. Remove the leading "EXTERNAL/" prefix. Store as
-   `relative_path`.
-3. Return PathCfs with value relative_path.
+7. Return LogicalName with Type = NodeTypeSpec,
+   Name = name, Qualifier = nil,
+   Path = value, Parent = pointer to parent.
 
 ## Go-specific guidance
 
-- Use `filepath` and `path` standard library packages
-  for path manipulation.
+- Use the `pathutils` package for `PathCfs`.
+- Use the `frontmatter` package for `FrontmatterParse`.
+- Define sentinel errors with `errors.New`:
+  `ErrUnrecognizedPrefix`, `ErrInvalidName`,
+  `ErrNoOutput`, `ErrInvalidPath`.
+- Wrap propagated errors with `fmt.Errorf` + `%w`.
+- For the qualifier pointer, use a helper like
+  `func stringPtr(s string) *string { return &s }`.
 - The package name should be `logicalnames`.
-- Functions that declare errors in the spec should
-  return `(result, error)` in Go.
-- Functions that return `optional` in the spec should
-  return `(result, bool)` in Go.
-- Boolean functions return a single `bool`.

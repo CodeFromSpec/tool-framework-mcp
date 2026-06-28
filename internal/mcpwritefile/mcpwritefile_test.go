@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/mcp_tools/write_file@ABcxMDvbb6CAIolbrUCI-oYety8
+// code-from-spec: SPEC/golang/tests/mcp_tools/write_file@ntUfUt9I27qY7yn-yKlZ3KlMBkA
 package mcpwritefile_test
 
 import (
@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
@@ -117,8 +116,8 @@ func TestMCPWriteFile_TC04_InvalidLogicalName_ArtifactReference(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
-		t.Errorf("expected ErrUnsupportedReference, got: %v", err)
+	if !errors.Is(err, mcpwritefile.ErrNotASpecReference) {
+		t.Errorf("expected ErrNotASpecReference, got: %v", err)
 	}
 }
 

@@ -76,12 +76,12 @@ Implement the load chain tool as a Go package.
 
 ### Step 1 — Validate and resolve
 
-1. Call `LogicalNameToPath(logical_name)` to get the
-   target node's file path. If it fails, propagate
-   the error.
+1. Call `LogicalNameParse(logical_name)` to parse
+   the target node. If it fails, propagate the error.
+   Let `ln` be the result.
 
-2. Call `FrontmatterParse(target_file_path)` to read
-   the target node's frontmatter. If
+2. Call `FrontmatterParse(PathCfs{Value: ln.Path})`
+   to read the target node's frontmatter. If
    `frontmatter.output` is empty, return error
    "NoOutput". Call `PathValidateCfs(frontmatter.output)`.
    If it fails, return error "InvalidOutputPath".
@@ -121,22 +121,23 @@ Implement the load chain tool as a Go package.
        Append `block` to `context_parts`.
 
    For each `dep` in `chain.dependencies` (in order):
-     If `LogicalNameIsArtifact(dep.unqualified_logical_name)`
-     is true:
+     If dep.unqualified_logical_name starts with
+     "ARTIFACT/":
        Call `FileOpen(dep.file_path, "read", 30000)`.
        Read all lines with `FileReadLine` until
        `EndOfFile`. Skip the first line that contains
        "code-from-spec:" (the artifact tag line).
        Include all other lines. Call `FileClose`.
        Append the resulting text to `context_parts`.
-     Else if `LogicalNameIsExternal(dep.unqualified_logical_name)`
-     is true:
+     Else if dep.unqualified_logical_name starts with
+     "EXTERNAL/":
        Call `FileOpen(dep.file_path, "read", 30000)`.
        Read all lines with `FileReadLine` until
        `EndOfFile`. Call `FileClose`.
        Append the full file content to `context_parts`.
-     Else if `LogicalNameIsSpec(dep.unqualified_logical_name)`
-     is true and `dep.qualifier` is absent:
+     Else if dep.unqualified_logical_name starts with
+     "SPEC/" or equals "SPEC", and `dep.qualifier` is
+     absent:
        Call `NodeParse(dep.unqualified_logical_name)`.
        If `node.public` is absent or
        `node.public.subsections` is empty, skip.
@@ -145,8 +146,9 @@ Implement the load chain tool as a Go package.
          in document order (same boundary normalization
          rules as for ancestors).
          Append `block` to `context_parts`.
-     Else if `LogicalNameIsSpec(dep.unqualified_logical_name)`
-     is true and `dep.qualifier` is present:
+     Else if dep.unqualified_logical_name starts with
+     "SPEC/" or equals "SPEC", and `dep.qualifier` is
+     present:
        Call `NodeParse(dep.unqualified_logical_name)`.
        Compute `normalized_qualifier` =
        `NormalizeText(dep.qualifier)`.
@@ -207,15 +209,15 @@ Implement the load chain tool as a Go package.
 
    If `chain.input` is present:
      Append line: "--- input ---"
-     If `LogicalNameIsArtifact(chain.input.unqualified_logical_name)`
-     is true:
+     If chain.input.unqualified_logical_name starts with
+     "ARTIFACT/":
        Call `FileOpen(chain.input.file_path, "read",
        30000)`. Read all lines with `FileReadLine`
        until `EndOfFile`. Skip the first line that
        contains "code-from-spec:". Include all other
        lines. Call `FileClose`. Append the resulting
        text.
-     Else (EXTERNAL/ or other):
+     Else:
        Call `FileOpen(chain.input.file_path, "read",
        30000)`. Read all lines with `FileReadLine`
        until `EndOfFile`. Call `FileClose`. Append
@@ -247,8 +249,9 @@ Implement the load chain tool as a Go package.
   and the `Frontmatter`, `FrontmatterExternal` records.
 - Use the `pathutils` package for `PathValidateCfs` and
   `PathCfs`.
-- Use the `logicalnames` package for `LogicalNameToPath`
-  and `LogicalNameIsArtifact`.
+- Use the `logicalnames` package for `LogicalNameParse`.
+  Type checks on `unqualified_logical_name` use string
+  prefix comparisons (`strings.HasPrefix`).
 - Use the `textnormalization` package for `NormalizeText`.
 - The package name should be `mcploadchain`.
 - `MCPLoadChainResult` is an exported struct.

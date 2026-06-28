@@ -73,10 +73,10 @@ interface artifact in this file.
         file. Otherwise, keep it.
 
 4. For each file that was not excluded, call
-   `LogicalNameFromPath` with the file's PathCfs to
-   derive its logical name. If `LogicalNameFromPath`
-   raises an error, propagate it. Build a SpecTreeNode
-   record with: logical_name = the derived logical name,
+   `LogicalNameFromPath` with the file's PathCfs.
+   If `LogicalNameFromPath` raises an error, propagate
+   it. Let `ln` be the result. Build a SpecTreeNode
+   record with: logical_name = ln.Name,
    file_path = the file's PathCfs.
 
 5. Sort all resulting SpecTreeNode records alphabetically

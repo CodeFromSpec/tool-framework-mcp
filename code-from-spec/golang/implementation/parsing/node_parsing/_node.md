@@ -73,20 +73,24 @@ Implement the node parsing component as a Go package.
 
 ## Logic
 
-1. If LogicalNameIsSpec(logical_name) is false,
+1. Call LogicalNameParse(logical_name).
+   If it fails, raise error "not a SPEC reference".
+   Let `ln` be the result.
+
+2. If ln.Type is not NodeTypeSpec,
      raise error "not a SPEC reference".
 
-2. If LogicalNameHasQualifier(logical_name) is true,
+3. If ln.Qualifier is not nil,
      raise error "has qualifier".
 
-3. Let cfs_path = LogicalNameToPath(logical_name).
+4. Let cfs_path = PathCfs{Value: ln.Path}.
 
-4. Let reader = FileOpen(cfs_path, mode "read",
+5. Let reader = FileOpen(cfs_path, mode "read",
    timeout_ms 30000).
      If FileOpen raises FileUnreadable or any PathUtils
      error, raise error "file unreadable".
 
-5. Skip frontmatter:
+6. Skip frontmatter:
      Let first_line = FileReadLine(reader).
        If first_line raises EndOfFile, go to step 6
        with empty body.
@@ -102,7 +106,7 @@ Implement the node parsing component as a Go package.
        Treat first_line as the first body line (do not
        discard it).
 
-6. Parse the body into sections:
+7. Parse the body into sections:
      Let name_section = absent.
      Let public_section = absent.
      Let agent_section = absent.
@@ -237,14 +241,14 @@ Implement the node parsing component as a Go package.
        Finalize current_section into the result
        record if present.
 
-7. If name_section is still absent:
+8. If name_section is still absent:
      call FileClose(reader),
      raise error "unexpected content before first
      heading".
 
-8. Call FileClose(reader).
+9. Call FileClose(reader).
 
-9. Return Node record with name_section, public,
+10. Return Node record with name_section, public,
    agent, private.
 
 ### ATX heading pattern
@@ -264,8 +268,10 @@ closing sequence must be preceded by at least one space.
 
 - Use `textnormalization.NormalizeText` for all heading
   comparisons.
-- Use `logicalnames.LogicalNameToPath` to resolve
-  logical names to file paths.
+- Use `logicalnames.LogicalNameParse` to parse and
+  validate the logical name. Access `ln.Path` for the
+  resolved file path. Use `logicalnames.NodeTypeSpec`
+  for type comparison.
 - Use the `file` package for file I/O: `FileOpen`,
   `FileReadLine`, `FileClose`.
 - The package name should be `parsenode`.

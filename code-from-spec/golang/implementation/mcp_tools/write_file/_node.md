@@ -42,6 +42,8 @@ A success message: `"wrote <path>"`.
 
 ### Errors
 
+- `ErrNotASpecReference`: the logical name is not a
+  SPEC/ reference.
 - `ErrQualifierNotAllowed`: the logical name contains
   a parenthetical qualifier.
 - `ErrUnreadableFrontmatter`: the node's frontmatter
@@ -58,43 +60,47 @@ Implement the write file tool as a Go package.
 
 ## Logic
 
-1. Call `LogicalNameHasQualifier` with logical_name.
-   If true, return error "qualifier not allowed".
+1. If logical_name does not start with "SPEC/" and
+   is not exactly "SPEC", return error
+   "not a SPEC reference".
 
-2. Call `LogicalNameToPath` with logical_name. If it
-   fails, propagate the error. Store the result as
-   node_path.
+2. Call `LogicalNameParse(logical_name)`.
+   If it fails, propagate the error.
+   Let `ln` be the result.
 
-3. Call `FrontmatterParse` with node_path. If it fails,
-   return error "unreadable frontmatter". Store the
-   result as frontmatter.
+3. If ln.Qualifier is not nil, return error
+   "qualifier not allowed".
 
-4. If `frontmatter.output` is empty, return error
+4. Call `FrontmatterParse(PathCfs{Value: ln.Path})`.
+   If it fails, return error "unreadable frontmatter".
+   Store the result as frontmatter.
+
+5. If `frontmatter.output` is empty, return error
    "no output".
 
-5. Call `PathValidateCfs` with path. If it fails,
+6. Call `PathValidateCfs` with path. If it fails,
    propagate the error.
 
-6. If path does not exactly match `frontmatter.output`,
+7. If path does not exactly match `frontmatter.output`,
    return error "path not in output".
 
-7. Construct a `PathCfs` record with value set to path.
+8. Construct a `PathCfs` record with value set to path.
    Call `FileOpen` with that PathCfs, mode "overwrite",
    and timeout 30000. If it fails, propagate the error.
    Store the result as handle.
 
-8. Call `FileWrite` with handle and content. If it
+9. Call `FileWrite` with handle and content. If it
    fails, call `FileClose` with handle, then propagate
    the error.
 
-9. Call `FileClose` with handle.
+10. Call `FileClose` with handle.
 
-10. Return "wrote <path>" where <path> is the path
+11. Return "wrote <path>" where <path> is the path
     string.
 
 ## Go-specific guidance
 
-- Use the `logicalnames` package for `LogicalNameToPath`.
+- Use the `logicalnames` package for `LogicalNameParse`.
 - Use the `frontmatter` package for `FrontmatterParse`.
 - Use the `pathutils` package for `PathValidateCfs` and
   `PathCfs`.

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/mcp_tools/load_chain@gExFd_bFbpVlcDAhnf7gP1eB5ag
+// code-from-spec: SPEC/golang/tests/mcp_tools/load_chain@G842K18g887ShS5wkvClBwwqE7o
 package mcploadchain_test
 
 import (
@@ -544,8 +544,8 @@ func TestMCPLoadChain_TC18_InvalidLogicalName(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
-		t.Errorf("expected ErrUnsupportedReference, got: %v", err)
+	if !errors.Is(err, logicalnames.ErrUnrecognizedPrefix) {
+		t.Errorf("expected ErrUnrecognizedPrefix, got: %v", err)
 	}
 }
 

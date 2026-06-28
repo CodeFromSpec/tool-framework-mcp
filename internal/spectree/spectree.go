@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/spec_tree/scan@R-yTJM0eF_O2mH_tgosFCN9Ou_8
+// code-from-spec: SPEC/golang/implementation/spec_tree/scan@K0YV7OWkG5ptPkUZnWeYELtBQiU
 package spectree
 
 import (
@@ -54,12 +54,12 @@ func SpecTreeScan() ([]*SpecTreeNode, error) {
 
 	var nodes []*SpecTreeNode
 	for _, f := range kept {
-		logicalName, err := logicalnames.LogicalNameFromPath(f)
+		ln, err := logicalnames.LogicalNameFromPath(f)
 		if err != nil {
 			return nil, fmt.Errorf("deriving logical name from %s: %w", f.Value, err)
 		}
 		nodes = append(nodes, &SpecTreeNode{
-			LogicalName: logicalName,
+			LogicalName: ln.Name,
 			FilePath:    f,
 		})
 	}

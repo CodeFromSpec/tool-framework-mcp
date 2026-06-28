@@ -53,8 +53,8 @@ chain_hash from MCPLoadChain.
 #### Invalid logical name — not SPEC/
 
 Call MCPChainHash with "INVALID/something". Expect
-error `logicalnames.ErrUnsupportedReference` (propagated
-from LogicalNameToPath).
+error `logicalnames.ErrUnrecognizedPrefix` (propagated
+from LogicalNameParse).
 
 #### Nonexistent node file
 

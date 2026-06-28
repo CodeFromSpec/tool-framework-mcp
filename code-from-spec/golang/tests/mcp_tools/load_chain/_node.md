@@ -327,7 +327,7 @@ Actions:
 1. Call `MCPLoadChain("INVALID/something")`.
 
 Expected:
-- Returns error `logicalnames.ErrUnsupportedReference`.
+- Returns error `logicalnames.ErrUnrecognizedPrefix`.
 
 #### Nonexistent node file
 

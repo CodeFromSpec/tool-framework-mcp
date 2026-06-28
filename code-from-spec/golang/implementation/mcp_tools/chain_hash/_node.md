@@ -56,13 +56,13 @@ Implement the `mcpchainhash` package.
 
 ### Step 1 — Validate
 
-Resolve the logical name to a file path using
-`logicalnames.LogicalNameToPath`. If it fails,
-wrap and return the error.
+Call `logicalnames.LogicalNameParse(logicalName)`.
+If it fails, wrap and return the error.
+Let `ln` be the result.
 
 Parse the target node's frontmatter using
-`frontmatter.FrontmatterParse`. If `fm.Output`
-is empty, return `ErrNoOutput`.
+`frontmatter.FrontmatterParse(PathCfs{Value: ln.Path})`.
+If `fm.Output` is empty, return `ErrNoOutput`.
 
 ### Step 2 — Resolve chain
 
@@ -78,7 +78,7 @@ Return the hash string.
 ## Go-specific guidance
 
 - Import `chainresolver`, `chainhash`, `frontmatter`,
-  `logicalnames` packages.
+  `logicalnames`, `pathutils` packages.
 - Wrap each error with `fmt.Errorf("context: %w", err)`
   to preserve the sentinel chain.
 

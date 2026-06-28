@@ -78,17 +78,22 @@ For each spec node entry in the entry map:
 
   Else:
     a. Parent dependency: Call
-       LogicalNameGetParent(logical_name) to get the
-       parent. Add the parent to the entry's deps list.
+       LogicalNameParse(logical_name). Let `ln` be
+       the result. If it fails, raise error
+       "UnresolvableReference". Add *ln.Parent to
+       the entry's deps list.
 
     b. depends_on dependencies: For each reference in
        frontmatter.depends_on:
-         If LogicalNameIsSpec(reference) is true:
-           Call LogicalNameStripQualifier(reference) to
-           get bare_name.
-           If bare_name is not a key in the entry map:
+         If reference starts with "SPEC/" or equals
+         "SPEC":
+           Call LogicalNameParse(reference). If it
+           fails, raise error "UnresolvableReference".
+           Let `dep_ln` be the result.
+           If dep_ln.Name is not a key in the entry
+           map:
              Raise error "UnresolvableReference"
-           Add bare_name to the entry's deps list.
+           Add dep_ln.Name to the entry's deps list.
          Else if reference starts with "ARTIFACT/":
            If reference is not a key in the entry map:
              Raise error "UnresolvableReference"
@@ -158,7 +163,8 @@ Return (ranked: ranked list, cycles: cycles).
 - Use the `frontmatter` package for the `Frontmatter`
   record.
 - Use the `logicalnames` package for
-  `LogicalNameGetParent`.
+  `LogicalNameParse`, `NodeTypeSpec`,
+  `NodeTypeArtifact`, `NodeTypeExternal`.
 - The package name should be `noderanking`.
 - `NodeRankInput` and `NodeRankEntry` are exported
   structs in this package.

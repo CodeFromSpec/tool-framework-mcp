@@ -1,9 +1,10 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@xvDjTYPwkwSytmGacxZYRLsO7Kg
+// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@5LdN_Bu9iFk6aUhBydnxT4zuNKs
 package mcpwritefile
 
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
@@ -11,22 +12,27 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
+var ErrNotASpecReference = errors.New("not a SPEC reference")
 var ErrQualifierNotAllowed = errors.New("qualifier not allowed")
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
 var ErrNoOutput = errors.New("no output")
 var ErrPathNotInOutput = errors.New("path not in output")
 
 func MCPWriteFile(logicalName string, path string, content string) (string, error) {
-	if logicalnames.LogicalNameHasQualifier(logicalName) {
+	if logicalName != "SPEC" && !strings.HasPrefix(logicalName, "SPEC/") {
+		return "", ErrNotASpecReference
+	}
+
+	ln, err := logicalnames.LogicalNameParse(logicalName)
+	if err != nil {
+		return "", fmt.Errorf("parsing logical name: %w", err)
+	}
+
+	if ln.Qualifier != nil {
 		return "", ErrQualifierNotAllowed
 	}
 
-	nodePath, err := logicalnames.LogicalNameToPath(logicalName)
-	if err != nil {
-		return "", fmt.Errorf("resolving logical name: %w", err)
-	}
-
-	fm, err := frontmatter.FrontmatterParse(nodePath)
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: ln.Path})
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
 	}

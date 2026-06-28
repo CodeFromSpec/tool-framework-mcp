@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/chain_hash@NmhDSXBSbU5o0EUg0rR5PMiTMOc
+// code-from-spec: SPEC/golang/implementation/mcp_tools/chain_hash@oUGFSHF0qQmG240rxqBHBuSkJvs
 package mcpchainhash
 
 import (
@@ -9,17 +9,18 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
 var ErrNoOutput = errors.New("no output")
 
 func MCPChainHash(logicalName string) (string, error) {
-	filePath, err := logicalnames.LogicalNameToPath(logicalName)
+	ln, err := logicalnames.LogicalNameParse(logicalName)
 	if err != nil {
-		return "", fmt.Errorf("resolving logical name: %w", err)
+		return "", fmt.Errorf("parsing logical name: %w", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(filePath)
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: ln.Path})
 	if err != nil {
 		return "", fmt.Errorf("parsing frontmatter: %w", err)
 	}

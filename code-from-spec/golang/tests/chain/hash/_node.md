@@ -6,7 +6,6 @@ depends_on:
   - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
-  - SPEC/golang/implementation/utils/logical_names
 output: internal/chainhash/chainhash_test.go
 ---
 

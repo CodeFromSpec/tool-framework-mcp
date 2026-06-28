@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@ochogHk1DLm8TJdZeUX0RF-bgL4
+// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@EeCXJrCST2z2RprvutvDpvLh4vQ
 package mcploadchain
 
 import (
@@ -20,12 +20,16 @@ var ErrNoOutput = errors.New("no output")
 var ErrInvalidOutputPath = errors.New("invalid output path")
 
 func MCPLoadChain(logicalName string) (string, error) {
-	targetFilePath, err := logicalnames.LogicalNameToPath(logicalName)
+	ln, err := logicalnames.LogicalNameParse(logicalName)
 	if err != nil {
-		return "", fmt.Errorf("resolving logical name: %w", err)
+		return "", fmt.Errorf("parsing logical name: %w", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(targetFilePath)
+	if ln.Type != logicalnames.NodeTypeSpec {
+		return "", fmt.Errorf("only SPEC nodes are accepted, got type %d", ln.Type)
+	}
+
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: ln.Path})
 	if err != nil {
 		return "", fmt.Errorf("parsing frontmatter: %w", err)
 	}
@@ -69,19 +73,19 @@ func MCPLoadChain(logicalName string) (string, error) {
 		if dep == nil {
 			continue
 		}
-		if logicalnames.LogicalNameIsArtifact(dep.UnqualifiedLogicalName) {
+		if strings.HasPrefix(dep.UnqualifiedLogicalName, "ARTIFACT/") {
 			content, err := readFileSkippingArtifactTag(dep.FilePath)
 			if err != nil {
 				return "", fmt.Errorf("reading artifact dependency %q: %w", dep.UnqualifiedLogicalName, err)
 			}
 			contextParts = append(contextParts, content)
-		} else if logicalnames.LogicalNameIsExternal(dep.UnqualifiedLogicalName) {
+		} else if strings.HasPrefix(dep.UnqualifiedLogicalName, "EXTERNAL/") {
 			content, err := readFileAll(dep.FilePath)
 			if err != nil {
 				return "", fmt.Errorf("reading external dependency %q: %w", dep.UnqualifiedLogicalName, err)
 			}
 			contextParts = append(contextParts, content)
-		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) {
+		} else if strings.HasPrefix(dep.UnqualifiedLogicalName, "SPEC/") || dep.UnqualifiedLogicalName == "SPEC" {
 			node, err := parsenode.NodeParse(dep.UnqualifiedLogicalName)
 			if err != nil {
 				return "", fmt.Errorf("parsing dependency node %q: %w", dep.UnqualifiedLogicalName, err)
@@ -99,7 +103,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 				normalizedQualifier := textnormalization.NormalizeText(dep.Qualifier)
 				var found *parsenode.NodeSubsection
 				for _, sub := range node.Public.Subsections {
-					if sub.Heading == normalizedQualifier {
+					if sub != nil && sub.Heading == normalizedQualifier {
 						found = sub
 						break
 					}
@@ -142,7 +146,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 	if chain.Input != nil {
 		sb.WriteString("\n--- input ---\n")
 		var inputContent string
-		if logicalnames.LogicalNameIsArtifact(chain.Input.UnqualifiedLogicalName) {
+		if strings.HasPrefix(chain.Input.UnqualifiedLogicalName, "ARTIFACT/") {
 			inputContent, err = readFileSkippingArtifactTag(chain.Input.FilePath)
 			if err != nil {
 				return "", fmt.Errorf("reading input artifact: %w", err)
@@ -173,7 +177,7 @@ func readFileAll(cfsPath pathutils.PathCfs) (string, error) {
 	}
 	defer file.FileClose(handle)
 
-	var lines []string
+	var sb strings.Builder
 	for {
 		line, err := file.FileReadLine(handle)
 		if errors.Is(err, file.ErrEndOfFile) {
@@ -182,11 +186,6 @@ func readFileAll(cfsPath pathutils.PathCfs) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		lines = append(lines, line)
-	}
-
-	var sb strings.Builder
-	for _, line := range lines {
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
@@ -200,7 +199,7 @@ func readFileSkippingArtifactTag(cfsPath pathutils.PathCfs) (string, error) {
 	}
 	defer file.FileClose(handle)
 
-	var lines []string
+	var sb strings.Builder
 	artifactTagSkipped := false
 	for {
 		line, err := file.FileReadLine(handle)
@@ -214,11 +213,6 @@ func readFileSkippingArtifactTag(cfsPath pathutils.PathCfs) (string, error) {
 			artifactTagSkipped = true
 			continue
 		}
-		lines = append(lines, line)
-	}
-
-	var sb strings.Builder
-	for _, line := range lines {
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
@@ -242,6 +236,9 @@ func buildSubsectionBlock(sub *parsenode.NodeSubsection) string {
 func buildPublicSubsectionsBlock(subsections []*parsenode.NodeSubsection) string {
 	var blocks []string
 	for _, sub := range subsections {
+		if sub == nil {
+			continue
+		}
 		blocks = append(blocks, buildSubsectionBlock(sub))
 	}
 	return strings.Join(blocks, "\n")
@@ -262,6 +259,9 @@ func buildAgentBlock(node *parsenode.Node) string {
 	}
 
 	for _, sub := range agent.Subsections {
+		if sub == nil {
+			continue
+		}
 		sb.WriteString("\n")
 		sb.WriteString(strings.TrimRight(sub.RawHeading, " \t"))
 		sb.WriteString("\n")

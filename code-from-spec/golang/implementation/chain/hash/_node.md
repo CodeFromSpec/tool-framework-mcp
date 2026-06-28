@@ -5,7 +5,6 @@ depends_on:
   - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
-  - SPEC/golang/implementation/utils/logical_names
   - SPEC/golang/implementation/utils/text_normalization
 output: internal/chainhash/chainhash.go
 ---
@@ -153,15 +152,18 @@ Let `hashes` = empty list of raw byte sequences
 
 2. For each `dep` in `chain.dependencies` (already
    sorted alphabetically by logical name):
-   a. If `LogicalNameIsArtifact(dep.unqualified_logical_name)`:
+   a. If dep.unqualified_logical_name starts with
+      "ARTIFACT/":
       Let `h` = `HashFileContent(dep.file_path,
       neutralize_artifact_tag=true)`.
       Append `h` to `hashes`.
-   b. Else if `LogicalNameIsExternal(dep.unqualified_logical_name)`:
+   b. Else if dep.unqualified_logical_name starts with
+      "EXTERNAL/":
       Let `h` = `HashFileContent(dep.file_path,
       neutralize_artifact_tag=false)`.
       Append `h` to `hashes`.
-   c. Else if `LogicalNameIsSpec(dep.unqualified_logical_name)`:
+   c. Else if dep.unqualified_logical_name starts with
+      "SPEC/" or equals "SPEC":
       Call `NodeParse(dep.unqualified_logical_name)`.
       If it fails, raise error "parse failure".
       If `dep.qualifier` is absent:
@@ -185,11 +187,13 @@ Let `hashes` = empty list of raw byte sequences
 
 5. If `chain.input` is present:
    a. Let `input` = `chain.input`.
-   b. If `LogicalNameIsArtifact(input.unqualified_logical_name)`:
+   b. If input.unqualified_logical_name starts with
+      "ARTIFACT/":
       Let `h` = `HashFileContent(input.file_path,
       neutralize_artifact_tag=true)`.
       Append `h` to `hashes`.
-   c. Else if `LogicalNameIsExternal(input.unqualified_logical_name)`:
+   c. Else if input.unqualified_logical_name starts with
+      "EXTERNAL/":
       Let `h` = `HashFileContent(input.file_path,
       neutralize_artifact_tag=false)`.
       Append `h` to `hashes`.
@@ -212,8 +216,9 @@ Let `hashes` = empty list of raw byte sequences
 - Use the `file` package for `FileOpen`,
   `FileReadLine`, `FileSkipLines`, `FileClose`.
 - Use the `pathutils` package for `PathCfs`.
-- Use the `logicalnames` package for
-  `LogicalNameIsArtifact`.
+- The `logicalnames` package is no longer imported
+  directly. Type checks on `unqualified_logical_name`
+  use string prefix comparisons (`strings.HasPrefix`).
 - Use the `textnormalization` package for `NormalizeText`.
 - Use the `frontmatter` package for `FrontmatterExternal`.
 - For SHA-1 and base64url, use `crypto/sha1` and

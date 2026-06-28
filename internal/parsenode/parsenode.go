@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@K7oX1E0zZ0je4QDv30sDoxZvgZQ
+// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@TvdhAoVkh5uk46CMw1pr_G32KRI
 package parsenode
 
 import (
@@ -8,6 +8,7 @@ import (
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
 )
 
@@ -43,18 +44,20 @@ var ErrUnrecognizedSection                 = errors.New("unrecognized level-1 he
 var ErrDuplicateSubsection                 = errors.New("two level-2 headings within the same section normalize to the same text")
 
 func NodeParse(logicalName string) (*Node, error) {
-	if !logicalnames.LogicalNameIsSpec(logicalName) {
+	ln, err := logicalnames.LogicalNameParse(logicalName)
+	if err != nil {
 		return nil, fmt.Errorf("%w", ErrNotASpecReference)
 	}
 
-	if logicalnames.LogicalNameHasQualifier(logicalName) {
+	if ln.Type != logicalnames.NodeTypeSpec {
+		return nil, fmt.Errorf("%w", ErrNotASpecReference)
+	}
+
+	if ln.Qualifier != nil {
 		return nil, fmt.Errorf("%w", ErrHasQualifier)
 	}
 
-	cfsPath, err := logicalnames.LogicalNameToPath(logicalName)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
-	}
+	cfsPath := pathutils.PathCfs{Value: ln.Path}
 
 	handle, err := file.FileOpen(cfsPath, "read", 30000)
 	if err != nil {

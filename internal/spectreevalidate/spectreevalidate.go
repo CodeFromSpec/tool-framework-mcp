@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/spec_tree/validate@xPXh-T_KmGx3c4TkfV2_X17_XE0
+// code-from-spec: SPEC/golang/implementation/spec_tree/validate@RBaixfEbyvUT_A3JtTFhkxtNd6Q
 package spectreevalidate
 
 import (
@@ -100,44 +100,53 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []Form
 
 		if entry.Frontmatter != nil {
 			for _, dep := range entry.Frontmatter.DependsOn {
-				if logicalnames.LogicalNameIsSpec(dep) {
-					bareName := logicalnames.LogicalNameStripQualifier(dep)
-					if !knownNames[bareName] {
+				if strings.HasPrefix(dep, "SPEC/") || dep == "SPEC" {
+					ln, err := logicalnames.LogicalNameParse(dep)
+					if err != nil {
+						errs = append(errs, FormatError{
+							Node:   entry.LogicalName,
+							Rule:   "dependency_targets",
+							Detail: "depends_on entry cannot be parsed: " + dep,
+						})
+						continue
+					}
+					if !knownNames[ln.Name] {
 						errs = append(errs, FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
 							Detail: "depends_on references unknown SPEC node: " + dep,
 						})
-					} else if bareName == entry.LogicalName {
+					} else if ln.Name == entry.LogicalName {
 						errs = append(errs, FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
 							Detail: "depends_on must not reference the node itself: " + dep,
 						})
-					} else if strings.HasPrefix(entry.LogicalName, bareName+"/") {
+					} else if strings.HasPrefix(entry.LogicalName, ln.Name+"/") {
 						errs = append(errs, FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
 							Detail: "depends_on must not reference an ancestor: " + dep,
 						})
-					} else if strings.HasPrefix(bareName, entry.LogicalName+"/") {
+					} else if strings.HasPrefix(ln.Name, entry.LogicalName+"/") {
 						errs = append(errs, FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
 							Detail: "depends_on must not reference a descendant: " + dep,
 						})
 					}
-				} else if logicalnames.LogicalNameIsArtifact(dep) {
-					bareRef := logicalnames.LogicalNameStripQualifier(dep)
-					if !knownNames[bareRef] {
+				} else if strings.HasPrefix(dep, "ARTIFACT/") {
+					if !knownNames[dep] {
 						errs = append(errs, FormatError{
 							Node:   entry.LogicalName,
 							Rule:   "dependency_targets",
 							Detail: "depends_on references unknown ARTIFACT: " + dep,
 						})
 					}
-				} else if logicalnames.LogicalNameIsExternal(dep) {
-					cfsPath, err := logicalnames.LogicalNameExternalToPath(dep)
+				} else if strings.HasPrefix(dep, "EXTERNAL/") {
+					relative := strings.TrimPrefix(dep, "EXTERNAL/")
+					cfsPath := pathutils.PathCfs{Value: relative}
+					handle, err := file.FileOpen(cfsPath, "read", 30000)
 					if err != nil {
 						errs = append(errs, FormatError{
 							Node:   entry.LogicalName,
@@ -145,16 +154,7 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []Form
 							Detail: "depends_on references unreadable EXTERNAL file: " + dep,
 						})
 					} else {
-						handle, err := file.FileOpen(cfsPath, "read", 30000)
-						if err != nil {
-							errs = append(errs, FormatError{
-								Node:   entry.LogicalName,
-								Rule:   "dependency_targets",
-								Detail: "depends_on references unreadable EXTERNAL file: " + dep,
-							})
-						} else {
-							file.FileClose(handle)
-						}
+						file.FileClose(handle)
 					}
 				} else {
 					errs = append(errs, FormatError{
@@ -168,17 +168,18 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []Form
 
 		if entry.Frontmatter != nil && entry.Frontmatter.Input != "" {
 			inp := entry.Frontmatter.Input
-			if logicalnames.LogicalNameIsArtifact(inp) {
-				bareRef := logicalnames.LogicalNameStripQualifier(inp)
-				if !knownNames[bareRef] {
+			if strings.HasPrefix(inp, "ARTIFACT/") {
+				if !knownNames[inp] {
 					errs = append(errs, FormatError{
 						Node:   entry.LogicalName,
 						Rule:   "input_target",
 						Detail: "input references unknown ARTIFACT: " + inp,
 					})
 				}
-			} else if logicalnames.LogicalNameIsExternal(inp) {
-				cfsPath, err := logicalnames.LogicalNameExternalToPath(inp)
+			} else if strings.HasPrefix(inp, "EXTERNAL/") {
+				relative := strings.TrimPrefix(inp, "EXTERNAL/")
+				cfsPath := pathutils.PathCfs{Value: relative}
+				handle, err := file.FileOpen(cfsPath, "read", 30000)
 				if err != nil {
 					errs = append(errs, FormatError{
 						Node:   entry.LogicalName,
@@ -186,16 +187,7 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []Form
 						Detail: "input references unreadable EXTERNAL file: " + inp,
 					})
 				} else {
-					handle, err := file.FileOpen(cfsPath, "read", 30000)
-					if err != nil {
-						errs = append(errs, FormatError{
-							Node:   entry.LogicalName,
-							Rule:   "input_target",
-							Detail: "input references unreadable EXTERNAL file: " + inp,
-						})
-					} else {
-						file.FileClose(handle)
-					}
+					file.FileClose(handle)
 				}
 			} else {
 				errs = append(errs, FormatError{
@@ -248,9 +240,10 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []Form
 
 	knownPaths := make(map[string]bool)
 	for _, entry := range entries {
-		nodePath, err := logicalnames.LogicalNameToPath(entry.LogicalName)
-		if err == nil {
-			knownPaths[nodePath.Value] = true
+		if strings.HasPrefix(entry.LogicalName, "SPEC/") {
+			suffix := strings.TrimPrefix(entry.LogicalName, "SPEC/")
+			nodePath := "code-from-spec/" + suffix + "/_node.md"
+			knownPaths[nodePath] = true
 		}
 	}
 
@@ -269,7 +262,8 @@ func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []Form
 		if strings.HasPrefix(firstSegment, "_") {
 			continue
 		}
-		candidatePath := dirPath + "/_node.md"
+		normalizedDir := strings.TrimRight(dirPath, "/")
+		candidatePath := normalizedDir + "/_node.md"
 		if !knownPaths[candidatePath] {
 			errs = append(errs, FormatError{
 				Node:   dirPath,

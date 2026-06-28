@@ -78,9 +78,14 @@ Actions:
 1. Call `MCPWriteFile("ARTIFACT/x", "out.go", "")`.
 
 Expected:
-- Error `logicalnames.ErrUnsupportedReference`.
+- Error `ErrNotASpecReference`.
 
 #### Invalid logical name — with qualifier
+
+Setup:
+- Create `code-from-spec/_node.md` with `# SPEC`.
+- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+  frontmatter `output: out.go`.
 
 Actions:
 1. Call `MCPWriteFile("SPEC/a(interface)", "out.go",

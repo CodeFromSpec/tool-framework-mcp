@@ -111,31 +111,35 @@ Implement the spec tree validation as a Go package.
 
    For each dep in entry.frontmatter.depends_on:
 
-     If LogicalNameIsSpec(dep) is true:
-       Let bare = LogicalNameStripQualifier(dep).
-       If bare is not in `known_logical_names`:
+     If dep starts with "SPEC/" or equals "SPEC":
+       Call LogicalNameParse(dep). If it fails:
+         error "depends_on entry cannot be parsed: <dep>"
+         Continue to next dep.
+       Let `ln` be the result.
+       If ln.Name is not in `known_logical_names`:
          error "depends_on references unknown SPEC
          node: <dep>"
-       Else if bare equals entry.logical_name:
+       Else if ln.Name equals entry.logical_name:
          error "depends_on must not reference the node
          itself: <dep>"
-       Else if bare followed by "/" is a prefix of
+       Else if ln.Name followed by "/" is a prefix of
        entry.logical_name:
          error "depends_on must not reference an
          ancestor: <dep>"
        Else if entry.logical_name followed by "/" is a
-       prefix of bare:
+       prefix of ln.Name:
          error "depends_on must not reference a
          descendant: <dep>"
 
-     Else if LogicalNameIsArtifact(dep) is true:
-       Let bare = LogicalNameStripQualifier(dep).
-       If bare is not in `known_logical_names`:
+     Else if dep starts with "ARTIFACT/":
+       If dep is not in `known_logical_names`:
          error "depends_on references unknown
          ARTIFACT: <dep>"
 
-     Else if LogicalNameIsExternal(dep) is true:
-       Let cfs_path = LogicalNameExternalToPath(dep).
+     Else if dep starts with "EXTERNAL/":
+       Let relative = dep with "EXTERNAL/" prefix
+       removed.
+       Let cfs_path = PathCfs{Value: relative}.
        Attempt FileOpen(cfs_path, "read", 30000).
        If FileOpen raises any error:
          error "depends_on references unreadable
@@ -151,14 +155,15 @@ Implement the spec tree validation as a Go package.
    If entry.frontmatter.input is non-empty:
      Let inp = entry.frontmatter.input.
 
-     If LogicalNameIsArtifact(inp) is true:
-       Let bare = LogicalNameStripQualifier(inp).
-       If bare is not in `known_logical_names`:
+     If inp starts with "ARTIFACT/":
+       If inp is not in `known_logical_names`:
          error "input references unknown ARTIFACT:
          <inp>"
 
-     Else if LogicalNameIsExternal(inp) is true:
-       Let cfs_path = LogicalNameExternalToPath(inp).
+     Else if inp starts with "EXTERNAL/":
+       Let relative = inp with "EXTERNAL/" prefix
+       removed.
+       Let cfs_path = PathCfs{Value: relative}.
        Attempt FileOpen(cfs_path, "read", 30000).
        If FileOpen raises any error:
          error "input references unreadable EXTERNAL
@@ -230,6 +235,10 @@ Implement the spec tree validation as a Go package.
 - Use the `pathutils` package for `PathValidateCfs` and
   `PathCfs`.
 - Use the `textnormalization` package for `NormalizeText`.
+- Use the `logicalnames` package for `LogicalNameParse`
+  (only for SPEC references in dependency_targets).
+  Use `strings.HasPrefix` for ARTIFACT/ and EXTERNAL/
+  classification.
 - Use the `frontmatter` package for the `Frontmatter`
   record.
 - Use the `parsenode` package for the `Node` record.
@@ -239,5 +248,3 @@ Implement the spec tree validation as a Go package.
 - The function never returns an error — all problems
   are collected as FormatError entries in the returned
   list.
-- For SHA-1 and base64url, use `crypto/sha1` and
-  `encoding/base64` (base64.RawURLEncoding).

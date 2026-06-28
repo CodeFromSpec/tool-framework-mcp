@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/utils/node_ranking@ZzWwihjeZTrVXrRFXmHhtltPnd0
+// code-from-spec: SPEC/golang/implementation/utils/node_ranking@ZwmAIg_oQPZMUphJII-S_0giVVY
 package noderanking
 
 import (
@@ -57,23 +57,29 @@ func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, erro
 			continue
 		}
 
-		parent, err := logicalnames.LogicalNameGetParent(input.LogicalName)
+		ln, err := logicalnames.LogicalNameParse(input.LogicalName)
 		if err != nil {
 			return nil, nil, fmt.Errorf("%w: %w", ErrUnresolvableReference, err)
 		}
-		entry.deps = append(entry.deps, parent)
+		if ln.Parent == nil {
+			return nil, nil, fmt.Errorf("%w: no parent for %s", ErrUnresolvableReference, input.LogicalName)
+		}
+		entry.deps = append(entry.deps, *ln.Parent)
 
 		if input.Frontmatter == nil {
 			continue
 		}
 
 		for _, ref := range input.Frontmatter.DependsOn {
-			if logicalnames.LogicalNameIsSpec(ref) {
-				bareName := logicalnames.LogicalNameStripQualifier(ref)
-				if _, ok := entryMap[bareName]; !ok {
+			if strings.HasPrefix(ref, "SPEC/") || ref == "SPEC" {
+				depLn, err := logicalnames.LogicalNameParse(ref)
+				if err != nil {
+					return nil, nil, fmt.Errorf("%w: %w", ErrUnresolvableReference, err)
+				}
+				if _, ok := entryMap[depLn.Name]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
 				}
-				entry.deps = append(entry.deps, bareName)
+				entry.deps = append(entry.deps, depLn.Name)
 			} else if strings.HasPrefix(ref, "ARTIFACT/") {
 				if _, ok := entryMap[ref]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)

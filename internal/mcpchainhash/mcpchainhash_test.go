@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/mcp_tools/chain_hash@UfbEOjfP6PECukQpL3HXP7-mJDE
+// code-from-spec: SPEC/golang/tests/mcp_tools/chain_hash@xBO85eAUuBpvLblG8Ix-n3pcXXs
 package mcpchainhash_test
 
 import (
@@ -115,8 +115,8 @@ func TestMCPChainHash_InvalidLogicalName(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
-		t.Errorf("expected ErrUnsupportedReference, got: %v", err)
+	if !errors.Is(err, logicalnames.ErrUnrecognizedPrefix) {
+		t.Errorf("expected ErrUnrecognizedPrefix, got: %v", err)
 	}
 }
 
