@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/os/path_utils
+  - SPEC/golang/implementation/os/path_utils
 output: internal/pathutils/pathutils_test.go
 ---
 

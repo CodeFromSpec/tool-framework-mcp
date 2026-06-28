@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/utils/text_normalization
+  - SPEC/golang/implementation/utils/text_normalization
 output: internal/textnormalization/textnormalization_test.go
 ---
 

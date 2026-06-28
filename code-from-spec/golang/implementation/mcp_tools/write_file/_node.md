@@ -1,14 +1,56 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/mcp_tools/write_file
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/utils/logical_names
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/utils/logical_names
 output: internal/mcpwritefile/mcpwritefile.go
 ---
 
 # SPEC/golang/implementation/mcp_tools/write_file
+
+Writes a generated source file to disk after validating
+the path against the node's declared output.
+
+# Public
+
+## Package
+
+`package mcpwritefile`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile"`
+
+## Interface
+
+```go
+func MCPWriteFile(logicalName, path, content string) (string, error)
+```
+
+### Input
+
+| Parameter | Required | Description |
+|---|---|---|
+| `logicalName` | yes | Logical name of the node whose output authorizes the write. |
+| `path` | yes | Relative file path from project root (forward slashes). |
+| `content` | yes | Complete file content (UTF-8 text). |
+
+### Output
+
+A success message: `"wrote <path>"`.
+
+### Errors
+
+- `ErrQualifierNotAllowed`: the logical name contains
+  a parenthetical qualifier.
+- `ErrUnreadableFrontmatter`: the node's frontmatter
+  cannot be parsed.
+- `ErrNoOutput`: target node has no output field.
+- `ErrPathNotInOutput`: path is not declared in the
+  node's output.
+- Propagated errors from `logicalnames`, `pathutils`,
+  `file` packages.
 
 # Agent
 

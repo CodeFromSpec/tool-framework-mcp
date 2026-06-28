@@ -1,8 +1,8 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/parsing/artifact_tag
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/file
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/artifact_tag
 output: internal/artifacttag/artifacttag_test.go
 ---
 

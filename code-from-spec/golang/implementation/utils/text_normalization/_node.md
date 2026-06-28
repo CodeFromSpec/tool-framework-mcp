@@ -1,11 +1,41 @@
 ---
 depends_on:
   - SPEC/golang/dependencies/golang-x-text
-  - ARTIFACT/golang/interfaces/utils/text_normalization
 output: internal/textnormalization/textnormalization.go
 ---
 
 # SPEC/golang/implementation/utils/text_normalization
+
+Normalizes text for comparison.
+
+# Public
+
+## Package
+
+`package textnormalization`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"`
+
+## Interface
+
+```go
+func NormalizeText(rawString string) string
+```
+
+Pure function. Trims leading/trailing whitespace,
+collapses internal whitespace runs to a single space,
+applies Unicode simple case folding.
+
+### Examples
+
+| Input | Output |
+|---|---|
+| `"  Interface  "` | `"interface"` |
+| `"PUBLIC"` | `"public"` |
+| `"Straße"` | `"strasse"` |
+| `""` | `""` |
 
 # Agent
 

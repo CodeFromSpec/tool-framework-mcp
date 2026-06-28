@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/os/path_utils@NenAIjLmdlqOy4eRLeg0xnzneL0
+// code-from-spec: SPEC/golang/implementation/os/path_utils@sb3qy48FGqJ8S0bIqwGN_Prbnww
 package pathutils
 
 import (
@@ -24,12 +24,12 @@ type PathOs struct {
 	Value string
 }
 
-func PathGetProjectRoot() (*PathOs, error) {
+func PathGetProjectRoot() (PathOs, error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrCannotDetermineRoot, err)
+		return PathOs{}, fmt.Errorf("%w: %w", ErrCannotDetermineRoot, err)
 	}
-	return &PathOs{Value: wd}, nil
+	return PathOs{Value: wd}, nil
 }
 
 func PathValidateCfs(value string) error {
@@ -55,18 +55,14 @@ func PathValidateCfs(value string) error {
 	return nil
 }
 
-func PathCfsToOs(cfsPath *PathCfs) (*PathOs, error) {
-	if cfsPath == nil {
-		return nil, ErrPathEmpty
-	}
-
+func PathCfsToOs(cfsPath PathCfs) (PathOs, error) {
 	if err := PathValidateCfs(cfsPath.Value); err != nil {
-		return nil, err
+		return PathOs{}, err
 	}
 
 	root, err := PathGetProjectRoot()
 	if err != nil {
-		return nil, err
+		return PathOs{}, err
 	}
 
 	osRelative := filepath.FromSlash(cfsPath.Value)
@@ -76,25 +72,21 @@ func PathCfsToOs(cfsPath *PathCfs) (*PathOs, error) {
 	if statErr == nil {
 		resolved, err := filepath.EvalSymlinks(absolutePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve symlinks: %w", err)
+			return PathOs{}, fmt.Errorf("failed to resolve symlinks: %w", err)
 		}
 		if !strings.HasPrefix(resolved, root.Value) {
-			return nil, ErrResolvesOutsideRoot
+			return PathOs{}, ErrResolvesOutsideRoot
 		}
 		absolutePath = resolved
 	}
 
-	return &PathOs{Value: absolutePath}, nil
+	return PathOs{Value: absolutePath}, nil
 }
 
-func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
-	if osPath == nil {
-		return nil, ErrPathEmpty
-	}
-
+func PathOsToCfs(osPath PathOs) (PathCfs, error) {
 	root, err := PathGetProjectRoot()
 	if err != nil {
-		return nil, err
+		return PathCfs{}, err
 	}
 
 	resolvedValue := osPath.Value
@@ -102,7 +94,7 @@ func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
 	if statErr == nil {
 		resolved, err := filepath.EvalSymlinks(osPath.Value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve symlinks: %w", err)
+			return PathCfs{}, fmt.Errorf("failed to resolve symlinks: %w", err)
 		}
 		resolvedValue = resolved
 	}
@@ -113,7 +105,7 @@ func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
 	}
 
 	if resolvedValue != root.Value && !strings.HasPrefix(resolvedValue, rootWithSep) {
-		return nil, ErrResolvesOutsideRoot
+		return PathCfs{}, ErrResolvesOutsideRoot
 	}
 
 	relativePath := strings.TrimPrefix(resolvedValue, rootWithSep)
@@ -124,5 +116,5 @@ func PathOsToCfs(osPath *PathOs) (*PathCfs, error) {
 
 	cfsValue := filepath.ToSlash(relativePath)
 
-	return &PathCfs{Value: cfsValue}, nil
+	return PathCfs{Value: cfsValue}, nil
 }

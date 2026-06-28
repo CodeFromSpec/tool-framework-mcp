@@ -1,13 +1,13 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/mcp_tools/chain_hash(interface)
-  - ARTIFACT/golang/interfaces/mcp_tools/load_chain
-  - ARTIFACT/golang/interfaces/chain/resolver
-  - ARTIFACT/golang/interfaces/chain/hash
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/utils/logical_names
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/chain/hash
+  - SPEC/golang/implementation/chain/resolver
+  - SPEC/golang/implementation/mcp_tools/chain_hash(Interface)
+  - SPEC/golang/implementation/mcp_tools/load_chain
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/utils/logical_names
 output: internal/mcpchainhash/mcpchainhash_test.go
 ---
 

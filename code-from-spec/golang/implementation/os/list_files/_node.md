@@ -1,11 +1,40 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/os/list_files
-  - ARTIFACT/golang/interfaces/os/path_utils
+  - SPEC/golang/implementation/os/path_utils
 output: internal/listfiles/listfiles.go
 ---
 
 # SPEC/golang/implementation/os/list_files
+
+Recursively lists all files under a directory.
+
+# Public
+
+## Package
+
+`package listfiles`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/listfiles"`
+
+## Interface
+
+```go
+func ListFiles(cfsPath pathutils.PathCfs) ([]pathutils.PathCfs, error)
+```
+
+Returns all files (not directories) found recursively
+under the given directory. Results are `pathutils.PathCfs`
+values, sorted alphabetically. If the directory exists
+but contains no files, returns an empty list.
+
+### Errors
+
+- `ErrDirectoryNotFound`: the directory does not exist.
+- `ErrWalkError`: a filesystem error occurred while
+  traversing.
+- Propagated errors from `pathutils` package.
 
 # Agent
 

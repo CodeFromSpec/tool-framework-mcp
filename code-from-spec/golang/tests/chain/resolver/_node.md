@@ -1,10 +1,10 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/chain/resolver
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/utils/logical_names
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/chain/resolver
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/utils/logical_names
 output: internal/chainresolver/chainresolver_test.go
 ---
 

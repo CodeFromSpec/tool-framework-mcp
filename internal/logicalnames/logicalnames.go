@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/utils/logical_names@6gIdi-eJsVWIEXGKMET3CNYa2bk
+// code-from-spec: SPEC/golang/implementation/utils/logical_names@p4j1KR50rGghz-QEYEy8eIalKqw
 package logicalnames
 
 import (
@@ -16,22 +16,22 @@ var ErrNotASpecReference = errors.New("logical name is not a SPEC/ reference")
 var ErrNotAnArtifactReference = errors.New("logical name does not start with ARTIFACT/")
 var ErrNotAnExternalReference = errors.New("logical name does not start with EXTERNAL/")
 
-func LogicalNameToPath(logicalName string) (*pathutils.PathCfs, error) {
+func LogicalNameToPath(logicalName string) (pathutils.PathCfs, error) {
 	stripped := LogicalNameStripQualifier(logicalName)
 
 	if stripped != "SPEC" && !strings.HasPrefix(stripped, "SPEC/") {
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedReference, logicalName)
+		return pathutils.PathCfs{}, fmt.Errorf("%w: %s", ErrUnsupportedReference, logicalName)
 	}
 
 	if stripped == "SPEC" {
-		return &pathutils.PathCfs{Value: "code-from-spec/_node.md"}, nil
+		return pathutils.PathCfs{Value: "code-from-spec/_node.md"}, nil
 	}
 
 	relativePath := strings.TrimPrefix(stripped, "SPEC/")
-	return &pathutils.PathCfs{Value: "code-from-spec/" + relativePath + "/_node.md"}, nil
+	return pathutils.PathCfs{Value: "code-from-spec/" + relativePath + "/_node.md"}, nil
 }
 
-func LogicalNameFromPath(cfsPath *pathutils.PathCfs) (string, error) {
+func LogicalNameFromPath(cfsPath pathutils.PathCfs) (string, error) {
 	pathValue := cfsPath.Value
 
 	if pathValue != "code-from-spec/_node.md" && !strings.HasSuffix(pathValue, "/_node.md") {
@@ -130,11 +130,11 @@ func LogicalNameGetArtifactGenerator(logicalName string) (string, error) {
 	return "SPEC/" + relativePath, nil
 }
 
-func LogicalNameExternalToPath(logicalName string) (*pathutils.PathCfs, error) {
+func LogicalNameExternalToPath(logicalName string) (pathutils.PathCfs, error) {
 	if !strings.HasPrefix(logicalName, "EXTERNAL/") {
-		return nil, fmt.Errorf("%w: %s", ErrNotAnExternalReference, logicalName)
+		return pathutils.PathCfs{}, fmt.Errorf("%w: %s", ErrNotAnExternalReference, logicalName)
 	}
 
 	relativePath := strings.TrimPrefix(logicalName, "EXTERNAL/")
-	return &pathutils.PathCfs{Value: relativePath}, nil
+	return pathutils.PathCfs{Value: relativePath}, nil
 }

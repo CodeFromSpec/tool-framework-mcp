@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/manifest@hWQBe_PPzpd65gtWsk5ARxdxKms
+// code-from-spec: SPEC/golang/implementation/manifest@_2-5YIkaqpxrKB0guBG9fyWmHu0
 package manifest
 
 import (
@@ -75,7 +75,7 @@ func ManifestOpen(mode string) (*ManifestHandle, error) {
 	}
 
 	if mode == "read" {
-		manifestPath := &pathutils.PathCfs{Value: "code-from-spec/.manifest"}
+		manifestPath := pathutils.PathCfs{Value: "code-from-spec/.manifest"}
 		manifestFH, err := file.FileOpen(manifestPath, "read", 30000)
 		if err != nil {
 			if errors.Is(err, file.ErrFileUnreadable) {
@@ -88,7 +88,7 @@ func ManifestOpen(mode string) (*ManifestHandle, error) {
 			return nil, fmt.Errorf("opening manifest: %w", err)
 		}
 
-		lockPath := &pathutils.PathCfs{Value: "code-from-spec/.manifest.lock"}
+		lockPath := pathutils.PathCfs{Value: "code-from-spec/.manifest.lock"}
 		lockFH, err := file.FileOpen(lockPath, "read", 30000)
 		if err != nil {
 			if errors.Is(err, file.ErrFileUnreadable) {
@@ -125,7 +125,7 @@ func ManifestOpen(mode string) (*ManifestHandle, error) {
 		}, nil
 	}
 
-	lockPath := &pathutils.PathCfs{Value: "code-from-spec/.manifest.lock"}
+	lockPath := pathutils.PathCfs{Value: "code-from-spec/.manifest.lock"}
 	lockFH, err := file.FileOpen(lockPath, "append", 30000)
 	if err != nil {
 		if errors.Is(err, file.ErrLockTimeout) {
@@ -134,7 +134,7 @@ func ManifestOpen(mode string) (*ManifestHandle, error) {
 		return nil, fmt.Errorf("acquiring write lock: %w", err)
 	}
 
-	manifestPath := &pathutils.PathCfs{Value: "code-from-spec/.manifest"}
+	manifestPath := pathutils.PathCfs{Value: "code-from-spec/.manifest"}
 	manifestFH, err := file.FileOpen(manifestPath, "read", 30000)
 	if err != nil {
 		if errors.Is(err, file.ErrFileUnreadable) {
@@ -173,7 +173,7 @@ func ManifestSave(handle *ManifestHandle) error {
 		return ErrHandleClosed
 	}
 
-	manifestPath := &pathutils.PathCfs{Value: "code-from-spec/.manifest"}
+	manifestPath := pathutils.PathCfs{Value: "code-from-spec/.manifest"}
 	fh, err := file.FileOpen(manifestPath, "overwrite", 30000)
 	if err != nil {
 		return fmt.Errorf("opening manifest for save: %w", err)

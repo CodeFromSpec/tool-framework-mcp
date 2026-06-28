@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/utils/logical_names@0IaBybshfE8DSv_WATdMMKZzovM
+// code-from-spec: SPEC/golang/tests/utils/logical_names@Sq1kFz3CIGJDOAMOPU5ZoOLbbYU
 package logicalnames_test
 
 import (
@@ -73,9 +73,6 @@ func TestLogicalNameToPath(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got == nil {
-				t.Fatal("got nil PathCfs")
-			}
 			if got.Value != tc.wantPath {
 				t.Fatalf("expected %q, got %q", tc.wantPath, got.Value)
 			}
@@ -114,7 +111,7 @@ func TestLogicalNameFromPath(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := logicalnames.LogicalNameFromPath(&pathutils.PathCfs{Value: tc.input})
+			got, err := logicalnames.LogicalNameFromPath(pathutils.PathCfs{Value: tc.input})
 			if tc.wantErr != nil {
 				if err == nil {
 					t.Fatalf("expected error %v, got nil", tc.wantErr)
@@ -605,9 +602,6 @@ func TestLogicalNameExternalToPath(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
-			}
-			if got == nil {
-				t.Fatal("got nil PathCfs")
 			}
 			if got.Value != tc.wantPath {
 				t.Fatalf("expected %q, got %q", tc.wantPath, got.Value)

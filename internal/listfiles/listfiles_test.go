@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/os/list_files@AcCLDDQ2lRRmb9fDhu1U8FVaI6I
+// code-from-spec: SPEC/golang/tests/os/list_files@Raxx7CSRxcHUaaWHfhtghi3AXa4
 package listfiles_test
 
 import (
@@ -39,7 +39,7 @@ func testWriteFile(t *testing.T, path string, content string) {
 	}
 }
 
-func testPaths(results []*pathutils.PathCfs) []string {
+func testPaths(results []pathutils.PathCfs) []string {
 	out := make([]string, len(results))
 	for i, r := range results {
 		out[i] = r.Value
@@ -55,7 +55,7 @@ func TestListFiles_TC01_FlatDirectory(t *testing.T) {
 	testWriteFile(t, "flat/b.txt", "b")
 	testWriteFile(t, "flat/c.txt", "c")
 
-	results, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "flat"})
+	results, err := listfiles.ListFiles(pathutils.PathCfs{Value: "flat"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestListFiles_TC02_RecursiveDirectory(t *testing.T) {
 	testWriteFile(t, "dir/sub/beta.txt", "beta")
 	testWriteFile(t, "dir/sub/deep/gamma.txt", "gamma")
 
-	results, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "dir"})
+	results, err := listfiles.ListFiles(pathutils.PathCfs{Value: "dir"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestListFiles_TC03_SortedAlphabetically(t *testing.T) {
 	testWriteFile(t, "sorted/a.txt", "a")
 	testWriteFile(t, "sorted/m.txt", "m")
 
-	results, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "sorted"})
+	results, err := listfiles.ListFiles(pathutils.PathCfs{Value: "sorted"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestListFiles_TC04_EmptyDirectory(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	results, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "emptydir"})
+	results, err := listfiles.ListFiles(pathutils.PathCfs{Value: "emptydir"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestListFiles_TC05_OnlySubdirectories(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	results, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "topdir"})
+	results, err := listfiles.ListFiles(pathutils.PathCfs{Value: "topdir"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestListFiles_TC06_DirectoryDoesNotExist(t *testing.T) {
 	tempDir := t.TempDir()
 	testChdir(t, tempDir)
 
-	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "nonexistent/dir"})
+	_, err := listfiles.ListFiles(pathutils.PathCfs{Value: "nonexistent/dir"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -170,7 +170,7 @@ func TestListFiles_TC06_DirectoryDoesNotExist(t *testing.T) {
 }
 
 func TestListFiles_TC07_PropagatesValidationError(t *testing.T) {
-	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "../../outside"})
+	_, err := listfiles.ListFiles(pathutils.PathCfs{Value: "../../outside"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -200,7 +200,7 @@ func TestListFiles_TC08_PropagatesConversionError(t *testing.T) {
 		t.Skipf("symlink not supported: %v", err)
 	}
 
-	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "symlinkdir"})
+	_, err := listfiles.ListFiles(pathutils.PathCfs{Value: "symlinkdir"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -232,7 +232,7 @@ func TestListFiles_TC09_WalkError(t *testing.T) {
 		_ = os.Chmod(filepath.Join(tempDir, "walkdir/restricted"), 0755)
 	})
 
-	_, err := listfiles.ListFiles(&pathutils.PathCfs{Value: "walkdir"})
+	_, err := listfiles.ListFiles(pathutils.PathCfs{Value: "walkdir"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

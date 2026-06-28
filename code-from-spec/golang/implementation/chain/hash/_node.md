@@ -1,17 +1,43 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/chain/hash
-  - ARTIFACT/golang/interfaces/chain/resolver
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/parsing/node_parsing
-  - ARTIFACT/golang/interfaces/utils/logical_names
-  - ARTIFACT/golang/interfaces/utils/text_normalization
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/chain/resolver
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/utils/text_normalization
 output: internal/chainhash/chainhash.go
 ---
 
 # SPEC/golang/implementation/chain/hash
+
+Computes the chain hash for a resolved chain by reading
+all chain positions from disk and hashing their content.
+
+# Public
+
+## Package
+
+`package chainhash`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"`
+
+## Interface
+
+```go
+func ChainHashCompute(chain *chainresolver.Chain) (string, error)
+```
+
+Receives a `Chain` (as returned by `ChainResolve`) and
+returns a 27-character base64url encoded SHA-1 hash.
+
+### Errors
+
+- `ErrParseFailure`: a node file cannot be parsed.
+- Propagated errors from `file`, `parsenode` packages.
 
 # Agent
 

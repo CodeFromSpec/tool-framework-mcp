@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/server@TddqL0H7tKInB1GzrFKSRgEeKH4
+// code-from-spec: SPEC/golang/implementation/server@JCuaNws93ojT3AHQaD6oqmW0Ymg
 package main
 
 import (
@@ -145,7 +145,7 @@ func main() {
 	os.Exit(0)
 }
 
-func formatValidationReport(report *mcpvalidatespecs.ValidationReport) string {
+func formatValidationReport(report mcpvalidatespecs.ValidationReport) string {
 	if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
 		return "Spec tree is valid and all artifacts are up to date."
 	}

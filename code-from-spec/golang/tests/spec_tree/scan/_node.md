@@ -1,9 +1,9 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/spec_tree/scan
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/list_files
-  - ARTIFACT/golang/interfaces/utils/logical_names
+  - SPEC/golang/implementation/os/list_files
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/spec_tree/scan
+  - SPEC/golang/implementation/utils/logical_names
 output: internal/spectree/spectree_test.go
 ---
 

@@ -1,19 +1,63 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/mcp_tools/validate_specs
-  - ARTIFACT/golang/interfaces/spec_tree/scan
-  - ARTIFACT/golang/interfaces/spec_tree/validate
-  - ARTIFACT/golang/interfaces/utils/node_ranking
-  - ARTIFACT/golang/interfaces/chain/resolver
-  - ARTIFACT/golang/interfaces/chain/hash
-  - ARTIFACT/golang/interfaces/parsing/artifact_tag
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/parsing/node_parsing
-  - ARTIFACT/golang/interfaces/os/path_utils
+  - SPEC/golang/implementation/chain/hash
+  - SPEC/golang/implementation/chain/resolver
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/artifact_tag
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/spec_tree/scan
+  - SPEC/golang/implementation/spec_tree/validate
+  - SPEC/golang/implementation/utils/node_ranking
 output: internal/mcpvalidatespecs/mcpvalidatespecs.go
 ---
 
 # SPEC/golang/implementation/mcp_tools/validate_specs
+
+Validates the spec tree for format errors, circular
+references, and artifact staleness.
+
+# Public
+
+## Package
+
+`package mcpvalidatespecs`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpvalidatespecs"`
+
+## Interface
+
+```go
+type StalenessEntry struct {
+	Node         string
+	ArtifactPath string
+	Status       string
+	Detail       string
+	Rank         int
+}
+
+type ValidationReport struct {
+	FormatErrors []spectreevalidate.FormatError
+	Cycles       []string
+	Staleness    []StalenessEntry
+}
+
+func MCPValidateSpecs() ValidationReport
+```
+
+No parameters. Scans the entire spec tree starting from
+`code-from-spec/`. Always returns a report — never
+returns an error. Problems are collected in the report.
+
+`StalenessEntry.Status` is one of:
+- `"missing"` — file does not exist.
+- `"stale"` — hash mismatch.
+- `"malformed tag"` — file exists but has no artifact
+  tag or the tag cannot be parsed.
+
+`StalenessEntry.Rank` is the rank from `NodeRankCompute`.
 
 # Agent
 

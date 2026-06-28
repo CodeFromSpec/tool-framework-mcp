@@ -1,11 +1,11 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/spec_tree/validate
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/utils/text_normalization
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/parsing/node_parsing
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/spec_tree/validate
+  - SPEC/golang/implementation/utils/text_normalization
 output: internal/spectreevalidate/spectreevalidate_test.go
 ---
 

@@ -1,8 +1,8 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/utils/node_ranking
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/utils/logical_names
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/utils/node_ranking
 output: internal/noderanking/noderanking_test.go
 ---
 

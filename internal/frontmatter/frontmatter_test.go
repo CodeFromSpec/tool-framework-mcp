@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/parsing/frontmatter@hqxn-nPXLrxtorFvfdtBoT5ksyM
+// code-from-spec: SPEC/golang/tests/parsing/frontmatter@-vJEDi3NmbzYvMg_MIGbwh5CZrA
 package frontmatter_test
 
 import (
@@ -35,7 +35,7 @@ func TestFrontmatterParse_TC1_AllFields(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestFrontmatterParse_TC2_OnlyOutput(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestFrontmatterParse_TC3_OnlyDependsOn(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestFrontmatterParse_TC4_ExternalInDependsOn(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestFrontmatterParse_TC5_OnlyInput(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestFrontmatterParse_TC6_IgnoresUnknownFields(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestFrontmatterParse_TC7_NoFrontmatter(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestFrontmatterParse_TC8_EmptyFrontmatter(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestFrontmatterParse_TC9_OnlyFrontmatterNoBody(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestFrontmatterParse_TC10_DelimiterWithTrailingWhitespace(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestFrontmatterParse_TC11_FileNotExist(t *testing.T) {
 	tmpDir := t.TempDir()
 	testChdir(t, tmpDir)
 
-	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "nonexistent/file.md"})
+	_, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "nonexistent/file.md"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -278,7 +278,7 @@ func TestFrontmatterParse_TC11_FileNotExist(t *testing.T) {
 }
 
 func TestFrontmatterParse_TC12_InvalidPathDirectoryTraversal(t *testing.T) {
-	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "../../outside"})
+	_, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "../../outside"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -296,7 +296,7 @@ func TestFrontmatterParse_TC13_MalformedYAML(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	_, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -314,7 +314,7 @@ func TestFrontmatterParse_TC14_UnclosedFrontmatter(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	_, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	_, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -332,7 +332,7 @@ func TestFrontmatterParse_TC15_ExternalFieldIgnored(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&pathutils.PathCfs{Value: "file.md"})
+	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: "file.md"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

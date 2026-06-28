@@ -1,7 +1,7 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/utils/logical_names
-  - ARTIFACT/golang/interfaces/os/path_utils
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/utils/logical_names
 output: internal/logicalnames/logicalnames_test.go
 ---
 

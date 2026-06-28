@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/artifact_tag@SpaLfL2cooO3k5p2429vSl1O1l4
+// code-from-spec: SPEC/golang/implementation/parsing/artifact_tag@vyZVu3RAr3zELoiDwMbF425bb50
 package artifacttag
 
 import (
@@ -10,7 +10,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
-var ErrNoTagFound   = errors.New("no code-from-spec tag found in file")
+var ErrNoTagFound = errors.New("no code-from-spec tag found in file")
 var ErrMalformedTag = errors.New("code-from-spec tag is malformed")
 
 type ArtifactTag struct {
@@ -18,7 +18,7 @@ type ArtifactTag struct {
 	Hash        string
 }
 
-func ArtifactTagExtract(filePath *pathutils.PathCfs) (*ArtifactTag, error) {
+func ArtifactTagExtract(filePath pathutils.PathCfs) (*ArtifactTag, error) {
 	handle, err := file.FileOpen(filePath, "read", 30000)
 	if err != nil {
 		return nil, err

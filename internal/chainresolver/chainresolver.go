@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/chain/resolver@Qz-P-pfgA7bY5mrs3imTcIItLtQ
+// code-from-spec: SPEC/golang/implementation/chain/resolver@s7PBFxEHTZC5nXxmSDxTzzSekxw
 package chainresolver
 
 import (
@@ -33,7 +33,7 @@ func ChainResolve(targetLogicalName string) (*Chain, error) {
 		return nil, err
 	}
 
-	fm, err := frontmatter.FrontmatterParse(&target.FilePath)
+	fm, err := frontmatter.FrontmatterParse(target.FilePath)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
 	}
@@ -66,7 +66,7 @@ func resolveAncestorsAndTarget(targetLogicalName string) ([]*ChainItem, *ChainIt
 		}
 		item := &ChainItem{
 			UnqualifiedLogicalName: targetLogicalName,
-			FilePath:               *path,
+			FilePath:               path,
 			Qualifier:              "",
 		}
 		return []*ChainItem{}, item, nil
@@ -96,7 +96,7 @@ func resolveAncestorsAndTarget(targetLogicalName string) ([]*ChainItem, *ChainIt
 		}
 		items = append(items, &ChainItem{
 			UnqualifiedLogicalName: name,
-			FilePath:               *path,
+			FilePath:               path,
 			Qualifier:              "",
 		})
 	}
@@ -143,7 +143,7 @@ func resolveEntry(entry string) (*ChainItem, error) {
 		}
 		item := &ChainItem{
 			UnqualifiedLogicalName: bare,
-			FilePath:               *path,
+			FilePath:               path,
 			Qualifier:              "",
 		}
 		if hasQualifier {
@@ -163,7 +163,7 @@ func resolveEntry(entry string) (*ChainItem, error) {
 		}
 		return &ChainItem{
 			UnqualifiedLogicalName: entry,
-			FilePath:               *path,
+			FilePath:               path,
 			Qualifier:              "",
 		}, nil
 	}
@@ -255,7 +255,7 @@ func resolveInput(fm *frontmatter.Frontmatter) (*ChainItem, error) {
 		}
 		return &ChainItem{
 			UnqualifiedLogicalName: entry,
-			FilePath:               *path,
+			FilePath:               path,
 			Qualifier:              "",
 		}, nil
 	}

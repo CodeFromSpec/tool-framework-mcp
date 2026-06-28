@@ -1,13 +1,49 @@
 ---
 depends_on:
+  - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/dependencies/goccy-go-yaml
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/os/path_utils
+  - SPEC/golang/implementation/os/path_utils
 output: internal/frontmatter/frontmatter.go
 ---
 
 # SPEC/golang/implementation/parsing/frontmatter
+
+Parses structured metadata from the top of spec node
+files.
+
+# Public
+
+## Package
+
+`package frontmatter`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"`
+
+## Interface
+
+```go
+type Frontmatter struct {
+	DependsOn []string
+	Input     string
+	Output    string
+}
+
+func FrontmatterParse(filePath pathutils.PathCfs) (*Frontmatter, error)
+```
+
+All fields default to empty (empty slice, empty string)
+when absent from the YAML.
+
+### Errors
+
+- `ErrFileUnreadable`: the file cannot be opened or
+  read.
+- `ErrMalformedYAML`: the content between `---`
+  delimiters is not valid YAML, or an opening `---` is
+  found but no closing `---` follows.
+- Propagated errors from `file` package.
 
 # Agent
 

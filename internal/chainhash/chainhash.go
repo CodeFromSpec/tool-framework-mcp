@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/chain/hash@Yh8tDR5in3t8x8s4FSbPNrU-7vo
+// code-from-spec: SPEC/golang/implementation/chain/hash@PUke3CyZJ7RxNZWxGtQ1R4-dsMU
 package chainhash
 
 import (
@@ -128,7 +128,7 @@ func neutralizeLine(line string) string {
 }
 
 func hashFileContent(filePath pathutils.PathCfs, neutralizeArtifactTag bool) ([]byte, error) {
-	handle, err := file.FileOpen(&filePath, "read", 30000)
+	handle, err := file.FileOpen(filePath, "read", 30000)
 	if errors.Is(err, file.ErrFileUnreadable) {
 		return nil, fmt.Errorf("file unreadable: %w", err)
 	}

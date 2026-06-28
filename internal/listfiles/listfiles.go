@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/os/list_files@ZaPhj6GsLDUiaUZayDpQnI5GEK8
+// code-from-spec: SPEC/golang/implementation/os/list_files@0UNG0G7BG_h8_nGV2dZo0aKwpKg
 package listfiles
 
 import (
@@ -15,7 +15,7 @@ import (
 var ErrDirectoryNotFound = errors.New("directory not found")
 var ErrWalkError = errors.New("filesystem error occurred while traversing")
 
-func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
+func ListFiles(cfsPath pathutils.PathCfs) ([]pathutils.PathCfs, error) {
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, osPath.Value)
 	}
 
-	var results []*pathutils.PathCfs
+	var results []pathutils.PathCfs
 
 	walkErr := filepath.WalkDir(osPath.Value, func(entryPath string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -35,7 +35,7 @@ func ListFiles(cfsPath *pathutils.PathCfs) ([]*pathutils.PathCfs, error) {
 		if d.IsDir() {
 			return nil
 		}
-		entryOsPath := &pathutils.PathOs{Value: entryPath}
+		entryOsPath := pathutils.PathOs{Value: entryPath}
 		entryCfsPath, convErr := pathutils.PathOsToCfs(entryOsPath)
 		if convErr != nil {
 			return convErr

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/spec_tree/validate@XVrnptzUg071p7mF6u1N1ynAVNY
+// code-from-spec: SPEC/golang/tests/spec_tree/validate@l6mO1o3vBtrMrKrH1VOKLZxX1fE
 package spectreevalidate_test
 
 import (
@@ -75,7 +75,7 @@ func testEmptyFM() *frontmatter.Frontmatter {
 	return &frontmatter.Frontmatter{}
 }
 
-func testCountErrors(errs []*spectreevalidate.FormatError, node, rule string) int {
+func testCountErrors(errs []spectreevalidate.FormatError, node, rule string) int {
 	count := 0
 	for _, e := range errs {
 		if (node == "" || e.Node == node) && (rule == "" || e.Rule == rule) {

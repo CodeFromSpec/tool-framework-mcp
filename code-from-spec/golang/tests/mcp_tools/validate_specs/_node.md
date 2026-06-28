@@ -1,15 +1,15 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/mcp_tools/validate_specs
-  - ARTIFACT/golang/interfaces/spec_tree/scan
-  - ARTIFACT/golang/interfaces/spec_tree/validate
-  - ARTIFACT/golang/interfaces/utils/node_ranking
-  - ARTIFACT/golang/interfaces/chain/resolver
-  - ARTIFACT/golang/interfaces/chain/hash
-  - ARTIFACT/golang/interfaces/parsing/artifact_tag
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/parsing/node_parsing
-  - ARTIFACT/golang/interfaces/os/path_utils
+  - SPEC/golang/implementation/chain/hash
+  - SPEC/golang/implementation/chain/resolver
+  - SPEC/golang/implementation/mcp_tools/validate_specs
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/artifact_tag
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/spec_tree/scan
+  - SPEC/golang/implementation/spec_tree/validate
+  - SPEC/golang/implementation/utils/node_ranking
 output: internal/mcpvalidatespecs/mcpvalidatespecs_test.go
 ---
 

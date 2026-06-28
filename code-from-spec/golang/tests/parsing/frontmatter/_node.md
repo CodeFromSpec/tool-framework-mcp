@@ -1,8 +1,8 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/file
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/frontmatter
 output: internal/frontmatter/frontmatter_test.go
 ---
 

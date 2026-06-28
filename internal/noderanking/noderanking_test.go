@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/utils/node_ranking@CquMHapxMoaURiEhb_ZJkM3_LqQ
+// code-from-spec: SPEC/golang/tests/utils/node_ranking@lpqZNnQDF-9dhIDW-pF5ljEJisk
 package noderanking_test
 
 import (

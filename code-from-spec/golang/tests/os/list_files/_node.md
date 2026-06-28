@@ -1,7 +1,7 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/os/list_files
-  - ARTIFACT/golang/interfaces/os/path_utils
+  - SPEC/golang/implementation/os/list_files
+  - SPEC/golang/implementation/os/path_utils
 output: internal/listfiles/listfiles_test.go
 ---
 

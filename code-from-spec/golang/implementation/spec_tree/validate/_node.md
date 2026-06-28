@@ -1,17 +1,53 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/spec_tree/validate
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/os/list_files
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/utils/logical_names
-  - ARTIFACT/golang/interfaces/utils/text_normalization
-  - ARTIFACT/golang/interfaces/parsing/frontmatter
-  - ARTIFACT/golang/interfaces/parsing/node_parsing
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/os/list_files
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/utils/text_normalization
 output: internal/spectreevalidate/spectreevalidate.go
 ---
 
 # SPEC/golang/implementation/spec_tree/validate
+
+Linter for the spec tree. Receives discovered nodes with
+their parsed frontmatter and body, checks structural
+rules, and reports all violations found.
+
+# Public
+
+## Package
+
+`package spectreevalidate`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectreevalidate"`
+
+## Interface
+
+```go
+type SpecTreeValidateInput struct {
+	LogicalName string
+	Frontmatter *frontmatter.Frontmatter
+	Node        *parsenode.Node
+}
+
+type FormatError struct {
+	Node   string
+	Rule   string
+	Detail string
+}
+
+func SpecTreeValidate(entries []*SpecTreeValidateInput, allDirs []string) []FormatError
+```
+
+Takes the full set of discovered nodes with their parsed
+frontmatter and body, plus a list of all subdirectory
+paths found under `code-from-spec/`. Returns a list of
+format errors (empty if all nodes are valid).
 
 # Agent
 

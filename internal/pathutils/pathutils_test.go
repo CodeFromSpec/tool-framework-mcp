@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/os/path_utils@X-1qi-3NyzHQLuGh8xWCBU4vjYY
+// code-from-spec: SPEC/golang/tests/os/path_utils@d9ijzYa4CihwNnxA3phEL7rKdys
 package pathutils_test
 
 import (
@@ -134,7 +134,7 @@ func TestPathCfsToOs(t *testing.T) {
 			t.Fatalf("setup: %v", err)
 		}
 
-		cfsPath := &pathutils.PathCfs{Value: "internal/config/config.go"}
+		cfsPath := pathutils.PathCfs{Value: "internal/config/config.go"}
 		result, err := pathutils.PathCfsToOs(cfsPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -152,7 +152,7 @@ func TestPathCfsToOs(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		cfsPath := &pathutils.PathCfs{Value: "internal/newdir/newfile.go"}
+		cfsPath := pathutils.PathCfs{Value: "internal/newdir/newfile.go"}
 		result, err := pathutils.PathCfsToOs(cfsPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -170,7 +170,7 @@ func TestPathCfsToOs(t *testing.T) {
 		tempDir := t.TempDir()
 		testChdir(t, tempDir)
 
-		cfsPath := &pathutils.PathCfs{Value: "internal//config.go"}
+		cfsPath := pathutils.PathCfs{Value: "internal//config.go"}
 		result, err := pathutils.PathCfsToOs(cfsPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -181,16 +181,13 @@ func TestPathCfsToOs(t *testing.T) {
 	})
 
 	t.Run("TC-CO-04: rejects invalid CfsPath — directory traversal", func(t *testing.T) {
-		cfsPath := &pathutils.PathCfs{Value: "../../etc/passwd"}
-		result, err := pathutils.PathCfsToOs(cfsPath)
+		cfsPath := pathutils.PathCfs{Value: "../../etc/passwd"}
+		_, err := pathutils.PathCfsToOs(cfsPath)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
 		if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
 			t.Fatalf("expected ErrDirectoryTraversal, got: %v", err)
-		}
-		if result != nil {
-			t.Fatalf("expected nil result, got: %v", result)
 		}
 	})
 
@@ -209,7 +206,7 @@ func TestPathCfsToOs(t *testing.T) {
 			t.Skip("symlinks not supported:", err)
 		}
 
-		cfsPath := &pathutils.PathCfs{Value: "link.txt"}
+		cfsPath := pathutils.PathCfs{Value: "link.txt"}
 		_, err := pathutils.PathCfsToOs(cfsPath)
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -231,7 +228,7 @@ func TestPathCfsToOs(t *testing.T) {
 			t.Fatalf("setup: %v", err)
 		}
 
-		cfsPath := &pathutils.PathCfs{Value: "internal/config/config.go"}
+		cfsPath := pathutils.PathCfs{Value: "internal/config/config.go"}
 		osPath, err := pathutils.PathCfsToOs(cfsPath)
 		if err != nil {
 			t.Fatalf("PathCfsToOs: %v", err)
@@ -262,7 +259,7 @@ func TestPathOsToCfs(t *testing.T) {
 			t.Fatalf("setup: %v", err)
 		}
 
-		osPath := &pathutils.PathOs{Value: filePath}
+		osPath := pathutils.PathOs{Value: filePath}
 		result, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -280,7 +277,7 @@ func TestPathOsToCfs(t *testing.T) {
 		testChdir(t, tempDir)
 
 		nonexistentPath := filepath.Join(tempDir, "nonexistent", "file.go")
-		osPath := &pathutils.PathOs{Value: nonexistentPath}
+		osPath := pathutils.PathOs{Value: nonexistentPath}
 		result, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -306,7 +303,7 @@ func TestPathOsToCfs(t *testing.T) {
 			t.Fatalf("setup: %v", err)
 		}
 
-		osPath := &pathutils.PathOs{Value: filePath}
+		osPath := pathutils.PathOs{Value: filePath}
 		result, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -330,7 +327,7 @@ func TestPathOsToCfs(t *testing.T) {
 			t.Skip("symlinks not supported:", err)
 		}
 
-		osPath := &pathutils.PathOs{Value: symlinkPath}
+		osPath := pathutils.PathOs{Value: symlinkPath}
 		result, err := pathutils.PathOsToCfs(osPath)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -347,7 +344,7 @@ func TestPathOsToCfs(t *testing.T) {
 		outsideDir := t.TempDir()
 		outsidePath := filepath.Join(outsideDir, "outside.go")
 
-		osPath := &pathutils.PathOs{Value: outsidePath}
+		osPath := pathutils.PathOs{Value: outsidePath}
 		_, err := pathutils.PathOsToCfs(osPath)
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -363,9 +360,6 @@ func TestPathGetProjectRoot(t *testing.T) {
 		result, err := pathutils.PathGetProjectRoot()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
-		}
-		if result == nil {
-			t.Fatal("expected non-nil result")
 		}
 		if result.Value == "" {
 			t.Fatal("expected non-empty path")

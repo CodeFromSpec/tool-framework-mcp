@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@JoO2Yc-b9NnF1a6YLx3gY1_CFVs
+// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@ochogHk1DLm8TJdZeUX0RF-bgL4
 package mcploadchain
 
 import (
@@ -70,13 +70,13 @@ func MCPLoadChain(logicalName string) (string, error) {
 			continue
 		}
 		if logicalnames.LogicalNameIsArtifact(dep.UnqualifiedLogicalName) {
-			content, err := readFileSkippingArtifactTag(&dep.FilePath)
+			content, err := readFileSkippingArtifactTag(dep.FilePath)
 			if err != nil {
 				return "", fmt.Errorf("reading artifact dependency %q: %w", dep.UnqualifiedLogicalName, err)
 			}
 			contextParts = append(contextParts, content)
 		} else if logicalnames.LogicalNameIsExternal(dep.UnqualifiedLogicalName) {
-			content, err := readFileAll(&dep.FilePath)
+			content, err := readFileAll(dep.FilePath)
 			if err != nil {
 				return "", fmt.Errorf("reading external dependency %q: %w", dep.UnqualifiedLogicalName, err)
 			}
@@ -143,12 +143,12 @@ func MCPLoadChain(logicalName string) (string, error) {
 		sb.WriteString("\n--- input ---\n")
 		var inputContent string
 		if logicalnames.LogicalNameIsArtifact(chain.Input.UnqualifiedLogicalName) {
-			inputContent, err = readFileSkippingArtifactTag(&chain.Input.FilePath)
+			inputContent, err = readFileSkippingArtifactTag(chain.Input.FilePath)
 			if err != nil {
 				return "", fmt.Errorf("reading input artifact: %w", err)
 			}
 		} else {
-			inputContent, err = readFileAll(&chain.Input.FilePath)
+			inputContent, err = readFileAll(chain.Input.FilePath)
 			if err != nil {
 				return "", fmt.Errorf("reading input file: %w", err)
 			}
@@ -156,7 +156,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 		sb.WriteString(inputContent)
 	}
 
-	existingPath := &pathutils.PathCfs{Value: fm.Output}
+	existingPath := pathutils.PathCfs{Value: fm.Output}
 	existingContent, readErr := readFileAll(existingPath)
 	if readErr == nil {
 		sb.WriteString("\n--- existing artifact ---\n")
@@ -166,7 +166,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 	return sb.String(), nil
 }
 
-func readFileAll(cfsPath *pathutils.PathCfs) (string, error) {
+func readFileAll(cfsPath pathutils.PathCfs) (string, error) {
 	handle, err := file.FileOpen(cfsPath, "read", 30000)
 	if err != nil {
 		return "", err
@@ -193,7 +193,7 @@ func readFileAll(cfsPath *pathutils.PathCfs) (string, error) {
 	return sb.String(), nil
 }
 
-func readFileSkippingArtifactTag(cfsPath *pathutils.PathCfs) (string, error) {
+func readFileSkippingArtifactTag(cfsPath pathutils.PathCfs) (string, error) {
 	handle, err := file.FileOpen(cfsPath, "read", 30000)
 	if err != nil {
 		return "", err

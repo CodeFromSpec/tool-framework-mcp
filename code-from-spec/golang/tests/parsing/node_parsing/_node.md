@@ -1,9 +1,9 @@
 ---
 depends_on:
-  - ARTIFACT/golang/interfaces/parsing/node_parsing
-  - ARTIFACT/golang/interfaces/os/path_utils
-  - ARTIFACT/golang/interfaces/os/file
-  - ARTIFACT/golang/interfaces/utils/logical_names
+  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/utils/logical_names
 output: internal/parsenode/parsenode_test.go
 ---
 

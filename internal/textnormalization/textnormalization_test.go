@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/utils/text_normalization@zxTBqcVEJDsXXvBKSq-HOQGSJZ8
+// code-from-spec: SPEC/golang/tests/utils/text_normalization@rW941I1gwT7zVDaKOGJGrOuYJlY
 package textnormalization_test
 
 import (

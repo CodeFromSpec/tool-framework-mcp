@@ -1,6 +1,6 @@
 //go:build windows
 
-// code-from-spec: SPEC/golang/implementation/os/file/lock_windows@sQb_W5w_pFGPf9-G71q7mlhl-0o
+// code-from-spec: SPEC/golang/implementation/os/file/lock_windows@lInxrzbYpZlUFftsK3hRbC2SUuo
 
 package file
 

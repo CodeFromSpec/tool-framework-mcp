@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@f3RPl6I1UGR28TACUYT6FM2WZlw
+// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@6m1uaCtGlPzb5w9xJ6LOUeqF4rg
 package mcpvalidatespecs
 
 import (
@@ -20,7 +20,6 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectreevalidate"
 )
 
-// StalenessEntry describes the staleness status of a single output artifact.
 type StalenessEntry struct {
 	Node         string
 	ArtifactPath string
@@ -29,37 +28,22 @@ type StalenessEntry struct {
 	Rank         int
 }
 
-// ValidationReport holds the full result of a spec-tree validation run.
 type ValidationReport struct {
-	FormatErrors []*spectreevalidate.FormatError
+	FormatErrors []spectreevalidate.FormatError
 	Cycles       []string
-	Staleness    []*StalenessEntry
+	Staleness    []StalenessEntry
 }
 
-// MCPValidateSpecs scans the entire spec tree starting from code-from-spec/,
-// validates all nodes against format rules, detects dependency cycles, and
-// checks whether each output artifact is up to date. Always returns a report —
-// never returns an error. Problems are collected in the report fields.
-//
-// StalenessEntry.Status is one of:
-//   - "missing"       — file does not exist.
-//   - "stale"         — hash mismatch.
-//   - "malformed tag" — file exists but has no artifact tag or the tag cannot be parsed.
-//
-// Entries whose hash matches are not included in Staleness.
-// Cycles contains logical names involved in non-convergence during ranking.
-// StalenessEntry.Rank is the rank from NodeRankCompute; entries with equal rank
-// have no dependency between them and can be processed in parallel.
-func MCPValidateSpecs() *ValidationReport {
-	report := &ValidationReport{
-		FormatErrors: []*spectreevalidate.FormatError{},
+func MCPValidateSpecs() ValidationReport {
+	report := ValidationReport{
+		FormatErrors: []spectreevalidate.FormatError{},
 		Cycles:       []string{},
-		Staleness:    []*StalenessEntry{},
+		Staleness:    []StalenessEntry{},
 	}
 
 	nodes, err := spectree.SpecTreeScan()
 	if err != nil {
-		report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
+		report.FormatErrors = append(report.FormatErrors, spectreevalidate.FormatError{
 			Node:   "",
 			Rule:   "scan",
 			Detail: err.Error(),
@@ -69,7 +53,7 @@ func MCPValidateSpecs() *ValidationReport {
 
 	allDirs, err := collectSubdirs("code-from-spec")
 	if err != nil {
-		report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
+		report.FormatErrors = append(report.FormatErrors, spectreevalidate.FormatError{
 			Node:   "",
 			Rule:   "scan",
 			Detail: err.Error(),
@@ -87,9 +71,9 @@ func MCPValidateSpecs() *ValidationReport {
 	parseFailed := make(map[string]bool)
 
 	for _, n := range nodes {
-		fm, fmErr := frontmatter.FrontmatterParse(&n.FilePath)
+		fm, fmErr := frontmatter.FrontmatterParse(n.FilePath)
 		if fmErr != nil {
-			report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
+			report.FormatErrors = append(report.FormatErrors, spectreevalidate.FormatError{
 				Node:   n.LogicalName,
 				Rule:   "parse",
 				Detail: fmErr.Error(),
@@ -100,7 +84,7 @@ func MCPValidateSpecs() *ValidationReport {
 
 		pn, pnErr := parsenode.NodeParse(n.LogicalName)
 		if pnErr != nil {
-			report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
+			report.FormatErrors = append(report.FormatErrors, spectreevalidate.FormatError{
 				Node:   n.LogicalName,
 				Rule:   "parse",
 				Detail: pnErr.Error(),
@@ -142,7 +126,7 @@ func MCPValidateSpecs() *ValidationReport {
 
 		ranked, detectedCycles, rankErr := noderanking.NodeRankCompute(rankInputs)
 		if rankErr != nil {
-			report.FormatErrors = append(report.FormatErrors, &spectreevalidate.FormatError{
+			report.FormatErrors = append(report.FormatErrors, spectreevalidate.FormatError{
 				Node:   "",
 				Rule:   "ranking",
 				Detail: rankErr.Error(),
@@ -195,14 +179,14 @@ func MCPValidateSpecs() *ValidationReport {
 		})
 	}
 
-	var stalenessEntries []*StalenessEntry
+	var stalenessEntries []StalenessEntry
 
 	for _, on := range toCheck {
 		nodeRank := on.rank
 
 		chain, chainErr := chainresolver.ChainResolve(on.logicalName)
 		if chainErr != nil {
-			stalenessEntries = append(stalenessEntries, &StalenessEntry{
+			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         on.logicalName,
 				ArtifactPath: on.fm.Output,
 				Status:       "missing",
@@ -214,7 +198,7 @@ func MCPValidateSpecs() *ValidationReport {
 
 		expectedHash, hashErr := chainhash.ChainHashCompute(chain)
 		if hashErr != nil {
-			stalenessEntries = append(stalenessEntries, &StalenessEntry{
+			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         on.logicalName,
 				ArtifactPath: on.fm.Output,
 				Status:       "missing",
@@ -224,11 +208,11 @@ func MCPValidateSpecs() *ValidationReport {
 			continue
 		}
 
-		outputPath := &pathutils.PathCfs{Value: on.fm.Output}
+		outputPath := pathutils.PathCfs{Value: on.fm.Output}
 		tag, tagErr := artifacttag.ArtifactTagExtract(outputPath)
 		if tagErr != nil {
 			if errors.Is(tagErr, artifacttag.ErrNoTagFound) || errors.Is(tagErr, artifacttag.ErrMalformedTag) {
-				stalenessEntries = append(stalenessEntries, &StalenessEntry{
+				stalenessEntries = append(stalenessEntries, StalenessEntry{
 					Node:         on.logicalName,
 					ArtifactPath: on.fm.Output,
 					Status:       "malformed tag",
@@ -236,7 +220,7 @@ func MCPValidateSpecs() *ValidationReport {
 					Rank:         nodeRank,
 				})
 			} else {
-				stalenessEntries = append(stalenessEntries, &StalenessEntry{
+				stalenessEntries = append(stalenessEntries, StalenessEntry{
 					Node:         on.logicalName,
 					ArtifactPath: on.fm.Output,
 					Status:       "missing",
@@ -248,7 +232,7 @@ func MCPValidateSpecs() *ValidationReport {
 		}
 
 		if tag.Hash != expectedHash {
-			stalenessEntries = append(stalenessEntries, &StalenessEntry{
+			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         on.logicalName,
 				ArtifactPath: on.fm.Output,
 				Status:       "stale",
@@ -272,8 +256,6 @@ func MCPValidateSpecs() *ValidationReport {
 	return report
 }
 
-// collectSubdirs returns all subdirectory paths (as strings) under root,
-// including root itself.
 func collectSubdirs(root string) ([]string, error) {
 	var dirs []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {

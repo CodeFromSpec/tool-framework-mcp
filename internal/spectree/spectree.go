@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/spec_tree/scan@c7nLNilsoqKhL2bo5hVfQrhluXY
+// code-from-spec: SPEC/golang/implementation/spec_tree/scan@R-yTJM0eF_O2mH_tgosFCN9Ou_8
 package spectree
 
 import (
@@ -12,7 +12,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 )
 
-var ErrNoNodesFound = errors.New("no _node.md files found under code-from-spec/")
+var ErrNoNodesFound = errors.New("no nodes found")
 
 type SpecTreeNode struct {
 	LogicalName string
@@ -20,14 +20,14 @@ type SpecTreeNode struct {
 }
 
 func SpecTreeScan() ([]*SpecTreeNode, error) {
-	dir := &pathutils.PathCfs{Value: "code-from-spec"}
+	dir := pathutils.PathCfs{Value: "code-from-spec/"}
 
 	files, err := listfiles.ListFiles(dir)
 	if err != nil {
 		return nil, fmt.Errorf("listing files: %w", err)
 	}
 
-	var kept []*pathutils.PathCfs
+	var kept []pathutils.PathCfs
 	for _, f := range files {
 		lastSlash := strings.LastIndex(f.Value, "/")
 		var fileName string
@@ -60,7 +60,7 @@ func SpecTreeScan() ([]*SpecTreeNode, error) {
 		}
 		nodes = append(nodes, &SpecTreeNode{
 			LogicalName: logicalName,
-			FilePath:    *f,
+			FilePath:    f,
 		})
 	}
 

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/os/file/impl@xZ54786ZzZTV2Srjo1uCBsu5ptA
+// code-from-spec: SPEC/golang/implementation/os/file/impl@x-5ZowqIaELswXcJI_vWn_dn6fA
 
 package file
 
@@ -15,7 +15,7 @@ import (
 )
 
 type FileHandle struct {
-	Mode    string
+	mode    string
 	osPath  pathutils.PathOs
 	stream  *os.File
 	closed  bool
@@ -86,7 +86,7 @@ func acquireLockWithTimeout(f *os.File, shared bool, timeoutMs int) error {
 	}
 }
 
-func FileOpen(cfsPath *pathutils.PathCfs, mode string, timeoutMs int) (*FileHandle, error) {
+func FileOpen(cfsPath pathutils.PathCfs, mode string, timeoutMs int) (*FileHandle, error) {
 	if mode != "read" && mode != "overwrite" && mode != "append" {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidMode, mode)
 	}
@@ -97,8 +97,8 @@ func FileOpen(cfsPath *pathutils.PathCfs, mode string, timeoutMs int) (*FileHand
 	}
 
 	handle := &FileHandle{
-		Mode:   mode,
-		osPath: *osPath,
+		mode:   mode,
+		osPath: osPath,
 	}
 
 	switch mode {
@@ -163,8 +163,8 @@ func FileReadLine(handle *FileHandle) (string, error) {
 	if handle == nil {
 		return "", ErrWrongMode
 	}
-	if handle.Mode != "read" {
-		return "", fmt.Errorf("%w: handle mode is %q", ErrWrongMode, handle.Mode)
+	if handle.mode != "read" {
+		return "", fmt.Errorf("%w: handle mode is %q", ErrWrongMode, handle.mode)
 	}
 	if handle.closed {
 		return "", ErrEndOfFile
@@ -182,8 +182,8 @@ func FileWrite(handle *FileHandle, content string) error {
 	if handle == nil {
 		return ErrWrongMode
 	}
-	if handle.Mode != "overwrite" && handle.Mode != "append" {
-		return fmt.Errorf("%w: handle mode is %q", ErrWrongMode, handle.Mode)
+	if handle.mode != "overwrite" && handle.mode != "append" {
+		return fmt.Errorf("%w: handle mode is %q", ErrWrongMode, handle.mode)
 	}
 	if handle.stream == nil {
 		return fmt.Errorf("%w: file stream is nil", ErrCannotWriteFile)
@@ -199,8 +199,8 @@ func FileSkipLines(handle *FileHandle, count int) error {
 	if handle == nil {
 		return ErrWrongMode
 	}
-	if handle.Mode != "read" {
-		return fmt.Errorf("%w: handle mode is %q", ErrWrongMode, handle.Mode)
+	if handle.mode != "read" {
+		return fmt.Errorf("%w: handle mode is %q", ErrWrongMode, handle.mode)
 	}
 	if handle.closed {
 		return nil
@@ -230,7 +230,7 @@ func FileClose(handle *FileHandle) {
 	handle.closed = true
 }
 
-func FileRename(source *pathutils.PathCfs, destination *pathutils.PathCfs) error {
+func FileRename(source, destination pathutils.PathCfs) error {
 	sourceOs, err := pathutils.PathCfsToOs(source)
 	if err != nil {
 		return err
@@ -245,7 +245,7 @@ func FileRename(source *pathutils.PathCfs, destination *pathutils.PathCfs) error
 	return nil
 }
 
-func FileDelete(cfsPath *pathutils.PathCfs) error {
+func FileDelete(cfsPath pathutils.PathCfs) error {
 	osPath, err := pathutils.PathCfsToOs(cfsPath)
 	if err != nil {
 		return err

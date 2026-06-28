@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/frontmatter@lxqFjpi2k-Zb1wGgvX1oZOMgXEo
+// code-from-spec: SPEC/golang/implementation/parsing/frontmatter@OV_15646bXQpUDd8OWZ2DtvsxBI
 package frontmatter
 
 import (
@@ -27,7 +27,7 @@ type yamlFrontmatter struct {
 	Output    string   `yaml:"output"`
 }
 
-func FrontmatterParse(filePath *pathutils.PathCfs) (*Frontmatter, error) {
+func FrontmatterParse(filePath pathutils.PathCfs) (*Frontmatter, error) {
 	handle, err := file.FileOpen(filePath, "read", 30000)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
