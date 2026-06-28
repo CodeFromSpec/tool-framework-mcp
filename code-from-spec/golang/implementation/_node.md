@@ -13,3 +13,15 @@ Go implementation of the spec tree components.
   can match with `errors.Is()`.
 - Write straightforward code. Simple and readable over
   clever and compact.
+
+# Private
+
+## Decisions
+
+### Sentinel error names in Agent sections
+
+Agent sections reference errors by their Go sentinel
+name (`ErrXxx`) instead of prose descriptions. This
+ensures the generated code uses the exact sentinel
+declared in the `# Public ## Interface` section and
+eliminates ambiguity about which error to return.

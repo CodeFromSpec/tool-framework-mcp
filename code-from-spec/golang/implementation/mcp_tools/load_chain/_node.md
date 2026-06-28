@@ -93,8 +93,8 @@ Implement the load chain tool as a Go package.
 2. Call `FrontmatterParse(PathCfs{Value: ln.Path})`
    to read the target node's frontmatter. If
    `frontmatter.output` is empty, return error
-   "NoOutput". Call `PathValidateCfs(frontmatter.output)`.
-   If it fails, return error "InvalidOutputPath".
+   ErrNoOutput. Call `PathValidateCfs(frontmatter.output)`.
+   If it fails, return ErrInvalidOutputPath.
 
 3. Check if the artifact is modified:
    Call `ManifestOpen("read")`. If it succeeds, look
@@ -106,7 +106,7 @@ Implement the load chain tool as a Go package.
      hash (base64url, 27 chars) using the same
      normalization as validate_specs. If the file
      exists and its hash does not match
-     entry.Checksum, return error "ArtifactModified".
+     entry.Checksum, return ErrArtifactModified.
    If ManifestOpen fails or the entry does not exist
    or the file does not exist, skip this check.
 

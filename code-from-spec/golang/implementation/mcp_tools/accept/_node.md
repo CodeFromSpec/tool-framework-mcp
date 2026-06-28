@@ -60,18 +60,17 @@ Implement the accept tool as a Go package.
 ## Logic
 
 1. If logical_name does not start with "SPEC/",
-   return error "not a SPEC reference".
+   return ErrNotASpecReference.
 
 2. Call `LogicalNameParse(logical_name)`.
    If it fails, propagate the error.
    Let `ln` be the result.
 
 3. Call `FrontmatterParse(PathCfs{Value: ln.Path})`.
-   If it fails, return error "unreadable frontmatter".
+   If it fails, return ErrUnreadableFrontmatter.
    Store as frontmatter.
 
-4. If `frontmatter.output` is empty, return error
-   "no output".
+4. If `frontmatter.output` is empty, return ErrNoOutput.
 
 5. Derive the artifact logical name: strip "SPEC/"
    prefix from logical_name and prepend "ARTIFACT/".
@@ -82,7 +81,7 @@ Implement the accept tool as a Go package.
 7. Look up the artifact logical name in
    manifest_handle.Entries. If no entry exists,
    call `ManifestDiscard(manifest_handle)` and
-   return error "not modified".
+   return ErrNotModified.
 
 8. Construct PathCfs from frontmatter.output. Call
    `FileOpen(path, "read", 30000)`. If it fails,
@@ -97,7 +96,7 @@ Implement the accept tool as a Go package.
 10. If the computed hash equals
     entry.Checksum, call
     `ManifestDiscard(manifest_handle)` and return
-    error "not modified" (file matches manifest).
+    ErrNotModified (file matches manifest).
 
 11. Update entry.Checksum to the computed hash.
 

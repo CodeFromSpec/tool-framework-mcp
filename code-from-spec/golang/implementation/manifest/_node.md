@@ -96,7 +96,7 @@ Implement the manifest component as a Go package.
 ### ManifestOpen
 
 1. If mode is not "read" and not "write", return
-   `InvalidMode` error.
+   ErrInvalidMode.
 
 2. If mode is "read":
    a. Try FileOpen on "code-from-spec/.manifest" with
@@ -119,7 +119,7 @@ Implement the manifest component as a Go package.
             "read" and timeout 30000.
             If this returns any error, propagate it.
       If FileOpen returns LockTimeout, return
-      `LockTimeout` error.
+      ErrLockTimeout.
       If FileOpen returns any other error, propagate it.
       Let lock_handle be the result.
    c. Parse manifest_handle line by line into an entries
@@ -135,7 +135,7 @@ Implement the manifest component as a Go package.
       "code-from-spec/.manifest.lock" with mode
       "append" and timeout 30000.
       If FileOpen returns LockTimeout, return
-      `LockTimeout` error.
+      ErrLockTimeout.
       If FileOpen returns any other error, propagate it.
       (Lock file is created if it does not exist;
       exclusive lock is now held.)
@@ -157,7 +157,7 @@ Implement the manifest component as a Go package.
 Parsing steps (shared by read and write paths):
   i.   Read the first line with FileReadLine.
        If the line is not "code-from-spec: v5", return
-       error "manifest format error: unexpected header".
+       ErrManifestFormatError (unexpected header).
   ii.  For each subsequent line (read until EndOfFile):
        Split the line on ";" into fields.
        If the line has fewer than 4 fields, skip it.
@@ -174,9 +174,9 @@ Parsing steps (shared by read and write paths):
 
 ### ManifestSave
 
-1. If handle.Mode is "read", return `WrongMode` error.
+1. If handle.Mode is "read", return ErrWrongMode.
 2. If handle is already closed (lockHandle is nil),
-   return `HandleClosed` error.
+   return ErrHandleClosed.
 3. Let file_handle be FileOpen on
    "code-from-spec/.manifest" with mode "overwrite"
    and timeout 30000.
@@ -194,9 +194,9 @@ Parsing steps (shared by read and write paths):
 
 ### ManifestDiscard
 
-1. If handle.Mode is "read", return `WrongMode` error.
+1. If handle.Mode is "read", return ErrWrongMode.
 2. If handle is already closed (lockHandle is nil),
-   return `HandleClosed` error.
+   return ErrHandleClosed.
 3. FileClose lockHandle (releases exclusive lock).
    Set handle.closed = true, handle.lockHandle = nil.
    Changes to handle.Entries are abandoned.

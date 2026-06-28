@@ -52,8 +52,8 @@ Implement the frontmatter parser as a Go package.
 ## Logic
 
 1. Call FileOpen(file_path, "read", 30000).
-   If FileOpen raises FileUnreadable or any propagated
-   error, re-raise as FileUnreadable.
+   If FileOpen raises any error, re-raise as
+   ErrFileUnreadable (wrapping the original).
 
 2. Call FileReadLine to read the first line.
    If EndOfFile is raised, call FileClose and return an
@@ -68,7 +68,7 @@ Implement the frontmatter parser as a Go package.
      Call FileReadLine.
      If EndOfFile is raised:
        Call FileClose.
-       Raise error "malformed YAML".
+       Raise ErrMalformedYAML.
      If the line is exactly "---":
        Stop collecting.
      Else:
@@ -81,8 +81,7 @@ Implement the frontmatter parser as a Go package.
 
 6. Join yaml_lines into a single string, each line
    separated by a newline character. Parse the joined
-   string as YAML. If parsing fails, raise error
-   "malformed YAML".
+   string as YAML. If parsing fails, raise ErrMalformedYAML.
 
 7. From the parsed YAML, extract the following fields,
    ignoring all other keys:

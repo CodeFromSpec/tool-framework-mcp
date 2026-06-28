@@ -64,27 +64,27 @@ Implement the write file tool as a Go package.
 ## Logic
 
 1. If logical_name does not start with "SPEC/",
-   return error "not a SPEC reference".
+   return ErrNotASpecReference.
 
 2. Call `LogicalNameParse(logical_name)`.
    If it fails, propagate the error.
    Let `ln` be the result.
 
 3. If ln.Qualifier is not nil, return error
-   "qualifier not allowed".
+   ErrQualifierNotAllowed.
 
 4. Call `FrontmatterParse(PathCfs{Value: ln.Path})`.
-   If it fails, return error "unreadable frontmatter".
+   If it fails, return ErrUnreadableFrontmatter.
    Store the result as frontmatter.
 
 5. If `frontmatter.output` is empty, return error
-   "no output".
+   ErrNoOutput.
 
 6. Call `PathValidateCfs` with path. If it fails,
    propagate the error.
 
 7. If path does not exactly match `frontmatter.output`,
-   return error "path not in output".
+   return ErrPathNotInOutput.
 
 8. Construct a `PathCfs` record with value set to path.
    Call `FileOpen` with that PathCfs, mode "overwrite",

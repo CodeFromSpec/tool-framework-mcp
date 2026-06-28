@@ -74,21 +74,21 @@ Implement the node parsing component as a Go package.
 ## Logic
 
 1. Call LogicalNameParse(logical_name).
-   If it fails, raise error "not a SPEC reference".
+   If it fails, raise ErrNotASpecReference.
    Let `ln` be the result.
 
 2. If ln.Type is not NodeTypeSpec,
-     raise error "not a SPEC reference".
+     raise ErrNotASpecReference.
 
 3. If ln.Qualifier is not nil,
-     raise error "has qualifier".
+     raise ErrHasQualifier.
 
 4. Let cfs_path = PathCfs{Value: ln.Path}.
 
 5. Let reader = FileOpen(cfs_path, mode "read",
    timeout_ms 30000).
      If FileOpen raises FileUnreadable or any PathUtils
-     error, raise error "file unreadable".
+     error, raise ErrFileUnreadable.
 
 6. Skip frontmatter:
      Let first_line = FileReadLine(reader).
@@ -99,8 +99,7 @@ Implement the node parsing component as a Go package.
          Let line = FileReadLine(reader).
          If line raises EndOfFile,
            call FileClose(reader),
-           raise error "unexpected content before
-           first heading".
+           raise ErrUnexpectedContentBeforeFirstHeading.
          If line is exactly "---", stop the loop.
      Else:
        Treat first_line as the first body line (do not
@@ -168,37 +167,33 @@ Implement the node parsing component as a Go package.
                     NormalizeText(logical_name).
                     If heading != expected,
                       call FileClose(reader),
-                      raise error "node name does not
-                      match".
+                      raise ErrNodeNameDoesNotMatch.
                     Start name_section.
                     Set current_section = name_section.
                   Else if heading = "public":
                     If public_section is not absent,
                       call FileClose(reader),
-                      raise error "duplicate public
-                      section".
+                      raise ErrDuplicatePublicSection.
                     Start new section.
                     Set public_section and
                     current_section.
                   Else if heading = "agent":
                     If agent_section is not absent,
                       call FileClose(reader),
-                      raise error "duplicate agent
-                      section".
+                      raise ErrDuplicateAgentSection.
                     Start new section.
                     Set agent_section and
                     current_section.
                   Else if heading = "private":
                     If private_section is not absent,
                       call FileClose(reader),
-                      raise error "duplicate private
-                      section".
+                      raise ErrDuplicatePrivateSection.
                     Start new section.
                     Set private_section and
                     current_section.
                   Else:
                     call FileClose(reader),
-                    raise error "unrecognized section".
+                    raise ErrUnrecognizedSection.
 
               Else if level = 2:
                 If current_section is absent:
@@ -211,7 +206,7 @@ Implement the node parsing component as a Go package.
                 heading = heading.
                   If so,
                     call FileClose(reader),
-                    raise error "duplicate subsection".
+                    raise ErrDuplicateSubsection.
                 Start a new subsection.
                 Set current_subsection.
 
@@ -232,8 +227,7 @@ Implement the node parsing component as a Go package.
               If line is not blank (contains
               non-whitespace characters):
                 call FileClose(reader),
-                raise error "unexpected content before
-                first heading".
+                raise ErrUnexpectedContentBeforeFirstHeading.
 
      When EndOfFile is raised:
        Finalize current_subsection into
@@ -243,8 +237,7 @@ Implement the node parsing component as a Go package.
 
 8. If name_section is still absent:
      call FileClose(reader),
-     raise error "unexpected content before first
-     heading".
+     raise ErrUnexpectedContentBeforeFirstHeading.
 
 9. Call FileClose(reader).
 

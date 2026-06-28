@@ -74,8 +74,7 @@ For each NodeRankInput in entries:
 
 For each spec node entry in the entry map:
   Call LogicalNameParse(logical_name). Let `ln` be
-  the result. If it fails, raise error
-  "UnresolvableReference".
+  the result. If it fails, raise ErrUnresolvableReference.
 
   If ln.Parent is nil: Skip — root node has no
   parent dependency.
@@ -88,27 +87,27 @@ For each spec node entry in the entry map:
        frontmatter.depends_on:
          If reference starts with "SPEC/":
            Call LogicalNameParse(reference). If it
-           fails, raise error "UnresolvableReference".
+           fails, raise ErrUnresolvableReference.
            Let `dep_ln` be the result.
            If dep_ln.Name is not a key in the entry
            map:
-             Raise error "UnresolvableReference"
+             Raise ErrUnresolvableReference
            Add dep_ln.Name to the entry's deps list.
          Else if reference starts with "ARTIFACT/":
            If reference is not a key in the entry map:
-             Raise error "UnresolvableReference"
+             Raise ErrUnresolvableReference
            Add reference to the entry's deps list.
          Else if reference starts with "EXTERNAL/":
            Skip — external files have no rank.
          Else:
-           Raise error "UnresolvableReference"
+           Raise ErrUnresolvableReference
 
     c. input dependency: If frontmatter.input is
        non-empty:
          If frontmatter.input starts with "ARTIFACT/":
            If frontmatter.input is not a key in the
            entry map:
-             Raise error "UnresolvableReference"
+             Raise ErrUnresolvableReference
            Add frontmatter.input to the entry's deps
            list.
          Else if frontmatter.input starts with

@@ -67,22 +67,19 @@ interface.
 ### PathGetProjectRoot
 
 1. Read the current working directory of the process.
-   If it cannot be read, raise error "cannot determine
-   project root".
+   If it cannot be read, raise ErrCannotDetermineRoot.
 2. Return the working directory as a PathOs.
 
 ### PathValidateCfs
 
-1. If value is empty, raise "path is empty".
+1. If value is empty, raise ErrPathEmpty.
 2. If value starts with "/" or matches a drive letter
-   pattern (e.g. "C:"), raise "path is absolute".
-3. If value contains "\\", raise "path contains
-   backslash".
+   pattern (e.g. "C:"), raise ErrPathAbsolute.
+3. If value contains "\\", raise ErrPathContainsBackslash.
 4. Normalize the path by resolving "." and ".."
    components.
 5. For each component in the normalized path, if the
-   component is "..", raise "directory traversal
-   detected".
+   component is "..", raise ErrDirectoryTraversal.
 
 ### PathCfsToOs
 
@@ -96,7 +93,7 @@ interface.
    path. Store as absolute_path.
 5. If absolute_path exists on disk, resolve symlinks
    to get resolved_path. If resolved_path does not
-   start with root.value, raise "resolves outside root".
+   start with root.value, raise ErrResolvesOutsideRoot.
    Set absolute_path to resolved_path.
 6. Return absolute_path as a PathOs.
 
@@ -107,7 +104,7 @@ interface.
 2. If os_path.value exists on disk, resolve symlinks.
    Set os_path.value to resolved_path.
 3. If os_path.value does not start with root.value,
-   raise "resolves outside root".
+   raise ErrResolvesOutsideRoot.
 4. Compute the relative portion by removing root.value
    prefix and any leading path separator. Store as
    relative_path.

@@ -109,14 +109,14 @@ Otherwise:
 ### Step 2 — Resolve dependencies
 
 Call FrontmatterParse(PathCfs{Value: target_ln.Path}).
-If it fails, raise error "UnreadableFrontmatter".
+If it fails, raise ErrUnreadableFrontmatter.
 
 Initialize an empty dependency list.
 
 For each entry in frontmatter.depends_on:
 
   Call LogicalNameParse(entry).
-  If it fails, raise error "UnresolvableArtifact"
+  If it fails, raise ErrUnresolvableArtifact
   (wrapping the original error). Let `ln` be
   the result.
 
@@ -143,7 +143,7 @@ For each entry in frontmatter.depends_on:
     Add to dependency list.
 
   Else:
-    raise error "UnresolvableArtifact".
+    raise ErrUnresolvableArtifact.
 
 Sort the dependency list alphabetically by
 unqualified_logical_name, then by qualifier (absent

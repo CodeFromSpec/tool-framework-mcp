@@ -62,7 +62,7 @@ Implement the `file` package, including its interface.
 ### FileOpen
 
 1. If mode is not "read", "overwrite", or "append",
-   raise error "InvalidMode".
+   raise ErrInvalidMode.
 
 2. Call PathCfsToOs(cfs_path). If it raises a PathUtils
    error, propagate it. Store the result as os_path.
@@ -71,28 +71,28 @@ Implement the `file` package, including its interface.
      Acquire a shared lock on the file at os_path,
      waiting up to timeout_ms milliseconds.
      If timeout_ms is zero, attempt non-blocking.
-     If the lock cannot be acquired, raise "LockTimeout".
+     If the lock cannot be acquired, raise ErrLockTimeout.
      Open the file for sequential reading.
-     If the file cannot be opened, raise "FileUnreadable".
+     If the file cannot be opened, raise ErrFileUnreadable.
 
 4. If mode is "overwrite":
      Create all intermediate directories. If any cannot
-     be created, raise "CannotCreateDirectory".
+     be created, raise ErrCannotCreateDirectory.
      Acquire an exclusive lock, waiting up to timeout_ms.
      If timeout_ms is zero, attempt non-blocking.
-     If the lock cannot be acquired, raise "LockTimeout".
+     If the lock cannot be acquired, raise ErrLockTimeout.
      Open the file for writing, truncating existing
      content. If it cannot be opened, raise
-     "CannotOpenFile".
+     ErrCannotOpenFile.
 
 5. If mode is "append":
      Create all intermediate directories. If any cannot
-     be created, raise "CannotCreateDirectory".
+     be created, raise ErrCannotCreateDirectory.
      Acquire an exclusive lock, waiting up to timeout_ms.
      If timeout_ms is zero, attempt non-blocking.
-     If the lock cannot be acquired, raise "LockTimeout".
+     If the lock cannot be acquired, raise ErrLockTimeout.
      Open the file for writing without truncating. If it
-     cannot be opened, raise "CannotOpenFile".
+     cannot be opened, raise ErrCannotOpenFile.
 
 6. Return a FileHandle with mode, os_path, stream,
    closed = false, and a buffered line reader (only
@@ -100,11 +100,11 @@ Implement the `file` package, including its interface.
 
 ### FileReadLine
 
-1. If handle.mode is not "read", raise "WrongMode".
-2. If handle.closed is true, raise "EndOfFile".
+1. If handle.mode is not "read", raise ErrWrongMode.
+2. If handle.closed is true, raise ErrEndOfFile.
 3. Read the next line up to and including the next
    newline, or until end of stream. If no more bytes,
-   raise "EndOfFile".
+   raise ErrEndOfFile.
 4. Strip trailing line terminator: if ends with "\r\n",
    remove both; else if ends with "\n", remove it.
 5. Return the resulting string.
@@ -112,14 +112,14 @@ Implement the `file` package, including its interface.
 ### FileWrite
 
 1. If handle.mode is not "overwrite" and not "append",
-   raise "WrongMode".
+   raise ErrWrongMode.
 2. Write content to handle.stream as UTF-8, exactly as
    received with no transformation. If the write fails,
-   raise "CannotWriteFile".
+   raise ErrCannotWriteFile.
 
 ### FileSkipLines
 
-1. If handle.mode is not "read", raise "WrongMode".
+1. If handle.mode is not "read", raise ErrWrongMode.
 2. If handle.closed is true, return immediately.
 3. Repeat count times: read and discard the next line.
    If end of stream is reached before completing all
@@ -140,14 +140,14 @@ Implement the `file` package, including its interface.
    propagate it. Store as destination_os.
 3. Perform atomic OS-level rename. If destination exists,
    overwrite it. If the rename fails, raise
-   "CannotRename".
+   ErrCannotRename.
 
 ### FileDelete
 
 1. Call PathCfsToOs(cfs_path). If it raises an error,
    propagate it.
 2. Delete the file at the resulting PathOs. If it cannot
-   be deleted, raise "CannotDelete".
+   be deleted, raise ErrCannotDelete.
 
 ## Go-specific guidance
 

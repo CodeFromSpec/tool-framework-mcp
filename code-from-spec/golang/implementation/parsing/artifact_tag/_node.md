@@ -74,7 +74,7 @@ Implement the artifact tag extraction as a Go package.
 
 4. Call `FileClose(handle)`.
 
-5. If `tag_line` is empty: raise error `NoTagFound`.
+5. If `tag_line` is empty: raise ErrNoTagFound.
 
 6. Find the index of `"code-from-spec: "` within
    `tag_line`. Take the substring starting immediately
@@ -83,17 +83,16 @@ Implement the artifact tag extraction as a Go package.
 7. Trim leading whitespace from `remainder`.
 
 8. Find the index of the first `"@"` in `remainder`.
-   If `"@"` is not found: raise error `MalformedTag`.
+   If `"@"` is not found: raise ErrMalformedTag.
 
 9. Set `logical_name` to the substring of `remainder`
    from position 0 up to (not including) the `"@"`.
-   If `logical_name` is empty: raise error
-   `MalformedTag`.
+   If `logical_name` is empty: raise ErrMalformedTag.
 
 10. Set `after_at` to the substring of `remainder`
     starting immediately after `"@"`.
     If the length of `after_at` is less than 27:
-    raise error `MalformedTag`.
+    raise ErrMalformedTag.
 
 11. Set `hash` to the first 27 characters of `after_at`.
 

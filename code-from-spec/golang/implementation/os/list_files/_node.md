@@ -48,14 +48,13 @@ interface.
    caller. Assign result to os_path.
 
 2. Check that os_path points to an existing directory.
-   If the directory does not exist, raise error
-   "DirectoryNotFound".
+   If the directory does not exist, raise ErrDirectoryNotFound.
 
 3. Initialize an empty list, results.
 
 4. Walk the directory at os_path recursively, visiting
    every entry. If the walk itself raises a filesystem
-   error, raise error "WalkError".
+   error, raise ErrWalkError.
 
    For each entry encountered during the walk:
      If the entry is a directory, skip it (continue

@@ -114,7 +114,7 @@ Implement the chain hash component as a Go package.
 
 1. Call `FileOpen(file_path, mode="read",
    timeout_ms=30000)`. If `FileOpen` raises
-   `FileUnreadable`, raise error "file unreadable".
+   `FileUnreadable`, propagate the error.
 2. Let `lines` = empty list.
 3. Loop:
    a. Call `FileReadLine(handle)`.
@@ -146,7 +146,7 @@ Let `hashes` = empty list of raw byte sequences
 1. For each `ancestor` in `chain.ancestors` (from root
    to target's parent):
    a. Call `NodeParse(ancestor.unqualified_logical_name)`.
-      If it fails, raise error "parse failure".
+      If it fails, raise ErrParseFailure.
    b. Let `h` = `HashPublicSubsections(node)`.
    c. If `h` is present, append `h` to `hashes`.
 
@@ -165,7 +165,7 @@ Let `hashes` = empty list of raw byte sequences
    c. Else if dep.unqualified_logical_name starts with
       "SPEC/":
       Call `NodeParse(dep.unqualified_logical_name)`.
-      If it fails, raise error "parse failure".
+      If it fails, raise ErrParseFailure.
       If `dep.qualifier` is absent:
         Let `h` = `HashPublicSubsections(node)`.
         If `h` is present, append `h` to `hashes`.
@@ -176,7 +176,7 @@ Let `hashes` = empty list of raw byte sequences
 
 3. Target `# Public`:
    a. Call `NodeParse(chain.target.unqualified_logical_name)`.
-      If it fails, raise error "parse failure".
+      If it fails, raise ErrParseFailure.
    b. Let `h` = `HashPublicSubsections(node)`.
    c. If `h` is present, append `h` to `hashes`.
    d. Save this `node` result as `target_node`.
@@ -200,7 +200,7 @@ Let `hashes` = empty list of raw byte sequences
    d. Else if input.unqualified_logical_name starts with
       "SPEC/":
       Call `NodeParse(input.unqualified_logical_name)`.
-      If it fails, raise error "parse failure".
+      If it fails, raise ErrParseFailure.
       If `input.qualifier` is absent:
         Let `h` = `HashPublicSubsections(node)`.
         If `h` is present, append `h` to `hashes`.

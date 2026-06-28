@@ -82,8 +82,7 @@ interface artifact in this file.
 5. Sort all resulting SpecTreeNode records alphabetically
    by logical_name.
 
-6. If the sorted list is empty, raise error
-   "no nodes found".
+6. If the sorted list is empty, raise ErrNoNodesFound.
 
 7. Return the sorted list of SpecTreeNode records.
 
