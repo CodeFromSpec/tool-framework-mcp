@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/manifest@0gh-Z4luJhOf7vvIGNisffNdL0A)
+[//]: # (code-from-spec: SPEC/golang/interfaces/manifest@5tU2oIPY8nTpNKsq4nA1n25f8PQ)
 
 # Package `manifest`
 

@@ -2,7 +2,6 @@
 depends_on:
   - ARTIFACT/golang/interfaces/os/file
   - ARTIFACT/golang/interfaces/os/path_utils
-input: ARTIFACT/functional/logic/os/file
 output: internal/file/file.go
 ---
 
@@ -13,6 +12,98 @@ Main implementation of the file operations package.
 # Agent
 
 Implement the `file` package, including its interface.
+
+## Logic
+
+### FileOpen
+
+1. If mode is not "read", "overwrite", or "append",
+   raise error "InvalidMode".
+
+2. Call PathCfsToOs(cfs_path). If it raises a PathUtils
+   error, propagate it. Store the result as os_path.
+
+3. If mode is "read":
+     Acquire a shared lock on the file at os_path,
+     waiting up to timeout_ms milliseconds.
+     If timeout_ms is zero, attempt non-blocking.
+     If the lock cannot be acquired, raise "LockTimeout".
+     Open the file for sequential reading.
+     If the file cannot be opened, raise "FileUnreadable".
+
+4. If mode is "overwrite":
+     Create all intermediate directories. If any cannot
+     be created, raise "CannotCreateDirectory".
+     Acquire an exclusive lock, waiting up to timeout_ms.
+     If timeout_ms is zero, attempt non-blocking.
+     If the lock cannot be acquired, raise "LockTimeout".
+     Open the file for writing, truncating existing
+     content. If it cannot be opened, raise
+     "CannotOpenFile".
+
+5. If mode is "append":
+     Create all intermediate directories. If any cannot
+     be created, raise "CannotCreateDirectory".
+     Acquire an exclusive lock, waiting up to timeout_ms.
+     If timeout_ms is zero, attempt non-blocking.
+     If the lock cannot be acquired, raise "LockTimeout".
+     Open the file for writing without truncating. If it
+     cannot be opened, raise "CannotOpenFile".
+
+6. Return a FileHandle with mode, os_path, stream,
+   closed = false, and a buffered line reader (only
+   meaningful for read mode).
+
+### FileReadLine
+
+1. If handle.mode is not "read", raise "WrongMode".
+2. If handle.closed is true, raise "EndOfFile".
+3. Read the next line up to and including the next
+   newline, or until end of stream. If no more bytes,
+   raise "EndOfFile".
+4. Strip trailing line terminator: if ends with "\r\n",
+   remove both; else if ends with "\n", remove it.
+5. Return the resulting string.
+
+### FileWrite
+
+1. If handle.mode is not "overwrite" and not "append",
+   raise "WrongMode".
+2. Write content to handle.stream as UTF-8, exactly as
+   received with no transformation. If the write fails,
+   raise "CannotWriteFile".
+
+### FileSkipLines
+
+1. If handle.mode is not "read", raise "WrongMode".
+2. If handle.closed is true, return immediately.
+3. Repeat count times: read and discard the next line.
+   If end of stream is reached before completing all
+   iterations, stop without error.
+
+### FileClose
+
+1. If handle.closed is true, return immediately.
+2. Release handle.stream (close OS file handle and
+   release lock).
+3. Set handle.closed to true.
+
+### FileRename
+
+1. Call PathCfsToOs(source). If it raises an error,
+   propagate it. Store as source_os.
+2. Call PathCfsToOs(destination). If it raises an error,
+   propagate it. Store as destination_os.
+3. Perform atomic OS-level rename. If destination exists,
+   overwrite it. If the rename fails, raise
+   "CannotRename".
+
+### FileDelete
+
+1. Call PathCfsToOs(cfs_path). If it raises an error,
+   propagate it.
+2. Delete the file at the resulting PathOs. If it cannot
+   be deleted, raise "CannotDelete".
 
 ## Go-specific guidance
 

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/os/file@-VdD3kn5mlinY2EtqWzyoRgaNrw
+// code-from-spec: SPEC/golang/tests/os/file@CaUhUINZlfk8YInz08jyMtdPO-c
 package file_test
 
 import (

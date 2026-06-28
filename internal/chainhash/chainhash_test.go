@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/chain/hash@kLviuEI2jKXjGzh-x3K0JoEguvI
+// code-from-spec: SPEC/golang/tests/chain/hash@grPK45DU70Xq1IynbqS_mH0L0Dc
 package chainhash_test
 
 import (
@@ -686,6 +686,7 @@ func TestChainHashCompute_TargetWithoutAgentNoError(t *testing.T) {
 
 	chain := &chainresolver.Chain{
 		Target: testChainItem("SPEC/a", "code-from-spec/a/_node.md"),
+		Input:  nil,
 	}
 
 	hash, err := chainhash.ChainHashCompute(chain)

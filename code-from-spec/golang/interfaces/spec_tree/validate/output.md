@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/spec_tree/validate@VlNXBu7HDK8tfQBYKtK6ahWVm7w)
+[//]: # (code-from-spec: SPEC/golang/interfaces/spec_tree/validate@FQp2oH60IBUMr3CB57Gjj3XjUiw)
 
 # Package `spectreevalidate`
 

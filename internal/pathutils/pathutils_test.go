@@ -1,7 +1,8 @@
-// code-from-spec: SPEC/golang/tests/os/path_utils@wkRM_mGL3Z8Ro-IOfy-MkIClr5k
+// code-from-spec: SPEC/golang/tests/os/path_utils@X-1qi-3NyzHQLuGh8xWCBU4vjYY
 package pathutils_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -113,7 +114,7 @@ func TestPathValidateCfs(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error %v, got nil", tc.expectedErr)
 			}
-			if !isErr(err, tc.expectedErr) {
+			if !errors.Is(err, tc.expectedErr) {
 				t.Fatalf("expected error %v, got: %v", tc.expectedErr, err)
 			}
 		})
@@ -185,7 +186,7 @@ func TestPathCfsToOs(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !isErr(err, pathutils.ErrDirectoryTraversal) {
+		if !errors.Is(err, pathutils.ErrDirectoryTraversal) {
 			t.Fatalf("expected ErrDirectoryTraversal, got: %v", err)
 		}
 		if result != nil {
@@ -213,7 +214,7 @@ func TestPathCfsToOs(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !isErr(err, pathutils.ErrResolvesOutsideRoot) {
+		if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
 			t.Fatalf("expected ErrResolvesOutsideRoot, got: %v", err)
 		}
 	})
@@ -351,7 +352,7 @@ func TestPathOsToCfs(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !isErr(err, pathutils.ErrResolvesOutsideRoot) {
+		if !errors.Is(err, pathutils.ErrResolvesOutsideRoot) {
 			t.Fatalf("expected ErrResolvesOutsideRoot, got: %v", err)
 		}
 	})
@@ -398,30 +399,4 @@ func TestPathGetProjectRoot(t *testing.T) {
 			t.Fatalf("expected %s, got %s", wdEval, resultEval)
 		}
 	})
-}
-
-func isErr(err, target error) bool {
-	if err == nil {
-		return target == nil
-	}
-	type unwrapper interface {
-		Unwrap() error
-	}
-	type multiUnwrapper interface {
-		Unwrap() []error
-	}
-	if err == target {
-		return true
-	}
-	if u, ok := err.(unwrapper); ok {
-		return isErr(u.Unwrap(), target)
-	}
-	if mu, ok := err.(multiUnwrapper); ok {
-		for _, e := range mu.Unwrap() {
-			if isErr(e, target) {
-				return true
-			}
-		}
-	}
-	return false
 }

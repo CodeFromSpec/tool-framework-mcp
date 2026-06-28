@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/artifact_tag@SPJnnLR14cRdcHI89w73DqYA1OA)
+[//]: # (code-from-spec: SPEC/golang/interfaces/parsing/artifact_tag@g8tAtspNMoY3u6D0kfK_RVXgRVk)
 
 # Package `artifacttag`
 
@@ -9,8 +9,6 @@ Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/artifacttag
 ```go
 package artifacttag
 
-// ArtifactTag holds the parsed contents of a code-from-spec tag
-// found inside a generated file.
 type ArtifactTag struct {
 	LogicalName string
 	Hash        string
@@ -35,7 +33,7 @@ package artifacttag
 
 import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
 
-// ArtifactTagExtract scans the file at file_path line by line, looking for
+// ArtifactTagExtract scans the file at filePath line by line, looking for
 // a "code-from-spec: <logical-name>@<hash>" pattern. It returns the first
 // match parsed into an ArtifactTag. Returns ErrNoTagFound if no line
 // contains the pattern, or ErrMalformedTag if the pattern is present but

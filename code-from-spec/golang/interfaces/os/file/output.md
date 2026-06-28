@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/os/file@CUL7HCwDQTOyNqnHpx-Pk_APnPI)
+[//]: # (code-from-spec: SPEC/golang/interfaces/os/file@UTo1hnWQzioDfgoNH5jl7985Rs0)
 
 # Package `file`
 
@@ -9,13 +9,11 @@ Import path: `github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file`
 ```go
 package file
 
-import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
-
 // FileHandle holds the state for an open file, including its mode and
 // underlying OS resources. The caller must call FileClose when done to
 // release the file handle and lock.
 type FileHandle struct {
-	Mode string
+	// unexported fields
 }
 ```
 

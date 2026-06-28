@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/parsing/frontmatter@EOq0zmU2kevZagDOPCkSbUKNVPQ
+// code-from-spec: SPEC/golang/tests/parsing/frontmatter@hqxn-nPXLrxtorFvfdtBoT5ksyM
 package frontmatter_test
 
 import (

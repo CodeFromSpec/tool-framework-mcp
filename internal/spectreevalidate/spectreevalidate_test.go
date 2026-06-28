@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/spec_tree/validate@Dk-nzeCw8Nb2KLxG_GJnXJiP6mE
+// code-from-spec: SPEC/golang/tests/spec_tree/validate@XVrnptzUg071p7mF6u1N1ynAVNY
 package spectreevalidate_test
 
 import (

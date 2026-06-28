@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/mcp_tools/write_file@xsGwc_cn8KcQ9oRosEMhUUvduNo
+// code-from-spec: SPEC/golang/tests/mcp_tools/write_file@b6qs86jGTMEq0Y3TJG1JSrxkGl8
 package mcpwritefile_test
 
 import (
@@ -41,6 +41,7 @@ func TestMCPWriteFile_TC01_WritesFileSuccessfully(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
+	testWriteNodeFile(t, "code-from-spec/_node.md", "# SPEC\n")
 	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: output/file.go\n---\n# SPEC/a\n")
 
 	result, err := mcpwritefile.MCPWriteFile("SPEC/a", "output/file.go", "package main")
@@ -64,6 +65,7 @@ func TestMCPWriteFile_TC02_CreatesIntermediateDirectories(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
+	testWriteNodeFile(t, "code-from-spec/_node.md", "# SPEC\n")
 	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: deep/nested/dir/file.go\n---\n# SPEC/a\n")
 
 	result, err := mcpwritefile.MCPWriteFile("SPEC/a", "deep/nested/dir/file.go", "package main")
@@ -83,6 +85,7 @@ func TestMCPWriteFile_TC03_OverwritesExistingFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
+	testWriteNodeFile(t, "code-from-spec/_node.md", "# SPEC\n")
 	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: output/file.go\n---\n# SPEC/a\n")
 
 	if err := os.MkdirAll("output", 0755); err != nil {
@@ -146,6 +149,7 @@ func TestMCPWriteFile_TC07_NoOutputDeclared(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
+	testWriteNodeFile(t, "code-from-spec/_node.md", "# SPEC\n")
 	testWriteNodeFile(t, "code-from-spec/a/_node.md", "# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", "out.go", "")
@@ -161,6 +165,7 @@ func TestMCPWriteFile_TC08_PathNotInOutput(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
+	testWriteNodeFile(t, "code-from-spec/_node.md", "# SPEC\n")
 	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: allowed/file.go\n---\n# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", "other/file.go", "")
@@ -176,6 +181,7 @@ func TestMCPWriteFile_TC09_PathValidation_EmptyPath(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
+	testWriteNodeFile(t, "code-from-spec/_node.md", "# SPEC\n")
 	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: out.go\n---\n# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", "", "")
@@ -191,6 +197,7 @@ func TestMCPWriteFile_TC10_PathValidation_Traversal(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
+	testWriteNodeFile(t, "code-from-spec/_node.md", "# SPEC\n")
 	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: out.go\n---\n# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", "../../etc/passwd", "")
@@ -206,6 +213,7 @@ func TestMCPWriteFile_TC11_PathValidation_Backslash(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 
+	testWriteNodeFile(t, "code-from-spec/_node.md", "# SPEC\n")
 	testWriteNodeFile(t, "code-from-spec/a/_node.md", "---\noutput: out.go\n---\n# SPEC/a\n")
 
 	_, err := mcpwritefile.MCPWriteFile("SPEC/a", `output\file.go`, "")

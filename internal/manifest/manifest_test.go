@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/manifest@pVed0IPMXK0eDXroP5wNzYhk5Pg
+// code-from-spec: SPEC/golang/tests/manifest@b3syEWBH4JnIOsSsazNHEO4KV9M
 package manifest_test
 
 import (

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/os/file/impl@QJi-_7a4HnDI4TD0fKqHXAEGNqo
+// code-from-spec: SPEC/golang/implementation/os/file/impl@xZ54786ZzZTV2Srjo1uCBsu5ptA
 
 package file
 

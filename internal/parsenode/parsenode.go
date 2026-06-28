@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@0HEKeWJZ7-tcpQJ8OzekiESTHno
+// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@m9N4uVWik7UEy_77JWvlldnvXK8
 package parsenode
 
 import (
@@ -286,15 +286,19 @@ func parseATXHeading(line string) (level int, text string, ok bool) {
 	if count >= len(line) || line[count] != ' ' {
 		return 0, "", false
 	}
-	textPart := line[count+1:]
-	textPart = strings.TrimSpace(textPart)
-	for len(textPart) > 0 && textPart[len(textPart)-1] == '#' {
-		trimmed := strings.TrimRight(textPart, "#")
-		if len(trimmed) > 0 && trimmed[len(trimmed)-1] == ' ' {
-			textPart = strings.TrimRight(trimmed, " ")
-			break
+	textPart := strings.TrimSpace(line[count+1:])
+	if idx := strings.LastIndexByte(textPart, ' '); idx >= 0 {
+		trailingPart := textPart[idx+1:]
+		allHash := len(trailingPart) > 0
+		for _, ch := range trailingPart {
+			if ch != '#' {
+				allHash = false
+				break
+			}
 		}
-		break
+		if allHash {
+			textPart = strings.TrimRight(textPart[:idx], " ")
+		}
 	}
 	return count, textPart, true
 }

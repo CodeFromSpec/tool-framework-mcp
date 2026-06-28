@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/os/list_files@lunae76vD_I8ri185wvlQIcdZrE)
+[//]: # (code-from-spec: SPEC/golang/interfaces/os/list_files@nEcZMdomN41h3yuE4cHxs6_5Uxw)
 
 # Package `listfiles`
 
