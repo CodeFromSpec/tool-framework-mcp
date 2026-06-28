@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/utils/logical_names@5a-pu3StkoVjRspkoYcJy08Zo_s)
+[//]: # (code-from-spec: SPEC/golang/interfaces/utils/logical_names@KXbuczc8rueCoHMzfCAz3BJ-1ec)
 
 # Package `logicalnames`
 

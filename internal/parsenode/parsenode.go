@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@KMWi9RwBa5aF4ZrjZ3MOrr6w1b4
+// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@0HEKeWJZ7-tcpQJ8OzekiESTHno
 package parsenode
 
 import (
@@ -64,9 +64,7 @@ func NodeParse(logicalName string) (*Node, error) {
 	var firstBodyLine *string
 	firstLine, err := file.FileReadLine(handle)
 	if err != nil {
-		if errors.Is(err, file.ErrEndOfFile) {
-			// empty file — will fail at step 7
-		} else {
+		if !errors.Is(err, file.ErrEndOfFile) {
 			file.FileClose(handle)
 			return nil, fmt.Errorf("%w: %w", ErrFileUnreadable, err)
 		}
@@ -101,6 +99,32 @@ func NodeParse(logicalName string) (*Node, error) {
 	fenceChar := byte(0)
 	fenceWidth := 0
 
+	appendToContent := func(line string) {
+		if currentSubsection != nil {
+			currentSubsection.Content = append(currentSubsection.Content, line)
+		} else if currentSection != nil {
+			currentSection.Content = append(currentSection.Content, line)
+		}
+	}
+
+	appendOrError := func(line string) error {
+		if currentSubsection != nil || currentSection != nil {
+			appendToContent(line)
+			return nil
+		}
+		if strings.TrimSpace(line) != "" {
+			return fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
+		}
+		return nil
+	}
+
+	finalizeSubsection := func() {
+		if currentSubsection != nil {
+			currentSection.Subsections = append(currentSection.Subsections, currentSubsection)
+			currentSubsection = nil
+		}
+	}
+
 	processLine := func(line string) error {
 		stripped := strings.TrimSpace(line)
 
@@ -114,7 +138,7 @@ func NodeParse(logicalName string) (*Node, error) {
 				fenceChar = ch
 				fenceWidth = count
 				inFence = true
-				appendToContent(line, currentSubsection, currentSection)
+				appendToContent(line)
 				return nil
 			}
 		} else {
@@ -128,25 +152,19 @@ func NodeParse(logicalName string) (*Node, error) {
 				fenceChar = 0
 				fenceWidth = 0
 			}
-			appendToContent(line, currentSubsection, currentSection)
+			appendToContent(line)
 			return nil
 		}
 
 		level, textPart, isHeading := parseATXHeading(line)
 		if !isHeading {
-			if err := appendOrError(line, currentSubsection, currentSection); err != nil {
-				return err
-			}
-			return nil
+			return appendOrError(line)
 		}
 
 		heading := textnormalization.NormalizeText(textPart)
 
 		if level == 1 {
-			if currentSubsection != nil {
-				currentSection.Subsections = append(currentSection.Subsections, currentSubsection)
-				currentSubsection = nil
-			}
+			finalizeSubsection()
 			currentSection = nil
 
 			if nameSection == nil {
@@ -199,13 +217,9 @@ func NodeParse(logicalName string) (*Node, error) {
 			}
 		} else if level == 2 {
 			if currentSection == nil {
-				appendToContent(line, currentSubsection, currentSection)
-				return nil
+				return appendOrError(line)
 			}
-			if currentSubsection != nil {
-				currentSection.Subsections = append(currentSection.Subsections, currentSubsection)
-				currentSubsection = nil
-			}
+			finalizeSubsection()
 			for _, sub := range currentSection.Subsections {
 				if sub.Heading == heading {
 					return fmt.Errorf("%w", ErrDuplicateSubsection)
@@ -217,7 +231,7 @@ func NodeParse(logicalName string) (*Node, error) {
 				Content:    []string{},
 			}
 		} else {
-			appendToContent(line, currentSubsection, currentSection)
+			appendToContent(line)
 		}
 
 		return nil
@@ -234,11 +248,7 @@ func NodeParse(logicalName string) (*Node, error) {
 		line, err := file.FileReadLine(handle)
 		if err != nil {
 			if errors.Is(err, file.ErrEndOfFile) {
-				if currentSubsection != nil {
-					currentSection.Subsections = append(currentSection.Subsections, currentSubsection)
-					currentSubsection = nil
-				}
-				currentSection = nil
+				finalizeSubsection()
 				break
 			}
 			file.FileClose(handle)
@@ -263,25 +273,6 @@ func NodeParse(logicalName string) (*Node, error) {
 		Agent:       agentSection,
 		Private:     privateSection,
 	}, nil
-}
-
-func appendToContent(line string, sub *NodeSubsection, sec *NodeSection) {
-	if sub != nil {
-		sub.Content = append(sub.Content, line)
-	} else if sec != nil {
-		sec.Content = append(sec.Content, line)
-	}
-}
-
-func appendOrError(line string, sub *NodeSubsection, sec *NodeSection) error {
-	if sub != nil || sec != nil {
-		appendToContent(line, sub, sec)
-		return nil
-	}
-	if strings.TrimSpace(line) != "" {
-		return fmt.Errorf("%w", ErrUnexpectedContentBeforeFirstHeading)
-	}
-	return nil
 }
 
 func parseATXHeading(line string) (level int, text string, ok bool) {

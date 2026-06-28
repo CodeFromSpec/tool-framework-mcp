@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/frontmatter@wyOra5J0Ic7yzbKBF562nfSR4tk
+// code-from-spec: SPEC/golang/implementation/parsing/frontmatter@WyhPNIH2gGR4tN-vxHbK-M_Pnho
 package frontmatter
 
 import (

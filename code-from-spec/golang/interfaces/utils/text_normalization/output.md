@@ -1,4 +1,4 @@
-[//]: # (code-from-spec: SPEC/golang/interfaces/utils/text_normalization@i5XyKO6bCaDe3IdHdTEp3i_FEhA)
+[//]: # (code-from-spec: SPEC/golang/interfaces/utils/text_normalization@sZiAaAEnZy799dbIViyeTRFe7UI)
 
 # Package `textnormalization`
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-Package `textnormalization` provides utilities for normalizing text strings by trimming whitespace, collapsing internal spaces, and converting to lowercase. Unicode characters that have a simple lowercase folding (e.g., `Straße` → `strasse`) are handled via standard library Unicode normalization.
+Package `textnormalization` provides utilities for normalizing text strings by trimming whitespace, collapsing internal spaces, and applying Unicode simple case folding.
 
 ## Function Signatures
 
@@ -14,9 +14,8 @@ Package `textnormalization` provides utilities for normalizing text strings by t
 package textnormalization
 
 // NormalizeText trims leading and trailing whitespace, collapses all
-// internal whitespace sequences to a single space, and converts the
-// result to lowercase. Unicode characters with a simple lowercase
-// equivalent (e.g., "Straße" → "strasse") are folded accordingly.
+// internal whitespace sequences to a single space, and applies Unicode
+// simple case folding (e.g., "Straße" → "strasse").
 // An empty string returns an empty string.
 func NormalizeText(rawString string) string
 ```
@@ -36,7 +35,6 @@ func main() {
 	fmt.Println(textnormalization.NormalizeText("  Interface  "))
 	fmt.Println(textnormalization.NormalizeText("PUBLIC"))
 	fmt.Println(textnormalization.NormalizeText("Straße"))
-	fmt.Println(textnormalization.NormalizeText("Testes   de   aceitação"))
 	fmt.Println(textnormalization.NormalizeText(""))
 }
 ```
@@ -47,6 +45,5 @@ Expected output:
 interface
 public
 strasse
-testes de aceitação
 
 ```
