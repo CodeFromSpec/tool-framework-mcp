@@ -2,9 +2,10 @@
 depends_on:
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
+  - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/mcp_tools/validate_specs
+  - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/implementation/os/path_utils
-  - SPEC/golang/implementation/parsing/artifact_tag
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
   - SPEC/golang/implementation/spec_tree/scan
@@ -22,17 +23,18 @@ output: internal/mcpvalidatespecs/mcpvalidatespecs_test.go
 `MCPValidateSpecs` calls `SpecTreeScan`, `NodeParse`,
 `FrontmatterParse`, `SpecTreeValidate`,
 `NodeRankCompute`, `ChainResolve`, `ChainHashCompute`,
-and `ArtifactTagExtract` internally. Tests must create
-a complete spec tree on disk.
+and `ManifestOpen` internally. Tests must create a
+complete spec tree on disk.
 
 Use `testChdir` and create `code-from-spec/.../_node.md`
 files with valid structure (frontmatter + body with
 `# <logical_name>` heading).
 
-For staleness tests, create output files with artifact
-tags. To produce a matching hash, call `MCPValidateSpecs`
-once to discover the current chain hash, then write an
-artifact tag with that hash.
+For staleness tests, create a `.manifest` file with
+the appropriate entries. To produce a matching chain
+hash for clean-tree tests, call `ChainHashCompute`.
+For the file checksum, compute SHA-1 of the file
+content (base64url, 27 chars).
 
 The function never returns an error — always check the
 fields of the returned `ValidationReport`.
@@ -44,13 +46,17 @@ fields of the returned `ValidationReport`.
 #### Clean tree — no errors
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`.
-- Compute the current chain hash for SPEC/a using
-  `ChainHashCompute`. Create `out/a.go` with a valid
-  artifact tag with that hash.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `out/a.go` with known content.
+- Compute the current chain hash for SPEC/root/a.
+  Compute the checksum of `out/a.go`.
+- Create `code-from-spec/.manifest` with header
+  `code-from-spec: v5` and entry:
+  `ARTIFACT/root/a;path:out/a.go;checksum:<checksum>;chain:<chain_hash>`
 
 Actions:
 1. Call `MCPValidateSpecs()`.
@@ -63,116 +69,164 @@ Expected:
 #### Stale artifact detected
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`.
-- Create `out/a.go` with an artifact tag containing a
-  27-character base64url string that differs from the
-  current chain hash.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `out/a.go` with known content.
+- Create `.manifest` with a chain hash that differs
+  from the current chain hash (but checksum matches
+  the file).
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
 - `staleness` contains one StalenessEntry for
-  `"SPEC/a"` with `Status` = `"stale"` and `Rank`
-  present.
+  `"SPEC/root/a"` with `Status` = `"stale"` and
+  `Rank` present.
 
-#### Missing artifact detected
+#### Missing artifact — no manifest entry
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`.
-- Do not create `out/a.go`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- No manifest entry for ARTIFACT/root/a. No file on
+  disk.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
 - `staleness` contains one StalenessEntry for
-  `"SPEC/a"` with `Status` = `"missing"`.
+  `"SPEC/root/a"` with `Status` = `"missing"`.
 
-#### Malformed tag detected
+#### Missing artifact — file does not exist
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`.
-- Create `out/a.go` with content that has no artifact
-  tag.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `.manifest` with a valid entry for
+  ARTIFACT/root/a (matching chain hash), but do not
+  create `out/a.go` on disk.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
 - `staleness` contains one StalenessEntry for
-  `"SPEC/a"` with `Status` = `"malformed tag"`.
+  `"SPEC/root/a"` with `Status` = `"missing"`.
+
+#### Modified artifact detected
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `out/a.go` with content "original".
+- Create `.manifest` with chain hash matching current,
+  but checksum matching the hash of "original".
+- Overwrite `out/a.go` with content "modified" (so
+  file hash no longer matches manifest checksum).
+
+Actions:
+1. Call `MCPValidateSpecs()`.
+
+Expected:
+- `staleness` contains one StalenessEntry for
+  `"SPEC/root/a"` with `Status` = `"modified"`.
+
+#### Orphan manifest entry detected
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `.manifest` with entry for
+  `ARTIFACT/root/deleted` with path `out/deleted.go`.
+- No `code-from-spec/root/deleted/_node.md` on disk.
+
+Actions:
+1. Call `MCPValidateSpecs()`.
+
+Expected:
+- `staleness` contains one StalenessEntry with
+  `Status` = `"orphan"`.
 
 #### Staleness entries include rank
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`,
-  frontmatter `output: out/b.go`,
-  `depends_on: ["SPEC/a"]`.
-- Create `out/a.go` and `out/b.go` with outdated
-  artifact tag hashes.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `output: out/b.go`,
+  `depends_on: ["SPEC/root/a"]`.
+- No manifest entries (both are missing).
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
 - Both StalenessEntries have `Rank` values.
-- SPEC/a's rank is strictly less than SPEC/b's rank.
+- SPEC/root/a's rank is strictly less than
+  SPEC/root/b's rank.
 
 #### Staleness ordered by rank then name
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/z/_node.md` with `# SPEC/z`,
-  frontmatter `output: out/z.go`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`.
-- Both output files with outdated hashes.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/z/_node.md` with
+  `# SPEC/root/z`, frontmatter `output: out/z.go`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- No manifest entries (both are missing).
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
-- Staleness entries ordered: SPEC/a before SPEC/z
-  (same rank, alphabetical).
+- Staleness entries ordered: SPEC/root/a before
+  SPEC/root/z (same rank, alphabetical).
 
 ### Format errors
 
 #### Format error from invalid depends_on
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `depends_on: ["SPEC/missing"]`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`,
+  frontmatter `depends_on: ["SPEC/root/missing"]`.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
 - `format_errors` contains a FormatError for
-  `"SPEC/a"` with `Rule` = `"dependency_targets"`.
+  `"SPEC/root/a"` with `Rule` = `"dependency_targets"`.
 
 #### Format error from parse failure
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with invalid
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with invalid
   content (plain text before any heading).
 
 Actions:
@@ -180,37 +234,40 @@ Actions:
 
 Expected:
 - `format_errors` contains a FormatError for
-  `"SPEC/a"` with `Rule` = `"parse"`.
+  `"SPEC/root/a"` with `Rule` = `"parse"`.
 
 #### Continues after parse failure
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with invalid
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
   content.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`,
-  frontmatter `output: out/b.go`.
-- Create `out/b.go` with outdated artifact tag hash.
+- Create `code-from-spec/root/a/_node.md` with invalid
+  content.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `output: out/b.go`.
+- No manifest entry for ARTIFACT/root/b.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
 - `format_errors` contains a FormatError for
-  `"SPEC/a"`.
+  `"SPEC/root/a"`.
 - `staleness` contains a StalenessEntry for
-  `"SPEC/b"` with `Status` = `"stale"`.
+  `"SPEC/root/b"` with `Status` = `"missing"`.
 - Both reported in the same report.
 
 #### Subdirectory without _node.md detected
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`.
-- Create empty directory `code-from-spec/b/` with no
-  `_node.md`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`.
+- Create empty directory `code-from-spec/root/b/` with
+  no `_node.md`.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
@@ -219,56 +276,63 @@ Expected:
 - `format_errors` contains a FormatError with
   `Rule` = `"missing_node_md"`.
 
-#### _-prefixed dir under code-from-spec not flagged
+#### .-prefixed dir under code-from-spec not flagged
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create directory `code-from-spec/_tools/` with no
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create directory `code-from-spec/.cache/` with no
   `_node.md`.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
-- No FormatError for `_tools/`.
+- No FormatError for `.cache/`.
 
 ### Cycle detection
 
 #### Simple cycle detected
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `depends_on: ["SPEC/b"]`.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`,
-  frontmatter `depends_on: ["SPEC/a"]`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`,
+  frontmatter `depends_on: ["SPEC/root/b"]`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`,
+  frontmatter `depends_on: ["SPEC/root/a"]`.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
 - `cycles` is not empty, contains at least one of
-  `"SPEC/a"` or `"SPEC/b"`.
+  `"SPEC/root/a"` or `"SPEC/root/b"`.
 
 #### Ranking skipped when format errors exist
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `depends_on: ["SPEC/missing"]`.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`,
-  frontmatter `output: out/b.go`.
-- Create `out/b.go` with outdated artifact tag hash.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`,
+  frontmatter `depends_on: ["SPEC/root/missing"]`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `output: out/b.go`.
+- No manifest entry for ARTIFACT/root/b.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
 - `format_errors` is not empty.
-- Any StalenessEntry for `"SPEC/b"` has `Rank` = 0.
+- Any StalenessEntry for `"SPEC/root/b"` has
+  `Rank` = 0.
 
 ### Edge cases
 
@@ -289,16 +353,34 @@ Expected:
 #### Node with no output — not in staleness
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Context` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`.
-  No output in frontmatter.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`. No output in frontmatter.
 
 Actions:
 1. Call `MCPValidateSpecs()`.
 
 Expected:
-- No StalenessEntry for `"SPEC/a"`.
+- No StalenessEntry for `"SPEC/root/a"`.
+
+#### No manifest file — all artifacts with output are missing
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Do not create `.manifest`.
+
+Actions:
+1. Call `MCPValidateSpecs()`.
+
+Expected:
+- `staleness` contains one StalenessEntry for
+  `"SPEC/root/a"` with `Status` = `"missing"`.
 
 ## Go-specific guidance
 
@@ -309,9 +391,16 @@ Expected:
 - When creating `_node.md` files with `# Public`
   content, all content must be under `##` subsections.
 - Logical names map to filesystem paths:
-  `SPEC` → `code-from-spec/_node.md`,
   `SPEC/x` → `code-from-spec/x/_node.md`.
 - To compute a valid chain hash for clean-tree tests,
   use `ChainHashCompute` from the `chainhash` package.
-- For stale artifacts, use any 27-character base64url
-  string that differs from the current chain hash.
+- To compute a file checksum, use SHA-1 of the file
+  content (after CRLF→LF normalization, with trailing
+  LF), encoded as base64url (27 chars).
+- Create `.manifest` files using `ManifestOpen("write")`
+  + `ManifestSave`, or by writing the file directly
+  with the correct format:
+  ```
+  code-from-spec: v5
+  ARTIFACT/root/a;path:out/a.go;checksum:<hash>;chain:<hash>
+  ```

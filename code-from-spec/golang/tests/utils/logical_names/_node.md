@@ -30,20 +30,18 @@ temp dir, chdir to it, create the necessary
 
 ### LogicalNameParse — SPEC type
 
-#### SPEC alone
+#### Bare SPEC is invalid
 
 Input: "SPEC".
-Expect: Type = NodeTypeSpec, Name = "SPEC",
-Qualifier = nil, Path = "code-from-spec/_node.md",
-Parent = nil.
+Expect error: ErrUnrecognizedPrefix.
 
-#### SPEC with single segment
+#### SPEC root node (single segment)
 
 Input: "SPEC/domain".
 Expect: Type = NodeTypeSpec, Name = "SPEC/domain",
 Qualifier = nil,
 Path = "code-from-spec/domain/_node.md",
-Parent = pointer to "SPEC".
+Parent = nil.
 
 #### SPEC with nested path
 
@@ -64,10 +62,10 @@ Parent = pointer to "SPEC/x".
 
 #### SPEC with qualifier — root level
 
-Input: "SPEC(context)".
-Expect: Type = NodeTypeSpec, Name = "SPEC",
+Input: "SPEC/domain(context)".
+Expect: Type = NodeTypeSpec, Name = "SPEC/domain",
 Qualifier = pointer to "context",
-Path = "code-from-spec/_node.md",
+Path = "code-from-spec/domain/_node.md",
 Parent = nil.
 
 #### SPEC with qualifier — parent is computed from unqualified name
@@ -200,12 +198,12 @@ Expect error: ErrInvalidName.
 
 ### LogicalNameFromPath
 
-#### Root node
+#### Root node (direct child of code-from-spec/)
 
-Input: PathCfs "code-from-spec/_node.md".
-Expect: Type = NodeTypeSpec, Name = "SPEC",
+Input: PathCfs "code-from-spec/domain/_node.md".
+Expect: Type = NodeTypeSpec, Name = "SPEC/domain",
 Qualifier = nil,
-Path = "code-from-spec/_node.md",
+Path = "code-from-spec/domain/_node.md",
 Parent = nil.
 
 #### Nested node
@@ -223,6 +221,11 @@ Expect: Type = NodeTypeSpec, Name = "SPEC/a/b/c/d",
 Qualifier = nil,
 Path = "code-from-spec/a/b/c/d/_node.md",
 Parent = pointer to "SPEC/a/b/c".
+
+#### Rejects bare code-from-spec/_node.md
+
+Input: PathCfs "code-from-spec/_node.md".
+Expect error: ErrInvalidPath.
 
 #### Rejects non-spec path
 

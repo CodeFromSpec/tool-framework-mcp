@@ -44,7 +44,7 @@ as the first heading.
 #### Hash is deterministic
 
 Setup:
-- Create a `_node.md` file for SPEC/a with `# Public`
+- Create a `_node.md` file for SPEC/root/a with `# Public`
   containing a `## Interface` subsection.
 - Build a Chain with target = ChainItem pointing to
   SPEC/a.
@@ -57,7 +57,7 @@ Expected: Both results are identical strings.
 #### Hash is 27 characters
 
 Setup:
-- Create a `_node.md` file for SPEC/a with `# Public`
+- Create a `_node.md` file for SPEC/root/a with `# Public`
   containing a `## Interface` subsection.
 - Build a Chain with target = ChainItem pointing to
   that file.
@@ -70,15 +70,15 @@ Expected: Result is exactly 27 characters long.
 #### Hash changes when ancestor content changes
 
 Setup:
-- Create `_node.md` for SPEC with `# Public` → `## Context`
+- Create `_node.md` for SPEC/root with `# Public` → `## Context`
   with initial content.
-- Create `_node.md` for SPEC/a with `# Public` →
+- Create `_node.md` for SPEC/root/a with `# Public` →
   `## Interface`.
-- Build Chain with ancestors = [SPEC], target = SPEC/a.
+- Build Chain with ancestors = [SPEC/root], target = SPEC/root/a.
 
 Actions:
 1. Call ChainHashCompute → hash_before.
-2. Modify SPEC's `## Context` content on disk.
+2. Modify SPEC/root's `## Context` content on disk.
 3. Call ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
@@ -86,16 +86,16 @@ Expected: hash_before differs from hash_after.
 #### Hash changes when dependency content changes
 
 Setup:
-- Create `_node.md` for SPEC with `# Public` → `## Context`.
-- Create `_node.md` for SPEC/b with `# Public` →
+- Create `_node.md` for SPEC/root with `# Public` → `## Context`.
+- Create `_node.md` for SPEC/root/b with `# Public` →
   `## Interface` with initial content.
 - Create `_node.md` for SPEC/a.
-- Build Chain with target = SPEC/a, dependencies =
-  [SPEC/b (qualifier absent)].
+- Build Chain with target = SPEC/root/a, dependencies =
+  [SPEC/root/b (qualifier absent)].
 
 Actions:
 1. Call ChainHashCompute → hash_before.
-2. Modify SPEC/b's `## Interface` content on disk.
+2. Modify SPEC/root/b's `## Interface` content on disk.
 3. Call ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
@@ -103,10 +103,10 @@ Expected: hash_before differs from hash_after.
 #### Hash changes when target Public changes
 
 Setup:
-- Create `_node.md` for SPEC with `# Public` → `## Context`.
-- Create `_node.md` for SPEC/a with `# Public` →
+- Create `_node.md` for SPEC/root with `# Public` → `## Context`.
+- Create `_node.md` for SPEC/root/a with `# Public` →
   `## Interface` with initial content.
-- Build Chain with target = SPEC/a.
+- Build Chain with target = SPEC/root/a.
 
 Actions:
 1. Call ChainHashCompute → hash_before.
@@ -118,9 +118,9 @@ Expected: hash_before differs from hash_after.
 #### Hash changes when target Agent changes
 
 Setup:
-- Create `_node.md` for SPEC/a with `# Public` →
+- Create `_node.md` for SPEC/root/a with `# Public` →
   `## Interface` and `# Agent` with initial content.
-- Build Chain with target = SPEC/a.
+- Build Chain with target = SPEC/root/a.
 
 Actions:
 1. Call ChainHashCompute → hash_before.
@@ -134,9 +134,9 @@ Expected: hash_before differs from hash_after.
 #### Ancestor with Public subsections contributes hash
 
 Setup:
-- Create SPEC with `# Public` → `## Context`.
-- Create SPEC/a with `# Public` → `## Interface`.
-- Build Chain with ancestors = [SPEC], target = SPEC/a.
+- Create SPEC/root with `# Public` → `## Context`.
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build Chain with ancestors = [SPEC/root], target = SPEC/root/a.
 
 Actions:
 1. Call ChainHashCompute.
@@ -146,13 +146,13 @@ Expected: Non-empty result of 27 characters.
 #### Ancestor without Public section — skipped
 
 Setup:
-- Create SPEC/a with `# Public` → `## Interface`.
-- Create SPEC with `# Public` → `## Context`.
-- Build Chain with ancestors = [SPEC], target = SPEC/a.
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Create SPEC/root with `# Public` → `## Context`.
+- Build Chain with ancestors = [SPEC/root], target = SPEC/root/a.
 
 Actions:
 1. Call ChainHashCompute → hash_with_public.
-2. Rewrite SPEC to have only a name heading (no
+2. Rewrite SPEC/root to have only a name heading (no
    `# Public`).
 3. Call ChainHashCompute → hash_without_public.
 
@@ -162,15 +162,15 @@ hash_without_public.
 #### Multiple ancestors — order matters
 
 Setup:
-- Create SPEC with `# Public` → `## Context`
+- Create SPEC/root with `# Public` → `## Context`
   ("root context").
-- Create SPEC/a with `# Public` → `## Context`
+- Create SPEC/root/a with `# Public` → `## Context`
   ("a context").
-- Create SPEC/a/b with `# Public` → `## Interface`.
-- Build Chain_A with ancestors = [SPEC, SPEC/a],
-  target = SPEC/a/b.
-- Build Chain_B with ancestors = [SPEC/a, SPEC],
-  target = SPEC/a/b.
+- Create SPEC/root/a/b with `# Public` → `## Interface`.
+- Build Chain_A with ancestors = [SPEC/root, SPEC/root/a],
+  target = SPEC/root/a/b.
+- Build Chain_B with ancestors = [SPEC/root/a, SPEC/root],
+  target = SPEC/root/a/b.
 
 Actions:
 1. Call ChainHashCompute(Chain_A) → hash_a.
@@ -183,15 +183,15 @@ Expected: hash_a differs from hash_b.
 #### SPEC dependency without qualifier — hashes Public subsections
 
 Setup:
-- Create SPEC/b with `# Public` → `## Interface` with
+- Create SPEC/root/b with `# Public` → `## Interface` with
   initial content.
-- Create SPEC/a with `# Public` → `## Interface`.
-- Build Chain with target = SPEC/a, dependencies =
-  [SPEC/b (qualifier absent)].
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build Chain with target = SPEC/root/a, dependencies =
+  [SPEC/root/b (qualifier absent)].
 
 Actions:
 1. Call ChainHashCompute → hash_before.
-2. Modify SPEC/b's `## Interface` content.
+2. Modify SPEC/root/b's `## Interface` content.
 3. Call ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
@@ -199,15 +199,15 @@ Expected: hash_before differs from hash_after.
 #### SPEC dependency with qualifier — hashes subsection
 
 Setup:
-- Create SPEC/b with `# Public` → `## Interface` with
+- Create SPEC/root/b with `# Public` → `## Interface` with
   initial content.
-- Create SPEC/a with `# Public` → `## Interface`.
-- Build Chain with target = SPEC/a, dependencies =
-  [SPEC/b, qualifier = "interface"].
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build Chain with target = SPEC/root/a, dependencies =
+  [SPEC/root/b, qualifier = "interface"].
 
 Actions:
 1. Call ChainHashCompute → hash_before.
-2. Modify SPEC/b's `## Interface` content.
+2. Modify SPEC/root/b's `## Interface` content.
 3. Call ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
@@ -215,9 +215,9 @@ Expected: hash_before differs from hash_after.
 #### Qualifier case normalization
 
 Setup:
-- Create SPEC/b with `## Interface` subsection.
-- Create SPEC/a with `# Public` → `## Interface`.
-- Build Chain with dependency on SPEC/b,
+- Create SPEC/root/b with `## Interface` subsection.
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build Chain with dependency on SPEC/root/b,
   qualifier = "INTERFACE" (uppercase).
 
 Actions:
@@ -320,9 +320,9 @@ Expected: hash_a differs from hash_b.
 #### Target Public and Agent both contribute
 
 Setup:
-- Create SPEC/a with `# Public` → `## Interface` and
+- Create SPEC/root/a with `# Public` → `## Interface` and
   `# Agent` with content.
-- Build Chain with target = SPEC/a.
+- Build Chain with target = SPEC/root/a.
 
 Actions:
 1. Call ChainHashCompute → hash_before.
@@ -334,9 +334,9 @@ Expected: hash_before differs from hash_after.
 #### Target without Agent — Agent skipped
 
 Setup:
-- Create SPEC/a with `# Public` → `## Interface`, no
+- Create SPEC/root/a with `# Public` → `## Interface`, no
   `# Agent`.
-- Build Chain with target = SPEC/a.
+- Build Chain with target = SPEC/root/a.
 
 Actions:
 1. Call ChainHashCompute.
@@ -349,8 +349,8 @@ Expected: No error. 27-character result.
 
 Setup:
 - Create an artifact file with content.
-- Create SPEC/a with `# Public` → `## Interface`.
-- Build Chain with target = SPEC/a, input =
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build Chain with target = SPEC/root/a, input =
   ChainItem(ARTIFACT/input, file_path=<path>).
 
 Actions:
@@ -363,8 +363,8 @@ Expected: hash_before differs from hash_after.
 #### No input — skipped
 
 Setup:
-- Create SPEC/a with `# Public` → `## Interface`.
-- Build Chain with target = SPEC/a, input absent.
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build Chain with target = SPEC/root/a, input absent.
 
 Actions:
 1. Call ChainHashCompute.
@@ -387,7 +387,7 @@ Expected: Error ParseFailure.
 #### Unreadable artifact file
 
 Setup:
-- Create SPEC/a with `# Public` → `## Interface`.
+- Create SPEC/root/a with `# Public` → `## Interface`.
 - Build Chain with ARTIFACT dependency pointing to a
   non-existent file.
 
@@ -399,7 +399,7 @@ Expected: Error FileUnreadable.
 #### Unreadable external file
 
 Setup:
-- Create SPEC/a with `# Public` → `## Interface`.
+- Create SPEC/root/a with `# Public` → `## Interface`.
 - Build Chain with EXTERNAL dependency pointing to a
   non-existent file.
 

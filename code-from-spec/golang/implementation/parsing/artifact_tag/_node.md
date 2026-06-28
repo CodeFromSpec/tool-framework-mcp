@@ -18,7 +18,7 @@ staleness detection.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/artifacttag"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/artifacttag"`
 
 ## Interface
 

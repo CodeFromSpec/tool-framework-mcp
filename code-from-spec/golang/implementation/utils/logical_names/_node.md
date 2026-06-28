@@ -19,7 +19,7 @@ qualifier, file path, and parent.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/logicalnames"`
 
 ## Interface
 
@@ -61,11 +61,13 @@ func LogicalNameFromPath(cfsPath pathutils.PathCfs) (*LogicalName, error)
     (e.g. `README.md`).
   - ARTIFACT: the value of `output` from the generator
     node's frontmatter (e.g. `internal/foo/foo.go`).
-- **Parent** — nil for root SPEC nodes and EXTERNAL
-  references. For non-root SPEC nodes, the parent's
-  logical name (e.g. `SPEC/x` for `SPEC/x/y`). For
-  ARTIFACT references, the generator node's logical
-  name (e.g. `SPEC/x/y` for `ARTIFACT/x/y`).
+- **Parent** — nil for root SPEC nodes (direct children
+  of `code-from-spec/`, e.g. `SPEC/golang`) and
+  EXTERNAL references. For non-root SPEC nodes, the
+  parent's logical name (e.g. `SPEC/x` for
+  `SPEC/x/y`). For ARTIFACT references, the generator
+  node's logical name (e.g. `SPEC/x/y` for
+  `ARTIFACT/x/y`).
 
 ### LogicalNameParse
 
@@ -74,8 +76,8 @@ Parses a logical name string into a fully resolved
 
 Errors:
 - `ErrUnrecognizedPrefix`: the string does not start
-  with `SPEC/`, `SPEC` (exact), `ARTIFACT/`, or
-  `EXTERNAL/`.
+  with `SPEC/`, `ARTIFACT/`, or `EXTERNAL/`. Bare
+  `SPEC` (without a trailing slash) is not valid.
 - `ErrInvalidName`: the path portion is empty or
   invalid after stripping the prefix.
 - `ErrNoOutput`: an ARTIFACT reference's generator node
@@ -110,24 +112,19 @@ Implement the logical names component as a Go package.
 
 2. **Classify by prefix.** Examine `stripped`:
 
-   a. If `stripped` is exactly `"SPEC"`:
-      Return LogicalName with Type = NodeTypeSpec,
-      Name = "SPEC", Qualifier = qualifier,
-      Path = "code-from-spec/_node.md",
-      Parent = nil.
-
-   b. If `stripped` starts with `"SPEC/"`:
+   a. If `stripped` starts with `"SPEC/"`:
       Let `relative` = stripped with "SPEC/" removed.
       If `relative` is empty, raise ErrInvalidName.
       Let path = "code-from-spec/" + relative +
       "/_node.md".
       Compute parent: find the last "/" in relative.
-      If no "/" found, parent = "SPEC".
+      If no "/" found, parent is nil (this is a root
+      node — a direct child of code-from-spec/).
       If "/" found, parent = "SPEC/" + substring
       before the last "/".
       Return LogicalName with Type = NodeTypeSpec,
       Name = stripped, Qualifier = qualifier,
-      Path = path, Parent = pointer to parent.
+      Path = path, Parent = parent (nil or pointer).
 
    c. If `stripped` starts with `"ARTIFACT/"`:
       Let `relative` = stripped with "ARTIFACT/" removed.
@@ -159,28 +156,22 @@ Implement the logical names component as a Go package.
 2. If `value` does not start with "code-from-spec/",
    raise ErrInvalidPath.
 
-3. If `value` is exactly "code-from-spec/_node.md":
-   Return LogicalName with Type = NodeTypeSpec,
-   Name = "SPEC", Qualifier = nil,
-   Path = "code-from-spec/_node.md",
-   Parent = nil.
-
-4. If `value` does not end with "/_node.md",
+3. If `value` does not end with "/_node.md",
    raise ErrInvalidPath.
 
-5. Remove "code-from-spec/" prefix and "/_node.md"
+4. Remove "code-from-spec/" prefix and "/_node.md"
    suffix. Let `relative` = the remainder.
    If `relative` is empty, raise ErrInvalidPath.
 
-6. Let name = "SPEC/" + relative.
+5. Let name = "SPEC/" + relative.
    Compute parent: find the last "/" in relative.
-   If no "/" found, parent = "SPEC".
+   If no "/" found, parent is nil (root node).
    If "/" found, parent = "SPEC/" + substring before
    the last "/".
 
-7. Return LogicalName with Type = NodeTypeSpec,
+6. Return LogicalName with Type = NodeTypeSpec,
    Name = name, Qualifier = nil,
-   Path = value, Parent = pointer to parent.
+   Path = value, Parent = parent (nil or pointer).
 
 ## Go-specific guidance
 
@@ -193,3 +184,39 @@ Implement the logical names component as a Go package.
 - For the qualifier pointer, use a helper like
   `func stringPtr(s string) *string { return &s }`.
 - The package name should be `logicalnames`.
+
+# Private
+
+## Decisions
+
+### Struct-based interface replacing 12 functions
+
+The original interface had 12 individual functions
+(LogicalNameToPath, LogicalNameIsSpec,
+LogicalNameGetParent, etc.). Replaced with a single
+`LogicalNameParse` returning a `LogicalName` struct.
+Eliminates repeated parsing of the same string and
+simplifies consumer code (one call instead of 3-4).
+`LogicalNameFromPath` kept as a separate constructor
+for reverse resolution.
+
+### ARTIFACT Path resolves via frontmatter I/O
+
+`LogicalNameParse("ARTIFACT/x")` reads the generator
+node's frontmatter to populate `Path` with the actual
+output file path. This means Parse does I/O for
+ARTIFACT types (not for SPEC or EXTERNAL). The
+trade-off is that consumers no longer need to manually
+resolve artifact paths — `ln.Path` is always usable.
+Consequence: callers that only need type classification
+(node_ranking, validate) should use string prefix
+checks for ARTIFACT/EXTERNAL instead of Parse to avoid
+unnecessary I/O.
+
+### Bare SPEC no longer valid (v5 multi-root)
+
+In v4, `SPEC` (without slash) referred to the single
+root node at `code-from-spec/_node.md`. In v5,
+`code-from-spec/` is not a node — root nodes are
+direct children (e.g. `SPEC/golang`). Bare `SPEC`
+now returns `ErrUnrecognizedPrefix`.

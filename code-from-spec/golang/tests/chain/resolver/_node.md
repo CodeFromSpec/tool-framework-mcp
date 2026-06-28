@@ -19,6 +19,10 @@ containing frontmatter as needed, then call
 `ChainResolve`. Use `testChdir` and create
 `code-from-spec/.../_node.md` files.
 
+In v5, there is no bare "SPEC" root node. Root nodes
+are direct children of code-from-spec/. Tests use
+"SPEC/root" as a root node where needed.
+
 ## Test cases
 
 ### Ancestors and target
@@ -26,52 +30,53 @@ containing frontmatter as needed, then call
 #### Root as target
 
 Setup:
-- Create `code-from-spec/_node.md` with empty
+- Create `code-from-spec/root/_node.md` with empty
   frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC").
+1. Call ChainResolve("SPEC/root").
 
 Expected:
 - ancestors = empty list.
 - dependencies = empty list.
-- target = ChainItem("SPEC", qualifier=absent).
+- target = ChainItem("SPEC/root", qualifier=absent).
 - input = absent.
 
 #### Linear chain — ancestors in root-first order
 
 Setup:
-- Create SPEC, SPEC/a, SPEC/a/b with empty frontmatter.
+- Create SPEC/root, SPEC/root/a, SPEC/root/a/b with
+  empty frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/a/b").
+1. Call ChainResolve("SPEC/root/a/b").
 
 Expected:
-- ancestors = [SPEC, SPEC/a] in that order.
-- target = SPEC/a/b.
+- ancestors = [SPEC/root, SPEC/root/a] in that order.
+- target = SPEC/root/a/b.
 
 #### Single parent
 
 Setup:
-- Create SPEC, SPEC/a with empty frontmatter.
+- Create SPEC/root, SPEC/root/a with empty frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected:
-- ancestors = [SPEC].
-- target = SPEC/a.
+- ancestors = [SPEC/root].
+- target = SPEC/root/a.
 
 #### Target with empty frontmatter
 
 Setup:
-- Create SPEC, SPEC/a with empty frontmatter.
+- Create SPEC/root, SPEC/root/a with empty frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected:
-- ancestors = [SPEC], target = SPEC/a,
+- ancestors = [SPEC/root], target = SPEC/root/a,
   dependencies = empty, input = absent.
 
 ### Dependencies — SPEC/ references
@@ -79,84 +84,86 @@ Expected:
 #### Dependency without qualifier
 
 Setup:
-- Create SPEC, SPEC/a (depends_on = ["SPEC/b"]),
-  SPEC/b.
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["SPEC/root/b"]), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected:
 - dependencies contains one ChainItem with
-  UnqualifiedLogicalName = "SPEC/b",
+  UnqualifiedLogicalName = "SPEC/root/b",
   Qualifier = absent.
 
 #### Dependency with qualifier
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["SPEC/b(interface)"]), SPEC/b.
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["SPEC/root/b(interface)"]),
+  SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected:
 - dependencies contains one ChainItem with
-  UnqualifiedLogicalName = "SPEC/b",
+  UnqualifiedLogicalName = "SPEC/root/b",
   Qualifier = "interface".
 
 #### Dependencies sorted by logical name
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["SPEC/z", "SPEC/m", "SPEC/b"]),
-  SPEC/z, SPEC/m, SPEC/b.
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["SPEC/root/z", "SPEC/root/m",
+  "SPEC/root/b"]), SPEC/root/z, SPEC/root/m,
+  SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected:
-- dependencies = [SPEC/b, SPEC/m, SPEC/z] in that
-  order.
+- dependencies = [SPEC/root/b, SPEC/root/m,
+  SPEC/root/z] in that order.
 
 ### Dependencies — ARTIFACT/ references
 
 #### ARTIFACT dependency resolved from generating node
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["ARTIFACT/b"]),
-  SPEC/b (output = "out/lib.go").
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["ARTIFACT/root/b"]),
+  SPEC/root/b (output = "out/lib.go").
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected:
 - dependencies contains one ChainItem with
-  UnqualifiedLogicalName = "ARTIFACT/b",
+  UnqualifiedLogicalName = "ARTIFACT/root/b",
   FilePath = "out/lib.go".
 
 #### ARTIFACT — generating node has no output
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["ARTIFACT/b"]),
-  SPEC/b (empty frontmatter, no output).
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["ARTIFACT/root/b"]),
+  SPEC/root/b (empty frontmatter, no output).
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: Error ErrUnresolvableArtifact.
 
 #### ARTIFACT — artifact file does not exist on disk
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["ARTIFACT/b"]),
-  SPEC/b (output = "out/lib.go").
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["ARTIFACT/root/b"]),
+  SPEC/root/b (output = "out/lib.go").
 - Do NOT create "out/lib.go" on disk.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected:
 - No error. dependencies contains one ChainItem
@@ -166,66 +173,68 @@ Expected:
 #### Mixed SPEC/, ARTIFACT/, EXTERNAL/ dependencies
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["SPEC/c", "ARTIFACT/b",
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["SPEC/root/c", "ARTIFACT/root/b",
   "EXTERNAL/proto/api.proto"]),
-  SPEC/b (output = "out/lib.go"), SPEC/c.
+  SPEC/root/b (output = "out/lib.go"), SPEC/root/c.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected:
-- dependencies sorted: ARTIFACT/b,
-  EXTERNAL/proto/api.proto, SPEC/c.
+- dependencies sorted: ARTIFACT/root/b,
+  EXTERNAL/proto/api.proto, SPEC/root/c.
 
 ### Dependencies — dedup
 
 #### Exact duplicate — same file, same qualifier
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["SPEC/b", "SPEC/b"]), SPEC/b.
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["SPEC/root/b", "SPEC/root/b"]),
+  SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
-Expected: dependencies contains one entry for SPEC/b.
+Expected: dependencies contains one entry for
+SPEC/root/b.
 
 #### No qualifier subsumes qualifier
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["SPEC/b", "SPEC/b(interface)"]),
-  SPEC/b.
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["SPEC/root/b",
+  "SPEC/root/b(interface)"]), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
-Expected: dependencies contains one entry for SPEC/b
-with Qualifier = absent.
+Expected: dependencies contains one entry for
+SPEC/root/b with Qualifier = absent.
 
 #### Qualifier before no-qualifier — no-qualifier wins
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["SPEC/b(interface)", "SPEC/b"]),
-  SPEC/b.
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["SPEC/root/b(interface)",
+  "SPEC/root/b"]), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
-Expected: dependencies contains one entry for SPEC/b
-with Qualifier = absent.
+Expected: dependencies contains one entry for
+SPEC/root/b with Qualifier = absent.
 
 #### Same file, different qualifiers — both kept
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["SPEC/b(interface)",
-  "SPEC/b(constraints)"]), SPEC/b.
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["SPEC/root/b(interface)",
+  "SPEC/root/b(constraints)"]), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains two entries, one
 with Qualifier = "constraints", one with "interface"
@@ -234,12 +243,13 @@ with Qualifier = "constraints", one with "interface"
 #### Duplicate ARTIFACT — same logical name
 
 Setup:
-- Create SPEC, SPEC/a
-  (depends_on = ["ARTIFACT/b", "ARTIFACT/b"]),
-  SPEC/b (output = "out/lib.go").
+- Create SPEC/root, SPEC/root/a
+  (depends_on = ["ARTIFACT/root/b",
+  "ARTIFACT/root/b"]),
+  SPEC/root/b (output = "out/lib.go").
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one ARTIFACT entry.
 
@@ -248,11 +258,11 @@ Expected: dependencies contains one ARTIFACT entry.
 #### EXTERNAL dependency resolved to path
 
 Setup:
-- Create SPEC, SPEC/a
+- Create SPEC/root, SPEC/root/a
   (depends_on = ["EXTERNAL/docs/api.yaml"]).
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one ChainItem with
 UnqualifiedLogicalName = "EXTERNAL/docs/api.yaml",
@@ -261,12 +271,12 @@ FilePath = "docs/api.yaml", Qualifier = absent.
 #### Multiple EXTERNAL dependencies sorted
 
 Setup:
-- Create SPEC, SPEC/a
+- Create SPEC/root, SPEC/root/a
   (depends_on = ["EXTERNAL/proto/v1.proto",
   "EXTERNAL/docs/api.yaml"]).
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: dependencies sorted:
 EXTERNAL/docs/api.yaml, EXTERNAL/proto/v1.proto.
@@ -274,12 +284,12 @@ EXTERNAL/docs/api.yaml, EXTERNAL/proto/v1.proto.
 #### Duplicate EXTERNAL — same logical name
 
 Setup:
-- Create SPEC, SPEC/a
+- Create SPEC/root, SPEC/root/a
   (depends_on = ["EXTERNAL/x.proto",
   "EXTERNAL/x.proto"]).
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one EXTERNAL entry.
 
@@ -288,35 +298,63 @@ Expected: dependencies contains one EXTERNAL entry.
 #### Input resolved from generating node
 
 Setup:
-- Create SPEC, SPEC/a (input = "ARTIFACT/b"),
-  SPEC/b (output = "out/data.json").
+- Create SPEC/root, SPEC/root/a
+  (input = "ARTIFACT/root/b"),
+  SPEC/root/b (output = "out/data.json").
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
-Expected: input = ChainItem("ARTIFACT/b",
+Expected: input = ChainItem("ARTIFACT/root/b",
 FilePath = "out/data.json").
 
 #### EXTERNAL input resolved to path
 
 Setup:
-- Create SPEC, SPEC/a
+- Create SPEC/root, SPEC/root/a
   (input = "EXTERNAL/docs/vendor/spec.yaml").
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: input = ChainItem(
 "EXTERNAL/docs/vendor/spec.yaml",
 FilePath = "docs/vendor/spec.yaml").
 
+#### SPEC input resolved
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (input = "SPEC/root/b"), SPEC/root/b.
+
+Actions:
+1. Call ChainResolve("SPEC/root/a").
+
+Expected: input = ChainItem("SPEC/root/b",
+FilePath = "code-from-spec/root/b/_node.md",
+Qualifier = absent).
+
+#### SPEC input with qualifier
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (input = "SPEC/root/b(acceptance-tests)"),
+  SPEC/root/b.
+
+Actions:
+1. Call ChainResolve("SPEC/root/a").
+
+Expected: input = ChainItem("SPEC/root/b",
+FilePath = "code-from-spec/root/b/_node.md",
+Qualifier = "acceptance-tests").
+
 #### No input — absent
 
 Setup:
-- Create SPEC, SPEC/a (no input).
+- Create SPEC/root, SPEC/root/a (no input).
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: input is absent (nil).
 
@@ -325,11 +363,11 @@ Expected: input is absent (nil).
 #### Unrecognized prefix in depends_on
 
 Setup:
-- Create SPEC, SPEC/a
+- Create SPEC/root, SPEC/root/a
   (depends_on = ["UNKNOWN/something"]).
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: Error ErrUnresolvableArtifact.
 
@@ -343,10 +381,11 @@ Expected: Error propagated from LogicalNameParse.
 #### Unreadable frontmatter
 
 Setup:
-- Create SPEC, SPEC/a with invalid YAML in frontmatter.
+- Create SPEC/root, SPEC/root/a with invalid YAML
+  in frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/a").
+1. Call ChainResolve("SPEC/root/a").
 
 Expected: Error ErrUnreadableFrontmatter.
 

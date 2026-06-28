@@ -19,7 +19,7 @@ spec nodes found.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectree"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/spectree"`
 
 ## Interface
 
@@ -59,18 +59,18 @@ interface artifact in this file.
 2. Filter the list: keep only files whose name after
    the last "/" is exactly "_node.md".
 
-3. For each remaining file, exclude it if it lives
-   inside a _-prefixed directory directly under
-   "code-from-spec/":
-     a. Remove the "code-from-spec/" prefix from the
-        file path.
-     b. Look for the first "/" in the remainder.
-     c. If no "/" is found, the file is directly inside
-        "code-from-spec/" — do not exclude it.
-     d. If a "/" is found, extract the text before it
-        as the first directory segment. If the first
-        directory segment starts with "_", exclude this
-        file. Otherwise, keep it.
+3. For each remaining file, exclude it if:
+   a. It is directly inside "code-from-spec/" (i.e.
+      `code-from-spec/_node.md`). There is no root
+      node — only subdirectories are nodes.
+   b. It lives inside a `.`-prefixed directory directly
+      under "code-from-spec/":
+        Remove the "code-from-spec/" prefix from the
+        file path. Look for the first "/" in the
+        remainder. If a "/" is found, extract the text
+        before it as the first directory segment. If
+        the first directory segment starts with ".",
+        exclude this file.
 
 4. For each file that was not excluded, call
    `LogicalNameFromPath` with the file's PathCfs.

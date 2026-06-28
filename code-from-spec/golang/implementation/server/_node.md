@@ -1,7 +1,8 @@
 ---
 depends_on:
   - SPEC/golang/dependencies/mcp-go-sdk
-  - SPEC/golang/implementation/mcp_tools/chain_hash(Interface)
+  - SPEC/golang/implementation/mcp_tools/accept
+  - SPEC/golang/implementation/mcp_tools/dump_chain
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/mcp_tools/validate_specs
   - SPEC/golang/implementation/mcp_tools/write_file
@@ -19,6 +20,12 @@ the server.
 ## Package
 
 `package main`
+
+## Error handling
+
+- **Startup errors** (unexpected arguments) — print to
+  stderr and exit 1. The tool does not start if it
+  cannot be configured.
 
 ## Startup sequence
 
@@ -42,8 +49,9 @@ the server.
      `write_file`.
    - `mcpvalidatespecs.MCPValidateSpecs` — tool name
      `validate_specs`.
-   - `mcpchainhash.MCPChainHash` — tool name
-     `chain_hash`.
+   - `mcpaccept.MCPAccept` — tool name `accept`.
+   - `mcpdumpchain.MCPDumpChain` — tool name
+     `dump_chain`.
    - `version` — tool name `version`. Takes no parameters.
      Returns the value of a package-level variable
      `var Version = "dev"`. This variable is overridden
@@ -66,7 +74,8 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
-  chain_hash       Compute the chain hash for a node.
+  accept           Accept a modified artifact.
+  dump_chain       Dump the spec chain to a file.
   version          Print the tool version.
 
 MCP configuration example:
@@ -91,15 +100,15 @@ MCP configuration example:
 
 ## Go-specific guidance
 
-- Import the four MCP tool packages:
+- Import the five MCP tool packages:
   `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`,
-  `mcpchainhash`.
+  `mcpaccept`, `mcpdumpchain`.
 - Each tool handler receives MCP request parameters and
   calls the corresponding package function.
 - The handler wraps the function result into an MCP
   tool response (text content).
-- For `MCPLoadChain`, `MCPWriteFile`, and
-  `MCPChainHash`, the result is a string — return
+- For `MCPLoadChain`, `MCPWriteFile`, `MCPAccept`,
+  and `MCPDumpChain`, the result is a string — return
   directly as text content.
 - For `MCPValidateSpecs`, the result is
   `ValidationReport` — format as human-readable text.

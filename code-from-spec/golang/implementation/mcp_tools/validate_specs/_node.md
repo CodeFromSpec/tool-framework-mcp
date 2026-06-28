@@ -2,8 +2,9 @@
 depends_on:
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
+  - SPEC/golang/implementation/manifest
+  - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/implementation/os/path_utils
-  - SPEC/golang/implementation/parsing/artifact_tag
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
   - SPEC/golang/implementation/spec_tree/scan
@@ -25,7 +26,7 @@ references, and artifact staleness.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpvalidatespecs"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpvalidatespecs"`
 
 ## Interface
 
@@ -52,10 +53,14 @@ No parameters. Scans the entire spec tree starting from
 returns an error. Problems are collected in the report.
 
 `StalenessEntry.Status` is one of:
-- `"missing"` — file does not exist.
-- `"stale"` — hash mismatch.
-- `"malformed tag"` — file exists but has no artifact
-  tag or the tag cannot be parsed.
+- `"missing"` — file does not exist on disk, or no
+  manifest entry exists for this node.
+- `"stale"` — chain hash in the manifest does not
+  match the current chain hash.
+- `"modified"` — checksum in the manifest does not
+  match the hash of the file on disk.
+- `"orphan"` — manifest entry exists but no
+  corresponding node in the spec tree.
 
 `StalenessEntry.Rank` is the rank from `NodeRankCompute`.
 
@@ -119,9 +124,15 @@ Implement the validate specs tool as a Go package.
      Else:
        Store ranked_entries and cycles from the result.
 
-### Step 5 — Staleness detection
+### Step 5 — Read manifest
 
-6. Determine processing order for staleness checks:
+6. Call `ManifestOpen("read")`. If it fails, treat
+   as empty manifest (no entries). Store the result
+   as `manifest_handle`.
+
+### Step 6 — Staleness detection
+
+7. Determine processing order for staleness checks:
    If ranked_entries is non-empty:
      Order nodes by rank ascending, then by
      logical_name ascending within equal rank.
@@ -131,7 +142,11 @@ Implement the validate specs tool as a Go package.
    For each node that has a non-empty output in its
    frontmatter, in the above order:
 
-     a. Call `ChainResolve(node.logical_name)`. If it
+     a. Derive the artifact logical name: strip "SPEC/"
+        prefix from node.logical_name and prepend
+        "ARTIFACT/".
+
+     b. Call `ChainResolve(node.logical_name)`. If it
         fails: Append StalenessEntry(
           node=node.logical_name,
           artifact_path=frontmatter.output,
@@ -139,8 +154,8 @@ Implement the validate specs tool as a Go package.
           rank=<node rank or 0 if unavailable>)
         to staleness. Continue to next node.
 
-     b. Call `ChainHashCompute(chain)` using the result
-        from step (a). If it fails: Append
+     c. Call `ChainHashCompute(chain)` using the result
+        from step (b). If it fails: Append
         StalenessEntry(
           node=node.logical_name,
           artifact_path=frontmatter.output,
@@ -148,37 +163,64 @@ Implement the validate specs tool as a Go package.
           rank=<node rank or 0 if unavailable>)
         to staleness. Continue to next node.
 
-     c. Construct PathCfs from frontmatter.output. Call
-        `ArtifactTagExtract(path)`.
+     d. Look up the artifact logical name in
+        manifest_handle.Entries.
 
-        If error is FileUnreadable: Append
-        StalenessEntry with status="missing".
+        If no entry exists: Append StalenessEntry with
+        status="missing", detail="no manifest entry".
 
-        If error is NoTagFound or MalformedTag: Append
-        StalenessEntry with status="malformed tag".
+        If entry exists:
+          Compare entry.ChainHash with computed chain
+          hash. If they differ: Append StalenessEntry
+          with status="stale", detail="manifest chain
+          hash <entry.ChainHash> does not match
+          expected hash <chain hash>".
 
-        If tag is successfully extracted and tag.hash
-        does not match chain hash: Append
-        StalenessEntry with status="stale", detail=
-        "file hash <tag.hash> does not match expected
-        hash <chain hash>".
+          If chain hashes match: check the file on
+          disk. Construct PathCfs from
+          frontmatter.output. Call
+          `FileOpen(path, "read", 30000)`. If it
+          fails (file does not exist): Append
+          StalenessEntry with status="missing".
+          Else: read the full file content, compute
+          its SHA-1 hash (base64url, 27 chars).
+          Call `FileClose`. Compare with
+          entry.Checksum. If they differ: Append
+          StalenessEntry with status="modified",
+          detail="file checksum does not match
+          manifest checksum".
 
-        If tag.hash matches chain hash: skip (not
-        included).
+        If chain hash matches and checksum matches:
+        skip (artifact is up to date).
 
         Set artifact_path from frontmatter.output.
         Set rank from the node's rank (from Step 4,
         or 0 if no ranking available).
 
-### Step 6 — Assemble report
+### Step 7 — Orphan detection
 
-7. Return ValidationReport with:
+8. For each entry in manifest_handle.Entries:
+     Derive the generating node's logical name: strip
+     "ARTIFACT/" prefix and prepend "SPEC/".
+     If no successfully parsed node has that logical
+     name, or if the node's frontmatter.output is
+     empty: Append StalenessEntry(
+       node=entry key (artifact logical name),
+       artifact_path=entry.Path,
+       status="orphan",
+       detail="manifest entry has no corresponding
+       spec node",
+       rank=0).
+
+### Step 8 — Assemble report
+
+9. Return ValidationReport with:
      format_errors = all FormatError entries from
        Steps 2, 3, 4
      cycles = cycle list from Step 4 (empty list if
        ranking was skipped or no cycles)
      staleness = all StalenessEntry entries from
-       Step 5, ordered by rank ascending then
+       Steps 6 and 7, ordered by rank ascending then
        node logical_name ascending
 
 ## Go-specific guidance
@@ -191,11 +233,16 @@ Implement the validate specs tool as a Go package.
   `NodeRankInput`, `NodeRankEntry`.
 - Use the `chainresolver` package for `ChainResolve`.
 - Use the `chainhash` package for `ChainHashCompute`.
-- Use the `artifacttag` package for `ArtifactTagExtract`.
+- Use the `manifest` package for `ManifestOpen`,
+  `ManifestHandle`, `ManifestEntry`.
 - Use the `frontmatter` package for `FrontmatterParse`.
 - Use the `parsenode` package for `NodeParse`.
+- Use the `file` package for `FileOpen`, `FileReadLine`,
+  `FileClose`.
 - Use the `pathutils` package for `PathValidateCfs`,
   `PathCfs`.
+- Use `crypto/sha1` and `encoding/base64`
+  (base64.RawURLEncoding) for checksum computation.
 - The package name should be `mcpvalidatespecs`.
 - `StalenessEntry`, `ValidationReport` are exported
   structs.

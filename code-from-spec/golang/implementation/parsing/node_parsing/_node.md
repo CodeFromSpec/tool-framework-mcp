@@ -20,7 +20,7 @@ representation of its sections and subsections.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsenode"`
 
 ## Interface
 

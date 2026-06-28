@@ -16,7 +16,7 @@ Recursively lists all files under a directory.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/listfiles"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/listfiles"`
 
 ## Interface
 

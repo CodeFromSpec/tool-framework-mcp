@@ -16,7 +16,7 @@ Handle-based file operations with automatic locking.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/file"`
 
 ## Interface
 

@@ -1,5 +1,8 @@
 ---
 depends_on:
+  - SPEC/golang/implementation/chain/hash
+  - SPEC/golang/implementation/chain/resolver
+  - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/parsing/frontmatter
@@ -20,7 +23,7 @@ the path against the node's declared output.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpwritefile"`
 
 ## Interface
 
@@ -60,9 +63,8 @@ Implement the write file tool as a Go package.
 
 ## Logic
 
-1. If logical_name does not start with "SPEC/" and
-   is not exactly "SPEC", return error
-   "not a SPEC reference".
+1. If logical_name does not start with "SPEC/",
+   return error "not a SPEC reference".
 
 2. Call `LogicalNameParse(logical_name)`.
    If it fails, propagate the error.
@@ -95,7 +97,30 @@ Implement the write file tool as a Go package.
 
 10. Call `FileClose` with handle.
 
-11. Return "wrote <path>" where <path> is the path
+11. Compute the checksum of `content`: SHA-1 of the
+    content bytes (after CRLF→LF normalization and
+    ensuring a trailing LF), encoded as base64url
+    (27 characters).
+
+12. Call `ChainResolve(logical_name)`. If it fails,
+    propagate the error.
+
+13. Call `ChainHashCompute(chain)`. If it fails,
+    propagate the error.
+
+14. Call `ManifestOpen("write")`. If it fails,
+    propagate the error.
+
+15. Derive the artifact logical name: strip "SPEC/"
+    prefix from logical_name and prepend "ARTIFACT/".
+    Set manifest_handle.Entries[artifact_name] =
+    ManifestEntry{Path: path, Checksum: checksum,
+    ChainHash: chain_hash}.
+
+16. Call `ManifestSave(manifest_handle)`. If it fails,
+    propagate the error.
+
+17. Return "wrote <path>" where <path> is the path
     string.
 
 ## Go-specific guidance
@@ -106,6 +131,15 @@ Implement the write file tool as a Go package.
   `PathCfs`.
 - Use the `file` package for `FileOpen`, `FileWrite`,
   `FileClose`.
+- Use the `chainresolver` package for `ChainResolve`.
+- Use the `chainhash` package for `ChainHashCompute`.
+- Use the `manifest` package for `ManifestOpen`,
+  `ManifestSave`, `ManifestEntry`.
+- Use `crypto/sha1` and `encoding/base64`
+  (base64.RawURLEncoding) for checksum computation.
+- The CRLF→LF normalization and trailing LF for
+  checksum must match the normalization used by
+  `ChainHashCompute` for whole-file content.
 - The package name should be `mcpwritefile`.
 - The function receives plain strings from the MCP
   transport layer. Construct `PathCfs` internally.

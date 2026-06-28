@@ -20,7 +20,7 @@ chain for a given target logical name.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"`
 
 ## Interface
 
@@ -192,7 +192,8 @@ Else:
   Create ChainItem with
     unqualified_logical_name = input_ln.Name,
     file_path = PathCfs{Value: input_ln.Path},
-    qualifier = absent.
+    qualifier = if input_ln.Qualifier is not nil then
+      *input_ln.Qualifier, else absent.
   Set the Chain's input field to that ChainItem.
 
 Return Chain with ancestors, dependencies, target,

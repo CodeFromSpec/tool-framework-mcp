@@ -16,7 +16,7 @@ Normalizes text for comparison.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/textnormalization"`
 
 ## Interface
 

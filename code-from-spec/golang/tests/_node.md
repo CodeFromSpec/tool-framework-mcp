@@ -109,17 +109,17 @@ producers would generate:
 When tests create `_node.md` files on disk:
 
 - The first heading in the file body must be
-  `# <logical-name>` (e.g. `# SPEC` for the root node,
-  `# SPEC/a` for a child). `NodeParse` validates that the
-  first heading matches the logical name — tests that omit
-  it or use a different heading (e.g. `# Public`) will
-  fail with `ErrNodeNameDoesNotMatch`.
-- `SPEC` (without a trailing slash) is a valid logical
-  name — it refers to the root node. Its file path is
-  `code-from-spec/_node.md`. For `SPEC/x/y`, the path
-  is `code-from-spec/x/y/_node.md`. Helper functions
-  that convert logical names to paths must handle the
-  bare `SPEC` case.
+  `# <logical-name>` (e.g. `# SPEC/root` for a root
+  node, `# SPEC/root/a` for a child). `NodeParse`
+  validates that the first heading matches the logical
+  name — tests that omit it or use a different heading
+  (e.g. `# Public`) will fail with
+  `ErrNodeNameDoesNotMatch`.
+- Bare `SPEC` (without a trailing slash) is not a valid
+  logical name. Root nodes are direct children of
+  `code-from-spec/` (e.g. `SPEC/root` at
+  `code-from-spec/root/_node.md`). There is no
+  `code-from-spec/_node.md` root node.
 - Frontmatter is optional. Only include frontmatter
   fields that the node actually uses. An intermediate
   node (one with children) has no `output`, `depends_on`,

@@ -6,7 +6,7 @@ Technical design decisions for implementing the MCP server in Go.
 
 ## Go module
 
-The module path is `github.com/CodeFromSpec/tool-framework-mcp/v4`.
+The module path is `github.com/CodeFromSpec/tool-framework-mcp/v5`.
 All internal package imports must use this prefix.
 
 ## Language
@@ -16,16 +16,6 @@ Go (minimum 1.24).
 ## Dependencies
 
 - Standard library unless explicitly stated otherwise.
-- `github.com/modelcontextprotocol/go-sdk` — Official MCP SDK
-  (stdio transport, tool registration with generics, request
-  handling).
-
-## Error handling
-
-- **Startup errors** (unexpected arguments) — print to stderr and
-  exit 1. The tool does not start if it cannot be configured.
-- **Tool errors** — returned as MCP tool error responses. The tool
-  continues running after a tool error.
 
 ## Project root
 
@@ -33,6 +23,13 @@ The tool is always executed from the project root directory.
 The working directory of the process is the project root.
 All relative paths — spec files, generated source files — are
 resolved against it.
+
+## Comments
+
+Do not write comments in generated code. No doc
+comments, no inline comments, no section markers.
+The spec tree is the documentation. The only
+exception is the artifact tag line.
 
 ## Constraints
 
@@ -44,11 +41,6 @@ resolved against it.
   never with `==`. Sentinel errors may be wrapped.
 - No test framework beyond the standard `testing` package.
 - No configuration files.
-- All test helper functions and types must be prefixed with `test`
-  (e.g., `testMakeFM`, `testIntPtr`, `testCase`). This prevents
-  name collisions with unexported functions and types in the
-  package under test when using internal test files (same package
-  as the implementation).
 
 # Private
 
@@ -71,3 +63,33 @@ subagent relevant context about how to use the server. This
 complements the prompt the subagent receives from the orchestrator
 and reduces the amount of guidance the orchestrator's prompt needs
 to carry.
+
+### MCP SDK dependency not in root Public
+
+The `go-sdk` dependency was listed in `## Dependencies`
+but moved out. The detail lives in
+`SPEC/golang/dependencies/mcp-go-sdk` — only the
+server (the sole consumer) declares `depends_on` on it.
+Avoids polluting all descendants with irrelevant context.
+
+### Error handling not in root Public
+
+Startup errors and tool errors were in
+`## Error handling` here. Moved to where they belong:
+startup errors → `SPEC/golang/implementation/server`,
+tool errors → `SPEC/golang/implementation/mcp_tools`.
+They are not general Go constraints — they are
+server/MCP-specific.
+
+### test prefix convention removed
+
+The `test` prefix rule for helper functions was removed.
+All tests use external test packages
+(`package <name>_test`), so there is no risk of name
+collision with unexported identifiers in the package
+under test.
+
+### Module path v4 → v5
+
+Changed from `v4` to `v5` as part of the v5 migration.
+The tool now targets Code from Spec v5 semantics.

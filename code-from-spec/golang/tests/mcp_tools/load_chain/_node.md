@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
@@ -18,10 +19,10 @@ output: internal/mcploadchain/mcploadchain_test.go
 ## Test setup guidance
 
 `MCPLoadChain` calls `ChainResolve`, `ChainHashCompute`,
-`NodeParse`, `FrontmatterParse`, and `FileOpen`
-internally. Tests must create a complete spec tree on
-disk with valid `_node.md` files. Use `testChdir` and
-create `code-from-spec/.../_node.md` files with
+`NodeParse`, `FrontmatterParse`, `ManifestOpen`, and
+`FileOpen` internally. Tests must create a complete spec
+tree on disk with valid `_node.md` files. Use `testChdir`
+and create `code-from-spec/.../_node.md` files with
 frontmatter and body content matching the test setup.
 
 Node files must have valid structure for `NodeParse`:
@@ -31,290 +32,328 @@ heading. Leaf nodes need frontmatter with `output`.
 For ARTIFACT and external file tests, create the
 referenced files on disk at the declared paths.
 
+The output format is: first line `chain_hash: <hash>`,
+followed by an XML document with `<chain>` as root
+element containing `<existing_artifact>`,
+`<constraints>`, `<instructions>`, and `<input>`
+sections.
+
 ## Test cases
 
 ### Happy path
 
-#### Simple leaf node — context and hash
+#### Simple leaf node — constraints and hash
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`
-  heading, `# Public` with `## Context` subsection
-  containing one line of content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`
-  heading, frontmatter `output: out/a.txt`, `# Public`
-  with `## Interface` subsection, `# Agent` section
-  with content.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root` heading, `# Public` with `## Context`
+  subsection containing one line of content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a` heading, frontmatter
+  `output: out/a.txt`, `# Public` with `## Interface`
+  subsection, `# Agent` section with content.
 - Do not create `out/a.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - First line matches `chain_hash: ` followed by
   exactly 27 non-whitespace characters.
-- After `--- context ---`: contains `## Context`
-  heading and its content, reduced frontmatter block
-  with only `output: out/a.txt`, `## Interface` heading
-  and its content, `# Agent` heading and agent content.
-  No `# Public` headings appear.
-- No `--- input ---` section.
-- No `--- existing artifact ---` section.
+- Contains `<chain>` root element.
+- `<constraints>` contains `<entry name="SPEC/root">`
+  with `## Context` content, and
+  `<entry name="SPEC/root/a">` with `## Interface`
+  content. No `# Public` headings appear.
+- `<instructions>` contains the agent content
+  (without `# Agent` heading).
+- No `<existing_artifact>` section.
+- No `<input>` section.
 
 #### Ancestor public content included
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Overview` with content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  `# Public` → `## Details` with content.
-- Create `code-from-spec/a/b/_node.md` with
-  `# SPEC/a/b`, frontmatter `output: out/b.txt`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Overview` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, `# Public` → `## Details` with
+  content.
+- Create `code-from-spec/root/a/b/_node.md` with
+  `# SPEC/root/a/b`, frontmatter `output: out/b.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a/b")`.
+1. Call `MCPLoadChain("SPEC/root/a/b")`.
 
 Expected:
-- Context contains `## Overview` and `## Details`
-  headings and their content. No `# Public` headings.
+- `<constraints>` contains
+  `<entry name="SPEC/root">` with `## Overview`,
+  `<entry name="SPEC/root/a">` with `## Details`,
+  and `<entry name="SPEC/root/a/b">` (if it has
+  public content).
 
 #### Ancestor without public section skipped
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`
-  heading only (no public section).
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  `# Public` → `## Interface` with content,
-  frontmatter `output: out/a.txt`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root` heading only (no public section).
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, `# Public` → `## Interface` with
+  content, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Context does not contain SPEC's content.
-- Contains `## Interface` heading and its content.
+- `<constraints>` does not contain an entry for
+  SPEC/root. Contains `<entry name="SPEC/root/a">`
+  with `## Interface` content.
 
 #### Ancestor with empty public section skipped
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` present but empty (no subsections).
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  `# Public` → `## Interface` with content,
-  frontmatter `output: out/a.txt`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` present but empty (no
+  subsections).
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, `# Public` → `## Interface` with
+  content, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Context does not contain SPEC's content.
-- Contains `## Interface` heading and its content.
+- `<constraints>` does not contain an entry for
+  SPEC/root.
 
 #### Dependency without qualifier — public included
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`,
-  `# Public` → `## Interface` + `## Constraints`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`,
-  `depends_on: ["SPEC/b"]`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, `# Public` → `## Interface` +
+  `## Constraints`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `depends_on: ["SPEC/root/b"]`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Context contains `## Interface` and
-  `## Constraints` headings and their content from
-  SPEC/b.
+- `<constraints>` contains
+  `<entry name="SPEC/root/b">` with `## Interface`
+  and `## Constraints` content.
 
 #### Dependency with qualifier — subsection only
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`,
-  `# Public` → `## Interface` + `## Constraints`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`,
-  `depends_on: ["SPEC/b(interface)"]`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, `# Public` → `## Interface` +
+  `## Constraints`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `depends_on: ["SPEC/root/b(interface)"]`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Context contains `## Interface` heading and content.
-- Does not contain `## Constraints`.
+- `<constraints>` contains
+  `<entry name="SPEC/root/b(interface)">` with
+  `## Interface` content only. Does not contain
+  `## Constraints`.
 
 #### ARTIFACT dependency — artifact tag line removed
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`,
-  frontmatter `output: out/b.go`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `output: out/b.go`.
 - Create `out/b.go` with artifact tag line and body
   content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`,
-  `depends_on: ["ARTIFACT/b"]`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`,
+  `depends_on: ["ARTIFACT/root/b"]`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Context contains body content of `out/b.go`.
-- Does not contain the artifact tag line.
+- `<constraints>` contains
+  `<entry name="ARTIFACT/root/b">` with body content
+  of `out/b.go` but without the artifact tag line.
 
 #### EXTERNAL dependency — full content
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
 - Create `data/config.yaml` with known content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`,
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
   `depends_on: ["EXTERNAL/data/config.yaml"]`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Context contains the full content of
-  `data/config.yaml`.
+- `<constraints>` contains
+  `<entry name="EXTERNAL/data/config.yaml">` with
+  the full content of `data/config.yaml`.
 
-#### Target has reduced frontmatter with output only
+#### Target agent section in instructions
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`,
-  `depends_on: ["SPEC/b"]`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# Public` → `## Interface` with content,
+  `# Agent` with content.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Context contains a frontmatter block between `---`
-  delimiters with only `output: out/a.txt`.
-- Does not contain `depends_on`.
+- `<constraints>` contains target's `## Interface`.
+- `<instructions>` contains agent content without
+  `# Agent` heading.
 
-#### Target agent section included
+#### Target without agent section — no instructions
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`, `# Public` →
-  `## Interface` with content, `# Agent` with content.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# Public` → `## Interface` with content. No
+  `# Agent` section.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Context contains `## Interface` and its content,
-  `# Agent` and its content.
-- No `# Public` heading.
+- No `<instructions>` element in the output.
 
-#### Target without agent section — skipped
+#### Input present — ARTIFACT
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`, `# Public` →
-  `## Interface` with content. No `# Agent` section.
-
-Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
-
-Expected:
-- No error. Context contains only public content.
-
-#### Input present — in separate section
-
-Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/b/_node.md` with `# SPEC/b`,
-  frontmatter `output: out/data.json`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `output: out/data.json`.
 - Create `out/data.json` with artifact tag line and
   body content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`,
-  `input: ARTIFACT/b`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `input: ARTIFACT/root/b`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- `--- input ---` section contains body of
-  `out/data.json` without artifact tag line.
-- Input content does not appear in context section.
+- `<input>` contains body of `out/data.json` without
+  artifact tag line.
+- Input content does not appear in `<constraints>`.
 
-#### EXTERNAL input — full content in input section
+#### EXTERNAL input — full content
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
 - Create `docs/vendor/spec.yaml` with known content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`,
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
   `input: EXTERNAL/docs/vendor/spec.yaml`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- `--- input ---` section contains the full content
-  of `docs/vendor/spec.yaml`.
+- `<input>` contains the full content of
+  `docs/vendor/spec.yaml`.
+
+#### SPEC input — public content extracted
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, `# Public` → `## Acceptance tests`
+  with content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `input: SPEC/root/b`.
+
+Actions:
+1. Call `MCPLoadChain("SPEC/root/a")`.
+
+Expected:
+- `<input>` contains `## Acceptance tests` content
+  from SPEC/root/b.
 
 #### No input — section absent
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`. No input field.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`.
+  No input field.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Result does not contain `--- input ---`.
+- No `<input>` element in output.
 
-#### Existing artifact present — in separate section
+#### Existing artifact present
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
 - Create `out/a.go` with known content.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- `--- existing artifact ---` section contains the
-  full content of `out/a.go`.
+- `<existing_artifact>` contains the full content
+  of `out/a.go`.
 
 #### Existing artifact absent — section omitted
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.go`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
 - Do not create `out/a.go`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Result does not contain `--- existing artifact ---`.
+- No `<existing_artifact>` element in output.
 
 #### Hash is deterministic
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`,
-  `# Public` → `## Overview` with stable content.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Overview` with
+  stable content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")` twice.
+1. Call `MCPLoadChain("SPEC/root/a")` twice.
 
 Expected:
 - Both calls return identical `chain_hash` values.
@@ -332,7 +371,7 @@ Expected:
 #### Nonexistent node file
 
 Actions:
-1. Call `MCPLoadChain("SPEC/nonexistent")` with no
+1. Call `MCPLoadChain("SPEC/root/nonexistent")` with no
    `_node.md` on disk.
 
 Expected:
@@ -342,12 +381,13 @@ Expected:
 #### No output declared
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`.
-  No output in frontmatter.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`. No output in frontmatter.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - Returns error `ErrNoOutput`.
@@ -355,27 +395,67 @@ Expected:
 #### Invalid output path — traversal
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: ../../etc/passwd`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter
+  `output: ../../etc/passwd`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - Returns error `ErrInvalidOutputPath`.
 
+#### Modified artifact blocked
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `out/a.go` with content "original".
+- Create `.manifest` with entry for ARTIFACT/root/a
+  with checksum matching "original" and a valid chain
+  hash.
+- Overwrite `out/a.go` with content "modified" (file
+  hash no longer matches manifest checksum).
+
+Actions:
+1. Call `MCPLoadChain("SPEC/root/a")`.
+
+Expected:
+- Returns error `ErrArtifactModified`.
+
+#### No manifest — modified check skipped
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `out/a.go` with known content.
+- No `.manifest` file.
+
+Actions:
+1. Call `MCPLoadChain("SPEC/root/a")`.
+
+Expected:
+- No error. Chain is loaded normally. The modified
+  check is skipped when no manifest exists.
+
 #### Unresolvable dependency
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
-  frontmatter `output: out/a.txt`,
-  `depends_on: ["SPEC/missing"]`.
-- Do not create `code-from-spec/missing/_node.md`.
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `depends_on: ["SPEC/root/missing"]`.
+- Do not create `code-from-spec/root/missing/_node.md`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/a")`.
+1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - Returns an error — the missing node is detected
@@ -389,3 +469,7 @@ Expected:
 - Use `testChdir` helper to set the working directory.
 - When creating `_node.md` files with `# Public`
   content, all content must be under `##` subsections.
+- To verify XML output, use `strings.Contains` to
+  check for expected elements and content. Do not
+  parse with `encoding/xml` — simple string checks
+  are sufficient.

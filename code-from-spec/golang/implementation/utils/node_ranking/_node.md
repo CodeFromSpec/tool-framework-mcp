@@ -18,7 +18,7 @@ with cycle detection as a side effect.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/noderanking"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/noderanking"`
 
 ## Interface
 
@@ -73,20 +73,20 @@ For each NodeRankInput in entries:
 ### Step 2 — Build dependency edges
 
 For each spec node entry in the entry map:
-  If logical_name is "SPEC": Skip — root node has no
-  dependencies.
+  Call LogicalNameParse(logical_name). Let `ln` be
+  the result. If it fails, raise error
+  "UnresolvableReference".
+
+  If ln.Parent is nil: Skip — root node has no
+  parent dependency.
 
   Else:
-    a. Parent dependency: Call
-       LogicalNameParse(logical_name). Let `ln` be
-       the result. If it fails, raise error
-       "UnresolvableReference". Add *ln.Parent to
-       the entry's deps list.
+    a. Parent dependency: Add *ln.Parent to the
+       entry's deps list.
 
     b. depends_on dependencies: For each reference in
        frontmatter.depends_on:
-         If reference starts with "SPEC/" or equals
-         "SPEC":
+         If reference starts with "SPEC/":
            Call LogicalNameParse(reference). If it
            fails, raise error "UnresolvableReference".
            Let `dep_ln` be the result.
@@ -117,9 +117,9 @@ For each spec node entry in the entry map:
 
 ### Step 3 — Initialize ranks
 
-Set rank of entry keyed "SPEC" to 0 (fixed, never
-updated). All other entries already have rank 0 from
-step 1.
+All entries start with rank 0 from step 1. Root nodes
+(those whose ln.Parent is nil) keep rank 0 — they
+have no parent dependency.
 
 ### Step 4 — Iterate and detect cycles
 
@@ -130,7 +130,8 @@ Repeat up to N times, tracking iteration index i
 from 1 to N:
   Let changed = false.
 
-  For each entry in the entry map (excluding "SPEC"):
+  For each entry in the entry map that has a non-empty
+  deps list (root nodes with no deps are skipped):
     Let max_dep_rank = maximum rank among all entries
     in the entry's deps list.
     Let new_rank = 1 + max_dep_rank.

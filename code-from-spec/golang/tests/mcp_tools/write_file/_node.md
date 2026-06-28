@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/implementation/mcp_tools/write_file
   - SPEC/golang/implementation/os/path_utils
@@ -27,12 +28,12 @@ spec tree structure (`code-from-spec/.../_node.md`).
 #### Writes file successfully
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
   frontmatter `output: output/file.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a", "output/file.go",
+1. Call `MCPWriteFile("SPEC/root/a", "output/file.go",
    "package main")`.
 
 Expected:
@@ -40,15 +41,33 @@ Expected:
 - File exists on disk at `output/file.go` with
   content `"package main"`.
 
+#### Manifest updated after write
+
+Setup:
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
+  frontmatter `output: output/file.go`.
+
+Actions:
+1. Call `MCPWriteFile("SPEC/root/a", "output/file.go",
+   "package main")`.
+2. Call `ManifestOpen("read")`.
+
+Expected:
+- Manifest contains entry keyed `ARTIFACT/root/a`.
+- Entry.Path = `output/file.go`.
+- Entry.Checksum is a 27-character base64url string.
+- Entry.ChainHash is a 27-character base64url string.
+
 #### Creates intermediate directories
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
   frontmatter `output: deep/nested/dir/file.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a",
+1. Call `MCPWriteFile("SPEC/root/a",
    "deep/nested/dir/file.go", "package main")`.
 
 Expected:
@@ -58,13 +77,13 @@ Expected:
 #### Overwrites existing file
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
   frontmatter `output: output/file.go`.
 - Create `output/file.go` with content `"old"`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a", "output/file.go",
+1. Call `MCPWriteFile("SPEC/root/a", "output/file.go",
    "new")`.
 
 Expected:
@@ -83,12 +102,12 @@ Expected:
 #### Invalid logical name — with qualifier
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a(interface)", "out.go",
+1. Call `MCPWriteFile("SPEC/root/a(interface)", "out.go",
    "")`.
 
 Expected:
@@ -105,12 +124,12 @@ Expected:
 #### No output declared
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`.
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`.
   Empty frontmatter (no output).
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a", "out.go", "")`.
+1. Call `MCPWriteFile("SPEC/root/a", "out.go", "")`.
 
 Expected:
 - Error `ErrNoOutput`.
@@ -118,12 +137,12 @@ Expected:
 #### Path not in output
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
   frontmatter `output: allowed/file.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a", "other/file.go", "")`.
+1. Call `MCPWriteFile("SPEC/root/a", "other/file.go", "")`.
 
 Expected:
 - Error `ErrPathNotInOutput`.
@@ -131,12 +150,12 @@ Expected:
 #### Path validation — empty path
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a", "", "")`.
+1. Call `MCPWriteFile("SPEC/root/a", "", "")`.
 
 Expected:
 - Error `pathutils.ErrPathEmpty`.
@@ -144,12 +163,12 @@ Expected:
 #### Path validation — traversal
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a", "../../etc/passwd",
+1. Call `MCPWriteFile("SPEC/root/a", "../../etc/passwd",
    "")`.
 
 Expected:
@@ -158,12 +177,12 @@ Expected:
 #### Path validation — backslash
 
 Setup:
-- Create `code-from-spec/_node.md` with `# SPEC`.
-- Create `code-from-spec/a/_node.md` with `# SPEC/a`,
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/a", "output\\file.go",
+1. Call `MCPWriteFile("SPEC/root/a", "output\\file.go",
    "")`.
 
 Expected:

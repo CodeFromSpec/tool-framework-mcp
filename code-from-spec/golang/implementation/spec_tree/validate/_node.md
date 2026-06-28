@@ -24,7 +24,7 @@ rules, and reports all violations found.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/spectreevalidate"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/spectreevalidate"`
 
 ## Interface
 
@@ -111,7 +111,7 @@ Implement the spec tree validation as a Go package.
 
    For each dep in entry.frontmatter.depends_on:
 
-     If dep starts with "SPEC/" or equals "SPEC":
+     If dep starts with "SPEC/":
        Call LogicalNameParse(dep). If it fails:
          error "depends_on entry cannot be parsed: <dep>"
          Continue to next dep.
@@ -155,7 +155,16 @@ Implement the spec tree validation as a Go package.
    If entry.frontmatter.input is non-empty:
      Let inp = entry.frontmatter.input.
 
-     If inp starts with "ARTIFACT/":
+     If inp starts with "SPEC/":
+       Call LogicalNameParse(inp). If it fails:
+         error "input entry cannot be parsed: <inp>"
+       Else:
+         Let `ln` be the result.
+         If ln.Name is not in `known_logical_names`:
+           error "input references unknown SPEC
+           node: <inp>"
+
+     Else if inp starts with "ARTIFACT/":
        If inp is not in `known_logical_names`:
          error "input references unknown ARTIFACT:
          <inp>"
@@ -171,8 +180,8 @@ Implement the spec tree validation as a Go package.
        Else: Call FileClose on the returned handle.
 
      Else:
-       error "input must start with ARTIFACT/ or
-       EXTERNAL/"
+       error "input must start with SPEC/, ARTIFACT/,
+       or EXTERNAL/"
 
 ### Rule: missing_node_md
 
@@ -181,7 +190,7 @@ Implement the spec tree validation as a Go package.
      "code-from-spec": Skip.
      Derive the first path segment after
      "code-from-spec/" in dir. If that first segment
-     starts with "_": Skip.
+     starts with ".": Skip.
      Let expected_node_path = dir + "/_node.md"
        (normalized to use forward slashes, no trailing
        slash on dir).

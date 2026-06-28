@@ -22,7 +22,7 @@ all chain positions from disk and hashing their content.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"`
 
 ## Interface
 
@@ -163,7 +163,7 @@ Let `hashes` = empty list of raw byte sequences
       neutralize_artifact_tag=false)`.
       Append `h` to `hashes`.
    c. Else if dep.unqualified_logical_name starts with
-      "SPEC/" or equals "SPEC":
+      "SPEC/":
       Call `NodeParse(dep.unqualified_logical_name)`.
       If it fails, raise error "parse failure".
       If `dep.qualifier` is absent:
@@ -197,6 +197,17 @@ Let `hashes` = empty list of raw byte sequences
       Let `h` = `HashFileContent(input.file_path,
       neutralize_artifact_tag=false)`.
       Append `h` to `hashes`.
+   d. Else if input.unqualified_logical_name starts with
+      "SPEC/":
+      Call `NodeParse(input.unqualified_logical_name)`.
+      If it fails, raise error "parse failure".
+      If `input.qualifier` is absent:
+        Let `h` = `HashPublicSubsections(node)`.
+        If `h` is present, append `h` to `hashes`.
+      If `input.qualifier` is present:
+        Let `h` = `HashQualifiedSubsection(node,
+        input.qualifier)`.
+        If `h` is present, append `h` to `hashes`.
 
 **Step 2 — Compute final hash**
 

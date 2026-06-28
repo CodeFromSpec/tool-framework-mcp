@@ -19,7 +19,7 @@ files.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/frontmatter"`
 
 ## Interface
 
