@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/mcp_tools/write_file@-G1nNS3vrUJ5i0qqJQkjHTFBT_I -->
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/write_file@y-fi8kgCcVX9N_ar3rYxLcQoPVo -->
 
 function MCPWriteFile(logical_name: string, path: string, content: string) -> string
 

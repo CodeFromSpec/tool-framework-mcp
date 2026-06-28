@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/parsing/artifact_tag@n5Mn707Y0plZRPRyWGqLzdgtrBE -->
+<!-- code-from-spec: SPEC/functional/logic/parsing/artifact_tag@5Px8Sc3W12KCZUoQFgHCML80fmE -->
 
 # artifact_tag
 
@@ -72,4 +72,3 @@ Steps:
 12. Return `ArtifactTag` with:
     - `logical_name` = `logical_name`
     - `hash` = `hash`
-```

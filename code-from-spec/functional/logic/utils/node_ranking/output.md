@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/utils/node_ranking@Wwc809voWLrgV-UjR90MgZUHPYQ -->
+<!-- code-from-spec: SPEC/functional/logic/utils/node_ranking@lTNwbyKWux4M8C_n8nUshKUS4rg -->
 
 record NodeRankInput
   logical_name: string

@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/parsing/frontmatter@f9pMNcGf5cVzeNKJ0RRXY9AyOEE -->
+<!-- code-from-spec: SPEC/functional/logic/parsing/frontmatter@KMaOqkGDYPRPy4UjLpllmjIt170 -->
 
 namespace: frontmatter
 

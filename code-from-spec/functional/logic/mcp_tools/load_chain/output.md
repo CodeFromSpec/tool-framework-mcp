@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/mcp_tools/load_chain@vvsydp-6zcj8tMjlG60PVEcHGWg -->
+<!-- code-from-spec: SPEC/functional/logic/mcp_tools/load_chain@b7yHb0nOaV-DFaHIvMpnX-I0aHc -->
 
 namespace: mcploadchain
 

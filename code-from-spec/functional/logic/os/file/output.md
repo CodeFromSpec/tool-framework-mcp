@@ -1,6 +1,6 @@
-<!-- code-from-spec: SPEC/functional/logic/os/file@F40m4zXDezGv6LBzozTGajpwzTQ -->
+<!-- code-from-spec: SPEC/functional/logic/os/file@3bTehJQjWRhxfHlRCY_vorGmVH4 -->
 
-namespace: filereader
+namespace: file
 
 ## Records
 

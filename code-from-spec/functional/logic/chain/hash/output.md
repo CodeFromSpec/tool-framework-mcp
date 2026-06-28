@@ -1,4 +1,4 @@
-<!-- code-from-spec: SPEC/functional/logic/chain/hash@T51vpn-fCclf6BHbxC-6JteoA5I -->
+<!-- code-from-spec: SPEC/functional/logic/chain/hash@ZuKx2eJMnw-i6pmeAlKUF-YaXmo -->
 
 ## Namespace
 
