@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/manifest@_2-5YIkaqpxrKB0guBG9fyWmHu0
+// code-from-spec: SPEC/golang/implementation/manifest@YjvHG3CyVNBuRH1blXeIJPucF4Q
 package manifest
 
 import (
@@ -7,14 +7,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/file"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 )
 
-var ErrInvalidMode  = errors.New("invalid mode")
-var ErrLockTimeout  = errors.New("lock timeout")
-var ErrWrongMode    = errors.New("wrong mode")
-var ErrHandleClosed = errors.New("handle closed")
+var ErrLockTimeout          = errors.New("lock timeout")
+var ErrReadOnly             = errors.New("read only")
+var ErrManifestClosed       = errors.New("manifest closed")
+var ErrManifestFormatError  = errors.New("manifest format error")
 
 type ManifestEntry struct {
 	Path      string
@@ -22,27 +21,27 @@ type ManifestEntry struct {
 	ChainHash string
 }
 
-type ManifestHandle struct {
-	Mode       string
-	Version    string
-	Entries    map[string]ManifestEntry
-	lockHandle *file.FileHandle
-	closed     bool
+type Manifest struct {
+	Version  string
+	Entries  map[string]ManifestEntry
+	readOnly bool
+	closed   bool
+	lockFile *oslayer.File
 }
 
-func parseManifest(fh *file.FileHandle) (map[string]ManifestEntry, error) {
-	header, err := file.FileReadLine(fh)
+func parseManifest(f *oslayer.File) (map[string]ManifestEntry, error) {
+	header, err := f.ReadLine()
 	if err != nil {
 		return nil, fmt.Errorf("reading manifest header: %w", err)
 	}
 	if header != "code-from-spec: v5" {
-		return nil, fmt.Errorf("manifest format error: unexpected header")
+		return nil, ErrManifestFormatError
 	}
 
 	entries := make(map[string]ManifestEntry)
 	for {
-		line, err := file.FileReadLine(fh)
-		if errors.Is(err, file.ErrEndOfFile) {
+		line, err := f.ReadLine()
+		if errors.Is(err, oslayer.ErrEndOfFile) {
 			break
 		}
 		if err != nil {
@@ -69,39 +68,34 @@ func parseManifest(fh *file.FileHandle) (map[string]ManifestEntry, error) {
 	return entries, nil
 }
 
-func ManifestOpen(mode string) (*ManifestHandle, error) {
-	if mode != "read" && mode != "write" {
-		return nil, ErrInvalidMode
-	}
-
-	if mode == "read" {
-		manifestPath := pathutils.PathCfs{Value: "code-from-spec/.manifest"}
-		manifestFH, err := file.FileOpen(manifestPath, "read", 30000)
+func OpenManifest(readOnly bool) (*Manifest, error) {
+	if readOnly {
+		manifestFH, err := oslayer.OpenFile(oslayer.CfsPath("code-from-spec/.manifest"), "read", 30000)
 		if err != nil {
-			if errors.Is(err, file.ErrFileUnreadable) {
-				return &ManifestHandle{
-					Mode:    "read",
-					Version: "v5",
-					Entries: make(map[string]ManifestEntry),
+			if errors.Is(err, oslayer.ErrFileUnreadable) {
+				return &Manifest{
+					readOnly: true,
+					Version:  "v5",
+					Entries:  make(map[string]ManifestEntry),
 				}, nil
 			}
 			return nil, fmt.Errorf("opening manifest: %w", err)
 		}
 
-		lockPath := pathutils.PathCfs{Value: "code-from-spec/.manifest.lock"}
-		lockFH, err := file.FileOpen(lockPath, "read", 30000)
+		lockPath := oslayer.CfsPath("code-from-spec/.manifest.lock")
+		lockFH, err := oslayer.OpenFile(lockPath, "read", 30000)
 		if err != nil {
-			if errors.Is(err, file.ErrFileUnreadable) {
-				appendFH, appendErr := file.FileOpen(lockPath, "append", 0)
+			if errors.Is(err, oslayer.ErrFileUnreadable) {
+				appendFH, appendErr := oslayer.OpenFile(lockPath, "append", 0)
 				if appendErr == nil {
-					file.FileClose(appendFH)
+					appendFH.Close()
 				}
 
-				lockFH, err = file.FileOpen(lockPath, "read", 30000)
+				lockFH, err = oslayer.OpenFile(lockPath, "read", 30000)
 				if err != nil {
 					return nil, fmt.Errorf("opening lock file (retry): %w", err)
 				}
-			} else if errors.Is(err, file.ErrLockTimeout) {
+			} else if errors.Is(err, oslayer.ErrLockTimeout) {
 				return nil, ErrLockTimeout
 			} else {
 				return nil, fmt.Errorf("opening lock file: %w", err)
@@ -110,114 +104,110 @@ func ManifestOpen(mode string) (*ManifestHandle, error) {
 
 		entries, err := parseManifest(manifestFH)
 		if err != nil {
-			file.FileClose(lockFH)
-			file.FileClose(manifestFH)
+			lockFH.Close()
+			manifestFH.Close()
 			return nil, err
 		}
 
-		file.FileClose(lockFH)
-		file.FileClose(manifestFH)
+		lockFH.Close()
+		manifestFH.Close()
 
-		return &ManifestHandle{
-			Mode:    "read",
-			Version: "v5",
-			Entries: entries,
+		return &Manifest{
+			readOnly: true,
+			Version:  "v5",
+			Entries:  entries,
 		}, nil
 	}
 
-	lockPath := pathutils.PathCfs{Value: "code-from-spec/.manifest.lock"}
-	lockFH, err := file.FileOpen(lockPath, "append", 30000)
+	lockPath := oslayer.CfsPath("code-from-spec/.manifest.lock")
+	lockFH, err := oslayer.OpenFile(lockPath, "append", 30000)
 	if err != nil {
-		if errors.Is(err, file.ErrLockTimeout) {
+		if errors.Is(err, oslayer.ErrLockTimeout) {
 			return nil, ErrLockTimeout
 		}
 		return nil, fmt.Errorf("acquiring write lock: %w", err)
 	}
 
-	manifestPath := pathutils.PathCfs{Value: "code-from-spec/.manifest"}
-	manifestFH, err := file.FileOpen(manifestPath, "read", 30000)
+	manifestFH, err := oslayer.OpenFile(oslayer.CfsPath("code-from-spec/.manifest"), "read", 30000)
 	if err != nil {
-		if errors.Is(err, file.ErrFileUnreadable) {
-			return &ManifestHandle{
-				Mode:       "write",
-				Version:    "v5",
-				Entries:    make(map[string]ManifestEntry),
-				lockHandle: lockFH,
+		if errors.Is(err, oslayer.ErrFileUnreadable) {
+			return &Manifest{
+				readOnly: false,
+				Version:  "v5",
+				Entries:  make(map[string]ManifestEntry),
+				lockFile: lockFH,
 			}, nil
 		}
-		file.FileClose(lockFH)
+		lockFH.Close()
 		return nil, fmt.Errorf("opening manifest for write: %w", err)
 	}
 
 	entries, err := parseManifest(manifestFH)
 	if err != nil {
-		file.FileClose(manifestFH)
-		file.FileClose(lockFH)
+		manifestFH.Close()
+		lockFH.Close()
 		return nil, err
 	}
-	file.FileClose(manifestFH)
+	manifestFH.Close()
 
-	return &ManifestHandle{
-		Mode:       "write",
-		Version:    "v5",
-		Entries:    entries,
-		lockHandle: lockFH,
+	return &Manifest{
+		readOnly: false,
+		Version:  "v5",
+		Entries:  entries,
+		lockFile: lockFH,
 	}, nil
 }
 
-func ManifestSave(handle *ManifestHandle) error {
-	if handle.Mode == "read" {
-		return ErrWrongMode
+func (m *Manifest) Save() error {
+	if m.readOnly {
+		return ErrReadOnly
 	}
-	if handle.lockHandle == nil {
-		return ErrHandleClosed
+	if m.closed {
+		return ErrManifestClosed
 	}
 
-	manifestPath := pathutils.PathCfs{Value: "code-from-spec/.manifest"}
-	fh, err := file.FileOpen(manifestPath, "overwrite", 30000)
+	fh, err := oslayer.OpenFile(oslayer.CfsPath("code-from-spec/.manifest"), "overwrite", 30000)
 	if err != nil {
 		return fmt.Errorf("opening manifest for save: %w", err)
 	}
 
-	if err := file.FileWrite(fh, "code-from-spec: v5\n"); err != nil {
-		file.FileClose(fh)
+	if err := fh.Write("code-from-spec: v5\n"); err != nil {
+		fh.Close()
 		return fmt.Errorf("writing manifest header: %w", err)
 	}
 
-	keys := make([]string, 0, len(handle.Entries))
-	for k := range handle.Entries {
+	keys := make([]string, 0, len(m.Entries))
+	for k := range m.Entries {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
 	for _, key := range keys {
-		entry := handle.Entries[key]
+		entry := m.Entries[key]
 		line := fmt.Sprintf("%s;path:%s;checksum:%s;chain:%s\n", key, entry.Path, entry.Checksum, entry.ChainHash)
-		if err := file.FileWrite(fh, line); err != nil {
-			file.FileClose(fh)
+		if err := fh.Write(line); err != nil {
+			fh.Close()
 			return fmt.Errorf("writing manifest entry: %w", err)
 		}
 	}
 
-	file.FileClose(fh)
-	file.FileClose(handle.lockHandle)
-	handle.closed = true
-	handle.lockHandle = nil
+	fh.Close()
+	m.lockFile.Close()
+	m.closed = true
 
 	return nil
 }
 
-func ManifestDiscard(handle *ManifestHandle) error {
-	if handle.Mode == "read" {
-		return ErrWrongMode
+func (m *Manifest) Discard() error {
+	if m.readOnly {
+		return ErrReadOnly
 	}
-	if handle.lockHandle == nil {
-		return ErrHandleClosed
+	if m.closed {
+		return ErrManifestClosed
 	}
 
-	file.FileClose(handle.lockHandle)
-	handle.closed = true
-	handle.lockHandle = nil
+	m.lockFile.Close()
+	m.closed = true
 
 	return nil
 }

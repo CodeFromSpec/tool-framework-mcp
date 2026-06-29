@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/chain/resolver@h6W4UGmwIZ33dImxZlUjHPgfC6o
+// code-from-spec: SPEC/golang/implementation/chain/resolver@5trtTlaTyfR0jeS21NA8aahtvCs
 package chainresolver
 
 import (
@@ -7,51 +7,53 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
 )
 
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
 var ErrUnresolvableArtifact = errors.New("unresolvable artifact")
 
-type ChainItem struct {
-	UnqualifiedLogicalName string
-	FilePath               pathutils.PathCfs
-	Qualifier              string
-}
-
 type Chain struct {
-	Ancestors    []*ChainItem
-	Dependencies []*ChainItem
-	Target       *ChainItem
-	Input        *ChainItem
+	Ancestors    []parsing.CfsReference
+	Dependencies []parsing.CfsReference
+	Target       parsing.CfsReference
+	Input        *parsing.CfsReference
 }
 
-func ChainResolve(targetLogicalName string) (*Chain, error) {
-	ancestors, target, targetLn, err := resolveAncestorsAndTarget(targetLogicalName)
+func ChainResolve(targetLogicalName string) (Chain, error) {
+	targetRef, err := parsing.CfsReferenceFromName(targetLogicalName)
 	if err != nil {
-		return nil, err
+		return Chain{}, err
 	}
 
-	fm, err := frontmatter.FrontmatterParse(pathutils.PathCfs{Value: targetLn.Path})
+	ancestors, target, err := resolveAncestorsAndTarget(targetRef)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
+		return Chain{}, err
+	}
+
+	node, err := parsing.ParseNode(targetLogicalName)
+	if err != nil {
+		return Chain{}, fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
+	}
+
+	var fm *parsing.NodeFrontmatter
+	if node.Frontmatter != nil {
+		fm = node.Frontmatter
 	}
 
 	deps, err := resolveDependencies(fm)
 	if err != nil {
-		return nil, err
+		return Chain{}, err
 	}
 
 	deps = deduplicateDependencies(deps)
 
 	input, err := resolveInput(fm)
 	if err != nil {
-		return nil, err
+		return Chain{}, err
 	}
 
-	return &Chain{
+	return Chain{
 		Ancestors:    ancestors,
 		Dependencies: deps,
 		Target:       target,
@@ -59,121 +61,79 @@ func ChainResolve(targetLogicalName string) (*Chain, error) {
 	}, nil
 }
 
-func resolveAncestorsAndTarget(targetLogicalName string) ([]*ChainItem, *ChainItem, *logicalnames.LogicalName, error) {
-	targetLn, err := logicalnames.LogicalNameParse(targetLogicalName)
-	if err != nil {
-		return nil, nil, nil, err
+func resolveAncestorsAndTarget(targetRef *parsing.CfsReference) ([]parsing.CfsReference, parsing.CfsReference, error) {
+	if targetRef.ParentName == nil {
+		return []parsing.CfsReference{}, *targetRef, nil
 	}
 
-	if targetLn.Parent == nil {
-		target := &ChainItem{
-			UnqualifiedLogicalName: targetLn.Name,
-			FilePath:               pathutils.PathCfs{Value: targetLn.Path},
-			Qualifier:              "",
-		}
-		return []*ChainItem{}, target, targetLn, nil
-	}
+	refs := []parsing.CfsReference{*targetRef}
+	currentRef := targetRef
 
-	names := []string{targetLogicalName}
-	currentLn := targetLn
 	for {
-		if currentLn.Parent == nil {
+		if currentRef.ParentName == nil {
 			break
 		}
-		names = append(names, *currentLn.Parent)
-		parentLn, err := logicalnames.LogicalNameParse(*currentLn.Parent)
+		parentRef, err := parsing.CfsReferenceFromName(*currentRef.ParentName)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, parsing.CfsReference{}, err
 		}
-		currentLn = parentLn
+		refs = append(refs, *parentRef)
+		currentRef = parentRef
 	}
 
-	sort.Strings(names)
+	sort.Slice(refs, func(i, j int) bool {
+		return refs[i].LogicalName < refs[j].LogicalName
+	})
 
-	items := make([]*ChainItem, 0, len(names))
-	for _, name := range names {
-		ln, err := logicalnames.LogicalNameParse(name)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		items = append(items, &ChainItem{
-			UnqualifiedLogicalName: ln.Name,
-			FilePath:               pathutils.PathCfs{Value: ln.Path},
-			Qualifier:              "",
-		})
-	}
-
-	target := items[len(items)-1]
-	ancestors := items[:len(items)-1]
-	return ancestors, target, targetLn, nil
+	target := refs[len(refs)-1]
+	ancestors := refs[:len(refs)-1]
+	return ancestors, target, nil
 }
 
-func resolveDependencies(fm *frontmatter.Frontmatter) ([]*ChainItem, error) {
-	deps := make([]*ChainItem, 0, len(fm.DependsOn))
+func resolveDependencies(fm *parsing.NodeFrontmatter) ([]parsing.CfsReference, error) {
+	if fm == nil {
+		return []parsing.CfsReference{}, nil
+	}
+
+	deps := make([]parsing.CfsReference, 0, len(fm.DependsOn))
 
 	for _, entry := range fm.DependsOn {
-		ln, err := logicalnames.LogicalNameParse(entry)
+		ref, err := parsing.CfsReferenceFromName(entry)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrUnresolvableArtifact, err)
 		}
-
-		var item *ChainItem
-		switch ln.Type {
-		case logicalnames.NodeTypeSpec:
-			qualifier := ""
-			if ln.Qualifier != nil {
-				qualifier = *ln.Qualifier
-			}
-			item = &ChainItem{
-				UnqualifiedLogicalName: ln.Name,
-				FilePath:               pathutils.PathCfs{Value: ln.Path},
-				Qualifier:              qualifier,
-			}
-		case logicalnames.NodeTypeArtifact:
-			item = &ChainItem{
-				UnqualifiedLogicalName: ln.Name,
-				FilePath:               pathutils.PathCfs{Value: ln.Path},
-				Qualifier:              "",
-			}
-		case logicalnames.NodeTypeExternal:
-			item = &ChainItem{
-				UnqualifiedLogicalName: ln.Name,
-				FilePath:               pathutils.PathCfs{Value: ln.Path},
-				Qualifier:              "",
-			}
-		default:
-			return nil, fmt.Errorf("%w: %s", ErrUnresolvableArtifact, entry)
-		}
-
-		deps = append(deps, item)
+		deps = append(deps, *ref)
 	}
 
 	sort.Slice(deps, func(i, j int) bool {
-		if deps[i].UnqualifiedLogicalName != deps[j].UnqualifiedLogicalName {
-			return deps[i].UnqualifiedLogicalName < deps[j].UnqualifiedLogicalName
+		if deps[i].LogicalName != deps[j].LogicalName {
+			return deps[i].LogicalName < deps[j].LogicalName
 		}
-		if deps[i].Qualifier == "" && deps[j].Qualifier != "" {
+		if deps[i].Qualifier == nil && deps[j].Qualifier != nil {
 			return true
 		}
-		if deps[i].Qualifier != "" && deps[j].Qualifier == "" {
+		if deps[i].Qualifier != nil && deps[j].Qualifier == nil {
 			return false
 		}
-		return deps[i].Qualifier < deps[j].Qualifier
+		if deps[i].Qualifier != nil && deps[j].Qualifier != nil {
+			return *deps[i].Qualifier < *deps[j].Qualifier
+		}
+		return false
 	})
 
 	return deps, nil
 }
 
-func deduplicateDependencies(deps []*ChainItem) []*ChainItem {
-	result := make([]*ChainItem, 0, len(deps))
+func deduplicateDependencies(deps []parsing.CfsReference) []parsing.CfsReference {
+	result := make([]parsing.CfsReference, 0, len(deps))
 
 	for _, dep := range deps {
-		if strings.HasPrefix(dep.UnqualifiedLogicalName, "SPEC/") || dep.UnqualifiedLogicalName == "SPEC" {
+		if strings.HasPrefix(dep.LogicalName, "SPEC/") {
 			if isSpecDuplicate(result, dep) {
 				continue
 			}
 		} else {
-			if isNameDuplicate(result, dep.UnqualifiedLogicalName) {
+			if isNameDuplicate(result, dep.LogicalName) {
 				continue
 			}
 		}
@@ -183,43 +143,39 @@ func deduplicateDependencies(deps []*ChainItem) []*ChainItem {
 	return result
 }
 
-func isSpecDuplicate(existing []*ChainItem, candidate *ChainItem) bool {
+func isSpecDuplicate(existing []parsing.CfsReference, candidate parsing.CfsReference) bool {
 	for _, e := range existing {
-		if e.UnqualifiedLogicalName != candidate.UnqualifiedLogicalName {
+		if e.LogicalName != candidate.LogicalName {
 			continue
 		}
-		if e.Qualifier == "" {
+		if e.Qualifier == nil {
 			return true
 		}
-		if candidate.Qualifier != "" && e.Qualifier == candidate.Qualifier {
+		if candidate.Qualifier != nil && e.Qualifier != nil && *e.Qualifier == *candidate.Qualifier {
 			return true
 		}
 	}
 	return false
 }
 
-func isNameDuplicate(existing []*ChainItem, name string) bool {
+func isNameDuplicate(existing []parsing.CfsReference, name string) bool {
 	for _, e := range existing {
-		if e.UnqualifiedLogicalName == name {
+		if e.LogicalName == name {
 			return true
 		}
 	}
 	return false
 }
 
-func resolveInput(fm *frontmatter.Frontmatter) (*ChainItem, error) {
-	if fm.Input == "" {
+func resolveInput(fm *parsing.NodeFrontmatter) (*parsing.CfsReference, error) {
+	if fm == nil || fm.Input == nil {
 		return nil, nil
 	}
 
-	ln, err := logicalnames.LogicalNameParse(fm.Input)
+	ref, err := parsing.CfsReferenceFromName(*fm.Input)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ChainItem{
-		UnqualifiedLogicalName: ln.Name,
-		FilePath:               pathutils.PathCfs{Value: ln.Path},
-		Qualifier:              "",
-	}, nil
+	return ref, nil
 }

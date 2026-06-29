@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/spec_tree/scan@K0YV7OWkG5ptPkUZnWeYELtBQiU
+// code-from-spec: SPEC/golang/implementation/spec_tree/scan@7IEAi3sFb6yjgrjRZBljRR_kjIw
 package spectree
 
 import (
@@ -7,70 +7,71 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/listfiles"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
 )
 
 var ErrNoNodesFound = errors.New("no nodes found")
 
-type SpecTreeNode struct {
-	LogicalName string
-	FilePath    pathutils.PathCfs
-}
-
-func SpecTreeScan() ([]*SpecTreeNode, error) {
-	dir := pathutils.PathCfs{Value: "code-from-spec/"}
-
-	files, err := listfiles.ListFiles(dir)
+func SpecTreeScan() ([]parsing.CfsReference, error) {
+	files, err := oslayer.ListAllFiles("code-from-spec/")
 	if err != nil {
 		return nil, fmt.Errorf("listing files: %w", err)
 	}
 
-	var kept []pathutils.PathCfs
+	var kept []oslayer.CfsPath
 	for _, f := range files {
-		lastSlash := strings.LastIndex(f.Value, "/")
+		path := string(f)
+
+		lastSlash := strings.LastIndex(path, "/")
 		var fileName string
 		if lastSlash == -1 {
-			fileName = f.Value
+			fileName = path
 		} else {
-			fileName = f.Value[lastSlash+1:]
+			fileName = path[lastSlash+1:]
 		}
 		if fileName != "_node.md" {
 			continue
 		}
 
-		remainder := strings.TrimPrefix(f.Value, "code-from-spec/")
-		slashIdx := strings.Index(remainder, "/")
-		if slashIdx != -1 {
-			firstSegment := remainder[:slashIdx]
-			if strings.HasPrefix(firstSegment, "_") {
-				continue
+		remainder := strings.TrimPrefix(path, "code-from-spec/")
+		segments := strings.Split(remainder, "/")
+		dirSegments := segments[:len(segments)-1]
+
+		if len(dirSegments) == 0 {
+			continue
+		}
+
+		excluded := false
+		for _, seg := range dirSegments {
+			if strings.HasPrefix(seg, ".") {
+				excluded = true
+				break
 			}
+		}
+		if excluded {
+			continue
 		}
 
 		kept = append(kept, f)
 	}
 
-	var nodes []*SpecTreeNode
+	var refs []parsing.CfsReference
 	for _, f := range kept {
-		ln, err := logicalnames.LogicalNameFromPath(f)
+		ref, err := parsing.CfsReferenceFromPath(f)
 		if err != nil {
-			return nil, fmt.Errorf("deriving logical name from %s: %w", f.Value, err)
+			return nil, fmt.Errorf("resolving reference from %s: %w", f, err)
 		}
-		nodes = append(nodes, &SpecTreeNode{
-			LogicalName: ln.Name,
-			FilePath:    f,
-		})
+		refs = append(refs, *ref)
 	}
 
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].LogicalName < nodes[j].LogicalName
+	sort.Slice(refs, func(i, j int) bool {
+		return refs[i].LogicalName < refs[j].LogicalName
 	})
 
-	if len(nodes) == 0 {
+	if len(refs) == 0 {
 		return nil, ErrNoNodesFound
 	}
 
-	return nodes, nil
+	return refs, nil
 }
