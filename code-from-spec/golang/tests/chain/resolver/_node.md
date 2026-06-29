@@ -32,12 +32,12 @@ Setup:
   frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/root").
+1. Call chainresolver.ChainResolve("SPEC/root").
 
 Expected:
 - ancestors = empty list.
 - dependencies = empty list.
-- target = CfsReference("SPEC/root", Qualifier=nil).
+- target = parsing.CfsReference("SPEC/root", Qualifier=nil).
 - input = absent.
 
 #### Linear chain — ancestors in root-first order
@@ -47,7 +47,7 @@ Setup:
   empty frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a/b").
+1. Call chainresolver.ChainResolve("SPEC/root/a/b").
 
 Expected:
 - ancestors = [SPEC/root, SPEC/root/a] in that order.
@@ -59,7 +59,7 @@ Setup:
 - Create SPEC/root, SPEC/root/a with empty frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected:
 - ancestors = [SPEC/root].
@@ -71,7 +71,7 @@ Setup:
 - Create SPEC/root, SPEC/root/a with empty frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected:
 - ancestors = [SPEC/root], target = SPEC/root/a,
@@ -86,10 +86,10 @@ Setup:
   (depends_on = ["SPEC/root/b"]), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected:
-- dependencies contains one CfsReference with
+- dependencies contains one parsing.CfsReference with
   LogicalName = "SPEC/root/b",
   Qualifier = nil.
 
@@ -101,10 +101,10 @@ Setup:
   SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected:
-- dependencies contains one CfsReference with
+- dependencies contains one parsing.CfsReference with
   LogicalName = "SPEC/root/b",
   Qualifier = "interface".
 
@@ -117,7 +117,7 @@ Setup:
   SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected:
 - dependencies = [SPEC/root/b, SPEC/root/m,
@@ -133,10 +133,10 @@ Setup:
   SPEC/root/b (output = "out/lib.go").
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected:
-- dependencies contains one CfsReference with
+- dependencies contains one parsing.CfsReference with
   LogicalName = "ARTIFACT/root/b",
   Path = "out/lib.go".
 
@@ -148,9 +148,9 @@ Setup:
   SPEC/root/b (empty frontmatter, no output).
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: Error ErrUnresolvableArtifact.
+Expected: Error chainresolver.ErrUnresolvableArtifact.
 
 #### ARTIFACT — artifact file does not exist on disk
 
@@ -161,7 +161,7 @@ Setup:
 - Do NOT create "out/lib.go" on disk.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected:
 - No error. dependencies contains one CfsReference
@@ -177,7 +177,7 @@ Setup:
   SPEC/root/b (output = "out/lib.go"), SPEC/root/c.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected:
 - dependencies sorted: ARTIFACT/root/b,
@@ -193,7 +193,7 @@ Setup:
   SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one entry for
 SPEC/root/b.
@@ -206,7 +206,7 @@ Setup:
   "SPEC/root/b(interface)"]), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one entry for
 SPEC/root/b with Qualifier = nil.
@@ -219,7 +219,7 @@ Setup:
   "SPEC/root/b"]), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one entry for
 SPEC/root/b with Qualifier = nil.
@@ -232,7 +232,7 @@ Setup:
   "SPEC/root/b(constraints)"]), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains two entries, one
 with Qualifier = "constraints", one with "interface"
@@ -247,7 +247,7 @@ Setup:
   SPEC/root/b (output = "out/lib.go").
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one ARTIFACT entry.
 
@@ -260,9 +260,9 @@ Setup:
   (depends_on = ["EXTERNAL/docs/api.yaml"]).
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: dependencies contains one CfsReference with
+Expected: dependencies contains one parsing.CfsReference with
 LogicalName = "EXTERNAL/docs/api.yaml",
 Path = "docs/api.yaml", Qualifier = nil.
 
@@ -274,7 +274,7 @@ Setup:
   "EXTERNAL/docs/api.yaml"]).
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: dependencies sorted:
 EXTERNAL/docs/api.yaml, EXTERNAL/proto/v1.proto.
@@ -287,7 +287,7 @@ Setup:
   "EXTERNAL/x.proto"]).
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one EXTERNAL entry.
 
@@ -301,9 +301,9 @@ Setup:
   SPEC/root/b (output = "out/data.json").
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input = CfsReference("ARTIFACT/root/b",
+Expected: input = parsing.CfsReference("ARTIFACT/root/b",
 Path = "out/data.json").
 
 #### EXTERNAL input resolved to path
@@ -313,9 +313,9 @@ Setup:
   (input = "EXTERNAL/docs/vendor/spec.yaml").
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input = CfsReference(
+Expected: input = parsing.CfsReference(
 "EXTERNAL/docs/vendor/spec.yaml",
 Path = "docs/vendor/spec.yaml").
 
@@ -326,9 +326,9 @@ Setup:
   (input = "SPEC/root/b"), SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input = CfsReference("SPEC/root/b",
+Expected: input = parsing.CfsReference("SPEC/root/b",
 Path = "code-from-spec/root/b/_node.md",
 Qualifier = nil).
 
@@ -340,9 +340,9 @@ Setup:
   SPEC/root/b.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input = CfsReference("SPEC/root/b",
+Expected: input = parsing.CfsReference("SPEC/root/b",
 Path = "code-from-spec/root/b/_node.md",
 Qualifier = "acceptance-tests").
 
@@ -352,7 +352,7 @@ Setup:
 - Create SPEC/root, SPEC/root/a (no input).
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: input is absent (nil).
 
@@ -365,17 +365,30 @@ Setup:
   (depends_on = ["UNKNOWN/something"]).
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: Error ErrUnresolvableArtifact.
+Expected: Error chainresolver.ErrUnresolvableArtifact.
 
 #### Invalid target logical name
 
 Actions:
-1. Call ChainResolve("INVALID/something").
+1. Call chainresolver.ChainResolve("INVALID/something").
 
 Expected: Error propagated from
 parsing.CfsReferenceFromName.
+
+#### Input ARTIFACT — generating node not found
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (input = "ARTIFACT/root/missing").
+- Do not create SPEC/root/missing.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a").
+
+Expected: Error propagated from
+parsing.CfsReferenceFromName (generator node missing).
 
 #### Unreadable frontmatter
 
@@ -384,9 +397,9 @@ Setup:
   in frontmatter.
 
 Actions:
-1. Call ChainResolve("SPEC/root/a").
+1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: Error ErrUnreadableFrontmatter.
+Expected: Error chainresolver.ErrUnreadableFrontmatter.
 
 ## Go-specific guidance
 

@@ -96,16 +96,16 @@ Implement the manifest component as a Go package.
    a. Try oslayer.OpenFile on
       "code-from-spec/.manifest" with mode "read" and
       timeout 30000.
-      If OpenFile returns FileUnreadable (file does not
-      exist): return Manifest with readOnly = true,
-      Version = "v5", Entries as empty map.
+      If OpenFile returns oslayer.ErrFileUnreadable (file
+      does not exist): return Manifest with readOnly =
+      true, Version = "v5", Entries as empty map.
       If OpenFile returns any other error, propagate it.
       Let manifest_file be the result.
    b. Try oslayer.OpenFile on
       "code-from-spec/.manifest.lock" with mode "read"
       and timeout 30000.
-      If OpenFile returns FileUnreadable (lock file does
-      not exist):
+      If OpenFile returns oslayer.ErrFileUnreadable (lock
+      file does not exist):
         i.  Try oslayer.OpenFile on
             "code-from-spec/.manifest.lock" with mode
             "append" and timeout 0, then .Close() on
@@ -114,7 +114,7 @@ Implement the manifest component as a Go package.
             "code-from-spec/.manifest.lock" with mode
             "read" and timeout 30000.
             If this returns any error, propagate it.
-      If OpenFile returns LockTimeout, return
+      If OpenFile returns oslayer.ErrLockTimeout, return
       ErrLockTimeout.
       If OpenFile returns any other error, propagate it.
       Let lock_file be the result.
@@ -130,7 +130,7 @@ Implement the manifest component as a Go package.
    a. Let lock_file be the result of oslayer.OpenFile on
       "code-from-spec/.manifest.lock" with mode
       "append" and timeout 30000.
-      If OpenFile returns LockTimeout, return
+      If OpenFile returns oslayer.ErrLockTimeout, return
       ErrLockTimeout.
       If OpenFile returns any other error, propagate it.
       (Lock file is created if it does not exist;
@@ -138,8 +138,8 @@ Implement the manifest component as a Go package.
    b. Try oslayer.OpenFile on
       "code-from-spec/.manifest" with mode "read" and
       timeout 30000.
-      If OpenFile returns FileUnreadable (file does not
-      exist): let entries be an empty map.
+      If OpenFile returns oslayer.ErrFileUnreadable (file
+      does not exist): let entries be an empty map.
       If OpenFile returns any other error, propagate it.
       Else:
         let manifest_file be the result.

@@ -35,7 +35,7 @@ For the file checksum, compute SHA-1 of the file
 content (base64url, 27 chars).
 
 The function never returns an error — always check the
-fields of the returned `ValidationReport`.
+fields of the returned `mcpvalidatespecs.ValidationReport`.
 
 ## Test cases
 
@@ -57,7 +57,7 @@ Setup:
   `ARTIFACT/root/a;path:out/a.go;checksum:<checksum>;chain:<chain_hash>`
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
 - `format_errors` is empty.
@@ -78,10 +78,10 @@ Setup:
   the file).
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `staleness` contains one StalenessEntry for
+- `staleness` contains one mcpvalidatespecs.StalenessEntry for
   `"SPEC/root/a"` with `Status` = `"stale"` and
   `Rank` present.
 
@@ -97,10 +97,10 @@ Setup:
   disk.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `staleness` contains one StalenessEntry for
+- `staleness` contains one mcpvalidatespecs.StalenessEntry for
   `"SPEC/root/a"` with `Status` = `"missing"`.
 
 #### Missing artifact — file does not exist
@@ -116,10 +116,10 @@ Setup:
   create `out/a.go` on disk.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `staleness` contains one StalenessEntry for
+- `staleness` contains one mcpvalidatespecs.StalenessEntry for
   `"SPEC/root/a"` with `Status` = `"missing"`.
 
 #### Modified artifact detected
@@ -137,10 +137,10 @@ Setup:
   file hash no longer matches manifest checksum).
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `staleness` contains one StalenessEntry for
+- `staleness` contains one mcpvalidatespecs.StalenessEntry for
   `"SPEC/root/a"` with `Status` = `"modified"`.
 
 #### Orphan manifest entry detected
@@ -153,10 +153,10 @@ Setup:
 - No `code-from-spec/root/deleted/_node.md` on disk.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `staleness` contains one StalenessEntry with
+- `staleness` contains one mcpvalidatespecs.StalenessEntry with
   `Status` = `"orphan"`.
 
 #### Staleness entries include rank
@@ -173,7 +173,7 @@ Setup:
 - No manifest entries (both are missing).
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
 - Both StalenessEntries have `Rank` values.
@@ -193,7 +193,7 @@ Setup:
 - No manifest entries (both are missing).
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
 - Staleness entries ordered: SPEC/root/a before
@@ -212,10 +212,10 @@ Setup:
   frontmatter `depends_on: ["SPEC/root/missing"]`.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `format_errors` contains a FormatError for
+- `format_errors` contains a spectreevalidate.FormatError for
   `"SPEC/root/a"` with `Rule` = `"dependency_targets"`.
 
 #### Format error from parse failure
@@ -228,10 +228,10 @@ Setup:
   content (plain text before any heading).
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `format_errors` contains a FormatError for
+- `format_errors` contains a spectreevalidate.FormatError for
   `"SPEC/root/a"` with `Rule` = `"parse"`.
 
 #### Continues after parse failure
@@ -247,12 +247,12 @@ Setup:
 - No manifest entry for ARTIFACT/root/b.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `format_errors` contains a FormatError for
+- `format_errors` contains a spectreevalidate.FormatError for
   `"SPEC/root/a"`.
-- `staleness` contains a StalenessEntry for
+- `staleness` contains a mcpvalidatespecs.StalenessEntry for
   `"SPEC/root/b"` with `Status` = `"missing"`.
 - Both reported in the same report.
 
@@ -268,10 +268,10 @@ Setup:
   no `_node.md`.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `format_errors` contains a FormatError with
+- `format_errors` contains a spectreevalidate.FormatError with
   `Rule` = `"missing_node_md"`.
 
 #### .-prefixed dir under code-from-spec not flagged
@@ -284,10 +284,10 @@ Setup:
   `_node.md`.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- No FormatError for `.cache/`.
+- No spectreevalidate.FormatError for `.cache/`.
 
 ### Cycle detection
 
@@ -305,7 +305,7 @@ Setup:
   frontmatter `depends_on: ["SPEC/root/a"]`.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
 - `cycles` is not empty, contains at least one of
@@ -325,11 +325,11 @@ Setup:
 - No manifest entry for ARTIFACT/root/b.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
 - `format_errors` is not empty.
-- Any StalenessEntry for `"SPEC/root/b"` has
+- Any mcpvalidatespecs.StalenessEntry for `"SPEC/root/b"` has
   `Rank` = 0.
 
 ### Edge cases
@@ -340,10 +340,10 @@ Setup:
 - Do not create a `code-from-spec/` directory.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `format_errors` contains a FormatError with
+- `format_errors` contains a spectreevalidate.FormatError with
   `Rule` = `"scan"`.
 - `cycles` is empty.
 - `staleness` is empty.
@@ -358,10 +358,10 @@ Setup:
   `# SPEC/root/a`. No output in frontmatter.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- No StalenessEntry for `"SPEC/root/a"`.
+- No mcpvalidatespecs.StalenessEntry for `"SPEC/root/a"`.
 
 #### No manifest file — all artifacts with output are missing
 
@@ -374,10 +374,10 @@ Setup:
 - Do not create `.manifest`.
 
 Actions:
-1. Call `MCPValidateSpecs()`.
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
-- `staleness` contains one StalenessEntry for
+- `staleness` contains one mcpvalidatespecs.StalenessEntry for
   `"SPEC/root/a"` with `Status` = `"missing"`.
 
 ## Go-specific guidance

@@ -156,6 +156,21 @@ Expected outcome:
 - The file contains the header line followed by only
   the `"ARTIFACT/alpha"` entry.
 
+#### Save with empty entries
+
+Setup:
+- Create a `.manifest` file with two entries.
+
+Actions:
+1. Call `manifest.OpenManifest(false)`.
+2. Clear `m.Entries` (remove all entries).
+3. Call `m.Save()`.
+4. Read the `.manifest` file from disk.
+
+Expected outcome:
+- The file contains only the header line
+  `"code-from-spec: v5"`, no entry lines.
+
 ### Discard — happy path
 
 #### Discard does not modify file
@@ -176,6 +191,20 @@ Expected outcome:
   entry.
 - The `"ARTIFACT/beta"` addition was discarded.
 
+### OpenManifest — failure cases
+
+#### Invalid header
+
+Setup:
+- Create a `.manifest` file whose first line is
+  `"invalid-header"`.
+
+Actions:
+1. Call `manifest.OpenManifest(true)`.
+
+Expected outcome:
+- Returns `manifest.ErrManifestFormatError`.
+
 ### ReadOnly — failure cases
 
 #### Save on readOnly manifest
@@ -185,7 +214,7 @@ Actions:
 2. Call `m.Save()`.
 
 Expected outcome:
-- `m.Save()` returns `ErrReadOnly`.
+- `m.Save()` returns `manifest.ErrReadOnly`.
 
 #### Discard on readOnly manifest
 
@@ -194,7 +223,7 @@ Actions:
 2. Call `m.Discard()`.
 
 Expected outcome:
-- `m.Discard()` returns `ErrReadOnly`.
+- `m.Discard()` returns `manifest.ErrReadOnly`.
 
 ### Closed — failure cases
 
@@ -206,7 +235,7 @@ Actions:
 3. Call `m.Discard()`.
 
 Expected outcome:
-- `m.Discard()` returns `ErrManifestClosed`.
+- `m.Discard()` returns `manifest.ErrManifestClosed`.
 
 #### Save after Discard
 
@@ -216,7 +245,7 @@ Actions:
 3. Call `m.Save()`.
 
 Expected outcome:
-- `m.Save()` returns `ErrManifestClosed`.
+- `m.Save()` returns `manifest.ErrManifestClosed`.
 
 #### Save after Save
 
@@ -226,7 +255,7 @@ Actions:
 3. Call `m.Save()` again.
 
 Expected outcome:
-- The second `m.Save()` returns `ErrManifestClosed`.
+- The second `m.Save()` returns `manifest.ErrManifestClosed`.
 
 #### Discard after Discard
 
@@ -236,7 +265,7 @@ Actions:
 3. Call `m.Discard()` again.
 
 Expected outcome:
-- The second `m.Discard()` returns `ErrManifestClosed`.
+- The second `m.Discard()` returns `manifest.ErrManifestClosed`.
 
 ### Concurrency
 

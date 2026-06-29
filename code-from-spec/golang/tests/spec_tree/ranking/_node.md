@@ -26,7 +26,7 @@ Setup:
   Reference.ParentName = nil, Frontmatter = nil]
 
 Actions:
-1. Call NodeRankCompute(entries).
+1. Call noderanking.NodeRankCompute(entries).
 
 Expected: ranked = [{ Reference.LogicalName =
 "SPEC/root", Rank = 0 }],
@@ -95,6 +95,15 @@ Setup:
 
 Expected: rank of SPEC/root/b > rank of
 ARTIFACT/root/a > rank of SPEC/root/a. cycles = [].
+
+#### SPEC input adds dependency edge
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a, SPEC/root/b with
+  input = "SPEC/root/a"].
+
+Expected: rank of SPEC/root/b > rank of SPEC/root/a.
+cycles = [].
 
 #### EXTERNAL input — skipped for ranking
 
@@ -256,7 +265,7 @@ Setup:
 - entries = [SPEC/root, SPEC/root/a with
   depends_on = ["SPEC/root/missing"]].
 
-Expected: Error ErrUnresolvableReference.
+Expected: Error noderanking.ErrUnresolvableReference.
 
 #### Unresolvable ARTIFACT reference
 
@@ -264,15 +273,23 @@ Setup:
 - entries = [SPEC/root, SPEC/root/a with
   depends_on = ["ARTIFACT/root/missing"]].
 
-Expected: Error ErrUnresolvableReference.
+Expected: Error noderanking.ErrUnresolvableReference.
 
-#### Unresolvable input reference
+#### Unresolvable ARTIFACT input reference
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
   input = "ARTIFACT/root/missing"].
 
-Expected: Error ErrUnresolvableReference.
+Expected: Error noderanking.ErrUnresolvableReference.
+
+#### Unresolvable SPEC input reference
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  input = "SPEC/root/missing"].
+
+Expected: Error noderanking.ErrUnresolvableReference.
 
 ## Go-specific guidance
 

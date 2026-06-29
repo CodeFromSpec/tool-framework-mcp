@@ -51,11 +51,11 @@ Implement the dump chain tool as a Go package.
 
 ## Logic
 
-1. Call `MCPLoadChain(logical_name)`. If it fails,
+1. Call `mcploadchain.MCPLoadChain(logical_name)`. If it fails,
    propagate the error. Store the result as
    `chain_content`.
 
-2. Call `OpenFile(CfsPath("dump_chain.xml"),
+2. Call `oslayer.OpenFile(oslayer.CfsPath("dump_chain.xml"),
    "overwrite", 30000)`. If it fails, propagate the
    error. Store as handle.
 

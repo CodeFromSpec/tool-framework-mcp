@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
 output: internal/chainresolver/chainresolver.go
 ---

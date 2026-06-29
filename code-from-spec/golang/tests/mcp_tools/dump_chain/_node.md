@@ -13,7 +13,7 @@ output: internal/mcpdumpchain/mcpdumpchain_test.go
 
 ## Test setup guidance
 
-`MCPDumpChain` calls `MCPLoadChain` internally and
+`mcpdumpchain.MCPDumpChain` calls `mcploadchain.MCPLoadChain` internally and
 writes the result to `dump_chain.xml`. Tests must
 create a valid spec tree on disk. Use `testChdir`
 pattern.
@@ -32,7 +32,7 @@ Setup:
   `# SPEC/root/a`, frontmatter `output: out/a.go`.
 
 Actions:
-1. Call `MCPDumpChain("SPEC/root/a")`.
+1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
 
 Expected:
 - Return value = `"wrote dump_chain.xml"`.
@@ -43,7 +43,7 @@ Expected:
 - Content contains `<constraints>` with
   `<entry name="SPEC/root">`.
 
-#### Content matches MCPLoadChain output
+#### Content matches mcploadchain.MCPLoadChain output
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
@@ -54,9 +54,9 @@ Setup:
   `# Agent` with content.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")` → store as
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")` → store as
    `expected`.
-2. Call `MCPDumpChain("SPEC/root/a")`.
+2. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
 3. Read `dump_chain.xml` from disk.
 
 Expected:
@@ -69,7 +69,7 @@ Setup:
 - Create `dump_chain.xml` with content "old".
 
 Actions:
-1. Call `MCPDumpChain("SPEC/root/a")`.
+1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
 
 Expected:
 - `dump_chain.xml` contains the new chain, not "old".
@@ -85,19 +85,19 @@ Setup:
   `# SPEC/root/a`. No output in frontmatter.
 
 Actions:
-1. Call `MCPDumpChain("SPEC/root/a")`.
+1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
 
 Expected:
-- Error propagated from MCPLoadChain (ErrNoOutput).
+- Error propagated from mcploadchain.MCPLoadChain (mcploadchain.ErrNoOutput).
 - `dump_chain.xml` does not exist.
 
 #### Invalid logical name
 
 Actions:
-1. Call `MCPDumpChain("INVALID/something")`.
+1. Call `mcpdumpchain.MCPDumpChain("INVALID/something")`.
 
 Expected:
-- Error propagated from MCPLoadChain.
+- Error propagated from mcploadchain.MCPLoadChain.
 
 ## Go-specific guidance
 

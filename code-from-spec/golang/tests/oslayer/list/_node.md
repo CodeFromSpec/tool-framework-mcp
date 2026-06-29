@@ -62,6 +62,30 @@ Actions:
 
 Expected: Empty list, no error.
 
+#### Hidden files are included
+
+Setup:
+- Create directory with `.hidden` and `visible.txt`.
+
+Actions:
+1. Call `ListAllFiles`.
+
+Expected:
+- Both files returned: `.hidden`, `visible.txt`.
+
+#### Symlink to file within root
+
+Setup:
+- Create a file `real.txt` inside the directory.
+- Create a symlink `link.txt` pointing to `real.txt`.
+
+Actions:
+1. Call `ListAllFiles`.
+
+Expected:
+- Both `link.txt` and `real.txt` returned.
+Skip on platforms where symlinks are not supported.
+
 #### Directory with only subdirectories
 
 Setup:

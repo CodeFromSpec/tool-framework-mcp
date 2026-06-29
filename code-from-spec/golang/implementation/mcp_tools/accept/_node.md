@@ -77,8 +77,8 @@ Implement the accept tool as a Go package.
    call `m.Discard()` and
    return ErrNotModified.
 
-8. Construct CfsPath from `*node.Frontmatter.Output`. Call
-   `OpenFile(path, "read", 30000)`. If it fails,
+8. Construct oslayer.CfsPath from `*node.Frontmatter.Output`.
+   Call `oslayer.OpenFile(path, "read", 30000)`. If it fails,
    call `m.Discard()` and
    propagate the error.
 

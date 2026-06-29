@@ -54,7 +54,7 @@ Setup:
 - Do not create `out/a.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - First line matches `chain_hash: ` followed by
@@ -82,7 +82,7 @@ Setup:
   `# SPEC/root/a/b`, frontmatter `output: out/b.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a/b")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a/b")`.
 
 Expected:
 - `<constraints>` contains
@@ -101,7 +101,7 @@ Setup:
   content, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<constraints>` does not contain an entry for
@@ -119,7 +119,7 @@ Setup:
   content, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<constraints>` does not contain an entry for
@@ -138,7 +138,7 @@ Setup:
   `depends_on: ["SPEC/root/b"]`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<constraints>` contains
@@ -158,7 +158,7 @@ Setup:
   `depends_on: ["SPEC/root/b(interface)"]`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<constraints>` contains
@@ -179,7 +179,7 @@ Setup:
   `depends_on: ["ARTIFACT/root/b"]`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<constraints>` contains
@@ -197,7 +197,7 @@ Setup:
   `depends_on: ["EXTERNAL/data/config.yaml"]`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<constraints>` contains
@@ -215,7 +215,7 @@ Setup:
   `# Agent` with content.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<constraints>` contains target's `## Interface`.
@@ -233,7 +233,7 @@ Setup:
   `# Agent` section.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - No `<instructions>` element in the output.
@@ -251,7 +251,7 @@ Setup:
   `input: ARTIFACT/root/b`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<input>` contains the full content of
@@ -269,7 +269,7 @@ Setup:
   `input: EXTERNAL/docs/vendor/spec.yaml`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<input>` contains the full content of
@@ -288,7 +288,7 @@ Setup:
   `input: SPEC/root/b`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<input>` contains `## Acceptance tests` content
@@ -304,7 +304,7 @@ Setup:
   No input field.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - No `<input>` element in output.
@@ -319,7 +319,7 @@ Setup:
 - Create `out/a.go` with known content.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - `<existing_artifact>` contains the full content
@@ -335,7 +335,7 @@ Setup:
 - Do not create `out/a.go`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - No `<existing_artifact>` element in output.
@@ -350,7 +350,7 @@ Setup:
   `# SPEC/root/a`, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")` twice.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")` twice.
 
 Expected:
 - Both calls return identical `chain_hash` values.
@@ -360,7 +360,7 @@ Expected:
 #### Invalid logical name — not SPEC/
 
 Actions:
-1. Call `MCPLoadChain("INVALID/something")`.
+1. Call `mcploadchain.MCPLoadChain("INVALID/something")`.
 
 Expected:
 - Returns error `parsing.ErrUnrecognizedPrefix`.
@@ -368,12 +368,12 @@ Expected:
 #### Nonexistent node file
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/nonexistent")` with no
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/nonexistent")` with no
    `_node.md` on disk.
 
 Expected:
 - Returns error propagated from `parsing.ParseNode`
-  (`parsing.ErrFileUnreadable`).
+  (`oslayer.ErrFileUnreadable`).
 
 #### No output declared
 
@@ -384,10 +384,10 @@ Setup:
   `# SPEC/root/a`. No output in frontmatter.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Returns error `ErrNoOutput`.
+- Returns error `mcploadchain.ErrNoOutput`.
 
 #### Invalid output path — traversal
 
@@ -399,10 +399,10 @@ Setup:
   `output: ../../etc/passwd`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Returns error `ErrInvalidOutputPath`.
+- Returns error `mcploadchain.ErrInvalidOutputPath`.
 
 #### Modified artifact blocked
 
@@ -419,10 +419,10 @@ Setup:
   hash no longer matches manifest checksum).
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- Returns error `ErrArtifactModified`.
+- Returns error `mcploadchain.ErrArtifactModified`.
 
 #### No manifest — modified check skipped
 
@@ -435,7 +435,7 @@ Setup:
 - No `.manifest` file.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - No error. Chain is loaded normally. The modified
@@ -452,7 +452,7 @@ Setup:
 - Do not create `code-from-spec/root/missing/_node.md`.
 
 Actions:
-1. Call `MCPLoadChain("SPEC/root/a")`.
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
 - Returns an error — the missing node is detected

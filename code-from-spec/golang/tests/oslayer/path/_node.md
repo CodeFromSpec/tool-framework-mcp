@@ -68,6 +68,10 @@ Expect: ErrDirectoryTraversal.
 Input: "internal/../../outside/file.go".
 Expect: ErrDirectoryTraversal.
 
+#### Rejects lowercase drive letter
+
+Input: "c:/Windows/system32". Expect: ErrPathAbsolute.
+
 ### CfsPathToOs
 
 #### Converts valid path that exists

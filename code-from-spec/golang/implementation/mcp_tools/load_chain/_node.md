@@ -86,7 +86,7 @@ Implement the load chain tool as a Go package.
    parse the target node. If it fails, propagate the
    error. If `node.Frontmatter.Output` is nil,
    return error ErrNoOutput. Call
-   `ValidateCfsPath(*node.Frontmatter.Output)`.
+   `oslayer.ValidateCfsPath(*node.Frontmatter.Output)`.
    If it fails, return ErrInvalidOutputPath.
 
 3. Check if the artifact is modified:
@@ -94,7 +94,7 @@ Implement the load chain tool as a Go package.
    look up the artifact logical name (strip "SPEC/"
    from logical_name, prepend "ARTIFACT/") in
    m.Entries. If an entry exists:
-     Construct CfsPath from `*node.Frontmatter.Output`. Try
+     Construct oslayer.CfsPath from `*node.Frontmatter.Output`. Try
      to read the file on disk and compute its SHA-1
      hash (base64url, 27 chars) using the same
      normalization as validate_specs. If the file
@@ -103,12 +103,12 @@ Implement the load chain tool as a Go package.
    If OpenManifest fails or the entry does not exist
    or the file does not exist, skip this check.
 
-4. Call `ChainResolve(logical_name)` to get the
+4. Call `chainresolver.ChainResolve(logical_name)` to get the
    resolved `Chain`. If it fails, propagate the error.
 
 ### Step 2 — Compute chain hash
 
-5. Call `ChainHashCompute(chain)` with the resolved
+5. Call `chainhash.ChainHashCompute(chain)` with the resolved
    chain. If it fails, propagate the error. Store the
    result as `chain_hash`.
 
@@ -122,10 +122,10 @@ Implement the load chain tool as a Go package.
    **Existing artifact** (optional):
    If the file at `*node.Frontmatter.Output` exists and is
    readable:
-     Call `OpenFile` with the `CfsPath` of
+     Call `oslayer.OpenFile` with the `oslayer.CfsPath` of
      `*node.Frontmatter.Output` in "read" mode with
      timeout 30000. Read all lines with
-     `handle.ReadLine()` until `EndOfFile`. Call
+     `handle.ReadLine()` until `oslayer.ErrEndOfFile`. Call
      `handle.Close()`.
      Append: "<existing_artifact>\n"
      Append the full file content.

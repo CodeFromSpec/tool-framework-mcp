@@ -6,7 +6,7 @@ output: internal/parsing/parsing_textnorm_test.go
 
 # SPEC/golang/tests/parsing/text_normalization
 
-Unit tests for the NormalizeText function.
+Unit tests for the `parsing.NormalizeText` function.
 
 # Agent
 
@@ -75,7 +75,7 @@ Expect: "testes de aceitacao".
 
 #### German sharp s
 
-Input: "Strasse". Expect: "strasse".
+Input: "Straße". Expect: "strasse".
 
 ### Combined
 
@@ -109,8 +109,9 @@ Input: "   \t  ". Expect: "".
 Setup: input = "hello" + U+00A0 + "world" (no regular
 spaces).
 
-Expected: "hello world" — the non-breaking space
-is preserved as text, case-folded but not collapsed.
+Expected: "hello world" — the non-breaking
+space is preserved as-is, not collapsed or replaced
+by a regular space.
 
 #### Single character
 

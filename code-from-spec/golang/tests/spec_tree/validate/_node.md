@@ -62,9 +62,9 @@ Setup:
   "code-from-spec/root/a", "code-from-spec/root/b"].
 
 Actions:
-1. Call SpecTreeValidate(entries, all_dirs).
+1. Call spectreevalidate.SpecTreeValidate(entries, all_dirs).
 
-Expected: No format errors.
+Expected: No format errors returned.
 
 #### Valid intermediate node passes all checks
 
@@ -77,9 +77,9 @@ Setup:
   "code-from-spec/root/a"].
 
 Actions:
-1. Call SpecTreeValidate(entries, all_dirs).
+1. Call spectreevalidate.SpecTreeValidate(entries, all_dirs).
 
-Expected: No format errors.
+Expected: No format errors returned.
 
 #### Leaf with no frontmatter fields
 
@@ -91,9 +91,9 @@ Setup:
   "code-from-spec/root/a"].
 
 Actions:
-1. Call SpecTreeValidate(entries, all_dirs).
+1. Call spectreevalidate.SpecTreeValidate(entries, all_dirs).
 
-Expected: No format errors.
+Expected: No format errors returned.
 
 ### name_heading
 
@@ -104,7 +104,7 @@ Setup:
   SPEC/root/a (heading = "spec/root/a").
 
 Actions:
-1. Call SpecTreeValidate.
+1. Call spectreevalidate.SpecTreeValidate.
 
 Expected: No name_heading error.
 
@@ -115,9 +115,9 @@ Setup:
   SPEC/root/a (heading = "spec/wrong").
 
 Actions:
-1. Call SpecTreeValidate.
+1. Call spectreevalidate.SpecTreeValidate.
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "name_heading" }.
 
 ### leaf_only_fields
@@ -130,7 +130,7 @@ Setup:
   depends_on = ["SPEC/root/b"]),
   SPEC/root/a/b (leaf).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "leaf_only_fields" }.
 
 #### Intermediate node with output
@@ -140,7 +140,7 @@ Setup:
   SPEC/root/a/b, output = "x.go"),
   SPEC/root/a/b (leaf).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "leaf_only_fields" }.
 
 #### Intermediate node with input
@@ -150,7 +150,7 @@ Setup:
   SPEC/root/a/b, input = "ARTIFACT/root/c"),
   SPEC/root/a/b (leaf).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "leaf_only_fields" }.
 
 #### Intermediate node with multiple restricted fields
@@ -161,7 +161,7 @@ Setup:
   depends_on = ["SPEC/root/b"], output = "x.go"),
   SPEC/root/a/b (leaf).
 
-Expected: Two FormatErrors with
+Expected: Two spectreevalidate.FormatError entries with
 Rule = "leaf_only_fields" for SPEC/root/a.
 
 ### leaf_only_agent
@@ -173,7 +173,7 @@ Setup:
   SPEC/root/a/b, agent present with content),
   SPEC/root/a/b (leaf).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "leaf_only_agent" }.
 
 #### Leaf node with agent section — no error
@@ -193,7 +193,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   depends_on = ["SPEC/root/missing"]).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "dependency_targets" }.
 
 #### depends_on targets ancestor
@@ -202,7 +202,7 @@ Setup:
 - SPEC/root (intermediate, has child SPEC/root/a),
   SPEC/root/a (leaf, depends_on = ["SPEC/root"]).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "dependency_targets" }.
 
 #### depends_on targets descendant
@@ -213,7 +213,7 @@ Setup:
   depends_on = ["SPEC/root/a/b"]),
   SPEC/root/a/b (leaf).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "dependency_targets" }.
 
 #### depends_on targets self
@@ -222,7 +222,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   depends_on = ["SPEC/root/a"]).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "dependency_targets" }.
 
 #### depends_on with valid SPEC qualifier
@@ -248,7 +248,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   depends_on = ["ARTIFACT/root/missing"]).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "dependency_targets" }.
 
 #### depends_on with valid EXTERNAL reference
@@ -267,7 +267,7 @@ Setup:
   depends_on = ["EXTERNAL/nonexistent.txt"]).
 - Do not create the file.
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "dependency_targets" }.
 
 #### depends_on with unrecognized prefix
@@ -276,7 +276,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   depends_on = ["UNKNOWN/something"]).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "dependency_targets" }.
 
 #### Multiple invalid depends_on — one error per entry
@@ -286,7 +286,7 @@ Setup:
   depends_on = ["SPEC/root/missing",
   "SPEC/root/also_missing"]).
 
-Expected: Two FormatErrors with
+Expected: Two spectreevalidate.FormatError entries with
 Rule = "dependency_targets" for SPEC/root/a.
 
 ### input_target
@@ -330,7 +330,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   input = "SPEC/root/missing").
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "input_target" }.
 
 #### Input with unsupported prefix
@@ -339,7 +339,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   input = "UNKNOWN/something").
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "input_target" }.
 
 #### Input references non-existent artifact
@@ -348,7 +348,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   input = "ARTIFACT/root/missing").
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "input_target" }.
 
 #### Input references non-existent EXTERNAL file
@@ -358,7 +358,7 @@ Setup:
   input = "EXTERNAL/nonexistent.txt").
 - Do not create the file.
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "input_target" }.
 
 ### missing_node_md
@@ -370,7 +370,7 @@ Setup:
 - all_dirs: ["code-from-spec", "code-from-spec/root",
   "code-from-spec/root/a", "code-from-spec/root/b"].
 
-Expected: FormatError { Node: "code-from-spec/root/b",
+Expected: spectreevalidate.FormatError { Node: "code-from-spec/root/b",
 Rule: "missing_node_md" }.
 
 #### .-prefixed dir under code-from-spec — no error
@@ -418,7 +418,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   output = "../../etc/passwd").
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "output_paths" }.
 
 #### Output path with backslash
@@ -427,7 +427,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf,
   output = "internal\\x.go").
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "output_paths" }.
 
 ### public_subsection_required
@@ -440,7 +440,7 @@ Setup:
   [{heading: "interface", raw_heading: "## Interface",
   content: ["Types."]}]).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "public_subsection_required", Detail: "content
 in # Public must be under a ## subsection" }.
 
@@ -460,7 +460,7 @@ Setup:
 - SPEC/root, SPEC/root/a (leaf, public present with
   content = ["Some content."], subsections = []).
 
-Expected: FormatError { Node: "SPEC/root/a",
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "public_subsection_required" }.
 
 #### Public with only subsections — no error
@@ -509,7 +509,7 @@ Setup:
   subsections [{heading: "interface"},
   {heading: "interface"}, {heading: "interface"}]).
 
-Expected: Two FormatErrors with
+Expected: Two spectreevalidate.FormatError entries with
 Rule = "duplicate_subsections" for SPEC/root/a.
 
 #### No public section — skip
@@ -529,7 +529,7 @@ Setup:
   depends_on = ["SPEC/root/missing"], public with
   duplicate subsections).
 
-Expected: At least three FormatErrors: name_heading,
+Expected: At least three spectreevalidate.FormatError entries: name_heading,
 dependency_targets, duplicate_subsections.
 
 #### Empty input list
@@ -537,7 +537,7 @@ dependency_targets, duplicate_subsections.
 Setup:
 - entries: empty list, all_dirs: [].
 
-Expected: No format errors.
+Expected: No format errors returned.
 
 ## Go-specific guidance
 

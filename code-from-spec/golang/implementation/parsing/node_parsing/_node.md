@@ -56,7 +56,7 @@ collisions with other files in the package.
 - Call oslayer.OpenFile(oslayer.CfsPath(ref.Path),
   "read", 30000). If it fails, raise ErrFileUnreadable.
 - Read all lines using handle.ReadLine() in a loop
-  until ErrEndOfFile. Collect all lines. Call
+  until oslayer.ErrEndOfFile. Collect all lines. Call
   handle.Close().
 - Join all lines with `\n` and append a trailing `\n`.
   Let `source` be the resulting byte slice.

@@ -36,7 +36,7 @@ Setup:
   and some chain hash.
 
 Actions:
-1. Call `MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
 
 Expected:
 - Return value = `"accepted out/a.go"`.
@@ -49,18 +49,18 @@ Expected:
 #### Not a SPEC reference
 
 Actions:
-1. Call `MCPAccept("ARTIFACT/root/a")`.
+1. Call `mcpaccept.MCPAccept("ARTIFACT/root/a")`.
 
 Expected:
-- Error `ErrNotASpecReference`.
+- Error `mcpaccept.ErrNotASpecReference`.
 
 #### Nonexistent node file
 
 Actions:
-1. Call `MCPAccept("SPEC/root/missing")`.
+1. Call `mcpaccept.MCPAccept("SPEC/root/missing")`.
 
 Expected:
-- Error `ErrUnreadableFrontmatter`.
+- Error `mcpaccept.ErrUnreadableFrontmatter`.
 
 #### No output declared
 
@@ -71,10 +71,10 @@ Setup:
   `# SPEC/root/a`. No output in frontmatter.
 
 Actions:
-1. Call `MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
 
 Expected:
-- Error `ErrNoOutput`.
+- Error `mcpaccept.ErrNoOutput`.
 
 #### No manifest entry — not modified
 
@@ -88,10 +88,28 @@ Setup:
   ARTIFACT/root/a).
 
 Actions:
-1. Call `MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
 
 Expected:
-- Error `ErrNotModified`.
+- Error `mcpaccept.ErrNotModified`.
+
+#### Artifact file does not exist on disk
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `.manifest` with entry for ARTIFACT/root/a
+  with some checksum and chain hash.
+- Do not create `out/a.go` on disk.
+
+Actions:
+1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
+
+Expected:
+- Error propagated from oslayer (cannot read file
+  to compute hash).
 
 #### Checksum already matches — not modified
 
@@ -105,10 +123,10 @@ Setup:
   with checksum matching the hash of "same content".
 
 Actions:
-1. Call `MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
 
 Expected:
-- Error `ErrNotModified`.
+- Error `mcpaccept.ErrNotModified`.
 
 ## Go-specific guidance
 

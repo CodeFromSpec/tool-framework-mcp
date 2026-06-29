@@ -31,7 +31,7 @@ Setup:
   frontmatter `output: output/file.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a", "output/file.go",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "output/file.go",
    "package main")`.
 
 Expected:
@@ -47,7 +47,7 @@ Setup:
   frontmatter `output: output/file.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a", "output/file.go",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "output/file.go",
    "package main")`.
 2. Call `manifest.OpenManifest(true)`.
 
@@ -65,7 +65,7 @@ Setup:
   frontmatter `output: deep/nested/dir/file.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a",
    "deep/nested/dir/file.go", "package main")`.
 
 Expected:
@@ -81,7 +81,7 @@ Setup:
 - Create `output/file.go` with content `"old"`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a", "output/file.go",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "output/file.go",
    "new")`.
 
 Expected:
@@ -92,10 +92,10 @@ Expected:
 #### Invalid logical name — ARTIFACT reference
 
 Actions:
-1. Call `MCPWriteFile("ARTIFACT/x", "out.go", "")`.
+1. Call `mcpwritefile.MCPWriteFile("ARTIFACT/x", "out.go", "")`.
 
 Expected:
-- Error `ErrNotASpecReference`.
+- Error `mcpwritefile.ErrNotASpecReference`.
 
 #### Invalid logical name — with qualifier
 
@@ -105,19 +105,19 @@ Setup:
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a(interface)", "out.go",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a(interface)", "out.go",
    "")`.
 
 Expected:
-- Error `ErrQualifierNotAllowed`.
+- Error `mcpwritefile.ErrQualifierNotAllowed`.
 
 #### Nonexistent node file
 
 Actions:
-1. Call `MCPWriteFile("SPEC/missing", "out.go", "")`.
+1. Call `mcpwritefile.MCPWriteFile("SPEC/missing", "out.go", "")`.
 
 Expected:
-- Error `ErrUnreadableFrontmatter`.
+- Error `mcpwritefile.ErrUnreadableFrontmatter`.
 
 #### No output declared
 
@@ -127,10 +127,10 @@ Setup:
   Empty frontmatter (no output).
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a", "out.go", "")`.
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "out.go", "")`.
 
 Expected:
-- Error `ErrNoOutput`.
+- Error `mcpwritefile.ErrNoOutput`.
 
 #### Path not in output
 
@@ -140,10 +140,10 @@ Setup:
   frontmatter `output: allowed/file.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a", "other/file.go", "")`.
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "other/file.go", "")`.
 
 Expected:
-- Error `ErrPathNotInOutput`.
+- Error `mcpwritefile.ErrPathNotInOutput`.
 
 #### Path validation — empty path
 
@@ -153,7 +153,7 @@ Setup:
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a", "", "")`.
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "", "")`.
 
 Expected:
 - Error `oslayer.ErrPathEmpty`.
@@ -166,7 +166,7 @@ Setup:
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a", "../../etc/passwd",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "../../etc/passwd",
    "")`.
 
 Expected:
@@ -180,7 +180,7 @@ Setup:
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `MCPWriteFile("SPEC/root/a", "output\\file.go",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "output\\file.go",
    "")`.
 
 Expected:

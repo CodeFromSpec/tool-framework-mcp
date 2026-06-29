@@ -174,6 +174,26 @@ OpenFile("append") for non-existent path, Close.
 
 Expected: file created (empty).
 
+#### Write succeeds in append mode
+
+OpenFile("append"), Write("content"), Close.
+
+Expected: no error, file contains "content".
+
+#### Append actually appends content
+
+Setup: file with "old\n". OpenFile("append"),
+Write("new\n"), Close. Read back.
+
+Expected: file contains "old\nnew\n".
+
+#### Append creates intermediate directories
+
+Path "x/y/z/file.txt" (dirs don't exist).
+OpenFile("append"), Close.
+
+Expected: file and all intermediate dirs created.
+
 ### Wrong mode — failure cases
 
 #### ReadLine fails in overwrite mode
@@ -189,6 +209,10 @@ Expected: ErrWrongMode.
 Expected: ErrWrongMode.
 
 #### SkipLines fails in overwrite mode
+
+Expected: ErrWrongMode.
+
+#### SkipLines fails in append mode
 
 Expected: ErrWrongMode.
 
@@ -218,6 +242,11 @@ Expected: "dest.txt" contains "new".
 
 Expected: ErrCannotRename.
 
+#### Rename with invalid CfsPath
+
+Source: "../../outside". Expected: validation error
+propagated (ErrDirectoryTraversal).
+
 ### DeleteFile — happy path
 
 #### Deletes a file
@@ -229,6 +258,11 @@ Expected: ErrCannotRename.
 #### Delete non-existent file
 
 Expected: ErrCannotDelete.
+
+#### Delete with invalid CfsPath
+
+Input: "../../outside". Expected: validation error
+propagated (ErrDirectoryTraversal).
 
 ### Locking — concurrency
 
@@ -250,6 +284,13 @@ OpenFile("read") blocks until first closes.
 
 OpenFile("append") holds lock.
 OpenFile("read") blocks until first closes.
+
+#### Lock timeout
+
+OpenFile("overwrite") holds lock. Second
+OpenFile("overwrite") with short timeoutMs.
+
+Expected: ErrLockTimeout.
 
 ## Go-specific guidance
 

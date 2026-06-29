@@ -46,11 +46,11 @@ heading as the first heading.
 Setup:
 - Create a `_node.md` file for SPEC/root/a with `# Public`
   containing a `## Interface` subsection.
-- Build a Chain with target = CfsReference pointing to
+- Build a chainresolver.Chain with target = CfsReference pointing to
   SPEC/a.
 
 Actions:
-1. Call ChainHashCompute twice with the same Chain.
+1. Call chainhash.ChainHashCompute twice with the same Chain.
 
 Expected: Both results are identical strings.
 
@@ -59,11 +59,11 @@ Expected: Both results are identical strings.
 Setup:
 - Create a `_node.md` file for SPEC/root/a with `# Public`
   containing a `## Interface` subsection.
-- Build a Chain with target = CfsReference pointing to
+- Build a chainresolver.Chain with target = CfsReference pointing to
   that file.
 
 Actions:
-1. Call ChainHashCompute.
+1. Call chainhash.ChainHashCompute.
 
 Expected: Result is exactly 27 characters long.
 
@@ -74,12 +74,12 @@ Setup:
   with initial content.
 - Create `_node.md` for SPEC/root/a with `# Public` →
   `## Interface`.
-- Build Chain with ancestors = [SPEC/root], target = SPEC/root/a.
+- Build chainresolver.Chain with ancestors = [SPEC/root], target = SPEC/root/a.
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify SPEC/root's `## Context` content on disk.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -90,13 +90,13 @@ Setup:
 - Create `_node.md` for SPEC/root/b with `# Public` →
   `## Interface` with initial content.
 - Create `_node.md` for SPEC/a.
-- Build Chain with target = SPEC/root/a, dependencies =
+- Build chainresolver.Chain with target = SPEC/root/a, dependencies =
   [SPEC/root/b (qualifier absent)].
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify SPEC/root/b's `## Interface` content on disk.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -106,12 +106,12 @@ Setup:
 - Create `_node.md` for SPEC/root with `# Public` → `## Context`.
 - Create `_node.md` for SPEC/root/a with `# Public` →
   `## Interface` with initial content.
-- Build Chain with target = SPEC/root/a.
+- Build chainresolver.Chain with target = SPEC/root/a.
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify SPEC/a's `## Interface` content on disk.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -120,12 +120,12 @@ Expected: hash_before differs from hash_after.
 Setup:
 - Create `_node.md` for SPEC/root/a with `# Public` →
   `## Interface` and `# Agent` with initial content.
-- Build Chain with target = SPEC/root/a.
+- Build chainresolver.Chain with target = SPEC/root/a.
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify SPEC/a's `# Agent` content on disk.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -136,10 +136,10 @@ Expected: hash_before differs from hash_after.
 Setup:
 - Create SPEC/root with `# Public` → `## Context`.
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build Chain with ancestors = [SPEC/root], target = SPEC/root/a.
+- Build chainresolver.Chain with ancestors = [SPEC/root], target = SPEC/root/a.
 
 Actions:
-1. Call ChainHashCompute.
+1. Call chainhash.ChainHashCompute.
 
 Expected: Non-empty result of 27 characters.
 
@@ -148,13 +148,13 @@ Expected: Non-empty result of 27 characters.
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface`.
 - Create SPEC/root with `# Public` → `## Context`.
-- Build Chain with ancestors = [SPEC/root], target = SPEC/root/a.
+- Build chainresolver.Chain with ancestors = [SPEC/root], target = SPEC/root/a.
 
 Actions:
-1. Call ChainHashCompute → hash_with_public.
+1. Call chainhash.ChainHashCompute → hash_with_public.
 2. Rewrite SPEC/root to have only a name heading (no
    `# Public`).
-3. Call ChainHashCompute → hash_without_public.
+3. Call chainhash.ChainHashCompute → hash_without_public.
 
 Expected: hash_with_public differs from
 hash_without_public.
@@ -167,14 +167,14 @@ Setup:
 - Create SPEC/root/a with `# Public` → `## Context`
   ("a context").
 - Create SPEC/root/a/b with `# Public` → `## Interface`.
-- Build Chain_A with ancestors = [SPEC/root, SPEC/root/a],
+- Build Chain_A (chainresolver.Chain) with ancestors = [SPEC/root, SPEC/root/a],
   target = SPEC/root/a/b.
-- Build Chain_B with ancestors = [SPEC/root/a, SPEC/root],
+- Build Chain_B (chainresolver.Chain) with ancestors = [SPEC/root/a, SPEC/root],
   target = SPEC/root/a/b.
 
 Actions:
-1. Call ChainHashCompute(Chain_A) → hash_a.
-2. Call ChainHashCompute(Chain_B) → hash_b.
+1. Call chainhash.ChainHashCompute(Chain_A) → hash_a.
+2. Call chainhash.ChainHashCompute(Chain_B) → hash_b.
 
 Expected: hash_a differs from hash_b.
 
@@ -186,13 +186,13 @@ Setup:
 - Create SPEC/root/b with `# Public` → `## Interface` with
   initial content.
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build Chain with target = SPEC/root/a, dependencies =
+- Build chainresolver.Chain with target = SPEC/root/a, dependencies =
   [SPEC/root/b (qualifier absent)].
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify SPEC/root/b's `## Interface` content.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -202,13 +202,13 @@ Setup:
 - Create SPEC/root/b with `# Public` → `## Interface` with
   initial content.
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build Chain with target = SPEC/root/a, dependencies =
+- Build chainresolver.Chain with target = SPEC/root/a, dependencies =
   [SPEC/root/b, qualifier = "interface"].
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify SPEC/root/b's `## Interface` content.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -217,11 +217,11 @@ Expected: hash_before differs from hash_after.
 Setup:
 - Create SPEC/root/b with `## Interface` subsection.
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build Chain with dependency on SPEC/root/b,
+- Build chainresolver.Chain with dependency on SPEC/root/b,
   qualifier = "INTERFACE" (uppercase).
 
 Actions:
-1. Call ChainHashCompute.
+1. Call chainhash.ChainHashCompute.
 
 Expected: No error. Qualifier normalized before
 matching.
@@ -230,13 +230,13 @@ matching.
 
 Setup:
 - Create an artifact file with content.
-- Build Chain with ARTIFACT dependency pointing to
+- Build chainresolver.Chain with ARTIFACT dependency pointing to
   that file.
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify the content.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -244,13 +244,13 @@ Expected: hash_before differs from hash_after.
 
 Setup:
 - Create an external file with initial content.
-- Build Chain with EXTERNAL dependency pointing to
+- Build chainresolver.Chain with EXTERNAL dependency pointing to
   that file.
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify the file.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -263,11 +263,12 @@ Setup:
   two blank lines between heading and content.
 - Create file_B: same content, no blank lines between
   heading and content.
-- Build Chain_A and Chain_B targeting each.
+- Build Chain_A and Chain_B (both chainresolver.Chain)
+  targeting each.
 
 Actions:
-1. ChainHashCompute(Chain_A) → hash_a.
-2. ChainHashCompute(Chain_B) → hash_b.
+1. chainhash.ChainHashCompute(Chain_A) → hash_a.
+2. chainhash.ChainHashCompute(Chain_B) → hash_b.
 
 Expected: hash_a equals hash_b.
 
@@ -279,8 +280,8 @@ Setup:
 - Create file_B: same content, no trailing blank lines.
 
 Actions:
-1. ChainHashCompute(Chain_A) → hash_a.
-2. ChainHashCompute(Chain_B) → hash_b.
+1. chainhash.ChainHashCompute(Chain_A) → hash_a.
+2. chainhash.ChainHashCompute(Chain_B) → hash_b.
 
 Expected: hash_a equals hash_b.
 
@@ -293,8 +294,8 @@ Setup:
   removed.
 
 Actions:
-1. ChainHashCompute(Chain_A) → hash_a.
-2. ChainHashCompute(Chain_B) → hash_b.
+1. chainhash.ChainHashCompute(Chain_A) → hash_a.
+2. chainhash.ChainHashCompute(Chain_B) → hash_b.
 
 Expected: hash_a differs from hash_b.
 
@@ -305,12 +306,12 @@ Expected: hash_a differs from hash_b.
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface` and
   `# Agent` with content.
-- Build Chain with target = SPEC/root/a.
+- Build chainresolver.Chain with target = SPEC/root/a.
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Remove `# Agent` from file.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -319,10 +320,10 @@ Expected: hash_before differs from hash_after.
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface`, no
   `# Agent`.
-- Build Chain with target = SPEC/root/a.
+- Build chainresolver.Chain with target = SPEC/root/a.
 
 Actions:
-1. Call ChainHashCompute.
+1. Call chainhash.ChainHashCompute.
 
 Expected: No error. 27-character result.
 
@@ -333,13 +334,30 @@ Expected: No error. 27-character result.
 Setup:
 - Create an artifact file with content.
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build Chain with target = SPEC/root/a, input =
-  CfsReference(ARTIFACT/input, Path=<path>).
+- Build chainresolver.Chain with target = SPEC/root/a, input =
+  parsing.CfsReference(ARTIFACT/input, Path=<path>).
 
 Actions:
-1. Call ChainHashCompute → hash_before.
+1. Call chainhash.ChainHashCompute → hash_before.
 2. Modify the artifact file.
-3. Call ChainHashCompute → hash_after.
+3. Call chainhash.ChainHashCompute → hash_after.
+
+Expected: hash_before differs from hash_after.
+
+#### SPEC input — hashes Public subsections
+
+Setup:
+- Create SPEC/root/b with `# Public` → `## Interface`
+  with initial content.
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build chainresolver.Chain with target = SPEC/root/a,
+  input = parsing.CfsReference(SPEC/root/b,
+  Qualifier=nil).
+
+Actions:
+1. Call chainhash.ChainHashCompute → hash_before.
+2. Modify SPEC/root/b's `## Interface` content on disk.
+3. Call chainhash.ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
 
@@ -347,49 +365,66 @@ Expected: hash_before differs from hash_after.
 
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build Chain with target = SPEC/root/a, input absent.
+- Build chainresolver.Chain with target = SPEC/root/a, input absent.
 
 Actions:
-1. Call ChainHashCompute.
+1. Call chainhash.ChainHashCompute.
 
 Expected: No error. 27-character result.
+
+### Qualifier edge cases
+
+#### Qualifier references non-existent subsection
+
+Setup:
+- Create SPEC/root/b with `# Public` → `## Context`
+  only (no `## Interface`).
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build chainresolver.Chain with target = SPEC/root/a,
+  dependencies = [SPEC/root/b, qualifier = "interface"].
+
+Actions:
+1. Call chainhash.ChainHashCompute.
+
+Expected: No error. The non-matching qualifier
+position is silently skipped.
 
 ### Error cases
 
 #### Unreadable spec node file
 
 Setup:
-- Build Chain with target pointing to a non-existent
+- Build chainresolver.Chain with target pointing to a non-existent
   file.
 
 Actions:
-1. Call ChainHashCompute.
+1. Call chainhash.ChainHashCompute.
 
-Expected: Error ParseFailure.
+Expected: chainhash.ErrParseFailure.
 
 #### Unreadable artifact file
 
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build Chain with ARTIFACT dependency pointing to a
+- Build chainresolver.Chain with ARTIFACT dependency pointing to a
   non-existent file.
 
 Actions:
-1. Call ChainHashCompute.
+1. Call chainhash.ChainHashCompute.
 
-Expected: Error FileUnreadable.
+Expected: oslayer.ErrFileUnreadable.
 
 #### Unreadable external file
 
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build Chain with EXTERNAL dependency pointing to a
+- Build chainresolver.Chain with EXTERNAL dependency pointing to a
   non-existent file.
 
 Actions:
-1. Call ChainHashCompute.
+1. Call chainhash.ChainHashCompute.
 
-Expected: Error FileUnreadable.
+Expected: oslayer.ErrFileUnreadable.
 
 ## Go-specific guidance
 

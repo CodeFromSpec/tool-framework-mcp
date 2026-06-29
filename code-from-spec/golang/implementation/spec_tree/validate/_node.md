@@ -130,8 +130,8 @@ Implement the spec tree validation as a Go package.
      Else if dep starts with "EXTERNAL/":
        Let relative = dep with "EXTERNAL/" prefix
        removed.
-       Let cfs_path = CfsPath(relative).
-       Attempt OpenFile(cfs_path, "read", 30000).
+       Let cfs_path = oslayer.CfsPath(relative).
+       Attempt oslayer.OpenFile(cfs_path, "read", 30000).
        If OpenFile raises any error:
          error "depends_on references unreadable
          EXTERNAL file: <dep>"
@@ -163,8 +163,8 @@ Implement the spec tree validation as a Go package.
      Else if inp starts with "EXTERNAL/":
        Let relative = inp with "EXTERNAL/" prefix
        removed.
-       Let cfs_path = CfsPath(relative).
-       Attempt OpenFile(cfs_path, "read", 30000).
+       Let cfs_path = oslayer.CfsPath(relative).
+       Attempt oslayer.OpenFile(cfs_path, "read", 30000).
        If OpenFile raises any error:
          error "input references unreadable EXTERNAL
          file: <inp>"

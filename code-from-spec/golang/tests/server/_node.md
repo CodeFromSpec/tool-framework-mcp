@@ -90,5 +90,14 @@ handshake, then send a `tools/list` request. Parse
 the JSON-RPC response from stdout.
 
 Expect: the response contains tools named `load_chain`,
-`write_file`, `validate_specs`, `chain_hash`, and
-`version`.
+`write_file`, `validate_specs`, `accept`,
+`dump_chain`, and `version`.
+
+### version tool returns version string
+
+Start the binary as a subprocess. Complete the MCP
+handshake, then send a `tools/call` request for the
+`version` tool (no arguments).
+
+Expect: the response contains a text content with at
+least the default version string `"dev"`.

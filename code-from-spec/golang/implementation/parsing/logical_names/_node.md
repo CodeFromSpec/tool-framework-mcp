@@ -1,4 +1,6 @@
 ---
+depends_on:
+  - SPEC/golang/implementation/oslayer(interface)
 output: internal/parsing/logical_names.go
 ---
 

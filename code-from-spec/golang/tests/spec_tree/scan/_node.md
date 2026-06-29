@@ -20,10 +20,10 @@ Setup:
 - Create `code-from-spec/a/_node.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected:
-- One CfsReference with LogicalName = `"SPEC/a"` and
+- One `parsing.CfsReference` with LogicalName = `"SPEC/a"` and
   Path = `"code-from-spec/a/_node.md"`.
 
 #### Multiple root nodes
@@ -33,7 +33,7 @@ Setup:
   `code-from-spec/b/_node.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected:
 - Two entries: SPEC/a and SPEC/b.
@@ -45,7 +45,7 @@ Setup:
   `code-from-spec/a/b/_node.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected:
 - Two entries: SPEC/a, SPEC/a/b with correct
@@ -58,7 +58,7 @@ Setup:
   `code-from-spec/x/output.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected: Only one entry for SPEC/a.
 
@@ -70,7 +70,7 @@ Setup:
   `code-from-spec/.hidden/_node.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected: Only one entry for SPEC/a.
 
@@ -81,7 +81,7 @@ Setup:
   `code-from-spec/a/.internal/_node.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected: Only one entry for SPEC/a. The node under
 the `.`-prefixed directory is excluded.
@@ -93,7 +93,7 @@ Setup:
   `code-from-spec/a/_node.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected: Only one entry for SPEC/a. The root
 `code-from-spec/_node.md` is excluded.
@@ -105,7 +105,7 @@ Setup:
   subdirectory `code-from-spec/x/y/`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected: Only one entry for SPEC/a.
 
@@ -117,7 +117,7 @@ Setup:
   `code-from-spec/a/b/_node.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
 Expected: Sorted order: SPEC/a, SPEC/a/b, SPEC/z.
 
@@ -129,9 +129,10 @@ Setup:
 - Do not create `code-from-spec/`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
-Expected: Error propagated from ListAllFiles.
+Expected: `oslayer.ErrDirectoryNotFound` propagated
+from `oslayer.ListAllFiles`.
 
 #### Empty code-from-spec directory
 
@@ -139,9 +140,9 @@ Setup:
 - Create `code-from-spec/` with no files.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
-Expected: Error `ErrNoNodesFound`.
+Expected: Error `spectree.ErrNoNodesFound`.
 
 #### Only non-node files in code-from-spec
 
@@ -150,9 +151,9 @@ Setup:
   `code-from-spec/x/output.md` but no `_node.md`.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
-Expected: Error `ErrNoNodesFound`.
+Expected: Error `spectree.ErrNoNodesFound`.
 
 #### Only root _node.md — no subdirectory nodes
 
@@ -161,9 +162,9 @@ Setup:
   nodes.
 
 Actions:
-1. Call `SpecTreeScan()`.
+1. Call `spectree.SpecTreeScan()`.
 
-Expected: Error `ErrNoNodesFound`.
+Expected: Error `spectree.ErrNoNodesFound`.
 
 ## Go-specific guidance
 

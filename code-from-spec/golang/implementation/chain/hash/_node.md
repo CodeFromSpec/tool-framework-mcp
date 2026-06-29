@@ -33,7 +33,7 @@ returns a 27-character base64url encoded SHA-1 hash.
 ### Errors
 
 - `ErrParseFailure`: a node file cannot be parsed.
-- Propagated errors from `oslayer`, `parsenode` packages.
+- Propagated errors from `oslayer`, `parsing` packages.
 
 # Agent
 
@@ -109,13 +109,13 @@ Implement the chain hash component as a Go package.
 
 **HashFileContent(file_path: oslayer.CfsPath) -> raw bytes (20)**
 
-1. Call `OpenFile(file_path, mode="read",
-   timeout_ms=30000)`. If `OpenFile` raises
-   `FileUnreadable`, propagate the error.
+1. Call `oslayer.OpenFile(file_path, mode="read",
+   timeout_ms=30000)`. If `oslayer.OpenFile` raises
+   `oslayer.ErrFileUnreadable`, propagate the error.
 2. Let `lines` = empty list.
 3. Loop:
    a. Call `handle.ReadLine()`.
-   b. If `EndOfFile` is raised, exit loop.
+   b. If `oslayer.ErrEndOfFile` is raised, exit loop.
    c. Append the line followed by `"\n"` to `lines`.
 4. Call `handle.Close()`.
    (Call `handle.Close()` in error paths too before

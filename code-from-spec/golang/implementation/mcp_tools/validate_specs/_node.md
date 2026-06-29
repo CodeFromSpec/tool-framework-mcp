@@ -70,7 +70,7 @@ Implement the validate specs tool as a Go package.
 
 ### Step 1 — Discover nodes
 
-1. Call `SpecTreeScan()` to discover all spec nodes.
+1. Call `spectree.SpecTreeScan()` to discover all spec nodes.
    If SpecTreeScan fails: return ValidationReport with
      format_errors = [ FormatError(node="", rule="scan",
      detail=<error message>) ],
@@ -94,7 +94,7 @@ Implement the validate specs tool as a Go package.
 ### Step 3 — Format validation
 
 4. Collect successfully parsed nodes into a list.
-   Call `SpecTreeValidate(nodes, all_dirs)`. Append
+   Call `spectreevalidate.SpecTreeValidate(nodes, all_dirs)`. Append
    all returned FormatError entries to format_errors.
 
 ### Step 4 — Ranking and cycle detection
@@ -103,7 +103,7 @@ Implement the validate specs tool as a Go package.
      Skip ranking step. ranked_entries = empty.
      cycles = [].
    Else:
-     Call `NodeRankCompute(nodes)` with the successfully
+     Call `noderanking.NodeRankCompute(nodes)` with the successfully
      parsed nodes.
      If NodeRankCompute returns UnresolvableReference
      error:
@@ -135,7 +135,7 @@ Implement the validate specs tool as a Go package.
         prefix from node.logical_name and prepend
         "ARTIFACT/".
 
-     b. Call `ChainResolve(node.logical_name)`. If it
+     b. Call `chainresolver.ChainResolve(node.logical_name)`. If it
         fails: Append StalenessEntry(
           node=node.logical_name,
           artifact_path=frontmatter.output,
@@ -143,7 +143,7 @@ Implement the validate specs tool as a Go package.
           rank=<node rank or 0 if unavailable>)
         to staleness. Continue to next node.
 
-     c. Call `ChainHashCompute(chain)` using the result
+     c. Call `chainhash.ChainHashCompute(chain)` using the result
         from step (b). If it fails: Append
         StalenessEntry(
           node=node.logical_name,
@@ -166,9 +166,9 @@ Implement the validate specs tool as a Go package.
           expected hash <chain hash>".
 
           If chain hashes match: check the file on
-          disk. Construct CfsPath from
+          disk. Construct oslayer.CfsPath from
           frontmatter.output. Call
-          `OpenFile(path, "read", 30000)`. If it
+          `oslayer.OpenFile(path, "read", 30000)`. If it
           fails (file does not exist): Append
           StalenessEntry with status="missing".
           Else: read the full file content, compute

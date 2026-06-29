@@ -403,8 +403,8 @@ Expected: Error ErrFileUnreadable.
 Actions: Call
 `parsing.ParseNode("SPEC/tra\\versal")`.
 
-Expected: Error PathContainsBackslash propagated,
-not FileUnreadable.
+Expected: Error `oslayer.ErrPathContainsBackslash`
+propagated, not `oslayer.ErrFileUnreadable`.
 
 #### Content before first heading
 

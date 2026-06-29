@@ -74,14 +74,14 @@ Implement the write file tool as a Go package.
 5. If `node.Frontmatter.Output` is nil, return error
    ErrNoOutput.
 
-6. Call `ValidateCfsPath` with path. If it fails,
+6. Call `oslayer.ValidateCfsPath` with path. If it fails,
    propagate the error.
 
 7. If path does not exactly match `*node.Frontmatter.Output`,
    return ErrPathNotInOutput.
 
-8. Construct a `CfsPath` record with value set to path.
-   Call `OpenFile` with that CfsPath, mode "overwrite",
+8. Construct an `oslayer.CfsPath` record with value set to
+   path. Call `oslayer.OpenFile` with that CfsPath, mode "overwrite",
    and timeout 30000. If it fails, propagate the error.
    Store the result as handle.
 
@@ -95,10 +95,10 @@ Implement the write file tool as a Go package.
     ensuring a trailing LF), encoded as base64url
     (27 characters).
 
-12. Call `ChainResolve(logical_name)`. If it fails,
+12. Call `chainresolver.ChainResolve(logical_name)`. If it fails,
     propagate the error.
 
-13. Call `ChainHashCompute(chain)`. If it fails,
+13. Call `chainhash.ChainHashCompute(chain)`. If it fails,
     propagate the error.
 
 14. Call `manifest.OpenManifest(false)`. If it fails,
