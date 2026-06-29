@@ -36,10 +36,10 @@ can be used but must not be redeclared:
   (`CfsPath`, `OpenFile`, etc.) — imported externally.
 - Error sentinels — declared in `errors.go`.
 
-All unexported helpers must use the suffix `NP`
-(e.g. `extractHeadingNP`, `buildSectionsNP`,
-`parseYamlNP`). This is mandatory to avoid name
-collisions with other files in the package.
+To avoid name collisions with other files in this
+package, all identifiers you declare beyond the ones
+listed in the Ownership section (functions, variables,
+types) must use the suffix `NP`.
 
 ## Logic
 

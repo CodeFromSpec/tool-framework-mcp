@@ -1,4 +1,6 @@
 ---
+depends_on:
+  - SPEC/golang/dependencies/golang-x-sys-windows
 output: internal/oslayer/lock_windows.go
 ---
 
@@ -20,12 +22,13 @@ This file declares and implements:
 
 The following exist in other files of this package and
 can be used but must not be redeclared:
-- Error sentinels (`ErrLockTimeout`) — declared in
-  `errors.go`.
+- Error sentinels (`ErrLockTimeout`, `ErrLockFailed`) —
+  declared in `errors.go`.
 
-All unexported helpers must use the suffix `Lock`
-(e.g. `createEventLock`). This is mandatory to
-avoid name collisions with other files in the package.
+To avoid name collisions with other files in this
+package, all identifiers you declare beyond the ones
+listed in the Ownership section (functions, variables,
+types) must use the suffix `Win`.
 
 ## Functions to implement
 
@@ -58,7 +61,8 @@ in the lock flags (shared vs exclusive).
 
 1. Create an event handle using
    `windows.CreateEvent(nil, 1, 0, nil)`. If it fails,
-   return the error. Defer `windows.CloseHandle(event)`.
+   return ErrLockFailed (wrapping the original error).
+   Defer `windows.CloseHandle(event)`.
 
 2. Build a `windows.Overlapped` struct with
    `HEvent` set to the event handle.
@@ -84,9 +88,11 @@ in the lock flags (shared vs exclusive).
    If the result is `windows.WAIT_TIMEOUT`, cancel the
    I/O with `windows.CancelIo(windows.Handle(f.Fd()))`
    and return ErrLockTimeout.
-   For any other result, return the error.
+   For any other result, return ErrLockFailed (wrapping
+   the original error).
 
-6. For any other error from `LockFileEx`, return it.
+6. For any other error from `LockFileEx`, return
+   ErrLockFailed (wrapping the original error).
 
 ## Go-specific guidance
 
@@ -97,3 +103,8 @@ The file must start with:
 ```
 
 Import `os` and `golang.org/x/sys/windows`.
+`windows.WaitForSingleObject` returns `(uint32, error)`.
+Compare the `uint32` result with
+`uint32(windows.WAIT_OBJECT_0)` and
+`uint32(windows.WAIT_TIMEOUT)` — the constants are
+`syscall.Errno` and require explicit conversion.

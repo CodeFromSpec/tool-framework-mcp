@@ -2,7 +2,7 @@
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
-output: internal/parsing/parsing_logicalnames_test.go
+output: internal/parsinglogicalnamestest/parsing_logicalnames_test.go
 ---
 
 # SPEC/golang/tests/parsing/logical_names
@@ -263,7 +263,7 @@ Expect error: ErrInvalidPath.
 
 ## Go-specific guidance
 
-- The package name is `parsing_test` (external test
+- The package name is `parsinglogicalnamestest` (external test
   package).
 - SPEC and EXTERNAL tests are pure — no filesystem
   needed.

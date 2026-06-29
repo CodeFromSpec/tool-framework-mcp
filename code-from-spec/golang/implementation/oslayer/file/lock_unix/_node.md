@@ -1,4 +1,6 @@
 ---
+depends_on:
+  - SPEC/golang/dependencies/unix-syscall-flock
 output: internal/oslayer/lock_unix.go
 ---
 
@@ -20,12 +22,13 @@ This file declares and implements:
 
 The following exist in other files of this package and
 can be used but must not be redeclared:
-- Error sentinels (`ErrLockTimeout`) — declared in
-  `errors.go`.
+- Error sentinels (`ErrLockTimeout`, `ErrLockFailed`) —
+  declared in `errors.go`.
 
-All unexported helpers must use the suffix `Lock`
-(e.g. `retryWithBackoffLock`). This is mandatory to
-avoid name collisions with other files in the package.
+To avoid name collisions with other files in this
+package, all identifiers you declare beyond the ones
+listed in the Ownership section (functions, variables,
+types) must use the suffix `Linux`.
 
 ## Functions to implement
 
@@ -45,7 +48,8 @@ in the flock flag (`syscall.LOCK_SH` vs
 1. Call `syscall.Flock(int(f.Fd()), flag|syscall.LOCK_NB)`.
 2. If it succeeds, return nil.
 3. If it returns `EWOULDBLOCK`, return ErrLockTimeout.
-4. For any other error, return it.
+4. For any other error, return ErrLockFailed (wrapping
+   the original error).
 
 ### Timeout path (timeoutMs > 0)
 
@@ -55,7 +59,7 @@ in the flock flag (`syscall.LOCK_SH` vs
    a. Call `syscall.Flock(int(f.Fd()), flag|syscall.LOCK_NB)`.
    b. If it succeeds, return nil.
    c. If it returns any error other than `EWOULDBLOCK`,
-      return it.
+      return ErrLockFailed (wrapping the original error).
    d. If current time >= deadline, return ErrLockTimeout.
    e. Sleep for `sleep` duration.
    f. Double `sleep`. If `sleep` > 100ms, set

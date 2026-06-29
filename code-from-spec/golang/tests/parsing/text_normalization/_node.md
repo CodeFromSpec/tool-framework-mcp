@@ -1,7 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/implementation/parsing(interface)
-output: internal/parsing/parsing_textnorm_test.go
+output: internal/parsingtextnormtest/parsing_textnorm_test.go
 ---
 
 # SPEC/golang/tests/parsing/text_normalization
@@ -119,6 +119,6 @@ Input: "X". Expect: "x".
 
 ## Go-specific guidance
 
-- The package name is `parsing_test` (external test
+- The package name is `parsingtextnormtest` (external test
   package).
 - Pure function tests — no file I/O needed.

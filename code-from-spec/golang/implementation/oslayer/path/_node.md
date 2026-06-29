@@ -28,9 +28,10 @@ can be used but must not be redeclared:
   `ErrPathContainsBackslash`, `ErrDirectoryTraversal`,
   `ErrResolvesOutsideRoot`) — declared in `errors.go`.
 
-All unexported helpers must use the suffix `Path`
-(e.g. `resolveSymlinksPath`). This is mandatory to
-avoid name collisions with other files in the package.
+To avoid name collisions with other files in this
+package, all identifiers you declare beyond the ones
+listed in the Ownership section (functions, variables,
+types) must use the suffix `Path`.
 
 ## Logic
 
@@ -63,7 +64,9 @@ avoid name collisions with other files in the package.
    path. Store as absolute_path.
 5. If absolute_path exists on disk, resolve symlinks
    to get resolved_path. If resolved_path does not
-   start with string(root), raise ErrResolvesOutsideRoot.
+   start with string(root) followed by the OS path
+   separator, and resolved_path is not equal to
+   string(root), raise ErrResolvesOutsideRoot.
    Set absolute_path to resolved_path.
 6. Return OsPath(absolute_path).
 
@@ -73,8 +76,10 @@ avoid name collisions with other files in the package.
    propagate it. Store as root.
 2. If the path exists on disk, resolve symlinks.
    Let resolved be the result.
-3. If resolved does not start with string(root),
-   raise ErrResolvesOutsideRoot.
+3. If resolved does not start with string(root)
+   followed by the OS path separator, and resolved is
+   not equal to string(root), raise
+   ErrResolvesOutsideRoot.
 4. Compute the relative portion by removing the root
    prefix and any leading path separator. Store as
    relative_path.

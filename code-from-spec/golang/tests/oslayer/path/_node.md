@@ -1,7 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
-output: internal/oslayer/oslayer_path_test.go
+output: internal/oslayerpathtest/oslayer_path_test.go
 ---
 
 # SPEC/golang/tests/oslayer/path
@@ -104,6 +104,22 @@ pointing to it.
 
 Expected: ErrResolvesOutsideRoot.
 
+#### Rejects path whose root is a prefix but not a boundary
+
+Setup: create two sibling directories `project` and
+`projectother` in the temp dir. Set working directory
+to `project`. Create a file inside `projectother`.
+Build an absolute path to that file by joining the
+temp dir, `projectother`, and the filename. Construct
+a CfsPath that, after joining with the root, would
+resolve to the file inside `projectother` (e.g. by
+using `../projectother/file.txt`).
+
+Expected: ErrDirectoryTraversal or
+ErrResolvesOutsideRoot — the file is outside the
+project root even though the root path is a string
+prefix of the resolved path.
+
 #### Roundtrip: CfsPathToOs then OsPathToCfs
 
 Input: "internal/config/config.go".
@@ -141,6 +157,17 @@ Input: absolute OS path outside root.
 
 Expected: ErrResolvesOutsideRoot.
 
+#### Rejects OS path whose root is a prefix but not a boundary
+
+Setup: create two sibling directories `project` and
+`projectother` in the temp dir. Set working directory
+to `project`. Create a file inside `projectother`.
+Build the absolute OsPath to that file.
+
+Expected: ErrResolvesOutsideRoot — the root is a
+string prefix of the path, but not a directory
+boundary.
+
 ### GetProjectRoot
 
 #### Returns an absolute path
@@ -153,7 +180,7 @@ Expected: corresponds to current working directory.
 
 ## Go-specific guidance
 
-- The package name is `oslayer_test` (external test
+- The package name is `oslayerpathtest` (external test
   package).
 - Use `t.TempDir()` for isolation.
 - Use `testChdir` helper to set the working directory.

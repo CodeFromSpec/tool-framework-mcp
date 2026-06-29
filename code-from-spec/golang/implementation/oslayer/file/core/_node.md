@@ -27,15 +27,15 @@ can be used but must not be redeclared:
   lock files. Call them but do not implement them.
 - Error sentinels (`ErrFileUnreadable`,
   `ErrCannotCreateDirectory`, `ErrCannotOpenFile`,
-  `ErrInvalidMode`, `ErrLockTimeout`, `ErrEndOfFile`,
-  `ErrWrongMode`, `ErrCannotWriteFile`,
-  `ErrCannotRename`, `ErrCannotDelete`) — declared in
-  `errors.go`.
+  `ErrInvalidMode`, `ErrLockTimeout`, `ErrLockFailed`,
+  `ErrEndOfFile`, `ErrWrongMode`, `ErrCannotWriteFile`,
+  `ErrCannotRename`, `ErrCannotDelete`, `ErrFileIO`) —
+  declared in `errors.go`.
 
-All unexported helpers must use the suffix `File`
-(e.g. `createDirsFile`, `openStreamFile`). This is
-mandatory to avoid name collisions with other files
-in the package.
+To avoid name collisions with other files in this
+package, all identifiers you declare beyond the ones
+listed in the Ownership section (functions, variables,
+types) must use the suffix `File`.
 
 ## Logic
 
@@ -84,7 +84,8 @@ in the package.
 2. If closed is true, raise ErrEndOfFile.
 3. Read the next line up to and including the next
    newline, or until end of stream. If no more bytes,
-   raise ErrEndOfFile.
+   raise ErrEndOfFile. If the read fails due to an I/O
+   error, raise ErrFileIO.
 4. Strip trailing line terminator: if ends with "\r\n",
    remove both; else if ends with "\n", remove it.
 5. Return the resulting string.
@@ -103,7 +104,8 @@ in the package.
 2. If closed is true, return immediately.
 3. Repeat count times: read and discard the next line.
    If end of stream is reached before completing all
-   iterations, stop without error.
+   iterations, stop without error. If the read fails
+   due to an I/O error, raise ErrFileIO.
 
 ### Close
 

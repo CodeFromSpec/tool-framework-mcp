@@ -70,7 +70,7 @@ func ListAllFiles(cfsPath CfsPath) ([]CfsPath, error)
 Returns all files (not directories) found recursively
 under the given directory. Results are sorted
 alphabetically. If the directory exists but contains
-no files, returns an empty list.
+no files, returns nil.
 
 ### File operations
 
@@ -137,10 +137,10 @@ Deletes a file from disk.
 - `ErrResolvesOutsideRoot` (CfsPathToOs, OsPathToCfs)
 - `ErrDirectoryNotFound`, `ErrWalkError` (ListAllFiles)
 - `ErrFileUnreadable`, `ErrCannotCreateDirectory`,
-  `ErrCannotOpenFile`, `ErrInvalidMode`, `ErrLockTimeout`
-  (OpenFile)
-- `ErrEndOfFile`, `ErrWrongMode` (ReadLine)
+  `ErrCannotOpenFile`, `ErrInvalidMode`, `ErrLockTimeout`,
+  `ErrLockFailed` (OpenFile)
+- `ErrEndOfFile`, `ErrWrongMode`, `ErrFileIO` (ReadLine)
 - `ErrWrongMode`, `ErrCannotWriteFile` (Write)
-- `ErrWrongMode` (SkipLines)
+- `ErrWrongMode`, `ErrFileIO` (SkipLines)
 - `ErrCannotRename` (RenameFile)
 - `ErrCannotDelete` (DeleteFile)

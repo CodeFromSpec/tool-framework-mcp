@@ -24,9 +24,10 @@ can be used but must not be redeclared:
 - Types (`NodeFrontmatter`, `Node`, `CfsReference`,
   etc.) — declared in other files.
 
-All unexported helpers must use the suffix `Norm`
-(e.g. `collapseWhitespaceNorm`). This is mandatory to
-avoid name collisions with other files in the package.
+To avoid name collisions with other files in this
+package, all identifiers you declare beyond the ones
+listed in the Ownership section (functions, variables,
+types) must use the suffix `Norm`.
 
 ## Logic
 

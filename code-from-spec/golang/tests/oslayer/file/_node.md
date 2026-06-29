@@ -1,7 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
-output: internal/oslayer/oslayer_file_test.go
+output: internal/oslayerfiletest/oslayer_file_test.go
 ---
 
 # SPEC/golang/tests/oslayer/file
@@ -294,7 +294,7 @@ Expected: ErrLockTimeout.
 
 ## Go-specific guidance
 
-- The package name is `oslayer_test` (external test
+- The package name is `oslayerfiletest` (external test
   package).
 - Use `t.TempDir()` for isolation.
 - Use `testChdir` helper to set the working directory.

@@ -33,10 +33,10 @@ can be used but must not be redeclared:
   to resolve the output path.
 - Error sentinels — declared in `errors.go`.
 
-All unexported helpers must use the suffix `LN`
-(e.g. `extractQualifierLN`, `stringPtrLN`). This is
-mandatory to avoid name collisions with other files
-in the package.
+To avoid name collisions with other files in this
+package, all identifiers you declare beyond the ones
+listed in the Ownership section (functions, variables,
+types) must use the suffix `LN`.
 
 ## Logic
 
