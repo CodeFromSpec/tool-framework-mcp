@@ -1,8 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/implementation/mcp_tools/load_chain
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
 output: internal/mcpdumpchain/mcpdumpchain.go
 ---
 
@@ -44,7 +43,7 @@ A success message: `"wrote dump_chain.xml"`.
 - Propagated errors from `MCPLoadChain` (including
   `ErrNoOutput`, `ErrInvalidOutputPath`,
   `ErrArtifactModified`).
-- Propagated errors from `file` package.
+- Propagated errors from `oslayer` package.
 
 # Agent
 
@@ -56,24 +55,22 @@ Implement the dump chain tool as a Go package.
    propagate the error. Store the result as
    `chain_content`.
 
-2. Call `FileOpen(PathCfs{Value: "dump_chain.xml"},
+2. Call `OpenFile(CfsPath("dump_chain.xml"),
    "overwrite", 30000)`. If it fails, propagate the
    error. Store as handle.
 
-3. Call `FileWrite(handle, chain_content)`. If it
-   fails, call `FileClose(handle)`, then propagate
-   the error.
+3. Call `handle.Write(chain_content)`. If it fails,
+   call `handle.Close()`, then propagate the error.
 
-4. Call `FileClose(handle)`.
+4. Call `handle.Close()`.
 
 5. Return "wrote dump_chain.xml".
 
 ## Go-specific guidance
 
 - Use the `mcploadchain` package for `MCPLoadChain`.
-- Use the `file` package for `FileOpen`, `FileWrite`,
-  `FileClose`.
-- Use the `pathutils` package for `PathCfs`.
+- Use the `oslayer` package for `OpenFile`, `.Write()`,
+  `.Close()`, and `CfsPath`.
 - The package name should be `mcpdumpchain`.
 - The output file is always `dump_chain.xml` at the
   project root, regardless of the target node.

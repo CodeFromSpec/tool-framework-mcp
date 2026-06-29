@@ -20,7 +20,7 @@ Go implementation of the spec tree components.
 
 ### File lock timeout (30 seconds)
 
-All `FileOpen` calls use a timeout of 30000 ms (30
+All `OpenFile` calls use a timeout of 30000 ms (30
 seconds). This is a safety net against deadlocks or
 bugs — in normal operation, locks are acquired
 instantly because contention is negligible. If a lock

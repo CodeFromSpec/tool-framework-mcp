@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
 output: internal/logicalnames/logicalnames.go
 ---
@@ -41,7 +41,7 @@ type LogicalName struct {
 }
 
 func LogicalNameParse(logicalName string) (*LogicalName, error)
-func LogicalNameFromPath(cfsPath pathutils.PathCfs) (*LogicalName, error)
+func LogicalNameFromPath(cfsPath oslayer.CfsPath) (*LogicalName, error)
 ```
 
 ### LogicalName fields
@@ -54,7 +54,7 @@ func LogicalNameFromPath(cfsPath pathutils.PathCfs) (*LogicalName, error)
   `EXTERNAL/f.go`, Name is `EXTERNAL/f.go`.
 - **Qualifier** — nil if absent. For `SPEC/x/y(z)`,
   Qualifier points to `"z"`.
-- **Path** — resolved file path as a PathCfs value:
+- **Path** — resolved file path as a CfsPath value:
   - SPEC: the `_node.md` path
     (e.g. `code-from-spec/x/y/_node.md`).
   - EXTERNAL: the file path relative to project root
@@ -86,7 +86,7 @@ Errors:
 
 ### LogicalNameFromPath
 
-Reverse resolution: takes a PathCfs value like
+Reverse resolution: takes a CfsPath value like
 `code-from-spec/x/y/_node.md` and returns a
 `LogicalName` with Type = `NodeTypeSpec`, fully
 resolved.
@@ -132,8 +132,8 @@ Implement the logical names component as a Go package.
       Let generatorName = "SPEC/" + relative.
       Let generatorPath = "code-from-spec/" + relative
       + "/_node.md".
-      Call FrontmatterParse(PathCfs{Value:
-      generatorPath}). If it fails, propagate the error.
+      Call FrontmatterParse(CfsPath(generatorPath)).
+      If it fails, propagate the error.
       If frontmatter.Output is empty, raise ErrNoOutput.
       Return LogicalName with Type = NodeTypeArtifact,
       Name = stripped, Qualifier = nil,
@@ -149,9 +149,9 @@ Implement the logical names component as a Go package.
 
    e. Otherwise: raise ErrUnrecognizedPrefix.
 
-### LogicalNameFromPath(cfsPath: PathCfs) -> *LogicalName
+### LogicalNameFromPath(cfsPath: CfsPath) -> *LogicalName
 
-1. Let `value` = cfsPath.Value.
+1. Let `value` = string(cfsPath).
 
 2. If `value` does not start with "code-from-spec/",
    raise ErrInvalidPath.
@@ -175,7 +175,7 @@ Implement the logical names component as a Go package.
 
 ## Go-specific guidance
 
-- Use the `pathutils` package for `PathCfs`.
+- Use the `oslayer` package for `CfsPath`.
 - Use the `frontmatter` package for `FrontmatterParse`.
 - Define sentinel errors with `errors.New`:
   `ErrUnrecognizedPrefix`, `ErrInvalidName`,

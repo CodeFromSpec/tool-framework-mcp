@@ -1,7 +1,6 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
 output: internal/frontmatter/frontmatter_test.go
 ---
@@ -100,17 +99,17 @@ recognized as delimiter.
 #### File does not exist
 
 Actions:
-1. Call FrontmatterParse with non-existent PathCfs.
+1. Call FrontmatterParse with non-existent CfsPath.
 
 Expected: Error `ErrFileUnreadable`.
 
 #### Propagates path errors
 
 Actions:
-1. Call FrontmatterParse with invalid PathCfs
+1. Call FrontmatterParse with invalid CfsPath
    (`"../../outside"`).
 
-Expected: Error `pathutils.ErrDirectoryTraversal`.
+Expected: Error `oslayer.ErrDirectoryTraversal`.
 
 #### Malformed YAML
 

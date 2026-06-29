@@ -1,8 +1,7 @@
 ---
 depends_on:
   - ARTIFACT/domain/code-from-spec/manifest-format
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
 output: internal/manifest/manifest.go
 ---
 
@@ -99,63 +98,63 @@ Implement the manifest component as a Go package.
    ErrInvalidMode.
 
 2. If mode is "read":
-   a. Try FileOpen on "code-from-spec/.manifest" with
+   a. Try OpenFile on "code-from-spec/.manifest" with
       mode "read" and timeout 30000.
-      If FileOpen returns FileUnreadable (file does not
+      If OpenFile returns FileUnreadable (file does not
       exist): return ManifestHandle with mode "read",
       version "v5", entries as empty map.
-      If FileOpen returns any other error, propagate it.
+      If OpenFile returns any other error, propagate it.
       Let manifest_handle be the result.
-   b. Try FileOpen on "code-from-spec/.manifest.lock"
+   b. Try OpenFile on "code-from-spec/.manifest.lock"
       with mode "read" and timeout 30000.
-      If FileOpen returns FileUnreadable (lock file does
+      If OpenFile returns FileUnreadable (lock file does
       not exist):
-        i.  Try FileOpen on
+        i.  Try OpenFile on
             "code-from-spec/.manifest.lock" with mode
-            "append" and timeout 0, then FileClose on
+            "append" and timeout 0, then .Close() on
             it. Ignore any errors from these calls.
-        ii. Retry FileOpen on
+        ii. Retry OpenFile on
             "code-from-spec/.manifest.lock" with mode
             "read" and timeout 30000.
             If this returns any error, propagate it.
-      If FileOpen returns LockTimeout, return
+      If OpenFile returns LockTimeout, return
       ErrLockTimeout.
-      If FileOpen returns any other error, propagate it.
+      If OpenFile returns any other error, propagate it.
       Let lock_handle be the result.
    c. Parse manifest_handle line by line into an entries
       map (see parsing steps below).
-   d. FileClose lock_handle (releases shared lock).
-   e. FileClose manifest_handle.
+   d. lock_handle.Close() (releases shared lock).
+   e. manifest_handle.Close().
    f. Return ManifestHandle with mode "read", version
       "v5", entries set to the parsed entries map.
       No resources are held after return.
 
 3. If mode is "write":
-   a. Let lock_handle be the result of FileOpen on
+   a. Let lock_handle be the result of OpenFile on
       "code-from-spec/.manifest.lock" with mode
       "append" and timeout 30000.
-      If FileOpen returns LockTimeout, return
+      If OpenFile returns LockTimeout, return
       ErrLockTimeout.
-      If FileOpen returns any other error, propagate it.
+      If OpenFile returns any other error, propagate it.
       (Lock file is created if it does not exist;
       exclusive lock is now held.)
-   b. Try FileOpen on "code-from-spec/.manifest" with
+   b. Try OpenFile on "code-from-spec/.manifest" with
       mode "read" and timeout 30000.
-      If FileOpen returns FileUnreadable (file does not
+      If OpenFile returns FileUnreadable (file does not
       exist): let entries be an empty map.
-      If FileOpen returns any other error, propagate it.
+      If OpenFile returns any other error, propagate it.
       Else:
         let manifest_handle be the result.
         Parse manifest_handle line by line into an
         entries map (see parsing steps below).
-        FileClose manifest_handle.
+        manifest_handle.Close().
    c. Return ManifestHandle with mode "write", version
       "v5", entries set to the parsed (or empty) entries
       map, and lock_handle retained internally until
       save or discard.
 
 Parsing steps (shared by read and write paths):
-  i.   Read the first line with FileReadLine.
+  i.   Read the first line with handle.ReadLine().
        If the line is not "code-from-spec: v5", return
        ErrManifestFormatError (unexpected header).
   ii.  For each subsequent line (read until EndOfFile):
@@ -177,19 +176,19 @@ Parsing steps (shared by read and write paths):
 1. If handle.Mode is "read", return ErrWrongMode.
 2. If handle is already closed (lockHandle is nil),
    return ErrHandleClosed.
-3. Let file_handle be FileOpen on
+3. Let file_handle be OpenFile on
    "code-from-spec/.manifest" with mode "overwrite"
    and timeout 30000.
-   If FileOpen returns any error, propagate it.
-4. Write the header line with FileWrite:
+   If OpenFile returns any error, propagate it.
+4. Write the header line with file_handle.Write():
      "code-from-spec: v5\n"
 5. Sort the keys of handle.Entries alphabetically.
 6. For each key in sorted order:
      Let entry be handle.Entries[key].
-     Write the following line with FileWrite:
+     Write the following line with file_handle.Write():
        "<key>;path:<entry.Path>;checksum:<entry.Checksum>;chain:<entry.ChainHash>\n"
-7. FileClose file_handle.
-8. FileClose lockHandle (releases exclusive lock).
+7. file_handle.Close().
+8. lockHandle.Close() (releases exclusive lock).
    Set handle.closed = true, handle.lockHandle = nil.
 
 ### ManifestDiscard
@@ -197,16 +196,15 @@ Parsing steps (shared by read and write paths):
 1. If handle.Mode is "read", return ErrWrongMode.
 2. If handle is already closed (lockHandle is nil),
    return ErrHandleClosed.
-3. FileClose lockHandle (releases exclusive lock).
+3. lockHandle.Close() (releases exclusive lock).
    Set handle.closed = true, handle.lockHandle = nil.
    Changes to handle.Entries are abandoned.
 
 ## Go-specific guidance
 
 - The package name is `manifest`.
-- Use the `file` package for `FileOpen`, `FileReadLine`,
-  `FileWrite`, `FileClose`.
-- Use the `pathutils` package for `PathCfs`.
+- Use the `oslayer` package for `OpenFile`, `CfsPath`,
+  and file methods (`ReadLine`, `Write`, `Close`).
 - Use `sort.Strings` for sorting entry keys.
 - Use `strings.SplitN` for parsing entry lines.
 - Use `strings.TrimPrefix` for removing field prefixes.

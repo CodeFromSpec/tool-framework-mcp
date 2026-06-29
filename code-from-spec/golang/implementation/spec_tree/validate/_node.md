@@ -1,7 +1,6 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
   - SPEC/golang/implementation/utils/logical_names
@@ -138,12 +137,12 @@ Implement the spec tree validation as a Go package.
      Else if dep starts with "EXTERNAL/":
        Let relative = dep with "EXTERNAL/" prefix
        removed.
-       Let cfs_path = PathCfs{Value: relative}.
-       Attempt FileOpen(cfs_path, "read", 30000).
-       If FileOpen raises any error:
+       Let cfs_path = CfsPath(relative).
+       Attempt OpenFile(cfs_path, "read", 30000).
+       If OpenFile raises any error:
          error "depends_on references unreadable
          EXTERNAL file: <dep>"
-       Else: Call FileClose on the returned handle.
+       Else: Call handle.Close() on the returned handle.
 
      Else:
        error "depends_on entry has unrecognized
@@ -171,12 +170,12 @@ Implement the spec tree validation as a Go package.
      Else if inp starts with "EXTERNAL/":
        Let relative = inp with "EXTERNAL/" prefix
        removed.
-       Let cfs_path = PathCfs{Value: relative}.
-       Attempt FileOpen(cfs_path, "read", 30000).
-       If FileOpen raises any error:
+       Let cfs_path = CfsPath(relative).
+       Attempt OpenFile(cfs_path, "read", 30000).
+       If OpenFile raises any error:
          error "input references unreadable EXTERNAL
          file: <inp>"
-       Else: Call FileClose on the returned handle.
+       Else: Call handle.Close() on the returned handle.
 
      Else:
        error "input must start with SPEC/, ARTIFACT/,
@@ -185,8 +184,8 @@ Implement the spec tree validation as a Go package.
 ### Rule: output_paths (per entry)
 
    If entry.frontmatter.output is non-empty:
-     Call PathValidateCfs(entry.frontmatter.output).
-     If PathValidateCfs raises any error:
+     Call ValidateCfsPath(entry.frontmatter.output).
+     If ValidateCfsPath raises any error:
        Append FormatError with rule "output_paths",
        detail "output path is invalid: <error message>".
 
@@ -241,10 +240,9 @@ Return `errors`.
 
 ## Go-specific guidance
 
-- Use the `file` package for `FileOpen`, `FileClose`
-  (only for EXTERNAL existence checks).
-- Use the `pathutils` package for `PathValidateCfs` and
-  `PathCfs`.
+- Use the `oslayer` package for `OpenFile`, `.Close()`
+  (only for EXTERNAL existence checks), `ValidateCfsPath`,
+  and `CfsPath`.
 - Use the `textnormalization` package for `NormalizeText`.
 - Use the `logicalnames` package for `LogicalNameParse`
   (only for SPEC references in dependency_targets).

@@ -1,8 +1,7 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/chain/resolver
-  - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/utils/logical_names
 output: internal/chainresolver/chainresolver_test.go

@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/utils/logical_names
 output: internal/logicalnames/logicalnames_test.go
 ---
@@ -200,7 +200,7 @@ Expect error: ErrInvalidName.
 
 #### Root node (direct child of code-from-spec/)
 
-Input: PathCfs "code-from-spec/domain/_node.md".
+Input: CfsPath "code-from-spec/domain/_node.md".
 Expect: Type = NodeTypeSpec, Name = "SPEC/domain",
 Qualifier = nil,
 Path = "code-from-spec/domain/_node.md",
@@ -208,7 +208,7 @@ Parent = nil.
 
 #### Nested node
 
-Input: PathCfs "code-from-spec/x/y/_node.md".
+Input: CfsPath "code-from-spec/x/y/_node.md".
 Expect: Type = NodeTypeSpec, Name = "SPEC/x/y",
 Qualifier = nil,
 Path = "code-from-spec/x/y/_node.md",
@@ -216,7 +216,7 @@ Parent = pointer to "SPEC/x".
 
 #### Deeply nested node
 
-Input: PathCfs "code-from-spec/a/b/c/d/_node.md".
+Input: CfsPath "code-from-spec/a/b/c/d/_node.md".
 Expect: Type = NodeTypeSpec, Name = "SPEC/a/b/c/d",
 Qualifier = nil,
 Path = "code-from-spec/a/b/c/d/_node.md",
@@ -224,22 +224,22 @@ Parent = pointer to "SPEC/a/b/c".
 
 #### Rejects bare code-from-spec/_node.md
 
-Input: PathCfs "code-from-spec/_node.md".
+Input: CfsPath "code-from-spec/_node.md".
 Expect error: ErrInvalidPath.
 
 #### Rejects non-spec path
 
-Input: PathCfs "internal/config/config.go".
+Input: CfsPath "internal/config/config.go".
 Expect error: ErrInvalidPath.
 
 #### Rejects path without _node.md
 
-Input: PathCfs "code-from-spec/x/y/output.md".
+Input: CfsPath "code-from-spec/x/y/output.md".
 Expect error: ErrInvalidPath.
 
 #### Rejects path not starting with code-from-spec/
 
-Input: PathCfs "other/x/_node.md".
+Input: CfsPath "other/x/_node.md".
 Expect error: ErrInvalidPath.
 
 ## Go-specific guidance

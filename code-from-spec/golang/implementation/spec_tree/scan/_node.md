@@ -1,7 +1,6 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/list_files
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/utils/logical_names
 output: internal/spectree/spectree.go
 ---
@@ -24,12 +23,7 @@ spec nodes found.
 ## Interface
 
 ```go
-type SpecTreeNode struct {
-	LogicalName string
-	FilePath    pathutils.PathCfs
-}
-
-func SpecTreeScan() ([]*SpecTreeNode, error)
+func SpecTreeScan() ([]logicalnames.LogicalName, error)
 ```
 
 Takes no parameters. Scans the `code-from-spec/`
@@ -40,20 +34,17 @@ list sorted alphabetically by logical name.
 
 - `ErrNoNodesFound`: no `_node.md` files found under
   `code-from-spec/`.
-- Propagated errors from `listfiles`, `logicalnames`
+- Propagated errors from `oslayer`, `logicalnames`
   packages.
 
 # Agent
 
-Implement the spec tree scan as a Go package. The output
-file is the sole .go file in the package — declare all
-types, error sentinels, and function signatures from the
-interface artifact in this file.
+Implement the spec tree scan as a Go package.
 
 ## Logic
 
-1. Call `ListFiles` with "code-from-spec/" as the
-   directory. If `ListFiles` raises an error, propagate
+1. Call `ListAllFiles` with "code-from-spec/" as the
+   directory. If `ListAllFiles` raises an error, propagate
    it.
 
 2. Filter the list: keep only files whose name after
@@ -72,24 +63,21 @@ interface artifact in this file.
         ".", exclude this file.
 
 4. For each file that was not excluded, call
-   `LogicalNameFromPath` with the file's PathCfs.
+   `LogicalNameFromPath` with the file's CfsPath.
    If `LogicalNameFromPath` raises an error, propagate
-   it. Let `ln` be the result. Build a SpecTreeNode
-   record with: logical_name = ln.Name,
-   file_path = the file's PathCfs.
+   it. Collect the returned `*LogicalName`.
 
-5. Sort all resulting SpecTreeNode records alphabetically
-   by logical_name.
+5. Sort all results alphabetically by `Name`.
 
 6. If the sorted list is empty, raise ErrNoNodesFound.
 
-7. Return the sorted list of SpecTreeNode records.
+7. Return the sorted list.
 
 ## Go-specific guidance
 
-- Use the `listfiles` package for `ListFiles`.
+- Use the `oslayer` package for `ListAllFiles` and
+  `CfsPath`.
 - Use the `logicalnames` package for `LogicalNameFromPath`.
-- Use the `pathutils` package for `PathCfs`.
 - Extract the file name by finding the last `/` in the
-  `PathCfs.Value` string.
+  `CfsPath` string value.
 - The package name should be `spectree`.

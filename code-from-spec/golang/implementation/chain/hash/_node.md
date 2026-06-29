@@ -1,8 +1,7 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/implementation/chain/resolver
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
   - SPEC/golang/implementation/utils/text_normalization
@@ -36,7 +35,7 @@ returns a 27-character base64url encoded SHA-1 hash.
 ### Errors
 
 - `ErrParseFailure`: a node file cannot be parsed.
-- Propagated errors from `file`, `parsenode` packages.
+- Propagated errors from `oslayer`, `parsenode` packages.
 
 # Agent
 
@@ -110,18 +109,18 @@ Implement the chain hash component as a Go package.
 5. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
-**HashFileContent(file_path: pathutils.PathCfs) -> raw bytes (20)**
+**HashFileContent(file_path: oslayer.CfsPath) -> raw bytes (20)**
 
-1. Call `FileOpen(file_path, mode="read",
-   timeout_ms=30000)`. If `FileOpen` raises
+1. Call `OpenFile(file_path, mode="read",
+   timeout_ms=30000)`. If `OpenFile` raises
    `FileUnreadable`, propagate the error.
 2. Let `lines` = empty list.
 3. Loop:
-   a. Call `FileReadLine(handle)`.
+   a. Call `handle.ReadLine()`.
    b. If `EndOfFile` is raised, exit loop.
    c. Append the line followed by `"\n"` to `lines`.
-4. Call `FileClose(handle)`.
-   (Call `FileClose` in error paths too before
+4. Call `handle.Close()`.
+   (Call `handle.Close()` in error paths too before
    re-raising.)
 5. Let `text` = concatenation of all strings in `lines`.
 6. Compute SHA-1 of `text` (UTF-8 bytes). Return the
@@ -218,9 +217,8 @@ Let `hashes` = empty list of raw byte sequences
   `ChainItem` records.
 - Use the `parsenode` package for `NodeParse` and the
   `Node`, `NodeSection`, `NodeSubsection` records.
-- Use the `file` package for `FileOpen`,
-  `FileReadLine`, `FileClose`.
-- Use the `pathutils` package for `PathCfs`.
+- Use the `oslayer` package for `OpenFile`,
+  `.ReadLine()`, `.Close()`, and `CfsPath`.
 - The `logicalnames` package is no longer imported
   directly. Type checks on `unqualified_logical_name`
   use string prefix comparisons (`strings.HasPrefix`).

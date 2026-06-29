@@ -1,7 +1,6 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/list_files
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/spec_tree/scan
   - SPEC/golang/implementation/utils/logical_names
 output: internal/spectree/spectree_test.go
@@ -24,8 +23,8 @@ Actions:
 1. Call `SpecTreeScan()`.
 
 Expected:
-- One SpecTreeNode with LogicalName = `"SPEC/a"` and
-  FilePath = `code-from-spec/a/_node.md`.
+- One LogicalName with Name = `"SPEC/a"` and
+  Path = `"code-from-spec/a/_node.md"`.
 
 #### Multiple root nodes
 
@@ -132,7 +131,7 @@ Setup:
 Actions:
 1. Call `SpecTreeScan()`.
 
-Expected: Error propagated from ListFiles.
+Expected: Error propagated from ListAllFiles.
 
 #### Empty code-from-spec directory
 

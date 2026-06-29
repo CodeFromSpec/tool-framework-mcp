@@ -1,10 +1,9 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
   - SPEC/golang/implementation/utils/logical_names
@@ -76,7 +75,7 @@ in this version (cache is not implemented yet).
   match file on disk). The artifact must be accepted
   or deleted before regeneration.
 - Propagated errors from `logicalnames`, `chainresolver`,
-  `chainhash`, `parsenode`, `file`, `manifest` packages.
+  `chainhash`, `parsenode`, `oslayer`, `manifest` packages.
 
 # Agent
 
@@ -90,10 +89,10 @@ Implement the load chain tool as a Go package.
    the target node. If it fails, propagate the error.
    Let `ln` be the result.
 
-2. Call `FrontmatterParse(PathCfs{Value: ln.Path})`
+2. Call `FrontmatterParse(CfsPath(ln.Path))`
    to read the target node's frontmatter. If
    `frontmatter.output` is empty, return error
-   ErrNoOutput. Call `PathValidateCfs(frontmatter.output)`.
+   ErrNoOutput. Call `ValidateCfsPath(frontmatter.output)`.
    If it fails, return ErrInvalidOutputPath.
 
 3. Check if the artifact is modified:
@@ -101,7 +100,7 @@ Implement the load chain tool as a Go package.
    up the artifact logical name (strip "SPEC/" from
    logical_name, prepend "ARTIFACT/") in
    manifest_handle.Entries. If an entry exists:
-     Construct PathCfs from frontmatter.output. Try
+     Construct CfsPath from frontmatter.output. Try
      to read the file on disk and compute its SHA-1
      hash (base64url, 27 chars) using the same
      normalization as validate_specs. If the file
@@ -129,11 +128,11 @@ Implement the load chain tool as a Go package.
    **Existing artifact** (optional):
    If the file at `frontmatter.output` exists and is
    readable:
-     Call `FileOpen` with the `PathCfs` of
+     Call `OpenFile` with the `CfsPath` of
      `frontmatter.output` in "read" mode with
      timeout 30000. Read all lines with
-     `FileReadLine` until `EndOfFile`. Call
-     `FileClose`.
+     `handle.ReadLine()` until `EndOfFile`. Call
+     `handle.Close()`.
      Append: "<existing_artifact>\n"
      Append the full file content.
      Append: "</existing_artifact>\n"
@@ -254,12 +253,11 @@ Implement the load chain tool as a Go package.
   computation in the modified check.
 - Use the `parsenode` package for `NodeParse` and the
   `Node`, `NodeSection`, `NodeSubsection` records.
-- Use the `file` package for `FileOpen`,
-  `FileReadLine`, `FileClose`.
+- Use the `oslayer` package for `OpenFile`,
+  `.ReadLine()`, `.Close()`, `ValidateCfsPath`, and
+  `CfsPath`.
 - Use the `frontmatter` package for `FrontmatterParse`
   and the `Frontmatter` record.
-- Use the `pathutils` package for `PathValidateCfs` and
-  `PathCfs`.
 - Use the `logicalnames` package for `LogicalNameParse`.
   Type checks on `unqualified_logical_name` use string
   prefix comparisons (`strings.HasPrefix`).

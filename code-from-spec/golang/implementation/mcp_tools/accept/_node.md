@@ -1,8 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/implementation/manifest
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/utils/logical_names
 output: internal/mcpaccept/mcpaccept.go
@@ -51,7 +50,7 @@ A success message: `"accepted <artifact_path>"`.
   status (checksum in manifest matches file on disk,
   or no manifest entry exists).
 - Propagated errors from `logicalnames`, `manifest`,
-  `file`, `pathutils` packages.
+  `oslayer` packages.
 
 # Agent
 
@@ -66,7 +65,7 @@ Implement the accept tool as a Go package.
    If it fails, propagate the error.
    Let `ln` be the result.
 
-3. Call `FrontmatterParse(PathCfs{Value: ln.Path})`.
+3. Call `FrontmatterParse(CfsPath(ln.Path))`.
    If it fails, return ErrUnreadableFrontmatter.
    Store as frontmatter.
 
@@ -83,15 +82,15 @@ Implement the accept tool as a Go package.
    call `ManifestDiscard(manifest_handle)` and
    return ErrNotModified.
 
-8. Construct PathCfs from frontmatter.output. Call
-   `FileOpen(path, "read", 30000)`. If it fails,
+8. Construct CfsPath from frontmatter.output. Call
+   `OpenFile(path, "read", 30000)`. If it fails,
    call `ManifestDiscard(manifest_handle)` and
    propagate the error.
 
 9. Read the full file content. Compute its SHA-1
    hash (base64url, 27 chars) using the same
    normalization as write_file (CRLF→LF, trailing
-   LF). Call `FileClose`.
+   LF). Call `handle.Close()`.
 
 10. If the computed hash equals
     entry.Checksum, call
@@ -111,9 +110,8 @@ Implement the accept tool as a Go package.
 - Use the `frontmatter` package for `FrontmatterParse`.
 - Use the `manifest` package for `ManifestOpen`,
   `ManifestSave`, `ManifestDiscard`, `ManifestEntry`.
-- Use the `file` package for `FileOpen`, `FileReadLine`,
-  `FileClose`.
-- Use the `pathutils` package for `PathCfs`.
+- Use the `oslayer` package for `OpenFile`,
+  `.ReadLine()`, `.Close()`, and `CfsPath`.
 - Use `crypto/sha1` and `encoding/base64`
   (base64.RawURLEncoding) for checksum computation.
 - Define sentinel errors: `ErrNotASpecReference`,

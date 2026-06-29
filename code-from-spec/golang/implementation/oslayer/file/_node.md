@@ -1,8 +1,8 @@
-# SPEC/golang/implementation/os/file
+# SPEC/golang/implementation/oslayer/file
 
-Go implementation of the file operations component,
-split into three artifacts: the main implementation
-and two platform-specific locking files.
+File operations with automatic locking, split into
+three artifacts: the main implementation and two
+platform-specific locking files.
 
 # Public
 
@@ -19,7 +19,6 @@ func fileLockExclusive(f *os.File, timeoutMs int) error
 
 Both functions attempt to acquire the lock within the
 given timeout. If `timeoutMs` is zero, attempt
-non-blocking (fail immediately if lock is not
-available). If the lock cannot be acquired within the
+non-blocking. If the lock cannot be acquired within the
 timeout, return `ErrLockTimeout`. They operate on the
 file descriptor of the given `*os.File`.

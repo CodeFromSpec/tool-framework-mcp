@@ -1,8 +1,7 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/dependencies/goccy-go-yaml
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
 output: internal/frontmatter/frontmatter.go
 ---
 
@@ -30,7 +29,7 @@ type Frontmatter struct {
 	Output    string
 }
 
-func FrontmatterParse(filePath pathutils.PathCfs) (*Frontmatter, error)
+func FrontmatterParse(filePath oslayer.CfsPath) (*Frontmatter, error)
 ```
 
 All fields default to empty (empty slice, empty string)
@@ -43,7 +42,7 @@ when absent from the YAML.
 - `ErrMalformedYAML`: the content between `---`
   delimiters is not valid YAML, or an opening `---` is
   found but no closing `---` follows.
-- Propagated errors from `file` package.
+- Propagated errors from `oslayer` package.
 
 # Agent
 
@@ -51,30 +50,30 @@ Implement the frontmatter parser as a Go package.
 
 ## Logic
 
-1. Call FileOpen(file_path, "read", 30000).
-   If FileOpen raises any error, re-raise as
+1. Call OpenFile(file_path, "read", 30000).
+   If OpenFile raises any error, re-raise as
    ErrFileUnreadable (wrapping the original).
 
-2. Call FileReadLine to read the first line.
-   If EndOfFile is raised, call FileClose and return an
-   empty Frontmatter record with
+2. Call handle.ReadLine() to read the first line.
+   If EndOfFile is raised, call handle.Close() and return
+   an empty Frontmatter record with
    depends_on = [], input = "", output = "".
    If the first line is not exactly "---", call
-   FileClose and return an empty Frontmatter record.
+   handle.Close() and return an empty Frontmatter record.
 
 3. Collect YAML lines:
    Initialize yaml_lines as an empty list of strings.
    Repeat:
-     Call FileReadLine.
+     Call handle.ReadLine().
      If EndOfFile is raised:
-       Call FileClose.
+       Call handle.Close().
        Raise ErrMalformedYAML.
      If the line is exactly "---":
        Stop collecting.
      Else:
        Append the line to yaml_lines.
 
-4. Call FileClose.
+4. Call handle.Close().
 
 5. If yaml_lines is empty, return an empty Frontmatter
    record with depends_on = [], input = "", output = "".
@@ -98,8 +97,8 @@ Implement the frontmatter parser as a Go package.
 - Use `github.com/goccy/go-yaml` for YAML unmarshalling.
   Define an unexported struct with `yaml` tags to map YAML
   keys to Go fields, then convert to the exported types.
-- Use the `file` package for file I/O: `FileOpen`,
-  `FileReadLine`, `FileClose`.
+- Use the `oslayer` package for file I/O: `OpenFile`,
+  `.ReadLine()`, `.Close()`.
 - Error wrapping: wrap all errors with `fmt.Errorf` using
   `%w` so callers can match with `errors.Is()`.
 - The package name should be `frontmatter`.

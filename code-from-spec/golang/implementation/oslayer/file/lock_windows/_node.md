@@ -1,18 +1,33 @@
 ---
-output: internal/file/file_lock_windows.go
+output: internal/oslayer/lock_windows.go
 ---
 
-# SPEC/golang/implementation/os/file/lock_windows
+# SPEC/golang/implementation/oslayer/file/lock_windows
 
 Platform-specific file locking for Windows using
 overlapped I/O with real kernel-level timeout.
 
 # Agent
 
-Generate a Go source file with build tag `//go:build windows`
-in package `file`.
+Generate a Go source file with build tag
+`//go:build windows` in package `oslayer`.
 
-Implement two unexported functions:
+## Ownership
+
+This file declares and implements:
+- Unexported functions: `fileLockShared`,
+  `fileLockExclusive`
+
+The following exist in other files of this package and
+can be used but must not be redeclared:
+- Error sentinels (`ErrLockTimeout`) — declared in
+  `errors.go`.
+
+All unexported helpers must use the suffix `Lock`
+(e.g. `createEventLock`). This is mandatory to
+avoid name collisions with other files in the package.
+
+## Functions to implement
 
 ```go
 func fileLockShared(f *os.File, timeoutMs int) error

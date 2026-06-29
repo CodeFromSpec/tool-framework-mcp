@@ -1,16 +1,16 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/path_utils
-output: internal/pathutils/pathutils_test.go
+  - SPEC/golang/implementation/oslayer(interface)
+output: internal/oslayer/oslayer_path_test.go
 ---
 
-# SPEC/golang/tests/os/path_utils
+# SPEC/golang/tests/oslayer/path
 
 # Agent
 
 ## Test cases
 
-### PathValidateCfs
+### ValidateCfsPath
 
 #### Valid simple relative path
 
@@ -68,20 +68,20 @@ Expect: ErrDirectoryTraversal.
 Input: "internal/../../outside/file.go".
 Expect: ErrDirectoryTraversal.
 
-### PathCfsToOs
+### CfsPathToOs
 
 #### Converts valid path that exists
 
 Setup: create file at "internal/config/config.go".
 
-Expected: PathOs is absolute, ends with OS-specific
+Expected: OsPath is absolute, ends with OS-specific
 equivalent.
 
 #### Converts valid path that does not exist
 
 Input: "internal/newdir/newfile.go" (no such file).
 
-Expected: success, PathOs is absolute.
+Expected: success, OsPath is absolute.
 
 #### Converts path with duplicate slashes
 
@@ -100,25 +100,25 @@ pointing to it.
 
 Expected: ErrResolvesOutsideRoot.
 
-#### Roundtrip: CfsToOs then OsToCfs
+#### Roundtrip: CfsPathToOs then OsPathToCfs
 
 Input: "internal/config/config.go".
-CfsToOs → OsToCfs. Expected: equals original.
+CfsPathToOs → OsPathToCfs. Expected: equals original.
 
-### PathOsToCfs
+### OsPathToCfs
 
 #### Converts valid OS path that exists
 
 Setup: file inside project root.
 
-Expected: PathCfs with forward slashes, relative to
+Expected: CfsPath with forward slashes, relative to
 root.
 
 #### Converts valid OS path that does not exist
 
 Setup: absolute OS path within root, no such file.
 
-Expected: success, PathCfs with forward slashes.
+Expected: success, CfsPath with forward slashes.
 
 #### Result uses forward slashes
 
@@ -137,11 +137,11 @@ Input: absolute OS path outside root.
 
 Expected: ErrResolvesOutsideRoot.
 
-### PathGetProjectRoot
+### GetProjectRoot
 
 #### Returns an absolute path
 
-Expected: non-empty absolute PathOs.
+Expected: non-empty absolute OsPath.
 
 #### Matches working directory
 
@@ -149,7 +149,7 @@ Expected: corresponds to current working directory.
 
 ## Go-specific guidance
 
-- The package name is `pathutils_test` (external test
+- The package name is `oslayer_test` (external test
   package).
 - Use `t.TempDir()` for isolation.
 - Use `testChdir` helper to set the working directory.

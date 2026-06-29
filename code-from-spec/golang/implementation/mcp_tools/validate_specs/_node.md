@@ -3,8 +3,7 @@ depends_on:
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
   - SPEC/golang/implementation/spec_tree/scan
@@ -79,30 +78,30 @@ Implement the validate specs tool as a Go package.
      cycles = [], staleness = [].
 
 2. Discover all subdirectory paths under
-   "code-from-spec/" using ListFiles or equivalent.
+   "code-from-spec/" using ListAllFiles or equivalent.
    Store as all_dirs for use in Step 3.
 
 ### Step 2 — Parse all nodes
 
-3. For each discovered SpecTreeNode:
-     a. Call `FrontmatterParse(node.file_path)`. If it
-        fails, add FormatError(node=node.logical_name,
+3. For each discovered LogicalName (`ln`):
+     a. Call `FrontmatterParse(CfsPath(ln.Path))`.
+        If it fails, add FormatError(node=ln.Name,
         rule="parse", detail=<error message>) to
         format_errors. Mark node as parse-failed.
         Continue to next node.
-     b. Call `NodeParse(node.logical_name)`. If it fails,
-        add FormatError(node=node.logical_name,
+     b. Call `NodeParse(ln.Name)`. If it fails,
+        add FormatError(node=ln.Name,
         rule="parse", detail=<error message>) to
         format_errors. Mark node as parse-failed.
         Continue to next node.
-     c. Cache (frontmatter, parsed_node) keyed by
-        logical_name.
+     c. Cache (ln, frontmatter, parsed_node) keyed by
+        ln.Name.
 
 ### Step 3 — Format validation
 
 4. Build a list of SpecTreeValidateInput from
    successfully parsed nodes: each entry =
-   (logical_name, frontmatter, parsed_node).
+   (ln.Name, frontmatter, parsed_node).
    Call `SpecTreeValidate(entries, all_dirs)`. Append
    all returned FormatError entries to format_errors.
 
@@ -114,7 +113,7 @@ Implement the validate specs tool as a Go package.
    Else:
      Build a list of NodeRankInput from successfully
      parsed nodes: each entry =
-     (logical_name, frontmatter).
+     (ln.Name, ln.Parent, frontmatter).
      Call `NodeRankCompute(entries)`.
      If NodeRankCompute returns UnresolvableReference
      error:
@@ -177,14 +176,14 @@ Implement the validate specs tool as a Go package.
           expected hash <chain hash>".
 
           If chain hashes match: check the file on
-          disk. Construct PathCfs from
+          disk. Construct CfsPath from
           frontmatter.output. Call
-          `FileOpen(path, "read", 30000)`. If it
+          `OpenFile(path, "read", 30000)`. If it
           fails (file does not exist): Append
           StalenessEntry with status="missing".
           Else: read the full file content, compute
           its SHA-1 hash (base64url, 27 chars).
-          Call `FileClose`. Compare with
+          Call `handle.Close()`. Compare with
           entry.Checksum. If they differ: Append
           StalenessEntry with status="modified",
           detail="file checksum does not match
@@ -226,6 +225,7 @@ Implement the validate specs tool as a Go package.
 ## Go-specific guidance
 
 - Use the `spectree` package for `SpecTreeScan`.
+- Use the `logicalnames` package for `LogicalName`.
 - Use the `spectreevalidate` package for
   `SpecTreeValidate` and `SpecTreeValidateInput`,
   `FormatError`.
@@ -237,10 +237,9 @@ Implement the validate specs tool as a Go package.
   `ManifestHandle`, `ManifestEntry`.
 - Use the `frontmatter` package for `FrontmatterParse`.
 - Use the `parsenode` package for `NodeParse`.
-- Use the `file` package for `FileOpen`, `FileReadLine`,
-  `FileClose`.
-- Use the `pathutils` package for `PathValidateCfs`,
-  `PathCfs`.
+- Use the `oslayer` package for `OpenFile`,
+  `.ReadLine()`, `.Close()`, `ValidateCfsPath`, and
+  `CfsPath`.
 - Use `crypto/sha1` and `encoding/base64`
   (base64.RawURLEncoding) for checksum computation.
 - The package name should be `mcpvalidatespecs`.

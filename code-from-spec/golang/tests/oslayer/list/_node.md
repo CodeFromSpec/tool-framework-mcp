@@ -1,11 +1,10 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/list_files
-  - SPEC/golang/implementation/os/path_utils
-output: internal/listfiles/listfiles_test.go
+  - SPEC/golang/implementation/oslayer(interface)
+output: internal/oslayer/oslayer_list_test.go
 ---
 
-# SPEC/golang/tests/os/list_files
+# SPEC/golang/tests/oslayer/list
 
 # Agent
 
@@ -20,10 +19,10 @@ Setup:
   with three files: `a.txt`, `b.txt`, `c.txt`.
 
 Actions:
-1. Call `ListFiles` with the directory path.
+1. Call `ListAllFiles` with the directory path.
 
 Expected:
-- Three PathCfs values in alphabetical order.
+- Three CfsPath values in alphabetical order.
 
 #### Lists files recursively
 
@@ -33,10 +32,10 @@ Setup:
   `dir/sub/deep/gamma.txt`.
 
 Actions:
-1. Call `ListFiles` with `dir`.
+1. Call `ListAllFiles` with `dir`.
 
 Expected:
-- Three PathCfs values in alphabetical order:
+- Three CfsPath values in alphabetical order:
   `dir/alpha.txt`, `dir/sub/beta.txt`,
   `dir/sub/deep/gamma.txt`.
 
@@ -47,7 +46,7 @@ Setup:
   `m.txt`.
 
 Actions:
-1. Call `ListFiles`.
+1. Call `ListAllFiles`.
 
 Expected: Order: `a.txt`, `m.txt`, `z.txt`.
 
@@ -59,7 +58,7 @@ Setup:
 - Create an empty directory.
 
 Actions:
-1. Call `ListFiles`.
+1. Call `ListAllFiles`.
 
 Expected: Empty list, no error.
 
@@ -70,7 +69,7 @@ Setup:
   at any level).
 
 Actions:
-1. Call `ListFiles`.
+1. Call `ListAllFiles`.
 
 Expected: Empty list.
 
@@ -79,28 +78,28 @@ Expected: Empty list.
 #### Directory does not exist
 
 Actions:
-1. Call `ListFiles` with a non-existent path.
+1. Call `ListAllFiles` with a non-existent path.
 
 Expected: Error `ErrDirectoryNotFound`.
 
-#### Propagates validation errors from PathCfsToOs
+#### Propagates validation errors from CfsPathToOs
 
 Actions:
-1. Call `ListFiles` with invalid PathCfs
+1. Call `ListAllFiles` with invalid CfsPath
    (e.g., `"../../outside"`).
 
-Expected: Error `pathutils.ErrDirectoryTraversal`.
+Expected: Error `ErrDirectoryTraversal`.
 
-#### Propagates conversion errors from PathOsToCfs
+#### Propagates conversion errors from OsPathToCfs
 
 Setup:
 - Create directory with a regular file and a symlink
   pointing outside the project root.
 
 Actions:
-1. Call `ListFiles`.
+1. Call `ListAllFiles`.
 
-Expected: Error `pathutils.ErrResolvesOutsideRoot`.
+Expected: Error `ErrResolvesOutsideRoot`.
 Skip on platforms where symlinks are not supported.
 
 #### Walk error
@@ -110,14 +109,14 @@ Setup:
   permissions preventing reading.
 
 Actions:
-1. Call `ListFiles` on the parent.
+1. Call `ListAllFiles` on the parent.
 
 Expected: Error `ErrWalkError`. Skip on platforms
 where directory permissions cannot prevent traversal.
 
 ## Go-specific guidance
 
-- The package name is `listfiles_test` (external test
+- The package name is `oslayer_test` (external test
   package).
 - Use `t.TempDir()` for isolation.
 - Use `testChdir` helper to set the working directory.

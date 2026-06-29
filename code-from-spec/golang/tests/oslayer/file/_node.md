@@ -1,11 +1,10 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
-output: internal/file/file_test.go
+  - SPEC/golang/implementation/oslayer(interface)
+output: internal/oslayer/oslayer_file_test.go
 ---
 
-# SPEC/golang/tests/os/file
+# SPEC/golang/tests/oslayer/file
 
 # Agent
 
@@ -17,9 +16,9 @@ output: internal/file/file_test.go
 
 Setup: file with "alpha", "beta", "gamma" (LF).
 
-Actions: FileOpen("read"), FileReadLine x3, then x4.
+Actions: OpenFile("read"), ReadLine x3, then x4.
 
-Expected: "alpha", "beta", "gamma", then EndOfFile.
+Expected: "alpha", "beta", "gamma", then ErrEndOfFile.
 
 #### Normalizes CRLF to LF
 
@@ -31,19 +30,19 @@ Expected: "alpha", "beta" — no CR characters.
 
 Setup: "alpha\nbeta" (no trailing newline).
 
-Expected: "alpha", "beta", then EndOfFile.
+Expected: "alpha", "beta", then ErrEndOfFile.
 
-#### FileSkipLines advances the reader
+#### SkipLines advances the reader
 
-Setup: file with 5 lines. FileSkipLines(2).
+Setup: file with 5 lines. SkipLines(2).
 
-Expected: FileReadLine returns "three".
+Expected: ReadLine returns "three".
 
-#### FileSkipLines past end of file
+#### SkipLines past end of file
 
-Setup: file with 2 lines. FileSkipLines(10).
+Setup: file with 2 lines. SkipLines(10).
 
-Expected: No error. FileReadLine raises EndOfFile.
+Expected: No error. ReadLine raises ErrEndOfFile.
 
 #### Preserves leading whitespace
 
@@ -81,31 +80,31 @@ Expected: All characters pass through unchanged.
 
 Setup: empty file (zero bytes).
 
-Expected: FileReadLine raises EndOfFile immediately.
+Expected: ReadLine raises ErrEndOfFile immediately.
 
 #### Single line without newline
 
 Setup: "hello" with no newline.
 
-Expected: "hello", then EndOfFile.
+Expected: "hello", then ErrEndOfFile.
 
 ### Read mode — failure cases
 
 #### File does not exist
 
-Expected: FileOpen raises ErrFileUnreadable.
+Expected: OpenFile raises ErrFileUnreadable.
 
 #### Read after close
 
-Setup: file with "alpha". FileOpen, FileClose.
+Setup: file with "alpha". OpenFile, Close.
 
-Expected: FileReadLine raises ErrEndOfFile.
+Expected: ReadLine raises ErrEndOfFile.
 
 #### Skip after close
 
-Setup: file with "alpha". FileOpen, FileClose.
+Setup: file with "alpha". OpenFile, Close.
 
-Expected: FileSkipLines(1) — no error, does nothing.
+Expected: SkipLines(1) — no error, does nothing.
 
 ### Overwrite mode — happy path
 
@@ -115,8 +114,8 @@ Expected: file created with "hello world".
 
 #### Overwrites an existing file
 
-Setup: file with "old". FileOpen("overwrite"),
-FileWrite("new").
+Setup: file with "old". OpenFile("overwrite"),
+Write("new").
 
 Expected: file contains "new".
 
@@ -128,25 +127,25 @@ Expected: file and all intermediate dirs created.
 
 #### Preserves UTF-8 content
 
-FileWrite("café 日本語 🎉"). Read back.
+Write("café 日本語 🎉"). Read back.
 
 Expected: byte-for-byte match.
 
 #### Preserves line endings as received
 
-FileWrite("alpha\r\nbeta\r\n"). Read back.
+Write("alpha\r\nbeta\r\n"). Read back.
 
 Expected: CRLF preserved — no normalization.
 
 #### Writes empty content
 
-FileWrite(""). Expected: file with zero bytes.
+Write(""). Expected: file with zero bytes.
 
 ### Overwrite mode — failure cases
 
-#### Propagates validation errors from PathCfsToOs
+#### Propagates validation errors from CfsPathToOs
 
-PathCfs "../../outside". Expected:
+CfsPath "../../outside". Expected:
 ErrDirectoryTraversal. No file created.
 
 #### Cannot create directory
@@ -165,41 +164,41 @@ Expected: ErrCannotOpenFile.
 
 #### Append opens without truncating
 
-Setup: file with "old". FileOpen("append"), FileClose.
+Setup: file with "old". OpenFile("append"), Close.
 
 Expected: file still contains "old".
 
 #### Append creates file if it does not exist
 
-FileOpen("append") for non-existent path, FileClose.
+OpenFile("append") for non-existent path, Close.
 
 Expected: file created (empty).
 
 ### Wrong mode — failure cases
 
-#### FileReadLine fails in overwrite mode
+#### ReadLine fails in overwrite mode
 
 Expected: ErrWrongMode.
 
-#### FileReadLine fails in append mode
+#### ReadLine fails in append mode
 
 Expected: ErrWrongMode.
 
-#### FileWrite fails in read mode
+#### Write fails in read mode
 
 Expected: ErrWrongMode.
 
-#### FileSkipLines fails in overwrite mode
+#### SkipLines fails in overwrite mode
 
 Expected: ErrWrongMode.
 
 ### Invalid mode — failure case
 
-#### FileOpen rejects unknown mode
+#### OpenFile rejects unknown mode
 
 Mode "invalid". Expected: ErrInvalidMode.
 
-### FileRename — happy path
+### RenameFile — happy path
 
 #### Renames a file
 
@@ -209,23 +208,23 @@ exists with "data", "a.txt" gone.
 #### Rename overwrites destination
 
 "dest.txt" with "old", "src.txt" with "new".
-FileRename("src.txt", "dest.txt").
+RenameFile("src.txt", "dest.txt").
 
 Expected: "dest.txt" contains "new".
 
-### FileRename — failure cases
+### RenameFile — failure cases
 
 #### Rename non-existent source
 
 Expected: ErrCannotRename.
 
-### FileDelete — happy path
+### DeleteFile — happy path
 
 #### Deletes a file
 
-"target.txt" exists. FileDelete. Expected: gone.
+"target.txt" exists. DeleteFile. Expected: gone.
 
-### FileDelete — failure cases
+### DeleteFile — failure cases
 
 #### Delete non-existent file
 
@@ -235,26 +234,26 @@ Expected: ErrCannotDelete.
 
 #### Shared lock allows concurrent readers
 
-Two FileOpen("read") on same file. Both succeed.
+Two OpenFile("read") on same file. Both succeed.
 
 #### Exclusive lock blocks other exclusive locks
 
-FileOpen("overwrite") holds lock. Second
-FileOpen("overwrite") blocks until first closes.
+OpenFile("overwrite") holds lock. Second
+OpenFile("overwrite") blocks until first closes.
 
 #### Exclusive lock blocks shared locks
 
-FileOpen("overwrite") holds lock.
-FileOpen("read") blocks until first closes.
+OpenFile("overwrite") holds lock.
+OpenFile("read") blocks until first closes.
 
 #### Append mode acquires exclusive lock
 
-FileOpen("append") holds lock.
-FileOpen("read") blocks until first closes.
+OpenFile("append") holds lock.
+OpenFile("read") blocks until first closes.
 
 ## Go-specific guidance
 
-- The package name is `file_test` (external test
+- The package name is `oslayer_test` (external test
   package).
 - Use `t.TempDir()` for isolation.
 - Use `testChdir` helper to set the working directory.

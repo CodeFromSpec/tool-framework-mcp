@@ -1,8 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/dependencies/yuin-goldmark
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/utils/logical_names
   - SPEC/golang/implementation/utils/text_normalization
 output: internal/parsenode/parsenode.go
@@ -89,10 +88,10 @@ Implement the node parsing component as a Go package.
 
 ### Read file
 
-- Call FileOpen(PathCfs{Value: ln.Path}, "read",
+- Call OpenFile(CfsPath(ln.Path), "read",
   30000). If it fails, raise ErrFileUnreadable.
-- Read all lines using FileReadLine in a loop until
-  ErrEndOfFile. Collect all lines. Call FileClose.
+- Read all lines using handle.ReadLine() in a loop until
+  ErrEndOfFile. Collect all lines. Call handle.Close().
 - Join all lines with `\n` and append a trailing `\n`.
   Let `source` be the resulting byte slice.
 
@@ -217,9 +216,8 @@ Return Node with name_section, public, agent, private.
   comparisons.
 - Use `logicalnames.LogicalNameParse` for validation.
   Use `logicalnames.NodeTypeSpec` for type comparison.
-- Use the `file` package for `FileOpen`,
-  `FileReadLine`, `FileClose`.
-- Use the `pathutils` package for `PathCfs`.
+- Use the `oslayer` package for `OpenFile`,
+  `.ReadLine()`, `.Close()`, and `CfsPath`.
 - Split content by `\n` using `strings.Split` on the
   string cast of the byte slice range.
 - The package name should be `parsenode`.
@@ -238,12 +236,12 @@ The migration eliminates fence tracking, heading regex,
 and closing hash stripping with no loss of
 functionality.
 
-### File reading via file package
+### File reading via oslayer package
 
-goldmark needs `[]byte` but the `file` package reads
+goldmark needs `[]byte` but the `oslayer` package reads
 line by line. The implementation reads all lines via
-FileReadLine loop, joins with `\n`, and converts to
-`[]byte`. CRLF normalization is handled by the file
+handle.ReadLine() loop, joins with `\n`, and converts to
+`[]byte`. CRLF normalization is handled by the oslayer
 package — no manual normalization needed.
 
 ### Content remains []string

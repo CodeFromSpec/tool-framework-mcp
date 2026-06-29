@@ -3,8 +3,7 @@ depends_on:
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/utils/logical_names
 output: internal/mcpwritefile/mcpwritefile.go
@@ -54,8 +53,8 @@ A success message: `"wrote <path>"`.
 - `ErrNoOutput`: target node has no output field.
 - `ErrPathNotInOutput`: path is not declared in the
   node's output.
-- Propagated errors from `logicalnames`, `pathutils`,
-  `file` packages.
+- Propagated errors from `logicalnames`, `oslayer`
+  packages.
 
 # Agent
 
@@ -73,29 +72,28 @@ Implement the write file tool as a Go package.
 3. If ln.Qualifier is not nil, return error
    ErrQualifierNotAllowed.
 
-4. Call `FrontmatterParse(PathCfs{Value: ln.Path})`.
+4. Call `FrontmatterParse(CfsPath(ln.Path))`.
    If it fails, return ErrUnreadableFrontmatter.
    Store the result as frontmatter.
 
 5. If `frontmatter.output` is empty, return error
    ErrNoOutput.
 
-6. Call `PathValidateCfs` with path. If it fails,
+6. Call `ValidateCfsPath` with path. If it fails,
    propagate the error.
 
 7. If path does not exactly match `frontmatter.output`,
    return ErrPathNotInOutput.
 
-8. Construct a `PathCfs` record with value set to path.
-   Call `FileOpen` with that PathCfs, mode "overwrite",
+8. Construct a `CfsPath` record with value set to path.
+   Call `OpenFile` with that CfsPath, mode "overwrite",
    and timeout 30000. If it fails, propagate the error.
    Store the result as handle.
 
-9. Call `FileWrite` with handle and content. If it
-   fails, call `FileClose` with handle, then propagate
-   the error.
+9. Call `handle.Write(content)`. If it fails, call
+   `handle.Close()`, then propagate the error.
 
-10. Call `FileClose` with handle.
+10. Call `handle.Close()`.
 
 11. Compute the checksum of `content`: SHA-1 of the
     content bytes (after CRLF→LF normalization and
@@ -127,10 +125,8 @@ Implement the write file tool as a Go package.
 
 - Use the `logicalnames` package for `LogicalNameParse`.
 - Use the `frontmatter` package for `FrontmatterParse`.
-- Use the `pathutils` package for `PathValidateCfs` and
-  `PathCfs`.
-- Use the `file` package for `FileOpen`, `FileWrite`,
-  `FileClose`.
+- Use the `oslayer` package for `ValidateCfsPath`,
+  `CfsPath`, `OpenFile`, `.Write()`, and `.Close()`.
 - Use the `chainresolver` package for `ChainResolve`.
 - Use the `chainhash` package for `ChainHashCompute`.
 - Use the `manifest` package for `ManifestOpen`,
@@ -142,4 +138,4 @@ Implement the write file tool as a Go package.
   `ChainHashCompute` for whole-file content.
 - The package name should be `mcpwritefile`.
 - The function receives plain strings from the MCP
-  transport layer. Construct `PathCfs` internally.
+  transport layer. Construct `CfsPath` internally.

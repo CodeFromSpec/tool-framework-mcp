@@ -23,7 +23,7 @@ where a tree hierarchy is needed.
 
 Setup:
 - entries = [NodeRankInput { LogicalName: "SPEC/root",
-  Frontmatter: empty }]
+  Parent: nil, Frontmatter: empty }]
 
 Actions:
 1. Call NodeRankCompute(entries).
@@ -279,3 +279,7 @@ Expected: Error ErrUnresolvableReference.
   package).
 - Use `t.TempDir()` for isolation.
 - Build NodeRankInput records directly — no file I/O.
+- Set Parent to nil for root nodes (e.g. "SPEC/root"),
+  and to the parent logical name for nested nodes
+  (e.g. Parent = pointer to "SPEC/root" for
+  "SPEC/root/a").

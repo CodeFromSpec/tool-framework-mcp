@@ -1,9 +1,8 @@
 ---
 depends_on:
   - ARTIFACT/domain/code-from-spec/manifest-format
-  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/manifest
-  - SPEC/golang/implementation/os/path_utils
 output: internal/manifest/manifest_test.go
 ---
 

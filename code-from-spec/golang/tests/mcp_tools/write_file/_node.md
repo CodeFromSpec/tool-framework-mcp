@@ -1,9 +1,8 @@
 ---
 depends_on:
   - SPEC/golang/implementation/manifest
-  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/mcp_tools/write_file
-  - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/utils/logical_names
 output: internal/mcpwritefile/mcpwritefile_test.go
@@ -158,7 +157,7 @@ Actions:
 1. Call `MCPWriteFile("SPEC/root/a", "", "")`.
 
 Expected:
-- Error `pathutils.ErrPathEmpty`.
+- Error `oslayer.ErrPathEmpty`.
 
 #### Path validation — traversal
 
@@ -172,7 +171,7 @@ Actions:
    "")`.
 
 Expected:
-- Error `pathutils.ErrDirectoryTraversal`.
+- Error `oslayer.ErrDirectoryTraversal`.
 
 #### Path validation — backslash
 
@@ -186,7 +185,7 @@ Actions:
    "")`.
 
 Expected:
-- Error `pathutils.ErrPathContainsBackslash`.
+- Error `oslayer.ErrPathContainsBackslash`.
 
 ## Go-specific guidance
 

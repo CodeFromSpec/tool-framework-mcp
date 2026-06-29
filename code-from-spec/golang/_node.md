@@ -32,10 +32,10 @@ The spec tree is the documentation.
 
 ## File I/O
 
-All file access must go through the `file` package
-at `internal/file`. Never use `os.ReadFile`,
+All file access must go through the `oslayer` package
+at `internal/oslayer`. Never use `os.ReadFile`,
 `os.WriteFile`, `os.Open`, or other `os` file
-functions directly. The `file` package ensures
+functions directly. The `oslayer` package ensures
 consistent CRLF→LF normalization and file locking.
 
 ## Constraints

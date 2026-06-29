@@ -1,9 +1,8 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
-  - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
 output: internal/chainhash/chainhash_test.go
@@ -27,7 +26,7 @@ Therefore, tests that reference spec nodes must:
 3. Set `ChainItem.LogicalName` to a valid `SPEC/`
    logical name (e.g. `"SPEC/root/a"`), not a file path.
 4. Set `ChainItem.FilePath` to the corresponding
-   `PathCfs` (e.g. `{Value: "code-from-spec/root/a/_node.md"}`).
+   `CfsPath` (e.g. `CfsPath("code-from-spec/root/a/_node.md")`).
 
 For ARTIFACT/ items, `ChainItem.LogicalName` must start
 with `"ARTIFACT/"` so the implementation reads the file

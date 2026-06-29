@@ -1,7 +1,6 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/node_parsing
   - SPEC/golang/implementation/utils/logical_names
 output: internal/parsenode/parsenode_test.go

@@ -1,7 +1,6 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/path_utils
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/utils/logical_names
 output: internal/chainresolver/chainresolver.go
@@ -27,7 +26,7 @@ chain for a given target logical name.
 ```go
 type ChainItem struct {
 	UnqualifiedLogicalName string
-	FilePath               pathutils.PathCfs
+	FilePath               oslayer.CfsPath
 	Qualifier              string // empty if absent
 }
 
@@ -73,7 +72,7 @@ be the result.
 
 Create the target ChainItem with
   unqualified_logical_name = target_ln.Name,
-  file_path = PathCfs{Value: target_ln.Path},
+  file_path = CfsPath(target_ln.Path),
   qualifier = absent.
 
 If target_ln.Parent is nil:
@@ -100,7 +99,7 @@ Otherwise:
     the result.
     Create a ChainItem with
       unqualified_logical_name = ln.Name,
-      file_path = PathCfs{Value: ln.Path},
+      file_path = CfsPath(ln.Path),
       qualifier = absent.
 
   The last item in the sorted list becomes the target.
@@ -108,7 +107,7 @@ Otherwise:
 
 ### Step 2 — Resolve dependencies
 
-Call FrontmatterParse(PathCfs{Value: target_ln.Path}).
+Call FrontmatterParse(CfsPath(target_ln.Path)).
 If it fails, raise ErrUnreadableFrontmatter.
 
 Initialize an empty dependency list.
@@ -123,7 +122,7 @@ For each entry in frontmatter.depends_on:
   If ln.Type is NodeTypeSpec:
     Create ChainItem with
       unqualified_logical_name = ln.Name,
-      file_path = PathCfs{Value: ln.Path},
+      file_path = CfsPath(ln.Path),
       qualifier = if ln.Qualifier is not nil then
         *ln.Qualifier, else absent.
     Add to dependency list.
@@ -131,14 +130,14 @@ For each entry in frontmatter.depends_on:
   Else if ln.Type is NodeTypeArtifact:
     Create ChainItem with
       unqualified_logical_name = ln.Name,
-      file_path = PathCfs{Value: ln.Path},
+      file_path = CfsPath(ln.Path),
       qualifier = absent.
     Add to dependency list.
 
   Else if ln.Type is NodeTypeExternal:
     Create ChainItem with
       unqualified_logical_name = ln.Name,
-      file_path = PathCfs{Value: ln.Path},
+      file_path = CfsPath(ln.Path),
       qualifier = absent.
     Add to dependency list.
 
@@ -191,7 +190,7 @@ Else:
 
   Create ChainItem with
     unqualified_logical_name = input_ln.Name,
-    file_path = PathCfs{Value: input_ln.Path},
+    file_path = CfsPath(input_ln.Path),
     qualifier = if input_ln.Qualifier is not nil then
       *input_ln.Qualifier, else absent.
   Set the Chain's input field to that ChainItem.
@@ -205,9 +204,9 @@ input.
   `LogicalNameParse`, `LogicalName`, `NodeTypeSpec`,
   `NodeTypeArtifact`, `NodeTypeExternal`.
 - Use the `frontmatter` package for `FrontmatterParse`.
-- Use the `pathutils` package for `PathCfs`.
+- Use the `oslayer` package for `CfsPath`.
 - The package name should be `chainresolver`.
 - `ChainItem` and `Chain` are exported structs in this
   package.
-- Convert `ln.Path` to `PathCfs{Value: ln.Path}` when
+- Convert `ln.Path` to `CfsPath(ln.Path)` when
   assigning to ChainItem.FilePath.

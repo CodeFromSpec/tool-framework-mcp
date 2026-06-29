@@ -19,9 +19,9 @@ and implementation artifacts.
 - Create test files with controlled content using
   `os.WriteFile`.
 
-## Temporary files and PathCfs
+## Temporary files and CfsPath
 
-Tests that create files and pass them as `PathCfs` values
+Tests that create files and pass them as `CfsPath` values
 must use the `testChdir` pattern:
 
 1. Create a temp dir with `t.TempDir()`.
@@ -30,10 +30,10 @@ must use the `testChdir` pattern:
    original directory.
 3. Create files using paths relative to the temp dir
    (e.g., `os.WriteFile("mydir/file.txt", ...)`).
-4. Pass those relative paths as `PathCfs.Value`.
+4. Pass those relative paths as `CfsPath` values.
 
-This works because `PathGetProjectRoot` returns the
-working directory, and `PathCfsToOs` resolves relative
+This works because `GetProjectRoot` returns the
+working directory, and `CfsPathToOs` resolves relative
 paths against it. Without `testChdir`, `t.TempDir()`
 creates directories in the OS temp location, which may
 be on a different drive (Windows) or outside the project
@@ -62,21 +62,21 @@ func testChdir(t *testing.T, dir string) {
 Tests that do not create files (pure function tests)
 do not need this pattern.
 
-## PathCfs values in tests
+## CfsPath values in tests
 
-`PathCfs` values must always use forward slashes (`/`),
+`CfsPath` values must always use forward slashes (`/`),
 even on Windows. Never use `filepath.Separator` or
-backslashes in `PathCfs.Value`. For example, to test a
-nonexistent file: `PathCfs{Value: "nonexistent/file.txt"}`,
+backslashes in `CfsPath` values. For example, to test a
+nonexistent file: `CfsPath("nonexistent/file.txt")`,
 not `"nonexistent\file.txt"`.
 
 ## Error propagation across packages
 
 When a function propagates an error from another package
-(e.g. `FrontmatterParse` propagating from `FileOpen`),
+(e.g. `FrontmatterParse` propagating from `OpenFile`),
 the error chain preserves the original sentinel. Use
 `errors.Is` with the sentinel from the **originating**
-package (e.g. `file.ErrFileUnreadable`), not a
+package (e.g. `oslayer.ErrFileUnreadable`), not a
 re-declared sentinel in the calling package — unless
 the calling package's interface explicitly declares its
 own sentinel and wraps it.
@@ -101,7 +101,7 @@ producers would generate:
   `_node.md` file that exists on disk (via
   `LogicalNameToPath`). Tests must create the spec tree
   files accordingly.
-- `ChainItem.FilePath` is a `PathCfs` with forward
+- `ChainItem.FilePath` is a `CfsPath` with forward
   slashes.
 
 ## Creating _node.md files in tests

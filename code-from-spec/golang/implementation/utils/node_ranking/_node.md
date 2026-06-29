@@ -25,6 +25,7 @@ with cycle detection as a side effect.
 ```go
 type NodeRankInput struct {
 	LogicalName string
+	Parent      *string
 	Frontmatter *frontmatter.Frontmatter
 }
 
@@ -73,14 +74,14 @@ For each NodeRankInput in entries:
 ### Step 2 — Build dependency edges
 
 For each spec node entry in the entry map:
-  Call LogicalNameParse(logical_name). Let `ln` be
-  the result. If it fails, raise ErrUnresolvableReference.
+  Find the corresponding NodeRankInput to get its
+  Parent field.
 
-  If ln.Parent is nil: Skip — root node has no
+  If Parent is nil: Skip — root node has no
   parent dependency.
 
   Else:
-    a. Parent dependency: Add *ln.Parent to the
+    a. Parent dependency: Add *Parent to the
        entry's deps list.
 
     b. depends_on dependencies: For each reference in
@@ -126,8 +127,8 @@ For each spec node entry in the entry map:
 ### Step 3 — Initialize ranks
 
 All entries start with rank 0 from step 1. Root nodes
-(those whose ln.Parent is nil) keep rank 0 — they
-have no parent dependency.
+(those whose Parent is nil) keep rank 0 — they have
+no parent dependency.
 
 ### Step 4 — Iterate and detect cycles
 

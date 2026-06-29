@@ -1,11 +1,10 @@
 ---
 depends_on:
   - SPEC/golang/implementation/manifest
-  - SPEC/golang/implementation/os/file/impl
+  - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/mcp_tools/load_chain
-  - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
   - SPEC/golang/implementation/utils/logical_names
@@ -20,7 +19,7 @@ output: internal/mcploadchain/mcploadchain_test.go
 
 `MCPLoadChain` calls `ChainResolve`, `ChainHashCompute`,
 `NodeParse`, `FrontmatterParse`, `ManifestOpen`, and
-`FileOpen` internally. Tests must create a complete spec
+`OpenFile` internally. Tests must create a complete spec
 tree on disk with valid `_node.md` files. Use `testChdir`
 and create `code-from-spec/.../_node.md` files with
 frontmatter and body content matching the test setup.
@@ -374,7 +373,7 @@ Actions:
 
 Expected:
 - Returns error propagated from `FrontmatterParse`
-  (`file.ErrFileUnreadable`).
+  (`oslayer.ErrFileUnreadable`).
 
 #### No output declared
 
