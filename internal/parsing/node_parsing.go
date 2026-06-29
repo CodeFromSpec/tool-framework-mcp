@@ -1,8 +1,9 @@
-// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@leDdnAbcJh3a2GltyAe7qoRnbd8
+// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@ER6DaHwQeusnu2_BjH066zF60do
 package parsing
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -75,7 +76,7 @@ func ParseNode(logicalName string) (*Node, error) {
 	for {
 		line, err := handle.ReadLine()
 		if err != nil {
-			if isErrEndOfFileNP(err) {
+			if errors.Is(err, oslayer.ErrEndOfFile) {
 				break
 			}
 			handle.Close()
@@ -104,10 +105,6 @@ func ParseNode(logicalName string) (*Node, error) {
 	}
 
 	return node, nil
-}
-
-func isErrEndOfFileNP(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "end of file")
 }
 
 func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {

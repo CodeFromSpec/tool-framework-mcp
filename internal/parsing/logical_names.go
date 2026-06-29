@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/logical_names@b50lFZCHnv7QmnHHjcBYImMFJS8
+// code-from-spec: SPEC/golang/implementation/parsing/logical_names@oYuD1Ar58tSrQ9mA-4hF9eEWyJ4
 package parsing
 
 import (

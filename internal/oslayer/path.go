@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/path@HTnnYAxirWJ1WQSn4aCcF4EH5wc
+// code-from-spec: SPEC/golang/implementation/oslayer/path@LP80mH7SHbyyitqA6BtVwfAvvwo
 package oslayer
 
 import (
@@ -38,6 +38,13 @@ func ValidateCfsPath(value string) error {
 	return nil
 }
 
+func containedInRootPath(resolved, root string) bool {
+	if resolved == root {
+		return true
+	}
+	return strings.HasPrefix(resolved, root+string(filepath.Separator))
+}
+
 func CfsPathToOs(cfsPath CfsPath) (OsPath, error) {
 	if err := ValidateCfsPath(string(cfsPath)); err != nil {
 		return "", err
@@ -53,7 +60,7 @@ func CfsPathToOs(cfsPath CfsPath) (OsPath, error) {
 		if resolveErr != nil {
 			return "", fmt.Errorf("%w: %w", ErrResolvesOutsideRoot, resolveErr)
 		}
-		if !strings.HasPrefix(resolved, string(root)) {
+		if !containedInRootPath(resolved, string(root)) {
 			return "", fmt.Errorf("%w", ErrResolvesOutsideRoot)
 		}
 		absolutePath = resolved
@@ -74,7 +81,7 @@ func OsPathToCfs(osPath OsPath) (CfsPath, error) {
 		}
 		resolved = resolvedSymlink
 	}
-	if !strings.HasPrefix(resolved, string(root)) {
+	if !containedInRootPath(resolved, string(root)) {
 		return "", fmt.Errorf("%w", ErrResolvesOutsideRoot)
 	}
 	relativePath := strings.TrimPrefix(resolved, string(root))

@@ -1,11 +1,10 @@
-// code-from-spec: SPEC/golang/tests/oslayer/file@CW1qa95QLgp58lNCpyIwv5ktQEo
-package oslayer_test
+// code-from-spec: SPEC/golang/tests/oslayer/file@45UeSXzqIbpUfpCAprmpd4fkq5w
+package oslayerfiletest_test
 
 import (
 	"errors"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 )
@@ -26,7 +25,7 @@ func testChdir(t *testing.T, dir string) {
 	})
 }
 
-func TestOpenFileRead_OpensAndReadsAllLines(t *testing.T) {
+func TestReadMode_OpensAndReadsAllLines(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("alpha\nbeta\ngamma\n"), 0644); err != nil {
@@ -37,9 +36,7 @@ func TestOpenFileRead_OpensAndReadsAllLines(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
-	lines := []string{"alpha", "beta", "gamma"}
-	for _, want := range lines {
+	for _, want := range []string{"alpha", "beta", "gamma"} {
 		got, err := f.ReadLine()
 		if err != nil {
 			t.Fatalf("ReadLine: %v", err)
@@ -54,7 +51,7 @@ func TestOpenFileRead_OpensAndReadsAllLines(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_NormalizesCRLF(t *testing.T) {
+func TestReadMode_NormalizesCRLF(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("alpha\r\nbeta\r\n"), 0644); err != nil {
@@ -65,7 +62,6 @@ func TestOpenFileRead_NormalizesCRLF(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	for _, want := range []string{"alpha", "beta"} {
 		got, err := f.ReadLine()
 		if err != nil {
@@ -77,7 +73,7 @@ func TestOpenFileRead_NormalizesCRLF(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_NoTrailingNewline(t *testing.T) {
+func TestReadMode_NoTrailingNewline(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("alpha\nbeta"), 0644); err != nil {
@@ -88,7 +84,6 @@ func TestOpenFileRead_NoTrailingNewline(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	for _, want := range []string{"alpha", "beta"} {
 		got, err := f.ReadLine()
 		if err != nil {
@@ -104,11 +99,10 @@ func TestOpenFileRead_NoTrailingNewline(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_SkipLinesAdvancesReader(t *testing.T) {
+func TestReadMode_SkipLinesAdvancesReader(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
-	content := "one\ntwo\nthree\nfour\nfive\n"
-	if err := os.WriteFile("file.txt", []byte(content), 0644); err != nil {
+	if err := os.WriteFile("file.txt", []byte("one\ntwo\nthree\nfour\nfive\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	f, err := oslayer.OpenFile("file.txt", "read", 1000)
@@ -116,7 +110,6 @@ func TestOpenFileRead_SkipLinesAdvancesReader(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	if err := f.SkipLines(2); err != nil {
 		t.Fatalf("SkipLines: %v", err)
 	}
@@ -129,7 +122,7 @@ func TestOpenFileRead_SkipLinesAdvancesReader(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_SkipLinesPastEndOfFile(t *testing.T) {
+func TestReadMode_SkipLinesPastEndOfFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("one\ntwo\n"), 0644); err != nil {
@@ -140,9 +133,8 @@ func TestOpenFileRead_SkipLinesPastEndOfFile(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	if err := f.SkipLines(10); err != nil {
-		t.Fatalf("SkipLines: %v", err)
+		t.Errorf("SkipLines past EOF should not error, got %v", err)
 	}
 	_, err = f.ReadLine()
 	if !errors.Is(err, oslayer.ErrEndOfFile) {
@@ -150,7 +142,7 @@ func TestOpenFileRead_SkipLinesPastEndOfFile(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_PreservesLeadingWhitespace(t *testing.T) {
+func TestReadMode_PreservesLeadingWhitespace(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("  alpha\n    beta\n"), 0644); err != nil {
@@ -161,7 +153,6 @@ func TestOpenFileRead_PreservesLeadingWhitespace(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	for _, want := range []string{"  alpha", "    beta"} {
 		got, err := f.ReadLine()
 		if err != nil {
@@ -173,7 +164,7 @@ func TestOpenFileRead_PreservesLeadingWhitespace(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_PreservesTrailingWhitespace(t *testing.T) {
+func TestReadMode_PreservesTrailingWhitespace(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("alpha  \nbeta   \n"), 0644); err != nil {
@@ -184,7 +175,6 @@ func TestOpenFileRead_PreservesTrailingWhitespace(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	for _, want := range []string{"alpha  ", "beta   "} {
 		got, err := f.ReadLine()
 		if err != nil {
@@ -196,7 +186,7 @@ func TestOpenFileRead_PreservesTrailingWhitespace(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_PreservesInternalWhitespace(t *testing.T) {
+func TestReadMode_PreservesInternalWhitespace(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("alpha   beta\none\ttwo\n"), 0644); err != nil {
@@ -207,7 +197,6 @@ func TestOpenFileRead_PreservesInternalWhitespace(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	for _, want := range []string{"alpha   beta", "one\ttwo"} {
 		got, err := f.ReadLine()
 		if err != nil {
@@ -219,7 +208,7 @@ func TestOpenFileRead_PreservesInternalWhitespace(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_PreservesEmptyLines(t *testing.T) {
+func TestReadMode_PreservesEmptyLines(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("alpha\n\n\nbeta\n"), 0644); err != nil {
@@ -230,7 +219,6 @@ func TestOpenFileRead_PreservesEmptyLines(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	for _, want := range []string{"alpha", "", "", "beta"} {
 		got, err := f.ReadLine()
 		if err != nil {
@@ -242,7 +230,7 @@ func TestOpenFileRead_PreservesEmptyLines(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_PreservesNonASCII(t *testing.T) {
+func TestReadMode_PreservesNonASCII(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("café\n日本語\n🎉🚀\n"), 0644); err != nil {
@@ -253,7 +241,6 @@ func TestOpenFileRead_PreservesNonASCII(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	for _, want := range []string{"café", "日本語", "🎉🚀"} {
 		got, err := f.ReadLine()
 		if err != nil {
@@ -265,10 +252,10 @@ func TestOpenFileRead_PreservesNonASCII(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_EmptyFile(t *testing.T) {
+func TestReadMode_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
-	if err := os.WriteFile("file.txt", []byte(""), 0644); err != nil {
+	if err := os.WriteFile("file.txt", []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 	f, err := oslayer.OpenFile("file.txt", "read", 1000)
@@ -276,14 +263,13 @@ func TestOpenFileRead_EmptyFile(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	_, err = f.ReadLine()
 	if !errors.Is(err, oslayer.ErrEndOfFile) {
 		t.Errorf("expected ErrEndOfFile, got %v", err)
 	}
 }
 
-func TestOpenFileRead_SingleLineWithoutNewline(t *testing.T) {
+func TestReadMode_SingleLineWithoutNewline(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("hello"), 0644); err != nil {
@@ -294,7 +280,6 @@ func TestOpenFileRead_SingleLineWithoutNewline(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	got, err := f.ReadLine()
 	if err != nil {
 		t.Fatalf("ReadLine: %v", err)
@@ -308,7 +293,7 @@ func TestOpenFileRead_SingleLineWithoutNewline(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_FileDoesNotExist(t *testing.T) {
+func TestReadMode_FileDoesNotExist(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	_, err := oslayer.OpenFile("nonexistent/file.txt", "read", 1000)
@@ -317,7 +302,7 @@ func TestOpenFileRead_FileDoesNotExist(t *testing.T) {
 	}
 }
 
-func TestOpenFileRead_ReadAfterClose(t *testing.T) {
+func TestReadMode_ReadAfterClose(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("alpha\n"), 0644); err != nil {
@@ -328,14 +313,13 @@ func TestOpenFileRead_ReadAfterClose(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	f.Close()
-
 	_, err = f.ReadLine()
 	if !errors.Is(err, oslayer.ErrEndOfFile) {
-		t.Errorf("expected ErrEndOfFile, got %v", err)
+		t.Errorf("expected ErrEndOfFile after close, got %v", err)
 	}
 }
 
-func TestOpenFileRead_SkipAfterClose(t *testing.T) {
+func TestReadMode_SkipAfterClose(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("alpha\n"), 0644); err != nil {
@@ -346,13 +330,12 @@ func TestOpenFileRead_SkipAfterClose(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	f.Close()
-
 	if err := f.SkipLines(1); err != nil {
-		t.Errorf("SkipLines after close: %v", err)
+		t.Errorf("SkipLines after close should not error, got %v", err)
 	}
 }
 
-func TestOpenFileOverwrite_WritesContentToNewFile(t *testing.T) {
+func TestOverwriteMode_WritesContentToNewFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("file.txt", "overwrite", 1000)
@@ -363,7 +346,6 @@ func TestOpenFileOverwrite_WritesContentToNewFile(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	f.Close()
-
 	data, err := os.ReadFile("file.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -373,7 +355,7 @@ func TestOpenFileOverwrite_WritesContentToNewFile(t *testing.T) {
 	}
 }
 
-func TestOpenFileOverwrite_OverwritesExistingFile(t *testing.T) {
+func TestOverwriteMode_OverwritesExistingFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("old"), 0644); err != nil {
@@ -387,7 +369,6 @@ func TestOpenFileOverwrite_OverwritesExistingFile(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	f.Close()
-
 	data, err := os.ReadFile("file.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -397,28 +378,20 @@ func TestOpenFileOverwrite_OverwritesExistingFile(t *testing.T) {
 	}
 }
 
-func TestOpenFileOverwrite_CreatesIntermediateDirectories(t *testing.T) {
+func TestOverwriteMode_CreatesIntermediateDirectories(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("a/b/c/file.txt", "overwrite", 1000)
 	if err != nil {
 		t.Fatalf("OpenFile: %v", err)
 	}
-	if err := f.Write("content"); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
 	f.Close()
-
-	data, err := os.ReadFile("a/b/c/file.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "content" {
-		t.Errorf("got %q, want %q", string(data), "content")
+	if _, err := os.Stat("a/b/c/file.txt"); err != nil {
+		t.Errorf("file not found: %v", err)
 	}
 }
 
-func TestOpenFileOverwrite_PreservesUTF8Content(t *testing.T) {
+func TestOverwriteMode_PreservesUTF8Content(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	content := "café 日本語 🎉"
@@ -430,7 +403,6 @@ func TestOpenFileOverwrite_PreservesUTF8Content(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	f.Close()
-
 	data, err := os.ReadFile("file.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -440,7 +412,7 @@ func TestOpenFileOverwrite_PreservesUTF8Content(t *testing.T) {
 	}
 }
 
-func TestOpenFileOverwrite_PreservesLineEndings(t *testing.T) {
+func TestOverwriteMode_PreservesLineEndingsAsReceived(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	content := "alpha\r\nbeta\r\n"
@@ -452,7 +424,6 @@ func TestOpenFileOverwrite_PreservesLineEndings(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	f.Close()
-
 	data, err := os.ReadFile("file.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -462,7 +433,7 @@ func TestOpenFileOverwrite_PreservesLineEndings(t *testing.T) {
 	}
 }
 
-func TestOpenFileOverwrite_WritesEmptyContent(t *testing.T) {
+func TestOverwriteMode_WritesEmptyContent(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("file.txt", "overwrite", 1000)
@@ -473,17 +444,16 @@ func TestOpenFileOverwrite_WritesEmptyContent(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	f.Close()
-
 	data, err := os.ReadFile("file.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(data) != 0 {
-		t.Errorf("expected empty file, got %d bytes", len(data))
+		t.Errorf("expected empty file, got %q", string(data))
 	}
 }
 
-func TestOpenFileOverwrite_PropagatesValidationErrors(t *testing.T) {
+func TestOverwriteMode_PropagatesValidationErrors(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	_, err := oslayer.OpenFile("../../outside", "overwrite", 1000)
@@ -492,7 +462,7 @@ func TestOpenFileOverwrite_PropagatesValidationErrors(t *testing.T) {
 	}
 }
 
-func TestOpenFileOverwrite_CannotCreateDirectory(t *testing.T) {
+func TestOverwriteMode_CannotCreateDirectory(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("notadir", []byte("content"), 0644); err != nil {
@@ -504,7 +474,7 @@ func TestOpenFileOverwrite_CannotCreateDirectory(t *testing.T) {
 	}
 }
 
-func TestOpenFileOverwrite_CannotOpenFilePathIsDirectory(t *testing.T) {
+func TestOverwriteMode_CannotOpenFilePathIsDirectory(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.Mkdir("mydir", 0755); err != nil {
@@ -516,7 +486,7 @@ func TestOpenFileOverwrite_CannotOpenFilePathIsDirectory(t *testing.T) {
 	}
 }
 
-func TestOpenFileAppend_OpensWithoutTruncating(t *testing.T) {
+func TestAppendMode_OpensWithoutTruncating(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("old"), 0644); err != nil {
@@ -527,7 +497,6 @@ func TestOpenFileAppend_OpensWithoutTruncating(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	f.Close()
-
 	data, err := os.ReadFile("file.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -537,7 +506,7 @@ func TestOpenFileAppend_OpensWithoutTruncating(t *testing.T) {
 	}
 }
 
-func TestOpenFileAppend_CreatesFileIfNotExists(t *testing.T) {
+func TestAppendMode_CreatesFileIfNotExists(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("newfile.txt", "append", 1000)
@@ -545,13 +514,12 @@ func TestOpenFileAppend_CreatesFileIfNotExists(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	f.Close()
-
 	if _, err := os.Stat("newfile.txt"); err != nil {
-		t.Errorf("expected file to exist: %v", err)
+		t.Errorf("file not found: %v", err)
 	}
 }
 
-func TestOpenFileAppend_WriteSucceeds(t *testing.T) {
+func TestAppendMode_WriteSucceeds(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("file.txt", "append", 1000)
@@ -562,7 +530,6 @@ func TestOpenFileAppend_WriteSucceeds(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	f.Close()
-
 	data, err := os.ReadFile("file.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -572,7 +539,7 @@ func TestOpenFileAppend_WriteSucceeds(t *testing.T) {
 	}
 }
 
-func TestOpenFileAppend_ActuallyAppendsContent(t *testing.T) {
+func TestAppendMode_ActuallyAppendsContent(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("file.txt", []byte("old\n"), 0644); err != nil {
@@ -586,7 +553,6 @@ func TestOpenFileAppend_ActuallyAppendsContent(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	f.Close()
-
 	data, err := os.ReadFile("file.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -596,7 +562,7 @@ func TestOpenFileAppend_ActuallyAppendsContent(t *testing.T) {
 	}
 }
 
-func TestOpenFileAppend_CreatesIntermediateDirectories(t *testing.T) {
+func TestAppendMode_CreatesIntermediateDirectories(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("x/y/z/file.txt", "append", 1000)
@@ -604,13 +570,12 @@ func TestOpenFileAppend_CreatesIntermediateDirectories(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	f.Close()
-
 	if _, err := os.Stat("x/y/z/file.txt"); err != nil {
-		t.Errorf("expected file to exist: %v", err)
+		t.Errorf("file not found: %v", err)
 	}
 }
 
-func TestOpenFileWrongMode_ReadLineFailsInOverwriteMode(t *testing.T) {
+func TestWrongMode_ReadLineFailsInOverwriteMode(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("file.txt", "overwrite", 1000)
@@ -618,14 +583,13 @@ func TestOpenFileWrongMode_ReadLineFailsInOverwriteMode(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	_, err = f.ReadLine()
 	if !errors.Is(err, oslayer.ErrWrongMode) {
 		t.Errorf("expected ErrWrongMode, got %v", err)
 	}
 }
 
-func TestOpenFileWrongMode_ReadLineFailsInAppendMode(t *testing.T) {
+func TestWrongMode_ReadLineFailsInAppendMode(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("file.txt", "append", 1000)
@@ -633,17 +597,16 @@ func TestOpenFileWrongMode_ReadLineFailsInAppendMode(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	_, err = f.ReadLine()
 	if !errors.Is(err, oslayer.ErrWrongMode) {
 		t.Errorf("expected ErrWrongMode, got %v", err)
 	}
 }
 
-func TestOpenFileWrongMode_WriteFailsInReadMode(t *testing.T) {
+func TestWrongMode_WriteFailsInReadMode(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
-	if err := os.WriteFile("file.txt", []byte("content"), 0644); err != nil {
+	if err := os.WriteFile("file.txt", []byte("data"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	f, err := oslayer.OpenFile("file.txt", "read", 1000)
@@ -651,14 +614,13 @@ func TestOpenFileWrongMode_WriteFailsInReadMode(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
-	err = f.Write("new content")
+	err = f.Write("something")
 	if !errors.Is(err, oslayer.ErrWrongMode) {
 		t.Errorf("expected ErrWrongMode, got %v", err)
 	}
 }
 
-func TestOpenFileWrongMode_SkipLinesFailsInOverwriteMode(t *testing.T) {
+func TestWrongMode_SkipLinesFailsInOverwriteMode(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("file.txt", "overwrite", 1000)
@@ -666,14 +628,13 @@ func TestOpenFileWrongMode_SkipLinesFailsInOverwriteMode(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	err = f.SkipLines(1)
 	if !errors.Is(err, oslayer.ErrWrongMode) {
 		t.Errorf("expected ErrWrongMode, got %v", err)
 	}
 }
 
-func TestOpenFileWrongMode_SkipLinesFailsInAppendMode(t *testing.T) {
+func TestWrongMode_SkipLinesFailsInAppendMode(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	f, err := oslayer.OpenFile("file.txt", "append", 1000)
@@ -681,14 +642,13 @@ func TestOpenFileWrongMode_SkipLinesFailsInAppendMode(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer f.Close()
-
 	err = f.SkipLines(1)
 	if !errors.Is(err, oslayer.ErrWrongMode) {
 		t.Errorf("expected ErrWrongMode, got %v", err)
 	}
 }
 
-func TestOpenFileInvalidMode(t *testing.T) {
+func TestInvalidMode_RejectsUnknownMode(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	_, err := oslayer.OpenFile("file.txt", "invalid", 1000)
@@ -697,7 +657,7 @@ func TestOpenFileInvalidMode(t *testing.T) {
 	}
 }
 
-func TestRenameFile_RenamesFile(t *testing.T) {
+func TestRenameFile_RenamesAFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
 	if err := os.WriteFile("a.txt", []byte("data"), 0644); err != nil {
@@ -706,9 +666,8 @@ func TestRenameFile_RenamesFile(t *testing.T) {
 	if err := oslayer.RenameFile("a.txt", "b.txt"); err != nil {
 		t.Fatalf("RenameFile: %v", err)
 	}
-
 	if _, err := os.Stat("a.txt"); !os.IsNotExist(err) {
-		t.Error("expected a.txt to be gone")
+		t.Error("a.txt should not exist")
 	}
 	data, err := os.ReadFile("b.txt")
 	if err != nil {
@@ -731,7 +690,6 @@ func TestRenameFile_OverwritesDestination(t *testing.T) {
 	if err := oslayer.RenameFile("src.txt", "dest.txt"); err != nil {
 		t.Fatalf("RenameFile: %v", err)
 	}
-
 	data, err := os.ReadFile("dest.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -759,18 +717,17 @@ func TestRenameFile_InvalidCfsPath(t *testing.T) {
 	}
 }
 
-func TestDeleteFile_DeletesFile(t *testing.T) {
+func TestDeleteFile_DeletesAFile(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
-	if err := os.WriteFile("target.txt", []byte("content"), 0644); err != nil {
+	if err := os.WriteFile("target.txt", []byte("data"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := oslayer.DeleteFile("target.txt"); err != nil {
 		t.Fatalf("DeleteFile: %v", err)
 	}
-
 	if _, err := os.Stat("target.txt"); !os.IsNotExist(err) {
-		t.Error("expected target.txt to be gone")
+		t.Error("target.txt should not exist")
 	}
 }
 
@@ -795,16 +752,14 @@ func TestDeleteFile_InvalidCfsPath(t *testing.T) {
 func TestLocking_SharedLockAllowsConcurrentReaders(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
-	if err := os.WriteFile("file.txt", []byte("content\n"), 0644); err != nil {
+	if err := os.WriteFile("file.txt", []byte("data\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-
 	f1, err := oslayer.OpenFile("file.txt", "read", 1000)
 	if err != nil {
 		t.Fatalf("OpenFile f1: %v", err)
 	}
 	defer f1.Close()
-
 	f2, err := oslayer.OpenFile("file.txt", "read", 1000)
 	if err != nil {
 		t.Fatalf("OpenFile f2: %v", err)
@@ -821,85 +776,67 @@ func TestLocking_ExclusiveLockBlocksOtherExclusiveLocks(t *testing.T) {
 		t.Fatalf("OpenFile f1: %v", err)
 	}
 
-	done := make(chan error, 1)
+	acquired := make(chan struct{})
 	go func() {
 		f2, err := oslayer.OpenFile("file.txt", "overwrite", 5000)
 		if err != nil {
-			done <- err
+			t.Errorf("OpenFile f2: %v", err)
 			return
 		}
+		close(acquired)
 		f2.Close()
-		done <- nil
 	}()
 
-	time.Sleep(100 * time.Millisecond)
 	f1.Close()
-
-	if err := <-done; err != nil {
-		t.Errorf("second OpenFile failed: %v", err)
-	}
+	<-acquired
 }
 
 func TestLocking_ExclusiveLockBlocksSharedLocks(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
-	if err := os.WriteFile("file.txt", []byte("content\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	f1, err := oslayer.OpenFile("file.txt", "overwrite", 5000)
 	if err != nil {
 		t.Fatalf("OpenFile f1: %v", err)
 	}
 
-	done := make(chan error, 1)
+	acquired := make(chan struct{})
 	go func() {
 		f2, err := oslayer.OpenFile("file.txt", "read", 5000)
 		if err != nil {
-			done <- err
+			t.Errorf("OpenFile f2: %v", err)
 			return
 		}
+		close(acquired)
 		f2.Close()
-		done <- nil
 	}()
 
-	time.Sleep(100 * time.Millisecond)
 	f1.Close()
-
-	if err := <-done; err != nil {
-		t.Errorf("second OpenFile failed: %v", err)
-	}
+	<-acquired
 }
 
 func TestLocking_AppendModeAcquiresExclusiveLock(t *testing.T) {
 	dir := t.TempDir()
 	testChdir(t, dir)
-	if err := os.WriteFile("file.txt", []byte("content\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	f1, err := oslayer.OpenFile("file.txt", "append", 5000)
 	if err != nil {
 		t.Fatalf("OpenFile f1: %v", err)
 	}
 
-	done := make(chan error, 1)
+	acquired := make(chan struct{})
 	go func() {
 		f2, err := oslayer.OpenFile("file.txt", "read", 5000)
 		if err != nil {
-			done <- err
+			t.Errorf("OpenFile f2: %v", err)
 			return
 		}
+		close(acquired)
 		f2.Close()
-		done <- nil
 	}()
 
-	time.Sleep(100 * time.Millisecond)
 	f1.Close()
-
-	if err := <-done; err != nil {
-		t.Errorf("second OpenFile failed: %v", err)
-	}
+	<-acquired
 }
 
 func TestLocking_LockTimeout(t *testing.T) {

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/errors@C2aFtrhMZoU4GbLZfh8pwM_49ZU
+// code-from-spec: SPEC/golang/implementation/oslayer/errors@QwRaTIldZwBSQmC2C_WGf2O-vw0
 package oslayer
 
 import "errors"
@@ -19,6 +19,8 @@ var (
 	ErrCannotOpenFile        = errors.New("cannot open file")
 	ErrInvalidMode           = errors.New("invalid file mode")
 	ErrLockTimeout           = errors.New("lock timeout")
+	ErrLockFailed            = errors.New("lock failed")
+	ErrFileIO                = errors.New("file I/O error")
 	ErrEndOfFile             = errors.New("end of file")
 	ErrWrongMode             = errors.New("wrong file mode for this operation")
 	ErrCannotWriteFile       = errors.New("cannot write file")

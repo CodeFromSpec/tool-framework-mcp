@@ -1,5 +1,5 @@
-// code-from-spec: SPEC/golang/tests/parsing/text_normalization@pXWFncqKQFLIUrQMXfFase8T-ts
-package parsing_test
+// code-from-spec: SPEC/golang/tests/parsing/text_normalization@J3jQDRTiP0aOYjoG6LWy_KKzfwY
+package parsingtextnormtest_test
 
 import (
 	"testing"
@@ -8,8 +8,6 @@ import (
 )
 
 func TestNormalizeText(t *testing.T) {
-	nonBreakingSpace := " "
-
 	tests := []struct {
 		name   string
 		input  string
@@ -102,8 +100,8 @@ func TestNormalizeText(t *testing.T) {
 		},
 		{
 			name:   "non-breaking space is not whitespace",
-			input:  "hello" + nonBreakingSpace + "world",
-			expect: "hello" + nonBreakingSpace + "world",
+			input:  "hello" + " " + "world",
+			expect: "hello" + " " + "world",
 		},
 		{
 			name:   "single character",
