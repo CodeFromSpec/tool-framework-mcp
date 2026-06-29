@@ -3,8 +3,7 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/mcp_tools/accept
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/mcpaccept/mcpaccept_test.go
 ---
 
@@ -117,8 +116,9 @@ Expected:
   package).
 - Use `t.TempDir()` for isolation.
 - Use `testChdir` helper to set the working directory.
-- Create `.manifest` files using `ManifestOpen("write")`
-  + `ManifestSave`, or by writing the file directly.
+- Create `.manifest` files using
+  `manifest.OpenManifest(false)` + `m.Save()`, or by
+  writing the file directly.
 - To compute file checksums for setup, use SHA-1 of
   the content (after CRLF→LF normalization, with
   trailing LF), encoded as base64url (27 chars).

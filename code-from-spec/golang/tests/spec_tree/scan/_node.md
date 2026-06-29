@@ -2,7 +2,7 @@
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/spec_tree/scan
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/spectree/spectree_test.go
 ---
 
@@ -23,7 +23,7 @@ Actions:
 1. Call `SpecTreeScan()`.
 
 Expected:
-- One LogicalName with Name = `"SPEC/a"` and
+- One CfsReference with LogicalName = `"SPEC/a"` and
   Path = `"code-from-spec/a/_node.md"`.
 
 #### Multiple root nodes

@@ -2,8 +2,7 @@
 depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/mcpaccept/mcpaccept.go
 ---
 
@@ -49,7 +48,7 @@ A success message: `"accepted <artifact_path>"`.
 - `ErrNotModified`: the artifact is not in modified
   status (checksum in manifest matches file on disk,
   or no manifest entry exists).
-- Propagated errors from `logicalnames`, `manifest`,
+- Propagated errors from `parsing`, `manifest`,
   `oslayer` packages.
 
 # Agent
@@ -61,30 +60,26 @@ Implement the accept tool as a Go package.
 1. If logical_name does not start with "SPEC/",
    return ErrNotASpecReference.
 
-2. Call `LogicalNameParse(logical_name)`.
-   If it fails, propagate the error.
-   Let `ln` be the result.
-
-3. Call `FrontmatterParse(CfsPath(ln.Path))`.
+2. Call `parsing.ParseNode(logical_name)`.
    If it fails, return ErrUnreadableFrontmatter.
-   Store as frontmatter.
+   Store as node.
 
-4. If `frontmatter.output` is empty, return ErrNoOutput.
+4. If `node.Frontmatter.Output` is nil, return ErrNoOutput.
 
 5. Derive the artifact logical name: strip "SPEC/"
    prefix from logical_name and prepend "ARTIFACT/".
 
-6. Call `ManifestOpen("write")`. If it fails,
-   propagate the error. Store as manifest_handle.
+6. Call `manifest.OpenManifest(false)`. If it fails,
+   propagate the error. Store as m.
 
 7. Look up the artifact logical name in
-   manifest_handle.Entries. If no entry exists,
-   call `ManifestDiscard(manifest_handle)` and
+   m.Entries. If no entry exists,
+   call `m.Discard()` and
    return ErrNotModified.
 
-8. Construct CfsPath from frontmatter.output. Call
+8. Construct CfsPath from `*node.Frontmatter.Output`. Call
    `OpenFile(path, "read", 30000)`. If it fails,
-   call `ManifestDiscard(manifest_handle)` and
+   call `m.Discard()` and
    propagate the error.
 
 9. Read the full file content. Compute its SHA-1
@@ -94,22 +89,21 @@ Implement the accept tool as a Go package.
 
 10. If the computed hash equals
     entry.Checksum, call
-    `ManifestDiscard(manifest_handle)` and return
+    `m.Discard()` and return
     ErrNotModified (file matches manifest).
 
 11. Update entry.Checksum to the computed hash.
 
-12. Call `ManifestSave(manifest_handle)`. If it
+12. Call `m.Save()`. If it
     fails, propagate the error.
 
-13. Return "accepted <frontmatter.output>".
+13. Return "accepted <*node.Frontmatter.Output>".
 
 ## Go-specific guidance
 
-- Use the `logicalnames` package for `LogicalNameParse`.
-- Use the `frontmatter` package for `FrontmatterParse`.
-- Use the `manifest` package for `ManifestOpen`,
-  `ManifestSave`, `ManifestDiscard`, `ManifestEntry`.
+- Use the `parsing` package for `ParseNode`.
+- Use the `manifest` package for `OpenManifest`,
+  `Manifest`, `ManifestEntry`.
 - Use the `oslayer` package for `OpenFile`,
   `.ReadLine()`, `.Close()`, and `CfsPath`.
 - Use `crypto/sha1` and `encoding/base64`

@@ -1,34 +1,36 @@
 ---
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/utils/logical_names
-output: internal/logicalnames/logicalnames_test.go
+  - SPEC/golang/implementation/parsing(interface)
+output: internal/parsing/parsing_logicalnames_test.go
 ---
 
-# SPEC/golang/tests/utils/logical_names
+# SPEC/golang/tests/parsing/logical_names
 
-Unit tests for the logicalnames package.
+Unit tests for CfsReferenceFromName and
+CfsReferenceFromPath.
 
 # Agent
 
 ## Context
 
-Tests for `LogicalNameParse` and `LogicalNameFromPath`.
+Tests for `CfsReferenceFromName` and
+`CfsReferenceFromPath`.
 
 SPEC and EXTERNAL tests are pure string parsing — no
 filesystem needed. ARTIFACT tests require a temp
 directory with a `_node.md` file containing frontmatter
-with an `output` field, because `LogicalNameParse` reads
-the generator's frontmatter.
+with an `output` field, because `CfsReferenceFromName`
+reads the generator's frontmatter via `ParseNode`.
 
 ARTIFACT tests use the `testChdir` pattern: create a
 temp dir, chdir to it, create the necessary
 `code-from-spec/.../_node.md` files, then call
-`LogicalNameParse`.
+`CfsReferenceFromName`.
 
 ## Test cases
 
-### LogicalNameParse — SPEC type
+### CfsReferenceFromName — SPEC type
 
 #### Bare SPEC is invalid
 
@@ -38,72 +40,72 @@ Expect error: ErrUnrecognizedPrefix.
 #### SPEC root node (single segment)
 
 Input: "SPEC/domain".
-Expect: Type = NodeTypeSpec, Name = "SPEC/domain",
+Expect: NodeType = CfsNodeTypeSpec, LogicalName = "SPEC/domain",
 Qualifier = nil,
 Path = "code-from-spec/domain/_node.md",
-Parent = nil.
+ParentName = nil.
 
 #### SPEC with nested path
 
 Input: "SPEC/payments/fees/calculation".
-Expect: Type = NodeTypeSpec,
-Name = "SPEC/payments/fees/calculation",
+Expect: NodeType = CfsNodeTypeSpec,
+LogicalName = "SPEC/payments/fees/calculation",
 Qualifier = nil,
 Path = "code-from-spec/payments/fees/calculation/_node.md",
-Parent = pointer to "SPEC/payments/fees".
+ParentName = pointer to "SPEC/payments/fees".
 
 #### SPEC with qualifier
 
 Input: "SPEC/x/y(interface)".
-Expect: Type = NodeTypeSpec, Name = "SPEC/x/y",
+Expect: NodeType = CfsNodeTypeSpec, LogicalName = "SPEC/x/y",
 Qualifier = pointer to "interface",
 Path = "code-from-spec/x/y/_node.md",
-Parent = pointer to "SPEC/x".
+ParentName = pointer to "SPEC/x".
 
 #### SPEC with qualifier — root level
 
 Input: "SPEC/domain(context)".
-Expect: Type = NodeTypeSpec, Name = "SPEC/domain",
+Expect: NodeType = CfsNodeTypeSpec, LogicalName = "SPEC/domain",
 Qualifier = pointer to "context",
 Path = "code-from-spec/domain/_node.md",
-Parent = nil.
+ParentName = nil.
 
 #### SPEC with qualifier — parent is computed from unqualified name
 
 Input: "SPEC/domain/config(interface)".
-Expect: Type = NodeTypeSpec,
-Name = "SPEC/domain/config",
+Expect: NodeType = CfsNodeTypeSpec,
+LogicalName = "SPEC/domain/config",
 Qualifier = pointer to "interface",
 Path = "code-from-spec/domain/config/_node.md",
-Parent = pointer to "SPEC/domain".
+ParentName = pointer to "SPEC/domain".
 
-### LogicalNameParse — EXTERNAL type
+### CfsReferenceFromName — EXTERNAL type
 
 #### Simple external path
 
 Input: "EXTERNAL/proto/v1/api.proto".
-Expect: Type = NodeTypeExternal,
-Name = "EXTERNAL/proto/v1/api.proto",
+Expect: NodeType = CfsNodeTypeExternal,
+LogicalName = "EXTERNAL/proto/v1/api.proto",
 Qualifier = nil, Path = "proto/v1/api.proto",
-Parent = nil.
+ParentName = nil.
 
 #### Root-level external file
 
 Input: "EXTERNAL/docker-compose.yaml".
-Expect: Type = NodeTypeExternal,
-Name = "EXTERNAL/docker-compose.yaml",
+Expect: NodeType = CfsNodeTypeExternal,
+LogicalName = "EXTERNAL/docker-compose.yaml",
 Qualifier = nil, Path = "docker-compose.yaml",
-Parent = nil.
+ParentName = nil.
 
 #### Deeply nested external path
 
 Input: "EXTERNAL/a/b/c/d/schema.proto".
-Expect: Type = NodeTypeExternal,
-Name = "EXTERNAL/a/b/c/d/schema.proto",
+Expect: NodeType = CfsNodeTypeExternal,
+LogicalName = "EXTERNAL/a/b/c/d/schema.proto",
 Qualifier = nil, Path = "a/b/c/d/schema.proto",
-Parent = nil.
+ParentName = nil.
 
-### LogicalNameParse — ARTIFACT type
+### CfsReferenceFromName — ARTIFACT type
 
 These tests use the `testChdir` pattern. Before each
 test, create a temp dir, chdir to it, and create the
@@ -121,16 +123,17 @@ output: internal/extraction/proto.go
 ```
 
 Input: "ARTIFACT/extraction/proto".
-Expect: Type = NodeTypeArtifact,
-Name = "ARTIFACT/extraction/proto",
+Expect: NodeType = CfsNodeTypeArtifact,
+LogicalName = "ARTIFACT/extraction/proto",
 Qualifier = nil,
 Path = "internal/extraction/proto.go",
-Parent = pointer to "SPEC/extraction/proto".
+ParentName = pointer to "SPEC/extraction/proto".
 
 #### Artifact with nested generator
 
 Setup: create file
-`code-from-spec/payments/fees/calculation/_node.md` with:
+`code-from-spec/payments/fees/calculation/_node.md`
+with:
 ```
 ---
 output: internal/fees/calculation.go
@@ -139,11 +142,12 @@ output: internal/fees/calculation.go
 ```
 
 Input: "ARTIFACT/payments/fees/calculation".
-Expect: Type = NodeTypeArtifact,
-Name = "ARTIFACT/payments/fees/calculation",
+Expect: NodeType = CfsNodeTypeArtifact,
+LogicalName = "ARTIFACT/payments/fees/calculation",
 Qualifier = nil,
 Path = "internal/fees/calculation.go",
-Parent = pointer to "SPEC/payments/fees/calculation".
+ParentName = pointer to
+"SPEC/payments/fees/calculation".
 
 #### Artifact generator has no output
 
@@ -161,10 +165,10 @@ Expect error: ErrNoOutput.
 #### Artifact generator does not exist on disk
 
 Input: "ARTIFACT/nonexistent/node".
-Expect error: propagated from FrontmatterParse
+Expect error: propagated from ParseNode
 (generator's _node.md file is missing).
 
-### LogicalNameParse — errors
+### CfsReferenceFromName — errors
 
 #### Unrecognized prefix
 
@@ -196,31 +200,31 @@ Expect error: ErrInvalidName.
 Input: "EXTERNAL/".
 Expect error: ErrInvalidName.
 
-### LogicalNameFromPath
+### CfsReferenceFromPath
 
 #### Root node (direct child of code-from-spec/)
 
 Input: CfsPath "code-from-spec/domain/_node.md".
-Expect: Type = NodeTypeSpec, Name = "SPEC/domain",
+Expect: NodeType = CfsNodeTypeSpec, LogicalName = "SPEC/domain",
 Qualifier = nil,
 Path = "code-from-spec/domain/_node.md",
-Parent = nil.
+ParentName = nil.
 
 #### Nested node
 
 Input: CfsPath "code-from-spec/x/y/_node.md".
-Expect: Type = NodeTypeSpec, Name = "SPEC/x/y",
+Expect: NodeType = CfsNodeTypeSpec, LogicalName = "SPEC/x/y",
 Qualifier = nil,
 Path = "code-from-spec/x/y/_node.md",
-Parent = pointer to "SPEC/x".
+ParentName = pointer to "SPEC/x".
 
 #### Deeply nested node
 
 Input: CfsPath "code-from-spec/a/b/c/d/_node.md".
-Expect: Type = NodeTypeSpec, Name = "SPEC/a/b/c/d",
+Expect: NodeType = CfsNodeTypeSpec, LogicalName = "SPEC/a/b/c/d",
 Qualifier = nil,
 Path = "code-from-spec/a/b/c/d/_node.md",
-Parent = pointer to "SPEC/a/b/c".
+ParentName = pointer to "SPEC/a/b/c".
 
 #### Rejects bare code-from-spec/_node.md
 
@@ -244,13 +248,13 @@ Expect error: ErrInvalidPath.
 
 ## Go-specific guidance
 
-- The package name is `logicalnames_test` (external
-  test package).
+- The package name is `parsing_test` (external test
+  package).
 - SPEC and EXTERNAL tests are pure — no filesystem
   needed.
-- ARTIFACT tests and LogicalNameFromPath tests do not
+- ARTIFACT tests and CfsReferenceFromPath tests do not
   need filesystem either — except for the ARTIFACT
-  tests that call `LogicalNameParse` (which reads
+  tests that call `CfsReferenceFromName` (which reads
   frontmatter). Those use the `testChdir` pattern.
 - Use table-driven tests where appropriate.
 - Compare pointer fields: for nil, check `== nil`;

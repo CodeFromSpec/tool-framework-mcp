@@ -4,11 +4,10 @@ depends_on:
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/spec_tree/scan
   - SPEC/golang/implementation/spec_tree/validate
-  - SPEC/golang/implementation/utils/node_ranking
+  - SPEC/golang/implementation/spec_tree/ranking
 output: internal/mcpvalidatespecs/mcpvalidatespecs.go
 ---
 
@@ -83,26 +82,19 @@ Implement the validate specs tool as a Go package.
 
 ### Step 2 — Parse all nodes
 
-3. For each discovered LogicalName (`ln`):
-     a. Call `FrontmatterParse(CfsPath(ln.Path))`.
-        If it fails, add FormatError(node=ln.Name,
-        rule="parse", detail=<error message>) to
-        format_errors. Mark node as parse-failed.
-        Continue to next node.
-     b. Call `NodeParse(ln.Name)`. If it fails,
-        add FormatError(node=ln.Name,
-        rule="parse", detail=<error message>) to
-        format_errors. Mark node as parse-failed.
-        Continue to next node.
-     c. Cache (ln, frontmatter, parsed_node) keyed by
-        ln.Name.
+3. For each discovered CfsReference (`ref`):
+     a. Call `parsing.ParseNode(ref.LogicalName)`.
+        If it fails, add FormatError(
+        node=ref.LogicalName, rule="parse",
+        detail=<error message>) to format_errors.
+        Mark node as parse-failed. Continue to next
+        node.
+     b. Cache node keyed by node.Reference.LogicalName.
 
 ### Step 3 — Format validation
 
-4. Build a list of SpecTreeValidateInput from
-   successfully parsed nodes: each entry =
-   (ln.Name, frontmatter, parsed_node).
-   Call `SpecTreeValidate(entries, all_dirs)`. Append
+4. Collect successfully parsed nodes into a list.
+   Call `SpecTreeValidate(nodes, all_dirs)`. Append
    all returned FormatError entries to format_errors.
 
 ### Step 4 — Ranking and cycle detection
@@ -111,10 +103,8 @@ Implement the validate specs tool as a Go package.
      Skip ranking step. ranked_entries = empty.
      cycles = [].
    Else:
-     Build a list of NodeRankInput from successfully
-     parsed nodes: each entry =
-     (ln.Name, ln.Parent, frontmatter).
-     Call `NodeRankCompute(entries)`.
+     Call `NodeRankCompute(nodes)` with the successfully
+     parsed nodes.
      If NodeRankCompute returns UnresolvableReference
      error:
        Append FormatError(node="", rule="ranking",
@@ -125,9 +115,9 @@ Implement the validate specs tool as a Go package.
 
 ### Step 5 — Read manifest
 
-6. Call `ManifestOpen("read")`. If it fails, treat
-   as empty manifest (no entries). Store the result
-   as `manifest_handle`.
+6. Call `manifest.OpenManifest(true)`. If it fails,
+   treat as empty manifest (no entries). Store the
+   result as `m`.
 
 ### Step 6 — Staleness detection
 
@@ -163,7 +153,7 @@ Implement the validate specs tool as a Go package.
         to staleness. Continue to next node.
 
      d. Look up the artifact logical name in
-        manifest_handle.Entries.
+        m.Entries.
 
         If no entry exists: Append StalenessEntry with
         status="missing", detail="no manifest entry".
@@ -198,7 +188,7 @@ Implement the validate specs tool as a Go package.
 
 ### Step 7 — Orphan detection
 
-8. For each entry in manifest_handle.Entries:
+8. For each entry in m.Entries:
      Derive the generating node's logical name: strip
      "ARTIFACT/" prefix and prepend "SPEC/".
      If no successfully parsed node has that logical
@@ -225,18 +215,17 @@ Implement the validate specs tool as a Go package.
 ## Go-specific guidance
 
 - Use the `spectree` package for `SpecTreeScan`.
-- Use the `logicalnames` package for `LogicalName`.
+- Use the `parsing` package for `ParseNode`,
+  `CfsReference`, `NodeFrontmatter`, `Node`.
 - Use the `spectreevalidate` package for
-  `SpecTreeValidate` and `SpecTreeValidateInput`,
+  `SpecTreeValidate` and
   `FormatError`.
-- Use the `noderanking` package for `NodeRankCompute`,
-  `NodeRankInput`, `NodeRankEntry`.
+- Use the `noderanking` package for `NodeRankCompute`
+  and `NodeRankEntry`.
 - Use the `chainresolver` package for `ChainResolve`.
 - Use the `chainhash` package for `ChainHashCompute`.
-- Use the `manifest` package for `ManifestOpen`,
-  `ManifestHandle`, `ManifestEntry`.
-- Use the `frontmatter` package for `FrontmatterParse`.
-- Use the `parsenode` package for `NodeParse`.
+- Use the `manifest` package for `OpenManifest`,
+  `Manifest`, `ManifestEntry`.
 - Use the `oslayer` package for `OpenFile`,
   `.ReadLine()`, `.Close()`, `ValidateCfsPath`, and
   `CfsPath`.

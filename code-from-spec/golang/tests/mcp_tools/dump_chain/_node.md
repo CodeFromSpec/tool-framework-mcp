@@ -3,7 +3,7 @@ depends_on:
   - SPEC/golang/implementation/mcp_tools/dump_chain
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/mcpdumpchain/mcpdumpchain_test.go
 ---
 

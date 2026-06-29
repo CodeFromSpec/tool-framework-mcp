@@ -12,7 +12,7 @@ output: internal/manifest/manifest_test.go
 
 ## Test cases
 
-### ManifestOpen — read mode — happy path
+### OpenManifest — readOnly — happy path
 
 #### Read existing manifest
 
@@ -23,12 +23,11 @@ Setup:
   fields.
 
 Actions:
-1. Call `ManifestOpen("read")`.
+1. Call `manifest.OpenManifest(true)`.
 
 Expected outcome:
-- Returns a ManifestHandle with `Mode` = `"read"`,
-  `Version` = `"v5"`, and an Entries map containing
-  both entries.
+- Returns a Manifest with `Version` = `"v5"`, and an
+  Entries map containing both entries.
 - Each entry has the correct Path, Checksum, and
   ChainHash matching the file contents.
 
@@ -39,10 +38,10 @@ Setup:
   line.
 
 Actions:
-1. Call `ManifestOpen("read")`.
+1. Call `manifest.OpenManifest(true)`.
 
 Expected outcome:
-- Returns a ManifestHandle with an empty Entries map.
+- Returns a Manifest with an empty Entries map.
 
 #### Read missing manifest
 
@@ -50,13 +49,13 @@ Setup:
 - No `.manifest` file exists on disk.
 
 Actions:
-1. Call `ManifestOpen("read")`.
+1. Call `manifest.OpenManifest(true)`.
 
 Expected outcome:
-- Returns a ManifestHandle with an empty Entries map.
+- Returns a Manifest with an empty Entries map.
 - No files are created on disk.
 
-### ManifestOpen — write mode — happy path
+### OpenManifest — writable — happy path
 
 #### Write mode loads existing entries
 
@@ -65,13 +64,13 @@ Setup:
   entry.
 
 Actions:
-1. Call `ManifestOpen("write")`.
-2. Call `ManifestDiscard` to release the lock.
+1. Call `manifest.OpenManifest(false)`.
+2. Call `m.Discard()` to release the lock.
 
 Expected outcome:
-- `ManifestOpen` returns a ManifestHandle with an
-  Entries map containing the one entry.
-- `ManifestDiscard` succeeds without error.
+- `OpenManifest` returns a Manifest with an Entries map
+  containing the one entry.
+- `m.Discard()` succeeds without error.
 
 #### Write mode with missing manifest
 
@@ -79,15 +78,15 @@ Setup:
 - No `.manifest` file exists on disk.
 
 Actions:
-1. Call `ManifestOpen("write")`.
-2. Call `ManifestDiscard` to release the lock.
+1. Call `manifest.OpenManifest(false)`.
+2. Call `m.Discard()` to release the lock.
 
 Expected outcome:
-- `ManifestOpen` returns a ManifestHandle with an empty
+- `OpenManifest` returns a Manifest with an empty
   Entries map.
-- `ManifestDiscard` succeeds without error.
+- `m.Discard()` succeeds without error.
 
-### ManifestSave — happy path
+### Save — happy path
 
 #### Save creates manifest from scratch
 
@@ -95,11 +94,10 @@ Setup:
 - No `.manifest` file exists on disk.
 
 Actions:
-1. Call `ManifestOpen("write")`.
-2. Add two entries to the handle's Entries map (with
-   distinct logical names, paths, checksums, and chain
-   hashes).
-3. Call `ManifestSave`.
+1. Call `manifest.OpenManifest(false)`.
+2. Add two entries to m.Entries (with distinct logical
+   names, paths, checksums, and chain hashes).
+3. Call `m.Save()`.
 4. Read the `.manifest` file from disk.
 
 Expected outcome:
@@ -114,10 +112,10 @@ Setup:
   name `"ARTIFACT/alpha"`).
 
 Actions:
-1. Call `ManifestOpen("write")`.
+1. Call `manifest.OpenManifest(false)`.
 2. Add a second entry with logical name
-   `"ARTIFACT/beta"` to the handle's Entries map.
-3. Call `ManifestSave`.
+   `"ARTIFACT/beta"` to m.Entries.
+3. Call `m.Save()`.
 4. Read the `.manifest` file from disk.
 
 Expected outcome:
@@ -132,10 +130,10 @@ Setup:
   name `"ARTIFACT/alpha"`, checksum `"old-checksum"`).
 
 Actions:
-1. Call `ManifestOpen("write")`.
+1. Call `manifest.OpenManifest(false)`.
 2. Modify the Checksum of the `"ARTIFACT/alpha"` entry
-   in the handle's Entries map to `"new-checksum"`.
-3. Call `ManifestSave`.
+   in m.Entries to `"new-checksum"`.
+3. Call `m.Save()`.
 4. Read the `.manifest` file from disk.
 
 Expected outcome:
@@ -149,17 +147,16 @@ Setup:
   names `"ARTIFACT/alpha"` and `"ARTIFACT/beta"`).
 
 Actions:
-1. Call `ManifestOpen("write")`.
-2. Remove the `"ARTIFACT/beta"` entry from the Entries
-   map.
-3. Call `ManifestSave`.
+1. Call `manifest.OpenManifest(false)`.
+2. Remove the `"ARTIFACT/beta"` entry from m.Entries.
+3. Call `m.Save()`.
 4. Read the `.manifest` file from disk.
 
 Expected outcome:
 - The file contains the header line followed by only
   the `"ARTIFACT/alpha"` entry.
 
-### ManifestDiscard — happy path
+### Discard — happy path
 
 #### Discard does not modify file
 
@@ -168,10 +165,10 @@ Setup:
   name `"ARTIFACT/alpha"`).
 
 Actions:
-1. Call `ManifestOpen("write")`.
+1. Call `manifest.OpenManifest(false)`.
 2. Add a second entry with logical name
-   `"ARTIFACT/beta"` to the Entries map.
-3. Call `ManifestDiscard`.
+   `"ARTIFACT/beta"` to m.Entries.
+3. Call `m.Discard()`.
 4. Read the `.manifest` file from disk.
 
 Expected outcome:
@@ -179,85 +176,76 @@ Expected outcome:
   entry.
 - The `"ARTIFACT/beta"` addition was discarded.
 
-### Wrong mode — failure cases
+### ReadOnly — failure cases
 
-#### Save on read handle
-
-Actions:
-1. Call `ManifestOpen("read")`.
-2. Call `ManifestSave` on the returned handle.
-
-Expected outcome:
-- `ManifestSave` returns `ErrWrongMode`.
-
-#### Discard on read handle
+#### Save on readOnly manifest
 
 Actions:
-1. Call `ManifestOpen("read")`.
-2. Call `ManifestDiscard` on the returned handle.
+1. Call `manifest.OpenManifest(true)`.
+2. Call `m.Save()`.
 
 Expected outcome:
-- `ManifestDiscard` returns `ErrWrongMode`.
+- `m.Save()` returns `ErrReadOnly`.
 
-### Handle closed — failure cases
-
-#### Discard after save
+#### Discard on readOnly manifest
 
 Actions:
-1. Call `ManifestOpen("write")`.
-2. Call `ManifestSave`.
-3. Call `ManifestDiscard` on the same handle.
+1. Call `manifest.OpenManifest(true)`.
+2. Call `m.Discard()`.
 
 Expected outcome:
-- `ManifestDiscard` returns `ErrHandleClosed`.
+- `m.Discard()` returns `ErrReadOnly`.
 
-#### Save after discard
+### Closed — failure cases
+
+#### Discard after Save
 
 Actions:
-1. Call `ManifestOpen("write")`.
-2. Call `ManifestDiscard`.
-3. Call `ManifestSave` on the same handle.
+1. Call `manifest.OpenManifest(false)`.
+2. Call `m.Save()`.
+3. Call `m.Discard()`.
 
 Expected outcome:
-- `ManifestSave` returns `ErrHandleClosed`.
+- `m.Discard()` returns `ErrManifestClosed`.
 
-#### Save after save
+#### Save after Discard
 
 Actions:
-1. Call `ManifestOpen("write")`.
-2. Call `ManifestSave`.
-3. Call `ManifestSave` again on the same handle.
+1. Call `manifest.OpenManifest(false)`.
+2. Call `m.Discard()`.
+3. Call `m.Save()`.
 
 Expected outcome:
-- The second `ManifestSave` returns `ErrHandleClosed`.
+- `m.Save()` returns `ErrManifestClosed`.
 
-#### Discard after discard
+#### Save after Save
 
 Actions:
-1. Call `ManifestOpen("write")`.
-2. Call `ManifestDiscard`.
-3. Call `ManifestDiscard` again on the same handle.
+1. Call `manifest.OpenManifest(false)`.
+2. Call `m.Save()`.
+3. Call `m.Save()` again.
 
 Expected outcome:
-- The second `ManifestDiscard` returns `ErrHandleClosed`.
+- The second `m.Save()` returns `ErrManifestClosed`.
 
-### Invalid mode
-
-#### ManifestOpen rejects unknown mode
+#### Discard after Discard
 
 Actions:
-1. Call `ManifestOpen("invalid")`.
+1. Call `manifest.OpenManifest(false)`.
+2. Call `m.Discard()`.
+3. Call `m.Discard()` again.
 
 Expected outcome:
-- Returns `ErrInvalidMode`.
+- The second `m.Discard()` returns `ErrManifestClosed`.
 
 ### Concurrency
 
 #### Concurrent readers do not block
 
 Actions:
-1. Call `ManifestOpen("read")` from one goroutine.
-2. Call `ManifestOpen("read")` from a second goroutine.
+1. Call `manifest.OpenManifest(true)` from one goroutine.
+2. Call `manifest.OpenManifest(true)` from a second
+   goroutine.
 
 Expected outcome:
 - Both calls succeed without either blocking the other.
@@ -265,33 +253,32 @@ Expected outcome:
 #### Writer blocks reader
 
 Actions:
-1. Call `ManifestOpen("write")` to acquire the exclusive
-   lock.
+1. Call `manifest.OpenManifest(false)` to acquire the
+   exclusive lock.
 2. In a separate goroutine, call
-   `ManifestOpen("read")`.
-3. Call `ManifestDiscard` on the writer handle.
+   `manifest.OpenManifest(true)`.
+3. Call `m.Discard()` on the writer.
 
 Expected outcome:
-- The `ManifestOpen("read")` in step 2 blocks until
-  `ManifestDiscard` is called in step 3.
+- The `OpenManifest(true)` in step 2 blocks until
+  `m.Discard()` is called in step 3.
 - After the lock is released, the read call returns a
-  ManifestHandle successfully.
+  Manifest successfully.
 
 #### Writer blocks writer
 
 Actions:
-1. Call `ManifestOpen("write")` to acquire the exclusive
-   lock.
+1. Call `manifest.OpenManifest(false)` to acquire the
+   exclusive lock.
 2. In a separate goroutine, call
-   `ManifestOpen("write")`.
-3. Call `ManifestSave` or `ManifestDiscard` on the first
-   writer handle.
+   `manifest.OpenManifest(false)`.
+3. Call `m.Save()` or `m.Discard()` on the first writer.
 
 Expected outcome:
-- The second `ManifestOpen("write")` in step 2 blocks
-  until the first handle is closed in step 3.
+- The second `OpenManifest(false)` in step 2 blocks
+  until the first manifest is closed in step 3.
 - After the lock is released, the second write call
-  returns a ManifestHandle successfully.
+  returns a Manifest successfully.
 
 ## Go-specific guidance
 

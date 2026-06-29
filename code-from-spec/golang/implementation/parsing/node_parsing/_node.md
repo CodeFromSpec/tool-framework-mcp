@@ -1,110 +1,98 @@
 ---
 depends_on:
+  - SPEC/golang/dependencies/goccy-go-yaml
   - SPEC/golang/dependencies/yuin-goldmark
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/utils/logical_names
-  - SPEC/golang/implementation/utils/text_normalization
-output: internal/parsenode/parsenode.go
+output: internal/parsing/node_parsing.go
 ---
 
 # SPEC/golang/implementation/parsing/node_parsing
 
-Parses the body of a spec node file into a structured
-representation of its sections and subsections using
-goldmark for CommonMark parsing.
-
-# Public
-
-## Package
-
-`package parsenode`
-
-## Import
-
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsenode"`
-
-## Interface
-
-```go
-type NodeSubsection struct {
-	Heading    string
-	RawHeading string
-	Content    []string
-}
-
-type NodeSection struct {
-	Heading     string
-	RawHeading  string
-	Content     []string
-	Subsections []*NodeSubsection
-}
-
-type Node struct {
-	NameSection *NodeSection
-	Public      *NodeSection // nil if absent
-	Agent       *NodeSection // nil if absent
-	Private     *NodeSection // nil if absent
-}
-
-func NodeParse(logicalName string) (*Node, error)
-```
-
-`Heading` is the normalized form (after `NormalizeText`),
-used for comparisons and lookups. `RawHeading` is the
-original heading line as it appears in the file (including
-`#` prefix and closing `##` if present), preserved for
-hashing.
-
-`Content` is a list of lines between the heading and
-the next structural heading (or end of file). Lines do
-not include line terminators.
-
-### Errors
-
-- `ErrNotASpecReference`
-- `ErrHasQualifier`
-- `ErrFileUnreadable`
-- `ErrUnexpectedContentBeforeFirstHeading`
-- `ErrNodeNameDoesNotMatch`
-- `ErrDuplicatePublicSection`
-- `ErrDuplicateAgentSection`
-- `ErrDuplicatePrivateSection`
-- `ErrUnrecognizedSection`
-- `ErrDuplicateSubsection`
+Opens a spec node file, extracts frontmatter and body,
+and returns a structured representation. The file is
+opened and read once.
 
 # Agent
 
-Implement the node parsing component as a Go package.
+Implement the types and function listed in the
+Ownership section as a Go file in package `parsing`.
+
+## Ownership
+
+This file declares and implements:
+- Types: `NodeFrontmatter`, `NodeSubsection`,
+  `NodeSection`, `Node`
+- Function: `ParseNode`
+
+The following exist in other files of this package and
+can be used but must not be redeclared:
+- Functions: `NormalizeText` — declared in
+  `text_normalization.go`.
+- Functions: `CfsReferenceFromName` — declared in
+  `logical_names.go`.
+- Types: `CfsReference`, `CfsNodeTypeSpec` — declared
+  in `logical_names.go`.
+- Types and functions from the oslayer package
+  (`CfsPath`, `OpenFile`, etc.) — imported externally.
+- Error sentinels — declared in `errors.go`.
+
+All unexported helpers must use the suffix `NP`
+(e.g. `extractHeadingNP`, `buildSectionsNP`,
+`parseYamlNP`). This is mandatory to avoid name
+collisions with other files in the package.
 
 ## Logic
 
-### Validate logical name
+### Step 1 — Validate logical name
 
-- Call LogicalNameParse(logical_name). If it fails,
-  raise ErrNotASpecReference. Let `ln` be the result.
-- If ln.Type is not NodeTypeSpec, raise
+- Call CfsReferenceFromName(logical_name). If it fails,
+  raise ErrNotASpecReference. Let `ref` be the result.
+- If ref.NodeType is not CfsNodeTypeSpec, raise
   ErrNotASpecReference.
-- If ln.Qualifier is not nil, raise ErrHasQualifier.
+- If ref.Qualifier is not nil, raise ErrHasQualifier.
 
-### Read file
+### Step 2 — Read file
 
-- Call OpenFile(CfsPath(ln.Path), "read",
-  30000). If it fails, raise ErrFileUnreadable.
-- Read all lines using handle.ReadLine() in a loop until
-  ErrEndOfFile. Collect all lines. Call handle.Close().
+- Call oslayer.OpenFile(oslayer.CfsPath(ref.Path),
+  "read", 30000). If it fails, raise ErrFileUnreadable.
+- Read all lines using handle.ReadLine() in a loop
+  until ErrEndOfFile. Collect all lines. Call
+  handle.Close().
 - Join all lines with `\n` and append a trailing `\n`.
   Let `source` be the resulting byte slice.
 
-### Skip frontmatter
+### Step 3 — Extract frontmatter
 
-- If `source` starts with `---\n`:
-    Find the next occurrence of `\n---\n` after the
-    first line. If not found, raise
-    ErrUnexpectedContentBeforeFirstHeading.
-    Let `body` = everything after the closing `---\n`.
-- Else: let `body` = `source`.
+- If `source` does not start with `---\n`:
+    Set frontmatter = nil. Let `body` = `source`.
+    Skip to step 4.
 
-### Parse with goldmark
+- Find the next occurrence of `\n---\n` after the
+  first line. If not found, raise ErrMalformedYAML.
+
+- Extract the text between the opening `---\n` and the
+  closing `\n---\n` as `yaml_text`.
+
+- Let `body` = everything after the closing `---\n`.
+
+- If `yaml_text` is empty (nothing between delimiters):
+    Set frontmatter = nil.
+    Skip to step 4.
+
+- Parse `yaml_text` as YAML. If parsing fails, raise
+  ErrMalformedYAML.
+
+- From the parsed YAML, extract the following fields,
+  ignoring all other keys:
+  - depends_on: list of strings. If absent or null,
+    use nil.
+  - input: *string. If absent or null, use nil.
+  - output: *string. If absent or null, use nil.
+
+- Build a NodeFrontmatter record with the extracted
+  fields. Set frontmatter to a pointer to this record.
+
+### Step 4 — Parse body with goldmark
 
 - Parse `body` with goldmark:
   ```
@@ -112,7 +100,7 @@ Implement the node parsing component as a Go package.
   doc := md.Parser().Parse(text.NewReader(body))
   ```
 
-### Collect structural headings
+### Step 5 — Collect structural headings
 
 Iterate the direct children of `doc`. For each child
 that is `*ast.Heading` with Level 1 or 2:
@@ -155,7 +143,7 @@ If there is non-blank content in `body` before the
 first structural heading, raise
 ErrUnexpectedContentBeforeFirstHeading.
 
-### Build sections
+### Step 6 — Build sections
 
 Process the collected heading records in order.
 
@@ -202,25 +190,34 @@ Each subsection gets its own content lines.
 If name_section is absent, raise
 ErrUnexpectedContentBeforeFirstHeading.
 
-Return Node with name_section, public, agent, private.
+### Step 7 — Return result
+
+Return Node with reference = *ref, frontmatter,
+name_section, public, agent, private.
 
 ## Go-specific guidance
 
+- Use `github.com/goccy/go-yaml` for YAML unmarshalling.
+  Define an unexported struct with `yaml` tags to map
+  YAML keys to Go fields, then convert to the exported
+  NodeFrontmatter type.
 - Use `goldmark.New()` and `md.Parser().Parse(
-  text.NewReader(body))` for parsing.
+  text.NewReader(body))` for body parsing.
 - Use direct child iteration
   (`doc.FirstChild()` / `NextSibling()`) to collect
   headings. Check `n.Kind() == ast.KindHeading` and
   cast to `*ast.Heading` to read `Level`.
-- Use `textnormalization.NormalizeText` for heading
+- Use `NormalizeText` from this package for heading
   comparisons.
-- Use `logicalnames.LogicalNameParse` for validation.
-  Use `logicalnames.NodeTypeSpec` for type comparison.
+- Use `CfsReferenceFromName` and `CfsNodeTypeSpec`
+  from this package for validation.
 - Use the `oslayer` package for `OpenFile`,
   `.ReadLine()`, `.Close()`, and `CfsPath`.
 - Split content by `\n` using `strings.Split` on the
   string cast of the byte slice range.
-- The package name should be `parsenode`.
+- Error wrapping: wrap all errors with `fmt.Errorf`
+  using `%w` so callers can match with `errors.Is()`.
+- The package name should be `parsing`.
 
 # Private
 
@@ -250,3 +247,13 @@ The public interface keeps `Content []string` for
 compatibility with chainhash and load_chain, which
 process content line by line. Internally, the byte
 range from the source is split into lines.
+
+### Unified frontmatter and body parsing
+
+Frontmatter extraction and body parsing were previously
+separate packages. Unified into a single function
+(`ParseNode`) that opens the file once, extracts
+frontmatter from the YAML block, and parses the body
+with goldmark. Eliminates double file I/O and
+simplifies the public API — callers get both frontmatter
+and structured body from one call.

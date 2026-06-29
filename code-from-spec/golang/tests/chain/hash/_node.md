@@ -3,8 +3,7 @@ depends_on:
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/chainhash/chainhash_test.go
 ---
 
@@ -14,27 +13,29 @@ output: internal/chainhash/chainhash_test.go
 
 ## Test setup guidance
 
-`ChainHashCompute` calls `NodeParse` internally for spec
-node positions (ancestors, target, SPEC/ dependencies).
-`NodeParse` requires a valid `SPEC/` logical name that
-resolves to a `_node.md` file on disk.
+`ChainHashCompute` calls `parsing.ParseNode` internally
+for spec node positions (ancestors, target, SPEC/
+dependencies). `parsing.ParseNode` requires a valid
+`SPEC/` logical name that resolves to a `_node.md` file
+on disk.
 
 Therefore, tests that reference spec nodes must:
 1. Use `testChdir` to set the working directory.
 2. Create `code-from-spec/.../_node.md` files on disk
-   matching the logical names used in ChainItems.
-3. Set `ChainItem.LogicalName` to a valid `SPEC/`
+   matching the logical names used in CfsReferences.
+3. Set `CfsReference.LogicalName` to a valid `SPEC/`
    logical name (e.g. `"SPEC/root/a"`), not a file path.
-4. Set `ChainItem.FilePath` to the corresponding
-   `CfsPath` (e.g. `CfsPath("code-from-spec/root/a/_node.md")`).
+4. Set `CfsReference.Path` to the corresponding path
+   (e.g. `"code-from-spec/root/a/_node.md"`).
 
-For ARTIFACT/ items, `ChainItem.LogicalName` must start
-with `"ARTIFACT/"` so the implementation reads the file
-directly instead of calling `NodeParse`.
+For ARTIFACT/ items, `CfsReference.LogicalName` must
+start with `"ARTIFACT/"` so the implementation reads
+the file directly instead of calling
+`parsing.ParseNode`.
 
 Node files on disk must have valid structure for
-`NodeParse`: at minimum a `# <logical_name>` heading
-as the first heading.
+`parsing.ParseNode`: at minimum a `# <logical_name>`
+heading as the first heading.
 
 ## Test cases
 
@@ -45,7 +46,7 @@ as the first heading.
 Setup:
 - Create a `_node.md` file for SPEC/root/a with `# Public`
   containing a `## Interface` subsection.
-- Build a Chain with target = ChainItem pointing to
+- Build a Chain with target = CfsReference pointing to
   SPEC/a.
 
 Actions:
@@ -58,7 +59,7 @@ Expected: Both results are identical strings.
 Setup:
 - Create a `_node.md` file for SPEC/root/a with `# Public`
   containing a `## Interface` subsection.
-- Build a Chain with target = ChainItem pointing to
+- Build a Chain with target = CfsReference pointing to
   that file.
 
 Actions:
@@ -333,7 +334,7 @@ Setup:
 - Create an artifact file with content.
 - Create SPEC/root/a with `# Public` → `## Interface`.
 - Build Chain with target = SPEC/root/a, input =
-  ChainItem(ARTIFACT/input, file_path=<path>).
+  CfsReference(ARTIFACT/input, Path=<path>).
 
 Actions:
 1. Call ChainHashCompute → hash_before.

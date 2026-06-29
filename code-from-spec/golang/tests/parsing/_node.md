@@ -1,3 +1,4 @@
 # SPEC/golang/tests/parsing
 
-Go tests for parsing components.
+Tests for the consolidated parsing package.
+All test files use `package parsing_test`.

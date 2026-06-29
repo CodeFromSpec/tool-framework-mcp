@@ -1,12 +1,11 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/utils/logical_names
-  - SPEC/golang/implementation/utils/node_ranking
+  - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/spec_tree/ranking
 output: internal/noderanking/noderanking_test.go
 ---
 
-# SPEC/golang/tests/utils/node_ranking
+# SPEC/golang/tests/spec_tree/ranking
 
 # Agent
 
@@ -22,13 +21,15 @@ where a tree hierarchy is needed.
 #### Root only
 
 Setup:
-- entries = [NodeRankInput { LogicalName: "SPEC/root",
-  Parent: nil, Frontmatter: empty }]
+- entries = [parsing.Node with
+  Reference.LogicalName = "SPEC/root",
+  Reference.ParentName = nil, Frontmatter = nil]
 
 Actions:
 1. Call NodeRankCompute(entries).
 
-Expected: ranked = [{ "SPEC/root", rank: 0 }],
+Expected: ranked = [{ Reference.LogicalName =
+"SPEC/root", Rank = 0 }],
 cycles = [].
 
 #### Linear chain — incrementing ranks
@@ -278,8 +279,10 @@ Expected: Error ErrUnresolvableReference.
 - The package name is `noderanking_test` (external test
   package).
 - Use `t.TempDir()` for isolation.
-- Build NodeRankInput records directly — no file I/O.
-- Set Parent to nil for root nodes (e.g. "SPEC/root"),
-  and to the parent logical name for nested nodes
-  (e.g. Parent = pointer to "SPEC/root" for
-  "SPEC/root/a").
+- Build parsing.Node records directly — no file I/O.
+- Set Reference.ParentName to nil for root nodes
+  (e.g. "SPEC/root"), and to the parent logical name
+  for nested nodes (e.g. ParentName = pointer to
+  "SPEC/root" for "SPEC/root/a").
+- Set Frontmatter to nil for nodes without frontmatter
+  fields. Use *string for Input and Output.

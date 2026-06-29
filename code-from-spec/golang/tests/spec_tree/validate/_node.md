@@ -1,10 +1,8 @@
 ---
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/spec_tree/validate
-  - SPEC/golang/implementation/utils/text_normalization
 output: internal/spectreevalidate/spectreevalidate_test.go
 ---
 
@@ -14,22 +12,24 @@ output: internal/spectreevalidate/spectreevalidate_test.go
 
 ## Test setup guidance
 
-`SpecTreeValidate` receives `SpecTreeValidateInput`
-entries built by the caller. Each entry has:
-- `LogicalName`: a string like `"SPEC/root/a"`.
-- `Frontmatter`: a `*frontmatter.Frontmatter` struct.
-- `Node`: a `*parsenode.Node` struct.
-
-The `Node` must be constructed to match what `NodeParse`
-would produce:
+`SpecTreeValidate` receives `[]parsing.Node` entries
+built by the caller. Each `parsing.Node` must be
+constructed to match what `parsing.ParseNode` would
+produce:
+- `Reference.LogicalName`: a string like
+  `"SPEC/root/a"`.
+- `Reference.ParentName`: pointer to parent's logical
+  name, or nil for root nodes.
+- `Frontmatter`: a `*parsing.NodeFrontmatter` struct
+  (nil if absent).
 - `NameSection.Heading`: normalized form of the logical
   name (e.g. `"spec/root/a"` for `"SPEC/root/a"`). Use
-  `textnormalization.NormalizeText` or hardcode the
-  lowercase form.
+  `parsing.NormalizeText` or hardcode the lowercase
+  form.
 - `NameSection.RawHeading`: the original heading line
   (e.g. `"# SPEC/root/a"`).
 - `NameSection.Content`: `[]string` (can be empty).
-- `Public`: if present, a `*parsenode.NodeSection` with
+- `Public`: if present, a `*parsing.NodeSection` with
   `Heading: "public"`, `RawHeading: "# Public"`,
   `Content: []string{...}`, and `Subsections` as needed.
 - `Agent`: if present, similar structure with
@@ -545,5 +545,5 @@ Expected: No format errors.
   test package).
 - Use `t.TempDir()` for isolation.
 - Use `testChdir` helper for EXTERNAL file tests.
-- Build SpecTreeValidateInput records directly — no
-  file I/O except for EXTERNAL reference tests.
+- Build parsing.Node records directly — no file I/O
+  except for EXTERNAL reference tests.

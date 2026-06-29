@@ -4,10 +4,7 @@ depends_on:
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/parsing/node_parsing
-  - SPEC/golang/implementation/utils/logical_names
-  - SPEC/golang/implementation/utils/text_normalization
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/mcploadchain/mcploadchain.go
 ---
 
@@ -74,8 +71,8 @@ in this version (cache is not implemented yet).
   outside the framework (checksum in manifest does not
   match file on disk). The artifact must be accepted
   or deleted before regeneration.
-- Propagated errors from `logicalnames`, `chainresolver`,
-  `chainhash`, `parsenode`, `oslayer`, `manifest` packages.
+- Propagated errors from `parsing`, `chainresolver`,
+  `chainhash`, `oslayer`, `manifest` packages.
 
 # Agent
 
@@ -85,28 +82,25 @@ Implement the load chain tool as a Go package.
 
 ### Step 1 — Validate and resolve
 
-1. Call `LogicalNameParse(logical_name)` to parse
-   the target node. If it fails, propagate the error.
-   Let `ln` be the result.
-
-2. Call `FrontmatterParse(CfsPath(ln.Path))`
-   to read the target node's frontmatter. If
-   `frontmatter.output` is empty, return error
-   ErrNoOutput. Call `ValidateCfsPath(frontmatter.output)`.
+1. Call `parsing.ParseNode(logical_name)` to read and
+   parse the target node. If it fails, propagate the
+   error. If `node.Frontmatter.Output` is nil,
+   return error ErrNoOutput. Call
+   `ValidateCfsPath(*node.Frontmatter.Output)`.
    If it fails, return ErrInvalidOutputPath.
 
 3. Check if the artifact is modified:
-   Call `ManifestOpen("read")`. If it succeeds, look
-   up the artifact logical name (strip "SPEC/" from
-   logical_name, prepend "ARTIFACT/") in
-   manifest_handle.Entries. If an entry exists:
-     Construct CfsPath from frontmatter.output. Try
+   Call `manifest.OpenManifest(true)`. If it succeeds,
+   look up the artifact logical name (strip "SPEC/"
+   from logical_name, prepend "ARTIFACT/") in
+   m.Entries. If an entry exists:
+     Construct CfsPath from `*node.Frontmatter.Output`. Try
      to read the file on disk and compute its SHA-1
      hash (base64url, 27 chars) using the same
      normalization as validate_specs. If the file
      exists and its hash does not match
      entry.Checksum, return ErrArtifactModified.
-   If ManifestOpen fails or the entry does not exist
+   If OpenManifest fails or the entry does not exist
    or the file does not exist, skip this check.
 
 4. Call `ChainResolve(logical_name)` to get the
@@ -126,10 +120,10 @@ Implement the load chain tool as a Go package.
    Append: "<chain>\n"
 
    **Existing artifact** (optional):
-   If the file at `frontmatter.output` exists and is
+   If the file at `*node.Frontmatter.Output` exists and is
    readable:
      Call `OpenFile` with the `CfsPath` of
-     `frontmatter.output` in "read" mode with
+     `*node.Frontmatter.Output` in "read" mode with
      timeout 30000. Read all lines with
      `handle.ReadLine()` until `EndOfFile`. Call
      `handle.Close()`.
@@ -155,48 +149,48 @@ Implement the load chain tool as a Go package.
    - With qualifier: find the matching `##` subsection,
      render as raw_heading + content.
 
-   For each `ancestor` in `chain.ancestors` (in order):
-     Call `NodeParse(ancestor.unqualified_logical_name)`.
+   For each `ancestor` in `chain.Ancestors` (in order):
+     Call `parsing.ParseNode(ancestor.LogicalName)`.
      If `node.public` is absent or
      `node.public.subsections` is empty, skip.
      Otherwise:
        Extract the content.
-       Append: `<entry name="<ancestor.unqualified_logical_name>">\n`
+       Append: `<entry name="<ancestor.LogicalName>">\n`
        Append the extracted content.
        Append: `</entry>\n`
 
-   For each `dep` in `chain.dependencies` (in order):
-     If dep.unqualified_logical_name starts with
+   For each `dep` in `chain.Dependencies` (in order):
+     If dep.LogicalName starts with
      "ARTIFACT/":
-       Read the full file at dep.file_path.
-       Append: `<entry name="<dep.unqualified_logical_name>">\n`
+       Read the full file at oslayer.CfsPath(dep.Path).
+       Append: `<entry name="<dep.LogicalName>">\n`
        Append the full content.
        Append: `</entry>\n`
-     Else if dep.unqualified_logical_name starts with
+     Else if dep.LogicalName starts with
      "EXTERNAL/":
-       Read the full file at dep.file_path.
-       Append: `<entry name="<dep.unqualified_logical_name>">\n`
+       Read the full file at oslayer.CfsPath(dep.Path).
+       Append: `<entry name="<dep.LogicalName>">\n`
        Append the full content.
        Append: `</entry>\n`
-     Else if dep.unqualified_logical_name starts with
+     Else if dep.LogicalName starts with
      "SPEC/":
-       Call `NodeParse(dep.unqualified_logical_name)`.
+       Call `parsing.ParseNode(dep.LogicalName)`.
        Extract content (with qualifier if present).
        If content is non-empty:
-         Let entry_name = dep.unqualified_logical_name.
-         If dep.qualifier is present, append
-         "(<dep.qualifier>)" to entry_name.
+         Let entry_name = dep.LogicalName.
+         If dep.Qualifier is not nil, append
+         "(<*dep.Qualifier>)" to entry_name.
          Append: `<entry name="<entry_name>">\n`
          Append the extracted content.
          Append: `</entry>\n`
 
-   For the target node `chain.target`:
+   For the target node `chain.Target`:
      Call
-     `NodeParse(chain.target.unqualified_logical_name)`.
+     `parsing.ParseNode(chain.Target.LogicalName)`.
      If `node.public` is present and
      `node.public.subsections` is non-empty:
        Extract the content.
-       Append: `<entry name="<chain.target.unqualified_logical_name>">\n`
+       Append: `<entry name="<chain.Target.LogicalName>">\n`
        Append the extracted content.
        Append: `</entry>\n`
 
@@ -221,17 +215,17 @@ Implement the load chain tool as a Go package.
      Append: "</instructions>\n"
 
    **Input** (optional):
-   If `chain.input` is present:
+   If `chain.Input` is not nil:
      Append: "<input>\n"
-     If chain.input.unqualified_logical_name starts
+     If chain.Input.LogicalName starts
      with "ARTIFACT/":
        Read full file. Append content.
-     Else if chain.input.unqualified_logical_name
+     Else if chain.Input.LogicalName
      starts with "EXTERNAL/":
        Read full file. Append content.
-     Else if chain.input.unqualified_logical_name
+     Else if chain.Input.LogicalName
      starts with "SPEC/":
-       Call `NodeParse(chain.input.unqualified_logical_name)`.
+       Call `parsing.ParseNode(chain.Input.LogicalName)`.
        Extract content (with qualifier if present,
        same rules as for SPEC dependencies).
        Append content.
@@ -243,25 +237,23 @@ Implement the load chain tool as a Go package.
 
 ## Go-specific guidance
 
-- Use the `chainresolver` package for `ChainResolve` and
-  the `Chain`, `ChainItem` records.
+- Use the `chainresolver` package for `ChainResolve`
+  and `Chain`.
 - Use the `chainhash` package for `ChainHashCompute`.
-- Use the `manifest` package for `ManifestOpen`,
-  `ManifestHandle`, `ManifestEntry`.
+- Use the `manifest` package for `OpenManifest`,
+  `Manifest`, `ManifestEntry`.
 - Use `crypto/sha1` and `encoding/base64`
   (base64.RawURLEncoding) for file checksum
   computation in the modified check.
-- Use the `parsenode` package for `NodeParse` and the
-  `Node`, `NodeSection`, `NodeSubsection` records.
+- Use the `parsing` package for `ParseNode`,
+  `NormalizeText`, `Node`, `NodeSection`,
+  `NodeSubsection`, and
+  `NodeFrontmatter`.
 - Use the `oslayer` package for `OpenFile`,
   `.ReadLine()`, `.Close()`, `ValidateCfsPath`, and
   `CfsPath`.
-- Use the `frontmatter` package for `FrontmatterParse`
-  and the `Frontmatter` record.
-- Use the `logicalnames` package for `LogicalNameParse`.
-  Type checks on `unqualified_logical_name` use string
+- Type checks on `LogicalName` use string
   prefix comparisons (`strings.HasPrefix`).
-- Use the `textnormalization` package for `NormalizeText`.
 - The package name should be `mcploadchain`.
 - Build the XML using string concatenation or
   `strings.Builder`. Do not use `encoding/xml` — the

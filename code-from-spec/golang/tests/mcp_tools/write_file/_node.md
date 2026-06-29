@@ -3,8 +3,7 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/mcp_tools/write_file
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/mcpwritefile/mcpwritefile_test.go
 ---
 
@@ -50,7 +49,7 @@ Setup:
 Actions:
 1. Call `MCPWriteFile("SPEC/root/a", "output/file.go",
    "package main")`.
-2. Call `ManifestOpen("read")`.
+2. Call `manifest.OpenManifest(true)`.
 
 Expected:
 - Manifest contains entry keyed `ARTIFACT/root/a`.

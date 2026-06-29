@@ -5,9 +5,7 @@ depends_on:
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/mcp_tools/load_chain
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/parsing/node_parsing
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/mcploadchain/mcploadchain_test.go
 ---
 
@@ -18,13 +16,15 @@ output: internal/mcploadchain/mcploadchain_test.go
 ## Test setup guidance
 
 `MCPLoadChain` calls `ChainResolve`, `ChainHashCompute`,
-`NodeParse`, `FrontmatterParse`, `ManifestOpen`, and
-`OpenFile` internally. Tests must create a complete spec
-tree on disk with valid `_node.md` files. Use `testChdir`
-and create `code-from-spec/.../_node.md` files with
+`parsing.ParseNode`, `manifest.OpenManifest`, and
+`oslayer.OpenFile`
+internally. Tests must create a complete spec tree on
+disk with valid `_node.md` files. Use `testChdir` and
+create `code-from-spec/.../_node.md` files with
 frontmatter and body content matching the test setup.
 
-Node files must have valid structure for `NodeParse`:
+Node files must have valid structure for
+`parsing.ParseNode`:
 at minimum a `# <logical_name>` heading as the first
 heading. Leaf nodes need frontmatter with `output`.
 
@@ -363,7 +363,7 @@ Actions:
 1. Call `MCPLoadChain("INVALID/something")`.
 
 Expected:
-- Returns error `logicalnames.ErrUnrecognizedPrefix`.
+- Returns error `parsing.ErrUnrecognizedPrefix`.
 
 #### Nonexistent node file
 
@@ -372,8 +372,8 @@ Actions:
    `_node.md` on disk.
 
 Expected:
-- Returns error propagated from `FrontmatterParse`
-  (`oslayer.ErrFileUnreadable`).
+- Returns error propagated from `parsing.ParseNode`
+  (`parsing.ErrFileUnreadable`).
 
 #### No output declared
 

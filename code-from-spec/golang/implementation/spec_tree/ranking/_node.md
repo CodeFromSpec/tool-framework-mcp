@@ -1,11 +1,10 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/noderanking/noderanking.go
 ---
 
-# SPEC/golang/implementation/utils/node_ranking
+# SPEC/golang/implementation/spec_tree/ranking
 
 Iterative ranking of spec tree nodes and artifacts,
 with cycle detection as a side effect.
@@ -23,18 +22,12 @@ with cycle detection as a side effect.
 ## Interface
 
 ```go
-type NodeRankInput struct {
-	LogicalName string
-	Parent      *string
-	Frontmatter *frontmatter.Frontmatter
-}
-
 type NodeRankEntry struct {
-	LogicalName string
-	Rank        int
+    Reference parsing.CfsReference
+    Rank      int
 }
 
-func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, error)
+func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error)
 ```
 
 Returns ranked entries (nodes and artifacts), cycle
@@ -57,43 +50,53 @@ From the input list, build an entry map keyed by logical
 name. Each entry tracks its dependency list and current
 rank.
 
-For each NodeRankInput in entries:
-  Add a spec entry keyed by logical_name with:
+For each node in entries:
+  Add a spec entry keyed by
+  node.Reference.LogicalName with:
+    - ref: node.Reference
     - deps: empty list (to be filled in step 2)
     - rank: 0
 
-  If frontmatter.output is non-empty:
+  If node.Frontmatter is not nil and
+  node.Frontmatter.Output is not nil:
     Construct artifact logical name: Strip "SPEC/"
-    prefix from logical_name and prepend "ARTIFACT/".
+    prefix from node.Reference.LogicalName and prepend
+    "ARTIFACT/".
+    Call parsing.CfsReferenceFromName(artifact logical
+    name). If it fails, raise ErrUnresolvableReference.
+    Let `artifact_ref` be the result.
     Add an artifact entry keyed by that artifact
     logical name with:
+      - ref: *artifact_ref
       - deps: list containing the generating node's
-        logical_name
+        logical name
       - rank: 0
 
 ### Step 2 — Build dependency edges
 
 For each spec node entry in the entry map:
-  Find the corresponding NodeRankInput to get its
-  Parent field.
+  Find the corresponding node to get its
+  Reference.ParentName field.
 
-  If Parent is nil: Skip — root node has no
+  If ParentName is nil: Skip — root node has no
   parent dependency.
 
   Else:
-    a. Parent dependency: Add *Parent to the
+    a. Parent dependency: Add *ParentName to the
        entry's deps list.
 
-    b. depends_on dependencies: For each reference in
-       frontmatter.depends_on:
+    b. depends_on dependencies: If node.Frontmatter is
+       not nil, for each reference in
+       node.Frontmatter.DependsOn:
          If reference starts with "SPEC/":
-           Call LogicalNameParse(reference). If it
-           fails, raise ErrUnresolvableReference.
-           Let `dep_ln` be the result.
-           If dep_ln.Name is not a key in the entry
-           map:
+           Call parsing.CfsReferenceFromName(reference).
+           If it fails, raise ErrUnresolvableReference.
+           Let `dep_ref` be the result.
+           If dep_ref.LogicalName is not a key in the
+           entry map:
              Raise ErrUnresolvableReference
-           Add dep_ln.Name to the entry's deps list.
+           Add dep_ref.LogicalName to the entry's deps
+           list.
          Else if reference starts with "ARTIFACT/":
            If reference is not a key in the entry map:
              Raise ErrUnresolvableReference
@@ -103,32 +106,34 @@ For each spec node entry in the entry map:
          Else:
            Raise ErrUnresolvableReference
 
-    c. input dependency: If frontmatter.input is
-       non-empty:
-         If frontmatter.input starts with "SPEC/":
-           Call LogicalNameParse(frontmatter.input).
+    c. input dependency: If node.Frontmatter is not nil
+       and node.Frontmatter.Input is not nil:
+         If *node.Frontmatter.Input starts with "SPEC/":
+           Call parsing.CfsReferenceFromName(
+           *node.Frontmatter.Input).
            If it fails, raise ErrUnresolvableReference.
-           Let `input_ln` be the result.
-           If input_ln.Name is not a key in the entry
-           map:
-             Raise ErrUnresolvableReference
-           Add input_ln.Name to the entry's deps list.
-         Else if frontmatter.input starts with
-         "ARTIFACT/":
-           If frontmatter.input is not a key in the
+           Let `input_ref` be the result.
+           If input_ref.LogicalName is not a key in the
            entry map:
              Raise ErrUnresolvableReference
-           Add frontmatter.input to the entry's deps
+           Add input_ref.LogicalName to the entry's deps
            list.
-         Else if frontmatter.input starts with
+         Else if *node.Frontmatter.Input starts with
+         "ARTIFACT/":
+           If *node.Frontmatter.Input is not a key in
+           the entry map:
+             Raise ErrUnresolvableReference
+           Add *node.Frontmatter.Input to the entry's
+           deps list.
+         Else if *node.Frontmatter.Input starts with
          "EXTERNAL/": Skip — external files have no
          rank.
 
 ### Step 3 — Initialize ranks
 
 All entries start with rank 0 from step 1. Root nodes
-(those whose Parent is nil) keep rank 0 — they have
-no parent dependency.
+(those whose ParentName is nil) keep rank 0 — they
+have no parent dependency.
 
 ### Step 4 — Iterate and detect cycles
 
@@ -149,7 +154,7 @@ from 1 to N:
       Update entry's rank to new_rank.
       Set changed = true.
       If i equals N:
-        Add entry's logical_name to cycle_candidates.
+        Add entry's logical name to cycle_candidates.
 
   If changed is false:
     Stop iteration (converged, no cycles).
@@ -161,22 +166,22 @@ Else: Set cycles = empty list.
 ### Step 5 — Output
 
 Build ranked list: For each entry in the entry map:
-  Append NodeRankEntry with logical_name and rank.
+  Append NodeRankEntry with Reference = entry.ref,
+  Rank = entry.rank.
 
-Sort ranked list: Primary sort: rank ascending.
-Secondary sort: logical_name ascending.
+Sort ranked list: Primary sort: Rank ascending.
+Secondary sort: Reference.LogicalName ascending.
 
 Return (ranked: ranked list, cycles: cycles).
 
 ## Go-specific guidance
 
-- Use the `frontmatter` package for the `Frontmatter`
-  record.
-- Use the `logicalnames` package for
-  `LogicalNameParse`. Use `strings.HasPrefix` for
-  ARTIFACT/ and EXTERNAL/ classification.
+- Use the `parsing` package for `Node`,
+  `CfsReference`, `CfsReferenceFromName`.
+  Use `strings.HasPrefix` for ARTIFACT/ and EXTERNAL/
+  classification.
 - The package name should be `noderanking`.
-- `NodeRankInput` and `NodeRankEntry` are exported
-  structs in this package.
+- `NodeRankEntry` is the only exported struct in this
+  package.
 - Return `([]NodeRankEntry, []string, error)` — ranked
   entries, cycle participant logical names, and error.

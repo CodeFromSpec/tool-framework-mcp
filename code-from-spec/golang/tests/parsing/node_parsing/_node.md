@@ -1,28 +1,153 @@
 ---
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/node_parsing
-  - SPEC/golang/implementation/utils/logical_names
-output: internal/parsenode/parsenode_test.go
+  - SPEC/golang/implementation/parsing(interface)
+output: internal/parsing/parsing_parsenode_test.go
 ---
 
 # SPEC/golang/tests/parsing/node_parsing
+
+Tests for `parsing.ParseNode`. All test cases create
+`code-from-spec/<name>/_node.md` files on disk with a
+valid `# SPEC/<name>` heading, then call
+`parsing.ParseNode("SPEC/<name>")`.
 
 # Agent
 
 ## Test setup guidance
 
 Tests create `_node.md` files on disk, then call
-`NodeParse` with logical names. Use `testChdir` and
-create `code-from-spec/.../_node.md` files.
+`parsing.ParseNode` with logical names. Use `testChdir`
+and create `code-from-spec/.../_node.md` files.
 
 Node files must follow the spec format: optional
 frontmatter between `---` delimiters, then body with
-ATX headings.
+ATX headings. The first heading must be
+`# SPEC/<logical-name>`.
 
 ## Test cases
 
-### Happy path
+### Frontmatter extraction
+
+#### Parses complete frontmatter (all fields)
+
+Setup:
+- Create `code-from-spec/a/_node.md` with frontmatter
+  containing depends_on (SPEC/, ARTIFACT/, EXTERNAL/
+  entries), input, and output. Body has `# SPEC/a`
+  heading.
+
+Actions:
+1. Call `parsing.ParseNode("SPEC/a")`.
+
+Expected:
+- node.Frontmatter is not nil.
+- node.Frontmatter.DependsOn contains all listed
+  entries.
+- *node.Frontmatter.Input matches.
+- *node.Frontmatter.Output matches. No error.
+
+#### Parses frontmatter with only output
+
+Setup:
+- `_node.md` with only `output` in frontmatter.
+  Body has valid heading.
+
+Expected: DependsOn nil, Input nil, Output not nil.
+
+#### Parses frontmatter with only depends_on
+
+Setup:
+- `_node.md` with only `depends_on` in frontmatter.
+  Body has valid heading.
+
+Expected: DependsOn contains values, Input nil,
+Output nil.
+
+#### Parses frontmatter with EXTERNAL/ in depends_on
+
+Setup:
+- `_node.md` with
+  `depends_on: ["EXTERNAL/proto/api.proto"]`.
+
+Expected: DependsOn contains the EXTERNAL entry.
+
+#### Parses frontmatter with input field
+
+Setup:
+- `_node.md` with only `input` field.
+
+Expected: Input not nil, DependsOn nil, Output nil.
+
+#### Ignores unknown frontmatter fields
+
+Setup:
+- `_node.md` with known fields plus
+  `custom_field: value`.
+
+Expected: No error. Known fields correct. Unknown
+ignored.
+
+#### File with no frontmatter — Frontmatter is nil
+
+Setup:
+- `_node.md` with no `---` delimiter — body content
+  only, starting with `# SPEC/a`.
+
+Expected: No error. node.Frontmatter is nil.
+
+#### Empty frontmatter
+
+Setup:
+- `_node.md` with `---` then `---` with nothing
+  between, followed by valid body.
+
+Expected: No error. node.Frontmatter is nil.
+
+#### File with only frontmatter, no body after
+
+Setup:
+- `_node.md` with frontmatter and no body.
+
+Expected: Error
+ErrUnexpectedContentBeforeFirstHeading (no heading
+found).
+
+#### Delimiter with trailing whitespace is not recognized
+
+Setup:
+- `_node.md` whose first line is `---   ` (trailing
+  spaces), followed by valid body.
+
+Expected: No error. node.Frontmatter is nil — line
+not recognized as delimiter.
+
+#### Malformed YAML
+
+Setup:
+- `_node.md` with invalid YAML between `---`
+  delimiters, followed by valid body.
+
+Expected: Error `ErrMalformedYAML`.
+
+#### Unclosed frontmatter block
+
+Setup:
+- `_node.md` that starts with `---` but no closing
+  `---`.
+
+Expected: Error `ErrMalformedYAML`.
+
+#### Unknown field 'external' is silently ignored
+
+Setup:
+- `_node.md` with `external: "some/ref"` plus
+  `output` in frontmatter, followed by valid body.
+
+Expected: No error. `external` ignored.
+*node.Frontmatter.Output is set.
+
+### Body parsing — happy path
 
 #### Minimal node — name section only
 
@@ -32,13 +157,13 @@ Setup:
   `A simple node.`
 
 Actions:
-1. Call `NodeParse("SPEC/x")`.
+1. Call `parsing.ParseNode("SPEC/x")`.
 
 Expected:
-- name_section.Heading = "spec/x"
-- name_section.RawHeading = "# SPEC/x"
-- name_section.Content = ["A simple node."]
-- name_section.Subsections = empty
+- NameSection.Heading = "spec/x"
+- NameSection.RawHeading = "# SPEC/x"
+- NameSection.Content = ["A simple node."]
+- NameSection.Subsections = empty
 - Public, Agent, Private all nil
 
 #### Full node — all section types
@@ -50,10 +175,10 @@ Setup:
   Private with Decisions and Rationale subsections.
 
 Actions:
-1. Call `NodeParse("SPEC/payments/fees")`.
+1. Call `parsing.ParseNode("SPEC/payments/fees")`.
 
 Expected:
-- name_section.Heading = "spec/payments/fees"
+- NameSection.Heading = "spec/payments/fees"
 - Public present with two subsections "interface",
   "constraints"
 - Public.Content = empty (no lines before first ##)
@@ -133,13 +258,13 @@ Expected: Public present, Heading = "public".
 
 Setup: Node with `#   SPEC/e` heading.
 
-Expected: name_section.Heading = "spec/e".
+Expected: NameSection.Heading = "spec/e".
 
 #### Node name with ROOT/ heading does not match SPEC/
 
 Setup: Node with `# ROOT/x` heading.
 
-Actions: Call `NodeParse("SPEC/x")`.
+Actions: Call `parsing.ParseNode("SPEC/x")`.
 
 Expected: Error ErrNodeNameDoesNotMatch.
 
@@ -223,55 +348,60 @@ content.
 Expected: Public.Content starts with "" (empty string)
 then content line.
 
-### Frontmatter handling
+### Frontmatter handling in body parsing
 
-#### Frontmatter is skipped
+#### Frontmatter is skipped — body parsed correctly
 
-Setup: Node with frontmatter between `---` delimiters.
+Setup: Node with frontmatter between `---` delimiters,
+followed by valid body.
 
 Expected: No error, body parsed correctly.
+Frontmatter not nil.
 
-#### No frontmatter delimiters
+#### No frontmatter delimiters — body parsed correctly
 
 Setup: Node with no `---` at all.
 
 Expected: No error, body parsed correctly.
+Frontmatter is nil.
 
-#### Unclosed frontmatter
+#### Unclosed frontmatter in body context
 
 Setup: Node starts with `---` but no closing `---`.
 
-Expected: Error ErrUnexpectedContentBeforeFirstHeading.
+Expected: Error ErrMalformedYAML.
 
 ### Failure cases
 
 #### ARTIFACT reference rejected
 
-Actions: Call `NodeParse("ARTIFACT/x")`.
+Actions: Call `parsing.ParseNode("ARTIFACT/x")`.
 
 Expected: Error ErrNotASpecReference.
 
 #### EXTERNAL reference rejected
 
-Actions: Call `NodeParse("EXTERNAL/x")`.
+Actions: Call `parsing.ParseNode("EXTERNAL/x")`.
 
 Expected: Error ErrNotASpecReference.
 
 #### Qualifier rejected
 
-Actions: Call `NodeParse("SPEC/x(interface)")`.
+Actions: Call `parsing.ParseNode("SPEC/x(interface)")`.
 
 Expected: Error ErrHasQualifier.
 
 #### File does not exist
 
-Actions: Call `NodeParse` with non-existent file.
+Actions: Call `parsing.ParseNode` with non-existent
+logical name.
 
 Expected: Error ErrFileUnreadable.
 
 #### Propagates path errors
 
-Actions: Call `NodeParse("SPEC/tra\\versal")`.
+Actions: Call
+`parsing.ParseNode("SPEC/tra\\versal")`.
 
 Expected: Error PathContainsBackslash propagated,
 not FileUnreadable.
@@ -290,7 +420,7 @@ Expected: Error ErrUnexpectedContentBeforeFirstHeading.
 
 #### Empty body
 
-Setup: Empty file or only frontmatter.
+Setup: Empty file (zero bytes).
 
 Expected: Error ErrUnexpectedContentBeforeFirstHeading.
 
@@ -375,10 +505,16 @@ Expected: Error ErrDuplicateSubsection.
 
 ## Go-specific guidance
 
-- The package name is `parsenode_test` (external test
+- The package name is `parsing_test` (external test
   package).
 - Use `t.TempDir()` for isolation.
 - Use `testChdir` helper to set the working directory.
+- All test cases call `parsing.ParseNode(logicalName)`.
+  Create `code-from-spec/<path>/_node.md` files matching
+  the logical name.
+- For frontmatter tests, verify `node.Frontmatter`
+  fields. `Input` and `Output` are `*string` — check
+  nil for absent, dereference for value.
 - When a test case specifies expected content values,
   construct the test file so that the expected content
   is the correct result of parsing. Pay attention to

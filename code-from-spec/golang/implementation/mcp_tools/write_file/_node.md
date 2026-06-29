@@ -4,8 +4,7 @@ depends_on:
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/mcpwritefile/mcpwritefile.go
 ---
 
@@ -53,7 +52,7 @@ A success message: `"wrote <path>"`.
 - `ErrNoOutput`: target node has no output field.
 - `ErrPathNotInOutput`: path is not declared in the
   node's output.
-- Propagated errors from `logicalnames`, `oslayer`
+- Propagated errors from `parsing`, `oslayer`
   packages.
 
 # Agent
@@ -65,24 +64,20 @@ Implement the write file tool as a Go package.
 1. If logical_name does not start with "SPEC/",
    return ErrNotASpecReference.
 
-2. Call `LogicalNameParse(logical_name)`.
-   If it fails, propagate the error.
-   Let `ln` be the result.
+2. Call `parsing.ParseNode(logical_name)`.
+   If it fails, return ErrUnreadableFrontmatter.
+   Store the result as node.
 
-3. If ln.Qualifier is not nil, return error
+3. If node.Reference.Qualifier is not nil, return error
    ErrQualifierNotAllowed.
 
-4. Call `FrontmatterParse(CfsPath(ln.Path))`.
-   If it fails, return ErrUnreadableFrontmatter.
-   Store the result as frontmatter.
-
-5. If `frontmatter.output` is empty, return error
+5. If `node.Frontmatter.Output` is nil, return error
    ErrNoOutput.
 
 6. Call `ValidateCfsPath` with path. If it fails,
    propagate the error.
 
-7. If path does not exactly match `frontmatter.output`,
+7. If path does not exactly match `*node.Frontmatter.Output`,
    return ErrPathNotInOutput.
 
 8. Construct a `CfsPath` record with value set to path.
@@ -106,16 +101,16 @@ Implement the write file tool as a Go package.
 13. Call `ChainHashCompute(chain)`. If it fails,
     propagate the error.
 
-14. Call `ManifestOpen("write")`. If it fails,
+14. Call `manifest.OpenManifest(false)`. If it fails,
     propagate the error.
 
 15. Derive the artifact logical name: strip "SPEC/"
     prefix from logical_name and prepend "ARTIFACT/".
-    Set manifest_handle.Entries[artifact_name] =
+    Set m.Entries[artifact_name] =
     ManifestEntry{Path: path, Checksum: checksum,
     ChainHash: chain_hash}.
 
-16. Call `ManifestSave(manifest_handle)`. If it fails,
+16. Call `m.Save()`. If it fails,
     propagate the error.
 
 17. Return "wrote <path>" where <path> is the path
@@ -123,14 +118,14 @@ Implement the write file tool as a Go package.
 
 ## Go-specific guidance
 
-- Use the `logicalnames` package for `LogicalNameParse`.
-- Use the `frontmatter` package for `FrontmatterParse`.
+- Use the `parsing` package for `ParseNode` and
+  `Node`.
 - Use the `oslayer` package for `ValidateCfsPath`,
   `CfsPath`, `OpenFile`, `.Write()`, and `.Close()`.
 - Use the `chainresolver` package for `ChainResolve`.
 - Use the `chainhash` package for `ChainHashCompute`.
-- Use the `manifest` package for `ManifestOpen`,
-  `ManifestSave`, `ManifestEntry`.
+- Use the `manifest` package for `OpenManifest`,
+  `Manifest`, `ManifestEntry`.
 - Use `crypto/sha1` and `encoding/base64`
   (base64.RawURLEncoding) for checksum computation.
 - The CRLF→LF normalization and trailing LF for

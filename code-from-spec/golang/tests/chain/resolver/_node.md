@@ -2,8 +2,7 @@
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/chain/resolver
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/chainresolver/chainresolver_test.go
 ---
 
@@ -38,7 +37,7 @@ Actions:
 Expected:
 - ancestors = empty list.
 - dependencies = empty list.
-- target = ChainItem("SPEC/root", qualifier=absent).
+- target = CfsReference("SPEC/root", Qualifier=nil).
 - input = absent.
 
 #### Linear chain — ancestors in root-first order
@@ -90,9 +89,9 @@ Actions:
 1. Call ChainResolve("SPEC/root/a").
 
 Expected:
-- dependencies contains one ChainItem with
-  UnqualifiedLogicalName = "SPEC/root/b",
-  Qualifier = absent.
+- dependencies contains one CfsReference with
+  LogicalName = "SPEC/root/b",
+  Qualifier = nil.
 
 #### Dependency with qualifier
 
@@ -105,8 +104,8 @@ Actions:
 1. Call ChainResolve("SPEC/root/a").
 
 Expected:
-- dependencies contains one ChainItem with
-  UnqualifiedLogicalName = "SPEC/root/b",
+- dependencies contains one CfsReference with
+  LogicalName = "SPEC/root/b",
   Qualifier = "interface".
 
 #### Dependencies sorted by logical name
@@ -137,9 +136,9 @@ Actions:
 1. Call ChainResolve("SPEC/root/a").
 
 Expected:
-- dependencies contains one ChainItem with
-  UnqualifiedLogicalName = "ARTIFACT/root/b",
-  FilePath = "out/lib.go".
+- dependencies contains one CfsReference with
+  LogicalName = "ARTIFACT/root/b",
+  Path = "out/lib.go".
 
 #### ARTIFACT — generating node has no output
 
@@ -165,8 +164,8 @@ Actions:
 1. Call ChainResolve("SPEC/root/a").
 
 Expected:
-- No error. dependencies contains one ChainItem
-  with FilePath = "out/lib.go". Existence is not
+- No error. dependencies contains one CfsReference
+  with Path = "out/lib.go". Existence is not
   verified.
 
 #### Mixed SPEC/, ARTIFACT/, EXTERNAL/ dependencies
@@ -210,7 +209,7 @@ Actions:
 1. Call ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one entry for
-SPEC/root/b with Qualifier = absent.
+SPEC/root/b with Qualifier = nil.
 
 #### Qualifier before no-qualifier — no-qualifier wins
 
@@ -223,7 +222,7 @@ Actions:
 1. Call ChainResolve("SPEC/root/a").
 
 Expected: dependencies contains one entry for
-SPEC/root/b with Qualifier = absent.
+SPEC/root/b with Qualifier = nil.
 
 #### Same file, different qualifiers — both kept
 
@@ -263,9 +262,9 @@ Setup:
 Actions:
 1. Call ChainResolve("SPEC/root/a").
 
-Expected: dependencies contains one ChainItem with
-UnqualifiedLogicalName = "EXTERNAL/docs/api.yaml",
-FilePath = "docs/api.yaml", Qualifier = absent.
+Expected: dependencies contains one CfsReference with
+LogicalName = "EXTERNAL/docs/api.yaml",
+Path = "docs/api.yaml", Qualifier = nil.
 
 #### Multiple EXTERNAL dependencies sorted
 
@@ -304,8 +303,8 @@ Setup:
 Actions:
 1. Call ChainResolve("SPEC/root/a").
 
-Expected: input = ChainItem("ARTIFACT/root/b",
-FilePath = "out/data.json").
+Expected: input = CfsReference("ARTIFACT/root/b",
+Path = "out/data.json").
 
 #### EXTERNAL input resolved to path
 
@@ -316,9 +315,9 @@ Setup:
 Actions:
 1. Call ChainResolve("SPEC/root/a").
 
-Expected: input = ChainItem(
+Expected: input = CfsReference(
 "EXTERNAL/docs/vendor/spec.yaml",
-FilePath = "docs/vendor/spec.yaml").
+Path = "docs/vendor/spec.yaml").
 
 #### SPEC input resolved
 
@@ -329,9 +328,9 @@ Setup:
 Actions:
 1. Call ChainResolve("SPEC/root/a").
 
-Expected: input = ChainItem("SPEC/root/b",
-FilePath = "code-from-spec/root/b/_node.md",
-Qualifier = absent).
+Expected: input = CfsReference("SPEC/root/b",
+Path = "code-from-spec/root/b/_node.md",
+Qualifier = nil).
 
 #### SPEC input with qualifier
 
@@ -343,8 +342,8 @@ Setup:
 Actions:
 1. Call ChainResolve("SPEC/root/a").
 
-Expected: input = ChainItem("SPEC/root/b",
-FilePath = "code-from-spec/root/b/_node.md",
+Expected: input = CfsReference("SPEC/root/b",
+Path = "code-from-spec/root/b/_node.md",
 Qualifier = "acceptance-tests").
 
 #### No input — absent
@@ -375,7 +374,8 @@ Expected: Error ErrUnresolvableArtifact.
 Actions:
 1. Call ChainResolve("INVALID/something").
 
-Expected: Error propagated from LogicalNameParse.
+Expected: Error propagated from
+parsing.CfsReferenceFromName.
 
 #### Unreadable frontmatter
 

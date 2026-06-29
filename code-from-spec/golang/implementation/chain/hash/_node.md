@@ -2,9 +2,7 @@
 depends_on:
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/parsing/node_parsing
-  - SPEC/golang/implementation/utils/text_normalization
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/chainhash/chainhash.go
 ---
 
@@ -26,7 +24,7 @@ all chain positions from disk and hashing their content.
 ## Interface
 
 ```go
-func ChainHashCompute(chain *chainresolver.Chain) (string, error)
+func ChainHashCompute(chain chainresolver.Chain) (string, error)
 ```
 
 Receives a `Chain` (as returned by `ChainResolve`) and
@@ -61,7 +59,7 @@ Implement the chain hash component as a Go package.
 2. Let `body` = `ExtractBlock(content)`.
 3. Return concatenation of `head` and `body`.
 
-**ConcatenateSubsections(subsections: list of NodeSubsection) -> string**
+**ConcatenateSubsections(subsections: list of parsing.NodeSubsection) -> string**
 
 1. Let `result` = empty string.
 2. For each subsection in `subsections`:
@@ -74,7 +72,7 @@ Implement the chain hash component as a Go package.
 
 ### Content hash helpers
 
-**HashPublicSubsections(node: parsenode.Node) -> optional raw bytes (20)**
+**HashPublicSubsections(node: parsing.Node) -> optional raw bytes (20)**
 
 1. If `node.public` is absent, return absent.
 2. If `node.public.subsections` is empty, return absent.
@@ -82,9 +80,9 @@ Implement the chain hash component as a Go package.
 4. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
-**HashQualifiedSubsection(node: parsenode.Node, qualifier: string) -> optional raw bytes (20)**
+**HashQualifiedSubsection(node: parsing.Node, qualifier: string) -> optional raw bytes (20)**
 
-1. Let `normalized_qualifier` = `NormalizeText(qualifier)`.
+1. Let `normalized_qualifier` = `parsing.NormalizeText(qualifier)`.
 2. Find the subsection in `node.public.subsections`
    whose `heading` equals `normalized_qualifier`.
 3. If not found, return absent.
@@ -93,7 +91,7 @@ Implement the chain hash component as a Go package.
 5. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
-**HashAgentSection(node: parsenode.Node) -> optional raw bytes (20)**
+**HashAgentSection(node: parsing.Node) -> optional raw bytes (20)**
 
 1. If `node.agent` is absent, return absent.
 2. If `node.agent.content` is empty (after blank-line
@@ -135,37 +133,36 @@ Implement the chain hash component as a Go package.
 Let `hashes` = empty list of raw byte sequences
 (each 20 bytes).
 
-1. For each `ancestor` in `chain.ancestors` (from root
+1. For each `ancestor` in `chain.Ancestors` (from root
    to target's parent):
-   a. Call `NodeParse(ancestor.unqualified_logical_name)`.
+   a. Call `parsing.ParseNode(ancestor.LogicalName)`.
       If it fails, raise ErrParseFailure.
    b. Let `h` = `HashPublicSubsections(node)`.
    c. If `h` is present, append `h` to `hashes`.
 
-2. For each `dep` in `chain.dependencies` (already
+2. For each `dep` in `chain.Dependencies` (already
    sorted alphabetically by logical name):
-   a. If dep.unqualified_logical_name starts with
-      "ARTIFACT/":
-      Let `h` = `HashFileContent(dep.file_path)`.
+   a. If dep.LogicalName starts with "ARTIFACT/":
+      Let `h` = `HashFileContent(
+      oslayer.CfsPath(dep.Path))`.
       Append `h` to `hashes`.
-   b. Else if dep.unqualified_logical_name starts with
-      "EXTERNAL/":
-      Let `h` = `HashFileContent(dep.file_path)`.
+   b. Else if dep.LogicalName starts with "EXTERNAL/":
+      Let `h` = `HashFileContent(
+      oslayer.CfsPath(dep.Path))`.
       Append `h` to `hashes`.
-   c. Else if dep.unqualified_logical_name starts with
-      "SPEC/":
-      Call `NodeParse(dep.unqualified_logical_name)`.
+   c. Else if dep.LogicalName starts with "SPEC/":
+      Call `parsing.ParseNode(dep.LogicalName)`.
       If it fails, raise ErrParseFailure.
-      If `dep.qualifier` is absent:
+      If `dep.Qualifier` is nil:
         Let `h` = `HashPublicSubsections(node)`.
         If `h` is present, append `h` to `hashes`.
-      If `dep.qualifier` is present:
+      If `dep.Qualifier` is not nil:
         Let `h` = `HashQualifiedSubsection(node,
-        dep.qualifier)`.
+        *dep.Qualifier)`.
         If `h` is present, append `h` to `hashes`.
 
 3. Target `# Public`:
-   a. Call `NodeParse(chain.target.unqualified_logical_name)`.
+   a. Call `parsing.ParseNode(chain.Target.LogicalName)`.
       If it fails, raise ErrParseFailure.
    b. Let `h` = `HashPublicSubsections(node)`.
    c. If `h` is present, append `h` to `hashes`.
@@ -175,30 +172,29 @@ Let `hashes` = empty list of raw byte sequences
    a. Let `h` = `HashAgentSection(target_node)`.
    b. If `h` is present, append `h` to `hashes`.
 
-5. If `chain.input` is present:
+5. If `chain.Input` is not nil:
    a. Append a single byte `0x49` (`I`) to
       `concatenated` (see step 2) as a marker before
       the input content hash. In practice: append a
       one-byte slice containing `0x49` to `hashes`.
-   b. Let `input` = `chain.input`.
-   c. If input.unqualified_logical_name starts with
-      "ARTIFACT/":
-      Let `h` = `HashFileContent(input.file_path)`.
+   b. Let `input` = `chain.Input`.
+   c. If input.LogicalName starts with "ARTIFACT/":
+      Let `h` = `HashFileContent(
+      oslayer.CfsPath(input.Path))`.
       Append `h` to `hashes`.
-   d. Else if input.unqualified_logical_name starts with
-      "EXTERNAL/":
-      Let `h` = `HashFileContent(input.file_path)`.
+   d. Else if input.LogicalName starts with "EXTERNAL/":
+      Let `h` = `HashFileContent(
+      oslayer.CfsPath(input.Path))`.
       Append `h` to `hashes`.
-   e. Else if input.unqualified_logical_name starts with
-      "SPEC/":
-      Call `NodeParse(input.unqualified_logical_name)`.
+   e. Else if input.LogicalName starts with "SPEC/":
+      Call `parsing.ParseNode(input.LogicalName)`.
       If it fails, raise ErrParseFailure.
-      If `input.qualifier` is absent:
+      If `input.Qualifier` is nil:
         Let `h` = `HashPublicSubsections(node)`.
         If `h` is present, append `h` to `hashes`.
-      If `input.qualifier` is present:
+      If `input.Qualifier` is not nil:
         Let `h` = `HashQualifiedSubsection(node,
-        input.qualifier)`.
+        *input.Qualifier)`.
         If `h` is present, append `h` to `hashes`.
 
 **Step 2 — Compute final hash**
@@ -213,16 +209,14 @@ Let `hashes` = empty list of raw byte sequences
 
 ## Go-specific guidance
 
-- Use the `chainresolver` package for the `Chain` and
-  `ChainItem` records.
-- Use the `parsenode` package for `NodeParse` and the
-  `Node`, `NodeSection`, `NodeSubsection` records.
+- Use the `chainresolver` package for `Chain`.
+- Use the `parsing` package for `ParseNode`,
+  `CfsReference`, `Node`, `NodeSection`,
+  `NodeSubsection`, and `NormalizeText`.
 - Use the `oslayer` package for `OpenFile`,
   `.ReadLine()`, `.Close()`, and `CfsPath`.
-- The `logicalnames` package is no longer imported
-  directly. Type checks on `unqualified_logical_name`
-  use string prefix comparisons (`strings.HasPrefix`).
-- Use the `textnormalization` package for `NormalizeText`.
+- Type checks on `LogicalName` use string prefix
+  comparisons (`strings.HasPrefix`).
 - For SHA-1 and base64url, use `crypto/sha1` and
   `encoding/base64` (base64.RawURLEncoding).
 - The package name should be `chainhash`.

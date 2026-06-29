@@ -5,11 +5,10 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/mcp_tools/validate_specs
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/parsing/frontmatter
-  - SPEC/golang/implementation/parsing/node_parsing
+  - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/spec_tree/scan
   - SPEC/golang/implementation/spec_tree/validate
-  - SPEC/golang/implementation/utils/node_ranking
+  - SPEC/golang/implementation/spec_tree/ranking
 output: internal/mcpvalidatespecs/mcpvalidatespecs_test.go
 ---
 
@@ -19,10 +18,10 @@ output: internal/mcpvalidatespecs/mcpvalidatespecs_test.go
 
 ## Test setup guidance
 
-`MCPValidateSpecs` calls `SpecTreeScan`, `NodeParse`,
-`FrontmatterParse`, `SpecTreeValidate`,
+`MCPValidateSpecs` calls `SpecTreeScan`,
+`parsing.ParseNode`, `SpecTreeValidate`,
 `NodeRankCompute`, `ChainResolve`, `ChainHashCompute`,
-and `ManifestOpen` internally. Tests must create a
+and `manifest.OpenManifest` internally. Tests must create a
 complete spec tree on disk.
 
 Use `testChdir` and create `code-from-spec/.../_node.md`
@@ -396,8 +395,9 @@ Expected:
 - To compute a file checksum, use SHA-1 of the file
   content (after CRLF→LF normalization, with trailing
   LF), encoded as base64url (27 chars).
-- Create `.manifest` files using `ManifestOpen("write")`
-  + `ManifestSave`, or by writing the file directly
+- Create `.manifest` files using
+  `manifest.OpenManifest(false)` + `m.Save()`, or by
+  writing the file directly
   with the correct format:
   ```
   code-from-spec: v5

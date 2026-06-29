@@ -1,12 +1,12 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/utils/text_normalization
-output: internal/textnormalization/textnormalization_test.go
+  - SPEC/golang/implementation/parsing(interface)
+output: internal/parsing/parsing_textnorm_test.go
 ---
 
-# SPEC/golang/tests/utils/text_normalization
+# SPEC/golang/tests/parsing/text_normalization
 
-Unit tests for the textnormalization package.
+Unit tests for the NormalizeText function.
 
 # Agent
 
@@ -109,7 +109,7 @@ Input: "   \t  ". Expect: "".
 Setup: input = "hello" + U+00A0 + "world" (no regular
 spaces).
 
-Expected: "hello world" — the non-breaking space
+Expected: "hello world" — the non-breaking space
 is preserved as text, case-folded but not collapsed.
 
 #### Single character
@@ -118,6 +118,6 @@ Input: "X". Expect: "x".
 
 ## Go-specific guidance
 
-- The package name is `textnormalization_test` (external
-  test package).
+- The package name is `parsing_test` (external test
+  package).
 - Pure function tests — no file I/O needed.

@@ -1,7 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/utils/logical_names
+  - SPEC/golang/implementation/parsing(interface)
 output: internal/spectree/spectree.go
 ---
 
@@ -23,7 +23,7 @@ spec nodes found.
 ## Interface
 
 ```go
-func SpecTreeScan() ([]logicalnames.LogicalName, error)
+func SpecTreeScan() ([]parsing.CfsReference, error)
 ```
 
 Takes no parameters. Scans the `code-from-spec/`
@@ -34,8 +34,7 @@ list sorted alphabetically by logical name.
 
 - `ErrNoNodesFound`: no `_node.md` files found under
   `code-from-spec/`.
-- Propagated errors from `oslayer`, `logicalnames`
-  packages.
+- Propagated errors from `oslayer`, `parsing` packages.
 
 # Agent
 
@@ -63,11 +62,11 @@ Implement the spec tree scan as a Go package.
         ".", exclude this file.
 
 4. For each file that was not excluded, call
-   `LogicalNameFromPath` with the file's CfsPath.
-   If `LogicalNameFromPath` raises an error, propagate
-   it. Collect the returned `*LogicalName`.
+   `CfsReferenceFromPath` with the file's CfsPath.
+   If `CfsReferenceFromPath` raises an error, propagate
+   it. Collect the returned `*CfsReference`.
 
-5. Sort all results alphabetically by `Name`.
+5. Sort all results alphabetically by `LogicalName`.
 
 6. If the sorted list is empty, raise ErrNoNodesFound.
 
@@ -77,7 +76,7 @@ Implement the spec tree scan as a Go package.
 
 - Use the `oslayer` package for `ListAllFiles` and
   `CfsPath`.
-- Use the `logicalnames` package for `LogicalNameFromPath`.
+- Use the `parsing` package for `CfsReferenceFromPath`.
 - Extract the file name by finding the last `/` in the
   `CfsPath` string value.
 - The package name should be `spectree`.

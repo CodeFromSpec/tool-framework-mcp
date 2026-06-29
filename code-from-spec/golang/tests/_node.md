@@ -73,7 +73,7 @@ not `"nonexistent\file.txt"`.
 ## Error propagation across packages
 
 When a function propagates an error from another package
-(e.g. `FrontmatterParse` propagating from `OpenFile`),
+(e.g. `parsing.ParseNode` propagating from `OpenFile`),
 the error chain preserves the original sentinel. Use
 `errors.Is` with the sentinel from the **originating**
 package (e.g. `oslayer.ErrFileUnreadable`), not a
@@ -84,25 +84,23 @@ own sentinel and wraps it.
 ## Constructing records from other packages
 
 When tests construct records manually (e.g.
-`SpecTreeValidateInput`, `Chain`, `ChainItem`), the
-field values must be consistent with what the real
-producers would generate:
+`parsing.Node`, `Chain`), the field values
+must be consistent with what the real producers would
+generate:
 
 - `NodeSection.Heading` is the **normalized** form
   (lowercase, whitespace collapsed) as produced by
-  `NodeParse`. Example: `"spec/a"` for a node at
+  `parsing.ParseNode`. Example: `"spec/a"` for a node at
   `SPEC/a`.
 - `NodeSection.RawHeading` is the original line as read
   from the file. Example: `"# SPEC/a"`.
 - `NodeSection.Content` is a `[]string` (list of lines).
-- `ChainItem.LogicalName` must be a valid logical name
-  (`SPEC/` for spec nodes, `ARTIFACT/` for artifacts).
-  For spec nodes, the logical name must resolve to a
-  `_node.md` file that exists on disk (via
-  `LogicalNameToPath`). Tests must create the spec tree
-  files accordingly.
-- `ChainItem.FilePath` is a `CfsPath` with forward
-  slashes.
+- `Chain` fields hold `parsing.CfsReference` values.
+  `CfsReference.LogicalName` must be a valid logical
+  name (`SPEC/` for spec nodes, `ARTIFACT/` for
+  artifacts). For spec nodes, the logical name must
+  resolve to a `_node.md` file that exists on disk.
+  Tests must create the spec tree files accordingly.
 
 ## Creating _node.md files in tests
 
@@ -110,7 +108,7 @@ When tests create `_node.md` files on disk:
 
 - The first heading in the file body must be
   `# <logical-name>` (e.g. `# SPEC/root` for a root
-  node, `# SPEC/root/a` for a child). `NodeParse`
+  node, `# SPEC/root/a` for a child). `parsing.ParseNode`
   validates that the first heading matches the logical
   name — tests that omit it or use a different heading
   (e.g. `# Public`) will fail with
