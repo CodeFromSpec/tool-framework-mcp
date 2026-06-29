@@ -63,14 +63,13 @@ interface artifact in this file.
    a. It is directly inside "code-from-spec/" (i.e.
       `code-from-spec/_node.md`). There is no root
       node — only subdirectories are nodes.
-   b. It lives inside a `.`-prefixed directory directly
-      under "code-from-spec/":
+   b. Any segment of the path between "code-from-spec/"
+      and the file name starts with ".":
         Remove the "code-from-spec/" prefix from the
-        file path. Look for the first "/" in the
-        remainder. If a "/" is found, extract the text
-        before it as the first directory segment. If
-        the first directory segment starts with ".",
-        exclude this file.
+        file path. Split the remainder by "/". Discard
+        the last element (the file name). For each
+        remaining segment, if the segment starts with
+        ".", exclude this file.
 
 4. For each file that was not excluded, call
    `LogicalNameFromPath` with the file's PathCfs.

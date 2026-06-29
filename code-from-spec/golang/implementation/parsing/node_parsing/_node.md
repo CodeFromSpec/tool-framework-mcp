@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/dependencies/yuin-goldmark
   - SPEC/golang/implementation/os/file/impl
   - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/utils/logical_names
@@ -10,7 +11,8 @@ output: internal/parsenode/parsenode.go
 # SPEC/golang/implementation/parsing/node_parsing
 
 Parses the body of a spec node file into a structured
-representation of its sections and subsections.
+representation of its sections and subsections using
+goldmark for CommonMark parsing.
 
 # Public
 
@@ -48,10 +50,15 @@ type Node struct {
 func NodeParse(logicalName string) (*Node, error)
 ```
 
-`heading` is the normalized form (after `NormalizeText`),
-used for comparisons and lookups. `raw_heading` is the
-original line as read from the file, preserved for
+`Heading` is the normalized form (after `NormalizeText`),
+used for comparisons and lookups. `RawHeading` is the
+original heading line as it appears in the file (including
+`#` prefix and closing `##` if present), preserved for
 hashing.
+
+`Content` is a list of lines between the heading and
+the next structural heading (or end of file). Lines do
+not include line terminators.
 
 ### Errors
 
@@ -65,7 +72,6 @@ hashing.
 - `ErrDuplicatePrivateSection`
 - `ErrUnrecognizedSection`
 - `ErrDuplicateSubsection`
-- Propagated errors from `file` package.
 
 # Agent
 
@@ -73,198 +79,176 @@ Implement the node parsing component as a Go package.
 
 ## Logic
 
-1. Call LogicalNameParse(logical_name).
-   If it fails, raise ErrNotASpecReference.
-   Let `ln` be the result.
+### Validate logical name
 
-2. If ln.Type is not NodeTypeSpec,
-     raise ErrNotASpecReference.
+- Call LogicalNameParse(logical_name). If it fails,
+  raise ErrNotASpecReference. Let `ln` be the result.
+- If ln.Type is not NodeTypeSpec, raise
+  ErrNotASpecReference.
+- If ln.Qualifier is not nil, raise ErrHasQualifier.
 
-3. If ln.Qualifier is not nil,
-     raise ErrHasQualifier.
+### Read file
 
-4. Let cfs_path = PathCfs{Value: ln.Path}.
+- Call FileOpen(PathCfs{Value: ln.Path}, "read",
+  30000). If it fails, raise ErrFileUnreadable.
+- Read all lines using FileReadLine in a loop until
+  ErrEndOfFile. Collect all lines. Call FileClose.
+- Join all lines with `\n` and append a trailing `\n`.
+  Let `source` be the resulting byte slice.
 
-5. Let reader = FileOpen(cfs_path, mode "read",
-   timeout_ms 30000).
-     If FileOpen raises FileUnreadable or any PathUtils
-     error, raise ErrFileUnreadable.
+### Skip frontmatter
 
-6. Skip frontmatter:
-     Let first_line = FileReadLine(reader).
-       If first_line raises EndOfFile, go to step 6
-       with empty body.
-     If first_line is exactly "---":
-       Loop:
-         Let line = FileReadLine(reader).
-         If line raises EndOfFile,
-           call FileClose(reader),
-           raise ErrUnexpectedContentBeforeFirstHeading.
-         If line is exactly "---", stop the loop.
-     Else:
-       Treat first_line as the first body line (do not
-       discard it).
+- If `source` starts with `---\n`:
+    Find the next occurrence of `\n---\n` after the
+    first line. If not found, raise
+    ErrUnexpectedContentBeforeFirstHeading.
+    Let `body` = everything after the closing `---\n`.
+- Else: let `body` = `source`.
 
-7. Parse the body into sections:
-     Let name_section = absent.
-     Let public_section = absent.
-     Let agent_section = absent.
-     Let private_section = absent.
-     Let current_section = absent.
-     Let current_subsection = absent.
-     Let in_fence = false.
-     Let fence_char = absent.
-     Let fence_width = 0.
+### Parse with goldmark
 
-     For each line from the file (starting after
-     frontmatter), and including first_line if it was
-     not the frontmatter marker:
+- Parse `body` with goldmark:
+  ```
+  md := goldmark.New()
+  doc := md.Parser().Parse(text.NewReader(body))
+  ```
 
-       a. Fenced code block tracking:
-            Let stripped = line with leading/trailing
-            whitespace removed.
-            If in_fence is false:
-              If stripped starts with "```" or "~~~":
-                Count leading backtick or tilde chars.
-                Let fence_char = that character.
-                Let fence_width = that count.
-                Set in_fence = true.
-                Append line to current content (step c).
-                Continue to next line.
-            Else (in_fence is true):
-              Check if stripped consists entirely of
-              fence_char characters and its length >=
-              fence_width.
-                If so, set in_fence = false,
-                fence_char = absent, fence_width = 0.
-              Append line to current content (step c).
-              Continue to next line.
+### Collect structural headings
 
-       b. Heading recognition (only when in_fence is
-          false):
-            If line matches the ATX heading pattern:
-              Count leading "#" characters. Let level =
-              that count.
-              Let text_part = everything after the
-              leading "# " (hashes + one space).
-              Trim text_part of leading and trailing
-              whitespace.
-              If text_part ends with one or more "#"
-              characters preceded by at least one space:
-                Strip the trailing "#" sequence and any
-                preceding whitespace.
-              Let raw_heading = the original line.
-              Let heading = NormalizeText(text_part).
+Iterate the direct children of `doc`. For each child
+that is `*ast.Heading` with Level 1 or 2:
 
-              If level = 1:
-                Finalize current_subsection into
-                current_section if present.
-                Finalize current_section into the
-                result record if present.
-                Classify heading:
-                  If name_section is absent:
-                    Let expected =
-                    NormalizeText(logical_name).
-                    If heading != expected,
-                      call FileClose(reader),
-                      raise ErrNodeNameDoesNotMatch.
-                    Start name_section.
-                    Set current_section = name_section.
-                  Else if heading = "public":
-                    If public_section is not absent,
-                      call FileClose(reader),
-                      raise ErrDuplicatePublicSection.
-                    Start new section.
-                    Set public_section and
-                    current_section.
-                  Else if heading = "agent":
-                    If agent_section is not absent,
-                      call FileClose(reader),
-                      raise ErrDuplicateAgentSection.
-                    Start new section.
-                    Set agent_section and
-                    current_section.
-                  Else if heading = "private":
-                    If private_section is not absent,
-                      call FileClose(reader),
-                      raise ErrDuplicatePrivateSection.
-                    Start new section.
-                    Set private_section and
-                    current_section.
-                  Else:
-                    call FileClose(reader),
-                    raise ErrUnrecognizedSection.
+- **Heading text**: concatenate `*ast.Text` segments
+  from the heading's inline children. Let `text_part`
+  be the result.
 
-              Else if level = 2:
-                If current_section is absent:
-                  Treat line as content.
-                  Continue to next line.
-                Finalize current_subsection into
-                current_section if present.
-                Check if any existing subsection in
-                current_section.subsections has
-                heading = heading.
-                  If so,
-                    call FileClose(reader),
-                    raise ErrDuplicateSubsection.
-                Start a new subsection.
-                Set current_subsection.
+- **Line boundaries**: `Lines().At(0)` covers only the
+  heading text content (e.g. `Foo` in `## Foo ##`),
+  not the `#` prefix or closing `##`. To recover the
+  full raw line:
+  - `lineStart`: scan backward from
+    `Lines().At(0).Start` to find the preceding `\n`
+    (or start of body).
+  - `lineEnd`: scan forward from
+    `Lines().At(0).Stop` to find the next `\n` (or
+    end of body).
 
-              Else (level >= 3):
-                Append line to current content (step c).
+- **Raw heading**: `string(body[lineStart:lineEnd])`
+  with trailing whitespace (spaces, tabs) removed.
 
-            Else (not a heading):
-              Append line to current content (step c).
+- **Normalized heading**: NormalizeText(text_part).
 
-       c. Appending to current content:
-            If current_subsection is not absent:
-              Append line to
-              current_subsection.content.
-            Else if current_section is not absent:
-              Append line to
-              current_section.content.
-            Else:
-              If line is not blank (contains
-              non-whitespace characters):
-                call FileClose(reader),
-                raise ErrUnexpectedContentBeforeFirstHeading.
+- **Content lines**: the range
+  `body[lineEnd+1 : nextHeadingLineStart]`, where
+  `nextHeadingLineStart` is the `lineStart` of the
+  next structural heading, or `len(body)` if last.
+  If `lineEnd` is at end of body, content is empty.
+  Split by `\n` into a list of strings. Remove
+  trailing empty string if present.
 
-     When EndOfFile is raised:
-       Finalize current_subsection into
-       current_section if present.
-       Finalize current_section into the result
-       record if present.
+- Record: level, normalized heading, raw heading,
+  content lines.
 
-8. If name_section is still absent:
-     call FileClose(reader),
-     raise ErrUnexpectedContentBeforeFirstHeading.
+Headings with Level 3+ are NOT collected — they are
+part of the content between structural headings.
 
-9. Call FileClose(reader).
+If there is non-blank content in `body` before the
+first structural heading, raise
+ErrUnexpectedContentBeforeFirstHeading.
 
-10. Return Node record with name_section, public,
-   agent, private.
+### Build sections
 
-### ATX heading pattern
+Process the collected heading records in order.
 
-A line matches if it starts with one or more "#"
-characters, followed by at least one space character,
-followed by any remaining text. Lines starting with "#"
-not followed by a space do not match. Lines that are
-exactly one or more "#" characters with no following
-text do not match.
+Let name_section, public, agent, private = absent.
+Let current_section = absent.
+Let current_subsection = absent.
 
-CommonMark allows optional closing "#" sequences:
-`## Foo ##` has heading text `Foo`. If present, the
-closing sequence must be preceded by at least one space.
+For each record:
+
+- **Level 1**: finalize current_subsection into
+  current_section if present. Finalize
+  current_section if present. Then classify:
+  - If name_section is absent: compare normalized
+    heading with NormalizeText(logical_name). If
+    mismatch, raise ErrNodeNameDoesNotMatch. Start
+    name_section. Set current_section.
+  - `"public"`: if already set, raise
+    ErrDuplicatePublicSection. Start section, set
+    public and current_section.
+  - `"agent"`: if already set, raise
+    ErrDuplicateAgentSection. Start section, set
+    agent and current_section.
+  - `"private"`: if already set, raise
+    ErrDuplicatePrivateSection. Start section, set
+    private and current_section.
+  - Anything else: raise ErrUnrecognizedSection.
+
+- **Level 2**: if current_section is absent, raise
+  ErrUnexpectedContentBeforeFirstHeading. Finalize
+  current_subsection if present. Check for duplicate
+  normalized heading in current_section's
+  subsections — if found, raise
+  ErrDuplicateSubsection. Start new subsection.
+  Set current_subsection.
+
+After all records: finalize current_subsection and
+current_section.
+
+A section's Content is the content lines collected
+with its level-1 heading (lines between the heading
+and the first subsection or next level-1 heading).
+Each subsection gets its own content lines.
+
+If name_section is absent, raise
+ErrUnexpectedContentBeforeFirstHeading.
+
+Return Node with name_section, public, agent, private.
 
 ## Go-specific guidance
 
-- Use `textnormalization.NormalizeText` for all heading
+- Use `goldmark.New()` and `md.Parser().Parse(
+  text.NewReader(body))` for parsing.
+- Use direct child iteration
+  (`doc.FirstChild()` / `NextSibling()`) to collect
+  headings. Check `n.Kind() == ast.KindHeading` and
+  cast to `*ast.Heading` to read `Level`.
+- Use `textnormalization.NormalizeText` for heading
   comparisons.
-- Use `logicalnames.LogicalNameParse` to parse and
-  validate the logical name. Access `ln.Path` for the
-  resolved file path. Use `logicalnames.NodeTypeSpec`
-  for type comparison.
-- Use the `file` package for file I/O: `FileOpen`,
+- Use `logicalnames.LogicalNameParse` for validation.
+  Use `logicalnames.NodeTypeSpec` for type comparison.
+- Use the `file` package for `FileOpen`,
   `FileReadLine`, `FileClose`.
+- Use the `pathutils` package for `PathCfs`.
+- Split content by `\n` using `strings.Split` on the
+  string cast of the byte slice range.
 - The package name should be `parsenode`.
+
+# Private
+
+## Decisions
+
+### Migrated from manual parsing to goldmark
+
+The previous implementation parsed markdown line by
+line, manually tracking fenced code blocks, ATX heading
+patterns, and closing `##` sequences. goldmark handles
+all of this correctly as a CommonMark-compliant parser.
+The migration eliminates fence tracking, heading regex,
+and closing hash stripping with no loss of
+functionality.
+
+### File reading via file package
+
+goldmark needs `[]byte` but the `file` package reads
+line by line. The implementation reads all lines via
+FileReadLine loop, joins with `\n`, and converts to
+`[]byte`. CRLF normalization is handled by the file
+package — no manual normalization needed.
+
+### Content remains []string
+
+The public interface keeps `Content []string` for
+compatibility with chainhash and load_chain, which
+process content line by line. Internally, the byte
+range from the source is split into lines.

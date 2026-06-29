@@ -104,7 +104,16 @@ For each spec node entry in the entry map:
 
     c. input dependency: If frontmatter.input is
        non-empty:
-         If frontmatter.input starts with "ARTIFACT/":
+         If frontmatter.input starts with "SPEC/":
+           Call LogicalNameParse(frontmatter.input).
+           If it fails, raise ErrUnresolvableReference.
+           Let `input_ln` be the result.
+           If input_ln.Name is not a key in the entry
+           map:
+             Raise ErrUnresolvableReference
+           Add input_ln.Name to the entry's deps list.
+         Else if frontmatter.input starts with
+         "ARTIFACT/":
            If frontmatter.input is not a key in the
            entry map:
              Raise ErrUnresolvableReference
@@ -163,8 +172,8 @@ Return (ranked: ranked list, cycles: cycles).
 - Use the `frontmatter` package for the `Frontmatter`
   record.
 - Use the `logicalnames` package for
-  `LogicalNameParse`, `NodeTypeSpec`,
-  `NodeTypeArtifact`, `NodeTypeExternal`.
+  `LogicalNameParse`. Use `strings.HasPrefix` for
+  ARTIFACT/ and EXTERNAL/ classification.
 - The package name should be `noderanking`.
 - `NodeRankInput` and `NodeRankEntry` are exported
   structs in this package.

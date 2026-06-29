@@ -28,8 +28,15 @@ resolved against it.
 
 Do not write comments in generated code. No doc
 comments, no inline comments, no section markers.
-The spec tree is the documentation. The only
-exception is the artifact tag line.
+The spec tree is the documentation.
+
+## File I/O
+
+All file access must go through the `file` package
+at `internal/file`. Never use `os.ReadFile`,
+`os.WriteFile`, `os.Open`, or other `os` file
+functions directly. The `file` package ensures
+consistent CRLF→LF normalization and file locking.
 
 ## Constraints
 

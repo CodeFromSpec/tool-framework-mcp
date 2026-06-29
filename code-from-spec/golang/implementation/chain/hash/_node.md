@@ -100,17 +100,17 @@ Implement the chain hash component as a Go package.
 2. If `node.agent.content` is empty (after blank-line
    removal) and `node.agent.subsections` is empty,
    return absent.
-3. Let `text` = `FormatSection(node.agent.raw_heading,
-   node.agent.content)`.
+3. Let `text` = `ExtractBlock(node.agent.content)`.
 4. For each subsection in `node.agent.subsections`:
    a. Let `sub_block` = `FormatSection(
       subsection.raw_heading, subsection.content)`.
-   b. If `sub_block` is not empty, append `\n` then
-      `sub_block` to `text`.
+   b. If `text` is not empty and `sub_block` is not
+      empty, append `\n` to `text`.
+   c. Append `sub_block` to `text`.
 5. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
-**HashFileContent(file_path: pathutils.PathCfs, neutralize_artifact_tag: boolean) -> raw bytes (20)**
+**HashFileContent(file_path: pathutils.PathCfs) -> raw bytes (20)**
 
 1. Call `FileOpen(file_path, mode="read",
    timeout_ms=30000)`. If `FileOpen` raises
@@ -119,14 +119,7 @@ Implement the chain hash component as a Go package.
 3. Loop:
    a. Call `FileReadLine(handle)`.
    b. If `EndOfFile` is raised, exit loop.
-   c. If `neutralize_artifact_tag` is true, apply
-      neutralization to the line: if the line matches
-      the pattern
-      `code-from-spec: <anything>@<27 base64url chars>`,
-      replace the 27-character hash portion with
-      `"---------------------------"`.
-      The rest of the line is unchanged.
-   d. Append the line followed by `"\n"` to `lines`.
+   c. Append the line followed by `"\n"` to `lines`.
 4. Call `FileClose(handle)`.
    (Call `FileClose` in error paths too before
    re-raising.)
@@ -154,13 +147,11 @@ Let `hashes` = empty list of raw byte sequences
    sorted alphabetically by logical name):
    a. If dep.unqualified_logical_name starts with
       "ARTIFACT/":
-      Let `h` = `HashFileContent(dep.file_path,
-      neutralize_artifact_tag=true)`.
+      Let `h` = `HashFileContent(dep.file_path)`.
       Append `h` to `hashes`.
    b. Else if dep.unqualified_logical_name starts with
       "EXTERNAL/":
-      Let `h` = `HashFileContent(dep.file_path,
-      neutralize_artifact_tag=false)`.
+      Let `h` = `HashFileContent(dep.file_path)`.
       Append `h` to `hashes`.
    c. Else if dep.unqualified_logical_name starts with
       "SPEC/":
@@ -186,18 +177,20 @@ Let `hashes` = empty list of raw byte sequences
    b. If `h` is present, append `h` to `hashes`.
 
 5. If `chain.input` is present:
-   a. Let `input` = `chain.input`.
-   b. If input.unqualified_logical_name starts with
+   a. Append a single byte `0x49` (`I`) to
+      `concatenated` (see step 2) as a marker before
+      the input content hash. In practice: append a
+      one-byte slice containing `0x49` to `hashes`.
+   b. Let `input` = `chain.input`.
+   c. If input.unqualified_logical_name starts with
       "ARTIFACT/":
-      Let `h` = `HashFileContent(input.file_path,
-      neutralize_artifact_tag=true)`.
-      Append `h` to `hashes`.
-   c. Else if input.unqualified_logical_name starts with
-      "EXTERNAL/":
-      Let `h` = `HashFileContent(input.file_path,
-      neutralize_artifact_tag=false)`.
+      Let `h` = `HashFileContent(input.file_path)`.
       Append `h` to `hashes`.
    d. Else if input.unqualified_logical_name starts with
+      "EXTERNAL/":
+      Let `h` = `HashFileContent(input.file_path)`.
+      Append `h` to `hashes`.
+   e. Else if input.unqualified_logical_name starts with
       "SPEC/":
       Call `NodeParse(input.unqualified_logical_name)`.
       If it fails, raise ErrParseFailure.
@@ -212,7 +205,8 @@ Let `hashes` = empty list of raw byte sequences
 **Step 2 — Compute final hash**
 
 1. Let `concatenated` = concatenation of all byte
-   sequences in `hashes` (20 bytes each, in order).
+   sequences in `hashes` in order. Each entry is
+   20 bytes except the `0x49` marker which is 1 byte.
 2. Compute SHA-1 of `concatenated`.
 3. Encode the resulting 20 bytes as base64url (RFC 4648
    §5, no padding) — producing 27 characters.
@@ -225,13 +219,12 @@ Let `hashes` = empty list of raw byte sequences
 - Use the `parsenode` package for `NodeParse` and the
   `Node`, `NodeSection`, `NodeSubsection` records.
 - Use the `file` package for `FileOpen`,
-  `FileReadLine`, `FileSkipLines`, `FileClose`.
+  `FileReadLine`, `FileClose`.
 - Use the `pathutils` package for `PathCfs`.
 - The `logicalnames` package is no longer imported
   directly. Type checks on `unqualified_logical_name`
   use string prefix comparisons (`strings.HasPrefix`).
 - Use the `textnormalization` package for `NormalizeText`.
-- Use the `frontmatter` package for `FrontmatterExternal`.
 - For SHA-1 and base64url, use `crypto/sha1` and
   `encoding/base64` (base64.RawURLEncoding).
 - The package name should be `chainhash`.

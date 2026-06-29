@@ -167,15 +167,14 @@ Expected:
   `## Interface` content only. Does not contain
   `## Constraints`.
 
-#### ARTIFACT dependency — artifact tag line removed
+#### ARTIFACT dependency — full content
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`, frontmatter `output: out/b.go`.
-- Create `out/b.go` with artifact tag line and body
-  content.
+- Create `out/b.go` with known content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.go`,
   `depends_on: ["ARTIFACT/root/b"]`.
@@ -185,8 +184,8 @@ Actions:
 
 Expected:
 - `<constraints>` contains
-  `<entry name="ARTIFACT/root/b">` with body content
-  of `out/b.go` but without the artifact tag line.
+  `<entry name="ARTIFACT/root/b">` with the full
+  content of `out/b.go`.
 
 #### EXTERNAL dependency — full content
 
@@ -247,8 +246,7 @@ Setup:
   `# SPEC/root`.
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`, frontmatter `output: out/data.json`.
-- Create `out/data.json` with artifact tag line and
-  body content.
+- Create `out/data.json` with known content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.txt`,
   `input: ARTIFACT/root/b`.
@@ -257,8 +255,8 @@ Actions:
 1. Call `MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- `<input>` contains body of `out/data.json` without
-  artifact tag line.
+- `<input>` contains the full content of
+  `out/data.json`.
 - Input content does not appear in `<constraints>`.
 
 #### EXTERNAL input — full content

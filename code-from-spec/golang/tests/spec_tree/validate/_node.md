@@ -383,6 +383,16 @@ Setup:
 
 Expected: No missing_node_md error.
 
+#### .-prefixed dir deeper in tree — no error
+
+Setup:
+- entries: SPEC/root (root), SPEC/root/a (leaf).
+- all_dirs: ["code-from-spec", "code-from-spec/root",
+  "code-from-spec/root/a",
+  "code-from-spec/root/a/.internal"].
+
+Expected: No missing_node_md error.
+
 #### All subdirectories have _node.md — no error
 
 Setup:

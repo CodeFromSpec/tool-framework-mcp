@@ -75,7 +75,7 @@ Actions:
 
 Expected: Only one entry for SPEC/a.
 
-#### .-prefixed dirs deeper in tree are NOT ignored
+#### .-prefixed dirs deeper in tree are ignored
 
 Setup:
 - Create `code-from-spec/a/_node.md` and
@@ -84,7 +84,8 @@ Setup:
 Actions:
 1. Call `SpecTreeScan()`.
 
-Expected: Two entries: SPEC/a, SPEC/a/.internal.
+Expected: Only one entry for SPEC/a. The node under
+the `.`-prefixed directory is excluded.
 
 #### Ignores _node.md directly in code-from-spec/
 

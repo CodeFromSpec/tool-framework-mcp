@@ -4,7 +4,8 @@ output: internal/file/file_lock_unix.go
 
 # SPEC/golang/implementation/os/file/lock_unix
 
-Platform-specific file locking for Unix systems.
+Platform-specific file locking for Unix systems using
+`flock` with polling for timeout support.
 
 # Agent
 
@@ -14,18 +15,39 @@ in package `file`.
 Implement two unexported functions:
 
 ```go
-func fileLockShared(f *os.File) error
-func fileLockExclusive(f *os.File) error
+func fileLockShared(f *os.File, timeoutMs int) error
+func fileLockExclusive(f *os.File, timeoutMs int) error
 ```
 
-## Implementation
+## Logic
 
-- `fileLockShared`: call `syscall.Flock(int(f.Fd()), syscall.LOCK_SH)`.
-  Return the error from `syscall.Flock`, or nil on success.
-- `fileLockExclusive`: call `syscall.Flock(int(f.Fd()), syscall.LOCK_EX)`.
-  Return the error from `syscall.Flock`, or nil on success.
+Both functions follow the same pattern, differing only
+in the flock flag (`syscall.LOCK_SH` vs
+`syscall.LOCK_EX`).
 
-Both calls block until the lock is acquired.
+### Non-blocking path (timeoutMs <= 0)
+
+1. Call `syscall.Flock(int(f.Fd()), flag|syscall.LOCK_NB)`.
+2. If it succeeds, return nil.
+3. If it returns `EWOULDBLOCK`, return ErrLockTimeout.
+4. For any other error, return it.
+
+### Timeout path (timeoutMs > 0)
+
+1. Record the deadline: `now + timeoutMs`.
+2. Set `sleep` = 1ms.
+3. Loop:
+   a. Call `syscall.Flock(int(f.Fd()), flag|syscall.LOCK_NB)`.
+   b. If it succeeds, return nil.
+   c. If it returns any error other than `EWOULDBLOCK`,
+      return it.
+   d. If current time >= deadline, return ErrLockTimeout.
+   e. Sleep for `sleep` duration.
+   f. Double `sleep`. If `sleep` > 100ms, set
+      `sleep` = 100ms.
+   g. Continue loop.
+
+## Go-specific guidance
 
 The file must start with:
 
@@ -33,4 +55,23 @@ The file must start with:
 //go:build !windows
 ```
 
-Import only `os` and `syscall`.
+Import `os`, `syscall`, and `time`.
+Use `time.Sleep` for the polling interval.
+Use `time.Now()` and `time.Duration` for deadline
+tracking.
+
+# Private
+
+## Decisions
+
+### Polling with LOCK_NB instead of blocking flock
+
+Unix `flock` has no native timeout. Blocking `flock`
+cannot be interrupted safely (closing the fd from
+another goroutine causes fd-reuse races). Polling
+with `LOCK_NB` and exponential backoff is the
+standard approach (used by SQLite, Git).
+
+Backoff: 1ms, 2ms, 4ms, 8ms, 16ms, 32ms, 64ms,
+100ms, 100ms, ... Cap at 100ms. Maximum overshoot
+past deadline is one sleep interval (100ms).

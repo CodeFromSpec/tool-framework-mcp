@@ -169,10 +169,9 @@ Implement the load chain tool as a Go package.
    For each `dep` in `chain.dependencies` (in order):
      If dep.unqualified_logical_name starts with
      "ARTIFACT/":
-       Read the file at dep.file_path. Skip the first
-       line containing "code-from-spec:" (artifact tag).
+       Read the full file at dep.file_path.
        Append: `<entry name="<dep.unqualified_logical_name>">\n`
-       Append the file content (without tag line).
+       Append the full content.
        Append: `</entry>\n`
      Else if dep.unqualified_logical_name starts with
      "EXTERNAL/":
@@ -227,8 +226,7 @@ Implement the load chain tool as a Go package.
      Append: "<input>\n"
      If chain.input.unqualified_logical_name starts
      with "ARTIFACT/":
-       Read file, skip artifact tag line.
-       Append content.
+       Read full file. Append content.
      Else if chain.input.unqualified_logical_name
      starts with "EXTERNAL/":
        Read full file. Append content.
@@ -257,9 +255,9 @@ Implement the load chain tool as a Go package.
 - Use the `parsenode` package for `NodeParse` and the
   `Node`, `NodeSection`, `NodeSubsection` records.
 - Use the `file` package for `FileOpen`,
-  `FileReadLine`, `FileSkipLines`, `FileClose`.
+  `FileReadLine`, `FileClose`.
 - Use the `frontmatter` package for `FrontmatterParse`
-  and the `Frontmatter`, `FrontmatterExternal` records.
+  and the `Frontmatter` record.
 - Use the `pathutils` package for `PathValidateCfs` and
   `PathCfs`.
 - Use the `logicalnames` package for `LogicalNameParse`.

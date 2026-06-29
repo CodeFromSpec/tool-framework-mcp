@@ -16,18 +16,18 @@ output: internal/chainhash/chainhash_test.go
 ## Test setup guidance
 
 `ChainHashCompute` calls `NodeParse` internally for spec
-node positions (ancestors, target, ROOT/ dependencies).
-`NodeParse` requires a valid `ROOT/` logical name that
+node positions (ancestors, target, SPEC/ dependencies).
+`NodeParse` requires a valid `SPEC/` logical name that
 resolves to a `_node.md` file on disk.
 
 Therefore, tests that reference spec nodes must:
 1. Use `testChdir` to set the working directory.
 2. Create `code-from-spec/.../_node.md` files on disk
    matching the logical names used in ChainItems.
-3. Set `ChainItem.LogicalName` to a valid `ROOT/`
-   logical name (e.g. `"ROOT/a"`), not a file path.
+3. Set `ChainItem.LogicalName` to a valid `SPEC/`
+   logical name (e.g. `"SPEC/root/a"`), not a file path.
 4. Set `ChainItem.FilePath` to the corresponding
-   `PathCfs` (e.g. `{Value: "code-from-spec/a/_node.md"}`).
+   `PathCfs` (e.g. `{Value: "code-from-spec/root/a/_node.md"}`).
 
 For ARTIFACT/ items, `ChainItem.LogicalName` must start
 with `"ARTIFACT/"` so the implementation reads the file
@@ -239,23 +239,6 @@ Actions:
 3. Call ChainHashCompute → hash_after.
 
 Expected: hash_before differs from hash_after.
-
-#### ARTIFACT dependency — tag hash change ignored
-
-Setup:
-- Create an artifact file containing:
-  `// code-from-spec: SPEC/x/y@aAbBcCdDeEfFgGhHiIjJkKlLmMn`
-- Build Chain with ARTIFACT dependency pointing to
-  that file.
-
-Actions:
-1. Call ChainHashCompute → hash_before.
-2. Change only the 27-character hash in the tag to a
-   different value. No other content change.
-3. Call ChainHashCompute → hash_after.
-
-Expected: hash_before equals hash_after — the tag
-hash is neutralized.
 
 #### EXTERNAL dependency — hashes all content
 

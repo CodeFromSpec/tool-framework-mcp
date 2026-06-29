@@ -162,8 +162,9 @@ Implement the `file` package, including its interface.
   `LockFileEx`. `O_RDWR` provides `GENERIC_READ`, which
   satisfies the requirement on all platforms.
 - Normalize CRLF to LF before splitting lines.
-- After opening the file, call `fileLockShared(f)` for
-  read mode or `fileLockExclusive(f)` for overwrite/append
+- After opening the file, call
+  `fileLockShared(f, timeoutMs)` for read mode or
+  `fileLockExclusive(f, timeoutMs)` for overwrite/append
   modes. These functions are defined in platform-specific
   files within the same package — do not implement them
   here.

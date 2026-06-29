@@ -1,7 +1,6 @@
 ---
 depends_on:
   - SPEC/golang/implementation/os/file/impl
-  - SPEC/golang/implementation/os/list_files
   - SPEC/golang/implementation/os/path_utils
   - SPEC/golang/implementation/parsing/frontmatter
   - SPEC/golang/implementation/parsing/node_parsing
@@ -72,10 +71,10 @@ Implement the spec tree validation as a Go package.
    has a logical_name that starts with this entry's
    logical_name followed by `"/"`.
 
-4. For each entry in entries, run all validation rules
+4. For each entry in entries, run the per-entry rules
    below. Collect all errors — do not stop at the first.
 
-### Rule: name_heading
+### Rule: name_heading (per entry)
 
    Normalize entry.logical_name using NormalizeText.
    Normalize entry.node.name_section.heading using
@@ -86,7 +85,7 @@ Implement the spec tree validation as a Go package.
      detail: "first heading does not match the node
      logical name"
 
-### Rule: leaf_only_fields
+### Rule: leaf_only_fields (per entry)
 
    If `has_children` is true:
      If entry.frontmatter.depends_on is non-empty:
@@ -100,14 +99,14 @@ Implement the spec tree validation as a Go package.
        Append FormatError with rule "leaf_only_fields",
        detail "output is only permitted on leaf nodes".
 
-### Rule: leaf_only_agent
+### Rule: leaf_only_agent (per entry)
 
    If `has_children` is true and entry.node.agent is
    present: Append FormatError with rule
    "leaf_only_agent", detail "# Agent section is only
    permitted on leaf nodes".
 
-### Rule: dependency_targets
+### Rule: dependency_targets (per entry)
 
    For each dep in entry.frontmatter.depends_on:
 
@@ -150,7 +149,7 @@ Implement the spec tree validation as a Go package.
        error "depends_on entry has unrecognized
        prefix: <dep>"
 
-### Rule: input_target
+### Rule: input_target (per entry)
 
    If entry.frontmatter.input is non-empty:
      Let inp = entry.frontmatter.input.
@@ -183,24 +182,7 @@ Implement the spec tree validation as a Go package.
        error "input must start with SPEC/, ARTIFACT/,
        or EXTERNAL/"
 
-### Rule: missing_node_md
-
-   For each dir in all_dirs:
-     If dir equals "code-from-spec/" or dir equals
-     "code-from-spec": Skip.
-     Derive the first path segment after
-     "code-from-spec/" in dir. If that first segment
-     starts with ".": Skip.
-     Let expected_node_path = dir + "/_node.md"
-       (normalized to use forward slashes, no trailing
-       slash on dir).
-     Check whether any entry in entries has a file path
-     equal to expected_node_path. If no such entry
-     exists: Append FormatError with node = dir,
-     rule = "missing_node_md", detail = "subdirectory
-     has no _node.md".
-
-### Rule: output_paths
+### Rule: output_paths (per entry)
 
    If entry.frontmatter.output is non-empty:
      Call PathValidateCfs(entry.frontmatter.output).
@@ -208,7 +190,7 @@ Implement the spec tree validation as a Go package.
        Append FormatError with rule "output_paths",
        detail "output path is invalid: <error message>".
 
-### Rule: public_subsection_required
+### Rule: public_subsection_required (per entry)
 
    If entry.node.public is present:
      For each line in entry.node.public.content:
@@ -219,7 +201,7 @@ Implement the spec tree validation as a Go package.
          in # Public must be under a ## subsection".
          Break — report at most one error per node.
 
-### Rule: duplicate_subsections
+### Rule: duplicate_subsections (per entry)
 
    If entry.node.public is present and
    entry.node.public.subsections is non-empty:
@@ -235,12 +217,32 @@ Implement the spec tree validation as a Go package.
          <subsection.raw_heading>".
        Else: Add normalized to `seen_headings`.
 
-5. Return `errors`.
+5. After the per-entry loop, run the global rule:
+
+### Rule: missing_node_md (global)
+
+   For each dir in all_dirs:
+     If dir equals "code-from-spec/" or dir equals
+     "code-from-spec": Skip.
+     Remove the "code-from-spec/" prefix from dir.
+     Split the remainder by "/". If any segment starts
+     with ".": Skip.
+     Derive the expected logical name from dir: remove
+     the "code-from-spec/" prefix, prepend "SPEC/".
+     For example, dir "code-from-spec/root/a" yields
+     "SPEC/root/a".
+     Check whether any entry in entries has a
+     logical_name equal to the expected logical name.
+     If no such entry exists: Append FormatError with
+     node = dir, rule = "missing_node_md",
+     detail = "subdirectory has no _node.md".
+
+Return `errors`.
 
 ## Go-specific guidance
 
-- Use the `file` package for `FileOpen`, `FileReadLine`,
-  `FileSkipLines`, `FileClose`.
+- Use the `file` package for `FileOpen`, `FileClose`
+  (only for EXTERNAL existence checks).
 - Use the `pathutils` package for `PathValidateCfs` and
   `PathCfs`.
 - Use the `textnormalization` package for `NormalizeText`.

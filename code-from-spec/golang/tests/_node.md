@@ -127,16 +127,11 @@ When tests create `_node.md` files on disk:
   nodes. Only leaf nodes that declare these fields need
   frontmatter.
 
-## Artifact tag and hash format
+## Hash format
 
-Tests that create artifact files or verify artifact tags
-must use the correct format:
-
-- Artifact tag line: `code-from-spec: <logical-name>@<hash>`
-  where `<logical-name>` uses `SPEC/`, `ARTIFACT/`, or
-  `EXTERNAL/` prefix, and `<hash>` is exactly 27 characters
-  of base64url (RFC 4648 §5, no padding). Characters
-  allowed in the hash: `A-Z`, `a-z`, `0-9`, `-`, `_`.
+- Hashes are exactly 27 characters of base64url
+  (RFC 4648 §5, no padding). Characters allowed:
+  `A-Z`, `a-z`, `0-9`, `-`, `_`.
 - When the functional test input specifies exact hash
   values or other string literals, use them verbatim —
   do not invent substitutes.
