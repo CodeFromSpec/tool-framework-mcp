@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
 output: internal/parsingnodeparsingtest/parsing_parsenode_test.go
@@ -17,7 +18,7 @@ valid `# SPEC/<name>` heading, then call
 ## Test setup guidance
 
 Tests create `_node.md` files on disk, then call
-`parsing.ParseNode` with logical names. Use `testChdir`
+`parsing.ParseNode` with logical names. Use `testutils.Chdir`
 and create `code-from-spec/.../_node.md` files.
 
 Node files must follow the spec format: optional
@@ -541,8 +542,8 @@ Expected: Error ErrDuplicateSubsection.
 
 - The package name is `parsingnodeparsingtest` (external test
   package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
 - All test cases call `parsing.ParseNode(logicalName)`.
   Create `code-from-spec/<path>/_node.md` files matching
   the logical name.

@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/spec_tree/scan
   - SPEC/golang/implementation/parsing(interface)
@@ -170,5 +171,5 @@ Expected: Error `spectree.ErrNoNodesFound`.
 
 - The package name is `spectree_test` (external test
   package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.

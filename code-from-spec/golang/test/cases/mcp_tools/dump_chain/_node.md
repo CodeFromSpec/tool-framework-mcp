@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/mcp_tools/dump_chain
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/oslayer(interface)
@@ -15,7 +16,7 @@ output: internal/mcpdumpchain/mcpdumpchain_test.go
 
 `mcpdumpchain.MCPDumpChain` calls `mcploadchain.MCPLoadChain` internally and
 writes the result to `dump_chain.xml`. Tests must
-create a valid spec tree on disk. Use `testChdir`
+create a valid spec tree on disk. Use `testutils.Chdir`
 pattern.
 
 ## Test cases
@@ -103,7 +104,7 @@ Expected:
 
 - The package name is `mcpdumpchain_test` (external
   test package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
 - Read `dump_chain.xml` with `os.ReadFile` to verify
   content.

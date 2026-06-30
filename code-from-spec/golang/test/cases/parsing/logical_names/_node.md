@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
 output: internal/parsinglogicalnamestest/parsing_logicalnames_test.go
@@ -23,7 +24,7 @@ directory with a `_node.md` file containing frontmatter
 with an `output` field, because `CfsReferenceFromName`
 reads the generator's frontmatter via `ParseNode`.
 
-ARTIFACT tests use the `testChdir` pattern: create a
+ARTIFACT tests use the `testutils.Chdir` pattern: create a
 temp dir, chdir to it, create the necessary
 `code-from-spec/.../_node.md` files, then call
 `CfsReferenceFromName`.
@@ -117,7 +118,7 @@ ParentName = nil.
 
 ### CfsReferenceFromName — ARTIFACT type
 
-These tests use the `testChdir` pattern. Before each
+These tests use the `testutils.Chdir` pattern. Before each
 test, create a temp dir, chdir to it, and create the
 generator's `_node.md` with frontmatter.
 
@@ -270,7 +271,7 @@ Expect error: ErrInvalidPath.
 - ARTIFACT tests and CfsReferenceFromPath tests do not
   need filesystem either — except for the ARTIFACT
   tests that call `parsing.CfsReferenceFromName` (which
-  reads frontmatter). Those use the `testChdir` pattern.
+  reads frontmatter). Those use the `testutils.Chdir` pattern.
 - Use table-driven tests where appropriate.
 - Compare pointer fields: for nil, check `== nil`;
   for non-nil, dereference and compare the string value.

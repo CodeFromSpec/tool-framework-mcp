@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
@@ -20,7 +21,7 @@ dependencies). `parsing.ParseNode` requires a valid
 on disk.
 
 Therefore, tests that reference spec nodes must:
-1. Use `testChdir` to set the working directory.
+1. Use `testutils.Chdir` to set the working directory.
 2. Create `code-from-spec/.../_node.md` files on disk
    matching the logical names used in CfsReferences.
 3. Set `CfsReference.LogicalName` to a valid `SPEC/`
@@ -430,7 +431,7 @@ Expected: oslayer.ErrFileUnreadable.
 
 - The package name is `chainhash_test` (external test
   package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
 - When creating `_node.md` files with `# Public`
   content, all content must be under `##` subsections.

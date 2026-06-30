@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
@@ -24,7 +25,7 @@ output: internal/mcpvalidatespecs/mcpvalidatespecs_test.go
 and `manifest.OpenManifest` internally. Tests must create a
 complete spec tree on disk.
 
-Use `testChdir` and create `code-from-spec/.../_node.md`
+Use `testutils.Chdir` and create `code-from-spec/.../_node.md`
 files with valid structure (frontmatter + body with
 `# <logical_name>` heading).
 
@@ -384,8 +385,8 @@ Expected:
 
 - The package name is `mcpvalidatespecs_test` (external
   test package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
 - When creating `_node.md` files with `# Public`
   content, all content must be under `##` subsections.
 - Logical names map to filesystem paths:

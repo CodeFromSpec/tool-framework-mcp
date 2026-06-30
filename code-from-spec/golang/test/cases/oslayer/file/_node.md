@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/oslayer(interface)
 output: internal/oslayerfiletest/oslayer_file_test.go
 ---
@@ -296,7 +297,7 @@ Expected: ErrLockTimeout.
 
 - The package name is `oslayerfiletest` (external test
   package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
 - For concurrency tests, use goroutines with channels
   for synchronization.

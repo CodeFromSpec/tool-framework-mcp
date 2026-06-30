@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/oslayer(interface)
 output: internal/oslayerlisttest/oslayer_list_test.go
 ---
@@ -142,5 +143,5 @@ where directory permissions cannot prevent traversal.
 
 - The package name is `oslayerlisttest` (external test
   package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.

@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/chain/hash
@@ -19,7 +20,7 @@ output: internal/mcploadchain/mcploadchain_test.go
 `parsing.ParseNode`, `manifest.OpenManifest`, and
 `oslayer.OpenFile`
 internally. Tests must create a complete spec tree on
-disk with valid `_node.md` files. Use `testChdir` and
+disk with valid `_node.md` files. Use `testutils.Chdir` and
 create `code-from-spec/.../_node.md` files with
 frontmatter and body content matching the test setup.
 
@@ -462,8 +463,8 @@ Expected:
 
 - The package name is `mcploadchain_test` (external
   test package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
 - When creating `_node.md` files with `# Public`
   content, all content must be under `##` subsections.
 - To verify XML output, use `strings.Contains` to

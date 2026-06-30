@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/oslayer(interface)
 output: internal/oslayerpathtest/oslayer_path_test.go
 ---
@@ -182,7 +183,7 @@ Expected: corresponds to current working directory.
 
 - The package name is `oslayerpathtest` (external test
   package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
 - For symlink tests, skip on platforms where symlinks
   are not supported.

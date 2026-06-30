@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/mcp_tools/write_file
@@ -16,7 +17,7 @@ output: internal/mcpwritefile/mcpwritefile_test.go
 `MCPWriteFile` reads the node's frontmatter from disk
 to validate the path against the declared output. Tests
 must create `_node.md` files with frontmatter containing
-an output declaration. Use `testChdir` and create the
+an output declaration. Use `testutils.Chdir` and create the
 spec tree structure (`code-from-spec/.../_node.md`).
 
 ## Test cases
@@ -190,5 +191,5 @@ Expected:
 
 - The package name is `mcpwritefile_test` (external
   test package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.

@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - ARTIFACT/domain/code-from-spec/manifest-format
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/manifest
@@ -313,10 +314,9 @@ Expected outcome:
 
 - The package name is `manifest_test` (external test
   package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory
-  to the temp dir, since manifest paths are relative to
-  the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory (manifest paths are relative
+  to the working directory).
 - Create `code-from-spec/` subdirectory in the temp dir
   before each test that needs manifest files.
 - Helper to write `.manifest` files: write header

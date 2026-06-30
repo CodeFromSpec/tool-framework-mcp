@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/spec_tree/validate
@@ -42,7 +43,7 @@ are direct children of code-from-spec/ (e.g.
 "SPEC/root"). Tests use "SPEC/root" as the root where
 a tree hierarchy is needed.
 
-For tests that validate external files, use `testChdir`
+For tests that validate external files, use `testutils.Chdir`
 and create files on disk.
 
 ## Test cases
@@ -543,7 +544,7 @@ Expected: No format errors returned.
 
 - The package name is `spectreevalidate_test` (external
   test package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper for EXTERNAL file tests.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory (for EXTERNAL file tests).
 - Build parsing.Node records directly — no file I/O
   except for EXTERNAL reference tests.

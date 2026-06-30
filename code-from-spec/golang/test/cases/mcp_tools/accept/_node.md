@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/chdir
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/mcp_tools/accept
   - SPEC/golang/implementation/oslayer(interface)
@@ -16,7 +17,7 @@ output: internal/mcpaccept/mcpaccept_test.go
 `MCPAccept` reads frontmatter and the manifest, then
 updates the manifest checksum. Tests must create spec
 tree files, output files, and manifest entries on disk.
-Use `testChdir` pattern.
+Use the `testutils.Chdir` pattern.
 
 ## Test cases
 
@@ -132,8 +133,8 @@ Expected:
 
 - The package name is `mcpaccept_test` (external test
   package).
-- Use `t.TempDir()` for isolation.
-- Use `testChdir` helper to set the working directory.
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
 - Create `.manifest` files using
   `manifest.OpenManifest(false)` + `m.Save()`, or by
   writing the file directly.
