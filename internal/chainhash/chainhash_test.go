@@ -3,6 +3,7 @@ package chainhash_test
 import (
 	"errors"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
@@ -27,16 +28,22 @@ func TestHashIsDeterministic(t *testing.T) {
 		},
 	}
 
-	hash1, err := chainhash.ChainHashCompute(chain)
+	hash1, positions1, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
-	hash2, err := chainhash.ChainHashCompute(chain)
+	hash2, positions2, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
 	if hash1 != hash2 {
 		t.Errorf("expected deterministic hash, got %q and %q", hash1, hash2)
+	}
+	if len(positions1) != len(positions2) {
+		t.Errorf("expected positions slices to have the same length, got %d and %d", len(positions1), len(positions2))
+	}
+	if !reflect.DeepEqual(positions1, positions2) {
+		t.Errorf("expected positions slices to be equal, got %v and %v", positions1, positions2)
 	}
 }
 
@@ -55,12 +62,15 @@ func TestHashIs27Characters(t *testing.T) {
 		},
 	}
 
-	hash, err := chainhash.ChainHashCompute(chain)
+	hash, positions, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(hash) != 27 {
 		t.Errorf("expected 27 characters, got %d: %q", len(hash), hash)
+	}
+	if len(positions) == 0 {
+		t.Error("expected non-empty positions slice")
 	}
 }
 
@@ -90,7 +100,7 @@ func TestHashChangesWhenAncestorContentChanges(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -99,7 +109,7 @@ func TestHashChangesWhenAncestorContentChanges(t *testing.T) {
 	rootB2.SetPublic("## Context\nmodified content")
 	rootB2.Write()
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -137,7 +147,7 @@ func TestHashChangesWhenDependencyContentChanges(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -146,7 +156,7 @@ func TestHashChangesWhenDependencyContentChanges(t *testing.T) {
 	bB2.SetPublic("## Interface\nmodified content")
 	bB2.Write()
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -171,7 +181,7 @@ func TestHashChangesWhenTargetPublicChanges(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -180,7 +190,7 @@ func TestHashChangesWhenTargetPublicChanges(t *testing.T) {
 	aB2.SetPublic("## Interface\nmodified content")
 	aB2.Write()
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -206,7 +216,7 @@ func TestHashChangesWhenTargetAgentChanges(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -216,7 +226,7 @@ func TestHashChangesWhenTargetAgentChanges(t *testing.T) {
 	aB2.SetAgent("modified agent content")
 	aB2.Write()
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -252,7 +262,7 @@ func TestAncestorWithPublicSubsectionsContributesHash(t *testing.T) {
 		},
 	}
 
-	hash, err := chainhash.ChainHashCompute(chain)
+	hash, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -287,14 +297,14 @@ func TestAncestorWithoutPublicSectionSkipped(t *testing.T) {
 		},
 	}
 
-	hashWithPublic, err := chainhash.ChainHashCompute(chain)
+	hashWithPublic, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 
-	hashWithoutPublic, err := chainhash.ChainHashCompute(chain)
+	hashWithoutPublic, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -359,11 +369,11 @@ func TestMultipleAncestorsOrderMatters(t *testing.T) {
 		},
 	}
 
-	hashA, err := chainhash.ChainHashCompute(chainA)
+	hashA, _, err := chainhash.ChainHashCompute(chainA)
 	if err != nil {
 		t.Fatalf("chain A failed: %v", err)
 	}
-	hashB, err := chainhash.ChainHashCompute(chainB)
+	hashB, _, err := chainhash.ChainHashCompute(chainB)
 	if err != nil {
 		t.Fatalf("chain B failed: %v", err)
 	}
@@ -399,7 +409,7 @@ func TestSpecDependencyWithoutQualifierHashesPublicSubsections(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -408,7 +418,7 @@ func TestSpecDependencyWithoutQualifierHashesPublicSubsections(t *testing.T) {
 	bB2.SetPublic("## Interface\nmodified content")
 	bB2.Write()
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -445,7 +455,7 @@ func TestSpecDependencyWithQualifierHashesSubsection(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -454,7 +464,7 @@ func TestSpecDependencyWithQualifierHashesSubsection(t *testing.T) {
 	bB2.SetPublic("## Interface\nmodified content")
 	bB2.Write()
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -491,7 +501,7 @@ func TestQualifierCaseNormalization(t *testing.T) {
 		},
 	}
 
-	_, err := chainhash.ChainHashCompute(chain)
+	_, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -526,7 +536,7 @@ func TestArtifactDependencyHashesFullFileContent(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -535,7 +545,7 @@ func TestArtifactDependencyHashesFullFileContent(t *testing.T) {
 		t.Fatalf("failed to modify file: %v", err)
 	}
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -571,7 +581,7 @@ func TestExternalDependencyHashesAllContent(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -580,7 +590,7 @@ func TestExternalDependencyHashesAllContent(t *testing.T) {
 		t.Fatalf("failed to modify file: %v", err)
 	}
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -605,7 +615,7 @@ func TestLeadingBlankLinesRemovedFromSubsection(t *testing.T) {
 		},
 	}
 
-	hashA, err := chainhash.ChainHashCompute(chainA)
+	hashA, _, err := chainhash.ChainHashCompute(chainA)
 	if err != nil {
 		t.Fatalf("chain A failed: %v", err)
 	}
@@ -622,7 +632,7 @@ func TestLeadingBlankLinesRemovedFromSubsection(t *testing.T) {
 		},
 	}
 
-	hashB, err := chainhash.ChainHashCompute(chainB)
+	hashB, _, err := chainhash.ChainHashCompute(chainB)
 	if err != nil {
 		t.Fatalf("chain B failed: %v", err)
 	}
@@ -647,7 +657,7 @@ func TestTrailingBlankLinesRemovedFromSubsection(t *testing.T) {
 		},
 	}
 
-	hashA, err := chainhash.ChainHashCompute(chainA)
+	hashA, _, err := chainhash.ChainHashCompute(chainA)
 	if err != nil {
 		t.Fatalf("chain A failed: %v", err)
 	}
@@ -664,7 +674,7 @@ func TestTrailingBlankLinesRemovedFromSubsection(t *testing.T) {
 		},
 	}
 
-	hashB, err := chainhash.ChainHashCompute(chainB)
+	hashB, _, err := chainhash.ChainHashCompute(chainB)
 	if err != nil {
 		t.Fatalf("chain B failed: %v", err)
 	}
@@ -689,7 +699,7 @@ func TestInteriorBlankLinesPreserved(t *testing.T) {
 		},
 	}
 
-	hashA, err := chainhash.ChainHashCompute(chainA)
+	hashA, _, err := chainhash.ChainHashCompute(chainA)
 	if err != nil {
 		t.Fatalf("chain A failed: %v", err)
 	}
@@ -706,7 +716,7 @@ func TestInteriorBlankLinesPreserved(t *testing.T) {
 		},
 	}
 
-	hashB, err := chainhash.ChainHashCompute(chainB)
+	hashB, _, err := chainhash.ChainHashCompute(chainB)
 	if err != nil {
 		t.Fatalf("chain B failed: %v", err)
 	}
@@ -732,7 +742,7 @@ func TestTargetPublicAndAgentBothContribute(t *testing.T) {
 		},
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -741,7 +751,7 @@ func TestTargetPublicAndAgentBothContribute(t *testing.T) {
 	aB2.SetPublic("## Interface\nsome interface")
 	aB2.Write()
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -766,7 +776,7 @@ func TestTargetWithoutAgentIsSkipped(t *testing.T) {
 		},
 	}
 
-	hash, err := chainhash.ChainHashCompute(chain)
+	hash, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -804,7 +814,7 @@ func TestInputHashesFullFileContent(t *testing.T) {
 		Input: &inputRef,
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -813,7 +823,7 @@ func TestInputHashesFullFileContent(t *testing.T) {
 		t.Fatalf("failed to modify file: %v", err)
 	}
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -849,7 +859,7 @@ func TestSpecInputHashesPublicSubsections(t *testing.T) {
 		Input: &inputRef,
 	}
 
-	hashBefore, err := chainhash.ChainHashCompute(chain)
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
@@ -858,7 +868,7 @@ func TestSpecInputHashesPublicSubsections(t *testing.T) {
 	bB2.SetPublic("## Interface\nmodified content")
 	bB2.Write()
 
-	hashAfter, err := chainhash.ChainHashCompute(chain)
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
@@ -883,7 +893,7 @@ func TestNoInputSkipped(t *testing.T) {
 		},
 	}
 
-	hash, err := chainhash.ChainHashCompute(chain)
+	hash, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -919,7 +929,7 @@ func TestQualifierReferencesNonExistentSubsection(t *testing.T) {
 		},
 	}
 
-	_, err := chainhash.ChainHashCompute(chain)
+	_, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Errorf("expected no error when qualifier does not match any subsection, got: %v", err)
 	}
@@ -936,7 +946,7 @@ func TestUnreadableSpecNodeFile(t *testing.T) {
 		},
 	}
 
-	_, err := chainhash.ChainHashCompute(chain)
+	_, _, err := chainhash.ChainHashCompute(chain)
 	if err == nil {
 		t.Fatal("expected error for unreadable spec node file")
 	}
@@ -967,7 +977,7 @@ func TestUnreadableArtifactFile(t *testing.T) {
 		},
 	}
 
-	_, err := chainhash.ChainHashCompute(chain)
+	_, _, err := chainhash.ChainHashCompute(chain)
 	if err == nil {
 		t.Fatal("expected error for unreadable artifact file")
 	}
@@ -998,7 +1008,7 @@ func TestUnreadableExternalFile(t *testing.T) {
 		},
 	}
 
-	_, err := chainhash.ChainHashCompute(chain)
+	_, _, err := chainhash.ChainHashCompute(chain)
 	if err == nil {
 		t.Fatal("expected error for unreadable external file")
 	}

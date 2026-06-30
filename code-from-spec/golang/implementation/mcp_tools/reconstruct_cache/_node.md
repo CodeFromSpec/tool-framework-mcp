@@ -71,25 +71,32 @@ Implement the reconstruct cache tool as a Go package.
       fails, skip this entry.
 
    f. For each position in `positions`:
-      Extract the content for this position using the
-      same logic as load_chain content extraction:
+      Extract the content for this position:
       - If label starts with "AGENT[": extract the
-        inner logical name, call
-        `parsing.ParseNode(innerName)`, extract agent
-        content (same as load_chain instructions
-        extraction).
+        inner logical name (between "[" and "]"), call
+        `parsing.ParseNode(innerName)`, then call
+        `parsing.ExtractAgentContent(node)`.
       - If label starts with "INPUT[": extract the
-        inner reference name. If it starts with
-        "ARTIFACT/" or "EXTERNAL/", read the full file.
-        If it starts with "SPEC/", parse the node and
-        extract public content (with qualifier if
-        present).
-      - If label starts with "ARTIFACT/" or
-        "EXTERNAL/": read the full file at the
-        reference's path.
-      - If label starts with "SPEC/": parse the node
-        and extract public content (with qualifier if
-        present in the label).
+        inner reference name (between "[" and "]").
+        Resolve the reference (see below).
+      - Otherwise (SPEC/, ARTIFACT/, EXTERNAL/):
+        resolve the reference directly from the label.
+
+      Resolving a reference from a label:
+      - If it starts with "ARTIFACT/" or "EXTERNAL/":
+        call `parsing.CfsReferenceFromName(label)` to
+        get the path, then call
+        `parsing.ReadFileContent(oslayer.CfsPath(ref.Path))`.
+      - If it starts with "SPEC/": parse the qualifier
+        if present (text between "(" and ")" at end).
+        Call `parsing.ParseNode(logicalName)`. Without
+        qualifier: call
+        `parsing.ConcatenateSubsections(node.Public.Subsections)`.
+        With qualifier: find the matching subsection
+        (using `parsing.NormalizeText` for comparison)
+        and call `parsing.FormatSection(sub.RawHeading,
+        sub.Content)`.
+
       Call `cache.WriteContent(position.Hash, content)`.
       If WriteContent returns nil and the file was
       newly written (not skipped), increment
@@ -110,23 +117,9 @@ Implement the reconstruct cache tool as a Go package.
 The content extraction for each position must produce
 exactly the same text that is hashed by
 `ChainHashCompute` and delivered in the spec chain.
-Use the same block extraction and concatenation logic
-as defined in SPEC/golang/implementation/chain/hash
-(ExtractBlock, FormatSection,
-ConcatenateSubsections).
-
-For agent content: use the same logic as load_chain
-instructions extraction (content of `# Agent`
-excluding the heading, with subsections).
-
-For file content (ARTIFACT/ and EXTERNAL/): read the
-file using `oslayer.OpenFile` in "read" mode, read
-all lines, join with "\n", append trailing "\n".
-
-For SPEC/ content: call `parsing.ParseNode`, then
-extract public subsections using
-ConcatenateSubsections. For qualified references,
-extract only the matching subsection.
+Use the extraction helpers from the `parsing` package:
+`ConcatenateSubsections`, `FormatSection`,
+`ExtractAgentContent`, and `ReadFileContent`.
 
 ## Go-specific guidance
 
@@ -137,14 +130,11 @@ extract only the matching subsection.
   and `ContentHash`.
 - Use the `cache` package for `WriteContent` and
   `WriteChain`.
-- Use the `parsing` package for `ParseNode`.
-- Use the `oslayer` package for `OpenFile`, `CfsPath`.
+- Use the `parsing` package for `ParseNode`,
+  `CfsReferenceFromName`, `ConcatenateSubsections`,
+  `FormatSection`, `ExtractAgentContent`,
+  `ReadFileContent`, and `NormalizeText`.
+- Use the `oslayer` package for `CfsPath`.
 - Use `fmt.Sprintf` for the summary message.
-- The block extraction helpers
-  (`ExtractBlock`, `FormatSection`,
-  `ConcatenateSubsections`) are internal to the
-  `chainhash` package. To reuse them, either export
-  them from `chainhash` or duplicate the logic. The
-  simpler approach is to export them from `chainhash`.
 - Cache write errors are silently ignored — log
   nothing, just continue.

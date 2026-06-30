@@ -66,42 +66,17 @@ Implement the chain hash component as a Go package.
 
 ## Logic
 
-### Block extraction helpers
-
-**ExtractBlock(content: list of string) -> string**
-
-1. Remove leading blank lines from `content`
-   (lines that are empty or contain only spaces and tabs).
-2. Remove trailing blank lines.
-3. If nothing remains, return empty string.
-4. Join remaining lines with `\n` and append exactly
-   one `\n`.
-
-**FormatSection(raw_heading: string, content: list of string) -> string**
-
-1. Let `head` = `raw_heading` with trailing whitespace
-   removed, followed by `\n`.
-2. Let `body` = `ExtractBlock(content)`.
-3. Return concatenation of `head` and `body`.
-
-**ConcatenateSubsections(subsections: list of parsing.NodeSubsection) -> string**
-
-1. Let `result` = empty string.
-2. For each subsection in `subsections`:
-   a. Let `block` = `FormatSection(subsection.raw_heading,
-      subsection.content)`.
-   b. If `result` is not empty and `block` is not empty,
-      append `\n` to `result`.
-   c. Append `block` to `result`.
-3. Return `result`.
-
 ### Content hash helpers
+
+Uses `parsing.ConcatenateSubsections`,
+`parsing.FormatSection`, `parsing.ExtractAgentContent`,
+and `parsing.ReadFileContent` for content extraction.
 
 **HashPublicSubsections(node: parsing.Node) -> optional raw bytes (20)**
 
 1. If `node.public` is absent, return absent.
 2. If `node.public.subsections` is empty, return absent.
-3. Let `text` = `ConcatenateSubsections(node.public.subsections)`.
+3. Let `text` = `parsing.ConcatenateSubsections(node.public.subsections)`.
 4. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
@@ -111,42 +86,23 @@ Implement the chain hash component as a Go package.
 2. Find the subsection in `node.public.subsections`
    whose `heading` equals `normalized_qualifier`.
 3. If not found, return absent.
-4. Let `text` = `FormatSection(subsection.raw_heading,
+4. Let `text` = `parsing.FormatSection(subsection.raw_heading,
    subsection.content)`.
 5. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
 **HashAgentSection(node: parsing.Node) -> optional raw bytes (20)**
 
-1. If `node.agent` is absent, return absent.
-2. If `node.agent.content` is empty (after blank-line
-   removal) and `node.agent.subsections` is empty,
-   return absent.
-3. Let `text` = `ExtractBlock(node.agent.content)`.
-4. For each subsection in `node.agent.subsections`:
-   a. Let `sub_block` = `FormatSection(
-      subsection.raw_heading, subsection.content)`.
-   b. If `text` is not empty and `sub_block` is not
-      empty, append `\n` to `text`.
-   c. Append `sub_block` to `text`.
-5. Compute SHA-1 of `text` (UTF-8 bytes). Return the
+1. Let `text` = `parsing.ExtractAgentContent(node)`.
+2. If `text` is empty, return absent.
+3. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
 **HashFileContent(file_path: oslayer.CfsPath) -> raw bytes (20)**
 
-1. Call `oslayer.OpenFile(file_path, mode="read",
-   timeout_ms=30000)`. If `oslayer.OpenFile` raises
-   `oslayer.ErrFileUnreadable`, propagate the error.
-2. Let `lines` = empty list.
-3. Loop:
-   a. Call `handle.ReadLine()`.
-   b. If `oslayer.ErrEndOfFile` is raised, exit loop.
-   c. Append the line followed by `"\n"` to `lines`.
-4. Call `handle.Close()`.
-   (Call `handle.Close()` in error paths too before
-   re-raising.)
-5. Let `text` = concatenation of all strings in `lines`.
-6. Compute SHA-1 of `text` (UTF-8 bytes). Return the
+1. Let `text` = `parsing.ReadFileContent(file_path)`.
+   If it fails, propagate the error.
+2. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
 ### Main function

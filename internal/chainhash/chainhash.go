@@ -14,6 +14,11 @@ import (
 
 var ErrParseFailure = errors.New("parse failure")
 
+type ContentHash struct {
+	Label string
+	Hash  string
+}
+
 func extractBlock(content []string) string {
 	start := 0
 	for start < len(content) {
@@ -128,6 +133,14 @@ func hashFileContent(filePath oslayer.CfsPath) ([]byte, error) {
 	return sum[:], nil
 }
 
+func referenceLabel(ref parsing.CfsReference) string {
+	label := ref.LogicalName
+	if ref.Qualifier != nil {
+		label += "(" + *ref.Qualifier + ")"
+	}
+	return label
+}
+
 func processSpecDep(ref parsing.CfsReference) ([]byte, error) {
 	node, err := parsing.ParseNode(ref.LogicalName)
 	if err != nil {
@@ -139,81 +152,90 @@ func processSpecDep(ref parsing.CfsReference) ([]byte, error) {
 	return hashQualifiedSubsection(node, *ref.Qualifier), nil
 }
 
-func ChainHashCompute(chain chainresolver.Chain) (string, error) {
+func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error) {
 	var hashes [][]byte
+	var positions []ContentHash
+
+	recordPosition := func(label string, rawHash []byte) {
+		encoded := base64.RawURLEncoding.EncodeToString(rawHash)
+		positions = append(positions, ContentHash{Label: label, Hash: encoded})
+		hashes = append(hashes, rawHash)
+	}
 
 	for _, ancestor := range chain.Ancestors {
 		node, err := parsing.ParseNode(ancestor.LogicalName)
 		if err != nil {
-			return "", fmt.Errorf("%w: ancestor %s: %s", ErrParseFailure, ancestor.LogicalName, err)
+			return "", nil, fmt.Errorf("%w: ancestor %s: %s", ErrParseFailure, ancestor.LogicalName, err)
 		}
 		h := hashPublicSubsections(node)
 		if h != nil {
-			hashes = append(hashes, h)
+			recordPosition(ancestor.LogicalName, h)
 		}
 	}
 
 	for _, dep := range chain.Dependencies {
+		label := referenceLabel(dep)
 		if strings.HasPrefix(dep.LogicalName, "ARTIFACT/") {
 			h, err := hashFileContent(oslayer.CfsPath(dep.Path))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
-			hashes = append(hashes, h)
+			recordPosition(label, h)
 		} else if strings.HasPrefix(dep.LogicalName, "EXTERNAL/") {
 			h, err := hashFileContent(oslayer.CfsPath(dep.Path))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
-			hashes = append(hashes, h)
+			recordPosition(label, h)
 		} else if strings.HasPrefix(dep.LogicalName, "SPEC/") {
 			h, err := processSpecDep(dep)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			if h != nil {
-				hashes = append(hashes, h)
+				recordPosition(label, h)
 			}
 		}
 	}
 
 	targetNode, err := parsing.ParseNode(chain.Target.LogicalName)
 	if err != nil {
-		return "", fmt.Errorf("%w: target %s: %s", ErrParseFailure, chain.Target.LogicalName, err)
+		return "", nil, fmt.Errorf("%w: target %s: %s", ErrParseFailure, chain.Target.LogicalName, err)
 	}
 
 	h := hashPublicSubsections(targetNode)
 	if h != nil {
-		hashes = append(hashes, h)
+		recordPosition(chain.Target.LogicalName, h)
 	}
 
 	agentHash := hashAgentSection(targetNode)
 	if agentHash != nil {
-		hashes = append(hashes, agentHash)
+		recordPosition("AGENT["+chain.Target.LogicalName+"]", agentHash)
 	}
 
 	if chain.Input != nil {
 		hashes = append(hashes, []byte{0x49})
 		input := chain.Input
+		inputLabel := "INPUT[" + referenceLabel(*input) + "]"
 		if strings.HasPrefix(input.LogicalName, "ARTIFACT/") {
 			h, err := hashFileContent(oslayer.CfsPath(input.Path))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
-			hashes = append(hashes, h)
+			recordPosition(inputLabel, h)
 		} else if strings.HasPrefix(input.LogicalName, "EXTERNAL/") {
 			h, err := hashFileContent(oslayer.CfsPath(input.Path))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
-			hashes = append(hashes, h)
+			recordPosition(inputLabel, h)
 		} else if strings.HasPrefix(input.LogicalName, "SPEC/") {
 			h, err := processSpecDep(*input)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			if h != nil {
-				hashes = append(hashes, h)
+				recordPosition(inputLabel, h)
 			}
 		}
 	}
@@ -225,5 +247,5 @@ func ChainHashCompute(chain chainresolver.Chain) (string, error) {
 
 	finalSum := sha1.Sum(concatenated)
 	encoded := base64.RawURLEncoding.EncodeToString(finalSum[:])
-	return encoded, nil
+	return encoded, positions, nil
 }

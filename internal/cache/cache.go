@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 )
 
@@ -14,10 +15,10 @@ const (
 	chainDir   = "code-from-spec/.cache/.chains"
 )
 
-type ChainPosition struct {
-	Label       string
-	ContentHash string
-}
+var (
+	ErrNotFound            = errors.New("cache entry not found")
+	ErrChainFileCorrupted  = errors.New("chain file corrupted")
+)
 
 func fileExists(targetPath oslayer.CfsPath) (bool, error) {
 	f, err := oslayer.OpenFile(targetPath, "read", 0)
@@ -61,7 +62,7 @@ func WriteContent(contentHash string, content string) error {
 	return nil
 }
 
-func WriteChain(chainHash string, positions []ChainPosition) error {
+func WriteChain(chainHash string, positions []chainhash.ContentHash) error {
 	targetPath := oslayer.CfsPath(chainDir + "/." + chainHash)
 	exists, err := fileExists(targetPath)
 	if err != nil {
@@ -77,7 +78,7 @@ func WriteChain(chainHash string, positions []ChainPosition) error {
 		return fmt.Errorf("opening temporary chain file: %w", err)
 	}
 	for _, position := range positions {
-		line := position.Label + ": " + position.ContentHash + "\n"
+		line := position.Label + ": " + position.Hash + "\n"
 		if err := f.Write(line); err != nil {
 			f.Close()
 			return fmt.Errorf("writing chain file: %w", err)
@@ -91,14 +92,14 @@ func WriteChain(chainHash string, positions []ChainPosition) error {
 	return nil
 }
 
-func ReadContent(contentHash string) (string, bool, error) {
+func ReadContent(contentHash string) (string, error) {
 	targetPath := oslayer.CfsPath(contentDir + "/." + contentHash)
 	f, err := oslayer.OpenFile(targetPath, "read", 30000)
 	if err != nil {
 		if errors.Is(err, oslayer.ErrFileUnreadable) {
-			return "", false, nil
+			return "", ErrNotFound
 		}
-		return "", false, fmt.Errorf("opening content file: %w", err)
+		return "", fmt.Errorf("opening content file: %w", err)
 	}
 	defer f.Close()
 
@@ -109,46 +110,46 @@ func ReadContent(contentHash string) (string, bool, error) {
 			if errors.Is(err, oslayer.ErrEndOfFile) {
 				break
 			}
-			return "", false, fmt.Errorf("reading content file: %w", err)
+			return "", fmt.Errorf("reading content file: %w", err)
 		}
 		lines = append(lines, line)
 	}
 
 	content := strings.Join(lines, "\n") + "\n"
-	return content, true, nil
+	return content, nil
 }
 
-func ReadChain(chainHash string) ([]ChainPosition, bool, error) {
+func ReadChain(chainHash string) ([]chainhash.ContentHash, error) {
 	targetPath := oslayer.CfsPath(chainDir + "/." + chainHash)
 	f, err := oslayer.OpenFile(targetPath, "read", 30000)
 	if err != nil {
 		if errors.Is(err, oslayer.ErrFileUnreadable) {
-			return nil, false, nil
+			return nil, ErrNotFound
 		}
-		return nil, false, fmt.Errorf("opening chain file: %w", err)
+		return nil, fmt.Errorf("opening chain file: %w", err)
 	}
 	defer f.Close()
 
-	var positions []ChainPosition
+	var positions []chainhash.ContentHash
 	for {
 		line, err := f.ReadLine()
 		if err != nil {
 			if errors.Is(err, oslayer.ErrEndOfFile) {
 				break
 			}
-			return nil, false, fmt.Errorf("reading chain file: %w", err)
+			return nil, fmt.Errorf("reading chain file: %w", err)
 		}
 		parts := strings.SplitN(line, ": ", 2)
 		if len(parts) != 2 {
-			continue
+			return nil, ErrChainFileCorrupted
 		}
-		positions = append(positions, ChainPosition{
-			Label:       parts[0],
-			ContentHash: parts[1],
+		positions = append(positions, chainhash.ContentHash{
+			Label: parts[0],
+			Hash:  parts[1],
 		})
 	}
 
-	return positions, true, nil
+	return positions, nil
 }
 
 func extractHashes(files []oslayer.CfsPath) []string {

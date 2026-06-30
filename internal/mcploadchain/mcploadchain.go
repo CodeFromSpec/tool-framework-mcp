@@ -4,8 +4,10 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"strings"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/cache"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
@@ -22,7 +24,7 @@ var (
 func MCPLoadChain(logicalName string) (string, error) {
 	node, err := parsing.ParseNode(logicalName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parsing target node: %w", err)
 	}
 
 	if node.Frontmatter == nil || node.Frontmatter.Output == nil {
@@ -51,13 +53,15 @@ func MCPLoadChain(logicalName string) (string, error) {
 
 	chain, err := chainresolver.ChainResolve(logicalName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolving chain: %w", err)
 	}
 
-	chainHash, err := chainhash.ChainHashCompute(chain)
+	chainHash, positions, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("computing chain hash: %w", err)
 	}
+
+	contentByLabel := make(map[string]string)
 
 	var sb strings.Builder
 
@@ -78,7 +82,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 	for _, ancestor := range chain.Ancestors {
 		ancestorNode, parseErr := parsing.ParseNode(ancestor.LogicalName)
 		if parseErr != nil {
-			return "", parseErr
+			return "", fmt.Errorf("parsing ancestor %s: %w", ancestor.LogicalName, parseErr)
 		}
 		if ancestorNode.Public == nil || len(ancestorNode.Public.Subsections) == 0 {
 			continue
@@ -87,6 +91,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 		if content == "" {
 			continue
 		}
+		contentByLabel[ancestor.LogicalName] = content
 		sb.WriteString("<entry name=\"")
 		sb.WriteString(ancestor.LogicalName)
 		sb.WriteString("\">\n")
@@ -99,8 +104,9 @@ func MCPLoadChain(logicalName string) (string, error) {
 		case strings.HasPrefix(dep.LogicalName, "ARTIFACT/"):
 			fileContent, readErr := readFileContent(oslayer.CfsPath(dep.Path))
 			if readErr != nil {
-				return "", readErr
+				return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
 			}
+			contentByLabel[dep.LogicalName] = fileContent
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(dep.LogicalName)
 			sb.WriteString("\">\n")
@@ -110,8 +116,9 @@ func MCPLoadChain(logicalName string) (string, error) {
 		case strings.HasPrefix(dep.LogicalName, "EXTERNAL/"):
 			fileContent, readErr := readFileContent(oslayer.CfsPath(dep.Path))
 			if readErr != nil {
-				return "", readErr
+				return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
 			}
+			contentByLabel[dep.LogicalName] = fileContent
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(dep.LogicalName)
 			sb.WriteString("\">\n")
@@ -121,7 +128,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 		case strings.HasPrefix(dep.LogicalName, "SPEC/"):
 			depNode, parseErr := parsing.ParseNode(dep.LogicalName)
 			if parseErr != nil {
-				return "", parseErr
+				return "", fmt.Errorf("parsing dependency %s: %w", dep.LogicalName, parseErr)
 			}
 			content := extractPublicContent(depNode, dep.Qualifier)
 			if content == "" {
@@ -131,6 +138,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 			if dep.Qualifier != nil {
 				entryName = entryName + "(" + *dep.Qualifier + ")"
 			}
+			contentByLabel[entryName] = content
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(entryName)
 			sb.WriteString("\">\n")
@@ -141,11 +149,12 @@ func MCPLoadChain(logicalName string) (string, error) {
 
 	targetNode, err := parsing.ParseNode(chain.Target.LogicalName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parsing target node: %w", err)
 	}
 	if targetNode.Public != nil && len(targetNode.Public.Subsections) > 0 {
 		content := extractPublicContent(targetNode, nil)
 		if content != "" {
+			contentByLabel[chain.Target.LogicalName] = content
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(chain.Target.LogicalName)
 			sb.WriteString("\">\n")
@@ -158,6 +167,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 
 	if targetNode.Agent != nil {
 		agentContent := buildAgentContent(targetNode.Agent)
+		contentByLabel["AGENT["+chain.Target.LogicalName+"]"] = agentContent
 		sb.WriteString("<instructions>\n")
 		sb.WriteString(agentContent)
 		sb.WriteString("</instructions>\n")
@@ -167,13 +177,26 @@ func MCPLoadChain(logicalName string) (string, error) {
 		sb.WriteString("<input>\n")
 		inputContent, inputErr := resolveInputContent(chain.Input)
 		if inputErr != nil {
-			return "", inputErr
+			return "", fmt.Errorf("resolving input: %w", inputErr)
 		}
+		inputLabel := "INPUT[" + chain.Input.LogicalName
+		if chain.Input.Qualifier != nil {
+			inputLabel = inputLabel + "(" + *chain.Input.Qualifier + ")"
+		}
+		inputLabel = inputLabel + "]"
+		contentByLabel[inputLabel] = inputContent
 		sb.WriteString(inputContent)
 		sb.WriteString("</input>\n")
 	}
 
 	sb.WriteString("</chain>\n")
+
+	for _, position := range positions {
+		if content, ok := contentByLabel[position.Label]; ok {
+			_ = cache.WriteContent(position.Hash, content)
+		}
+	}
+	_ = cache.WriteChain(chainHash, positions)
 
 	return sb.String(), nil
 }
@@ -181,7 +204,7 @@ func MCPLoadChain(logicalName string) (string, error) {
 func computeFileChecksum(cfsPath oslayer.CfsPath) (string, error) {
 	handle, err := oslayer.OpenFile(cfsPath, "read", 30000)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("opening file %s: %w", cfsPath, err)
 	}
 	defer handle.Close()
 
@@ -192,7 +215,7 @@ func computeFileChecksum(cfsPath oslayer.CfsPath) (string, error) {
 			if errors.Is(err, oslayer.ErrEndOfFile) {
 				break
 			}
-			return "", err
+			return "", fmt.Errorf("reading file %s: %w", cfsPath, err)
 		}
 		sb.WriteString(line)
 		sb.WriteString("\n")
@@ -207,7 +230,7 @@ func computeFileChecksum(cfsPath oslayer.CfsPath) (string, error) {
 func readFileContent(cfsPath oslayer.CfsPath) (string, error) {
 	handle, err := oslayer.OpenFile(cfsPath, "read", 30000)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("opening file %s: %w", cfsPath, err)
 	}
 	defer handle.Close()
 
@@ -218,7 +241,7 @@ func readFileContent(cfsPath oslayer.CfsPath) (string, error) {
 			if errors.Is(err, oslayer.ErrEndOfFile) {
 				break
 			}
-			return "", err
+			return "", fmt.Errorf("reading file %s: %w", cfsPath, err)
 		}
 		sb.WriteString(line)
 		sb.WriteString("\n")
@@ -312,7 +335,7 @@ func resolveInputContent(ref *parsing.CfsReference) (string, error) {
 	case strings.HasPrefix(ref.LogicalName, "SPEC/"):
 		inputNode, err := parsing.ParseNode(ref.LogicalName)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("parsing input node %s: %w", ref.LogicalName, err)
 		}
 		return extractPublicContent(inputNode, ref.Qualifier), nil
 	}

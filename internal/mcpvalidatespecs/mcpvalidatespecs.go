@@ -155,7 +155,7 @@ func MCPValidateSpecs() ValidationReport {
 			continue
 		}
 
-		computedHash, hashErr := chainhash.ChainHashCompute(chain)
+		computedHash, _, hashErr := chainhash.ChainHashCompute(chain)
 		if hashErr != nil {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
@@ -303,3 +303,5 @@ func collectAllDirs() []string {
 	sort.Strings(dirs)
 	return dirs
 }
+</content>
+</invoke>
