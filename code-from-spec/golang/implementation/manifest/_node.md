@@ -112,14 +112,6 @@ Implement the manifest component as a Go package.
 
 1. If readOnly is true:
    a. Try oslayer.OpenFile on
-      "code-from-spec/.manifest" with mode "read" and
-      timeout 30000.
-      If OpenFile returns oslayer.ErrFileUnreadable (file
-      does not exist): return Manifest with readOnly =
-      true, Version = "v5", Entries as empty map.
-      If OpenFile returns any other error, propagate it.
-      Let manifest_file be the result.
-   b. Try oslayer.OpenFile on
       "code-from-spec/.manifest.lock" with mode "read"
       and timeout 30000.
       If OpenFile returns oslayer.ErrFileUnreadable (lock
@@ -136,10 +128,22 @@ Implement the manifest component as a Go package.
       ErrLockTimeout.
       If OpenFile returns any other error, propagate it.
       Let lock_file be the result.
+   b. Try oslayer.OpenFile on
+      "code-from-spec/.manifest" with mode "read" and
+      timeout 30000.
+      If OpenFile returns oslayer.ErrFileUnreadable (file
+      does not exist):
+        lock_file.Close().
+        Return Manifest with readOnly = true,
+        Version = "v5", Entries as empty map.
+      If OpenFile returns any other error:
+        lock_file.Close().
+        Propagate the error.
+      Let manifest_file be the result.
    c. Parse manifest_file line by line into an entries
       map (see parsing steps below).
-   d. lock_file.Close() (releases shared lock).
-   e. manifest_file.Close().
+   d. manifest_file.Close().
+   e. lock_file.Close() (releases shared lock).
    f. Return Manifest with readOnly = true, Version =
       "v5", Entries set to the parsed entries map.
       No resources are held after return.

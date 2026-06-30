@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/manifest@T0ZodL6lfBB_Jwi-d_b_2aKiDt4
+// code-from-spec: SPEC/golang/implementation/manifest@DB6AGoXC1pInXkcUtVWANZyVbu4
 package manifest
 
 import (
@@ -70,18 +70,6 @@ func parseManifest(f *oslayer.File) (map[string]ManifestEntry, error) {
 
 func OpenManifest(readOnly bool) (*Manifest, error) {
 	if readOnly {
-		manifestFH, err := oslayer.OpenFile(oslayer.CfsPath("code-from-spec/.manifest"), "read", 30000)
-		if err != nil {
-			if errors.Is(err, oslayer.ErrFileUnreadable) {
-				return &Manifest{
-					readOnly: true,
-					Version:  "v5",
-					Entries:  make(map[string]ManifestEntry),
-				}, nil
-			}
-			return nil, fmt.Errorf("opening manifest: %w", err)
-		}
-
 		lockPath := oslayer.CfsPath("code-from-spec/.manifest.lock")
 		lockFH, err := oslayer.OpenFile(lockPath, "read", 30000)
 		if err != nil {
@@ -102,15 +90,28 @@ func OpenManifest(readOnly bool) (*Manifest, error) {
 			}
 		}
 
-		entries, err := parseManifest(manifestFH)
+		manifestFH, err := oslayer.OpenFile(oslayer.CfsPath("code-from-spec/.manifest"), "read", 30000)
 		if err != nil {
 			lockFH.Close()
+			if errors.Is(err, oslayer.ErrFileUnreadable) {
+				return &Manifest{
+					readOnly: true,
+					Version:  "v5",
+					Entries:  make(map[string]ManifestEntry),
+				}, nil
+			}
+			return nil, fmt.Errorf("opening manifest: %w", err)
+		}
+
+		entries, err := parseManifest(manifestFH)
+		if err != nil {
 			manifestFH.Close()
+			lockFH.Close()
 			return nil, err
 		}
 
-		lockFH.Close()
 		manifestFH.Close()
+		lockFH.Close()
 
 		return &Manifest{
 			readOnly: true,
