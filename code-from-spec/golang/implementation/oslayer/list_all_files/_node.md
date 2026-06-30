@@ -43,19 +43,28 @@ types) must use the suffix `List`.
 3. Initialize an empty list, results.
 
 4. Walk the directory at os_path recursively, visiting
-   every entry. If the walk itself raises a filesystem
-   error, raise ErrWalkError.
+   every entry.
 
    For each entry encountered during the walk:
+     If the walk callback receives a filesystem error
+     (the `err` parameter is non-nil), raise ErrWalkError.
      If the entry is a directory, skip it (continue
      traversal but do not add).
      If the entry is a symlink, raise
-     ErrSymlinkNotAllowed.
+     ErrSymlinkNotAllowed. Propagate this error directly
+     — do not wrap it in ErrWalkError.
      If the entry is a regular file:
        Call OsPathToCfs(OsPath(entry_os_path)) to
        convert it to a CfsPath. If it raises any error,
-       propagate it.
+       propagate it directly — do not wrap it in
+       ErrWalkError.
        Append the resulting CfsPath to results.
+
+   If the walk returns an error that was already raised
+   by the callback (ErrSymlinkNotAllowed, or a
+   propagated error from OsPathToCfs), return it as-is.
+   Only wrap in ErrWalkError if the error originates
+   from the walk mechanism itself.
 
 5. Sort results alphabetically by their string value.
 

@@ -1,7 +1,8 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/list_all_files@e1nHxkYhJi8TwsAI-IywSBv_h44
+// code-from-spec: SPEC/golang/implementation/oslayer/list_all_files@mjaoxI-lx5-aEUDmHgc-GdcAmG8
 package oslayer
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -20,32 +21,43 @@ func ListAllFiles(cfsPath CfsPath) ([]CfsPath, error) {
 		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, cfsPath)
 	}
 
-	var resultsList []CfsPath
+	var resultsListAccumulator []CfsPath
 
-	walkErr := filepath.WalkDir(string(osPath), func(entryPath string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(string(osPath), func(entryOsPath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("%w: %s", ErrWalkError, entryOsPath)
 		}
+
 		if d.IsDir() {
 			return nil
 		}
+
 		if d.Type()&fs.ModeSymlink != 0 {
-			return fmt.Errorf("%w: %s", ErrSymlinkNotAllowed, entryPath)
+			return ErrSymlinkNotAllowed
 		}
-		converted, convErr := OsPathToCfs(OsPath(entryPath))
+
+		converted, convErr := OsPathToCfs(OsPath(entryOsPath))
 		if convErr != nil {
 			return convErr
 		}
-		resultsList = append(resultsList, converted)
+
+		resultsListAccumulator = append(resultsListAccumulator, converted)
 		return nil
 	})
+
 	if walkErr != nil {
-		return nil, fmt.Errorf("%w: %s", ErrWalkError, walkErr)
+		if errors.Is(walkErr, ErrSymlinkNotAllowed) {
+			return nil, walkErr
+		}
+		if errors.Is(walkErr, ErrWalkError) {
+			return nil, walkErr
+		}
+		return nil, walkErr
 	}
 
-	sort.Slice(resultsList, func(i, j int) bool {
-		return resultsList[i] < resultsList[j]
+	sort.Slice(resultsListAccumulator, func(i, j int) bool {
+		return resultsListAccumulator[i] < resultsListAccumulator[j]
 	})
 
-	return resultsList, nil
+	return resultsListAccumulator, nil
 }
