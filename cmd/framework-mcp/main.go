@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/server@Mrw_QYq1zMCblBCt9v09_o1hePU
+// code-from-spec: SPEC/golang/implementation/server@yH3Mjh_1uHB7y7O6aBNuMKeJbCM
 package main
 
 import (
@@ -7,10 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpchainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcploadchain"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpvalidatespecs"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpaccept"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpdumpchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpvalidatespecs"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpwritefile"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -25,7 +26,8 @@ Tools:
   load_chain       Load the spec chain for a node.
   write_file       Write a generated file to disk.
   validate_specs   Validate specs and check artifact staleness.
-  chain_hash       Compute the chain hash for a node.
+  accept           Accept a modified artifact.
+  dump_chain       Dump the spec chain to a file.
   version          Print the tool version.
 
 MCP configuration example:
@@ -50,19 +52,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := mcp.NewServer(&mcp.Implementation{
+	s := mcp.NewServer(&mcp.Implementation{
 		Name: "framework-mcp",
 	}, nil)
 
-	type loadChainArgs struct {
-		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to load the chain for"`
+	type LoadChainArgs struct {
+		LogicalName string `json:"logical_name" jsonschema:"Logical name of the target node."`
 	}
-
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "load_chain",
-		Description: "Load the spec chain context for a given logical name. Returns all relevant spec files concatenated in a single response.",
+		Description: "Load the spec chain for a node.",
 		Meta:        mcp.Meta{"anthropic/maxResultSizeChars": 500000},
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args loadChainArgs) (*mcp.CallToolResult, any, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args LoadChainArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcploadchain.MCPLoadChain(args.LogicalName)
 		if err != nil {
 			return &mcp.CallToolResult{
@@ -75,16 +76,15 @@ func main() {
 		}, nil, nil
 	})
 
-	type writeFileArgs struct {
-		LogicalName string `json:"logical_name" jsonschema:"logical name of the node whose outputs list authorizes the write"`
-		Path        string `json:"path" jsonschema:"relative file path from project root"`
-		Content     string `json:"content" jsonschema:"complete file content to write"`
+	type WriteFileArgs struct {
+		LogicalName string `json:"logical_name" jsonschema:"Logical name of the node whose output authorizes the write."`
+		Path        string `json:"path" jsonschema:"Relative file path from project root (forward slashes)."`
+		Content     string `json:"content" jsonschema:"Complete file content (UTF-8 text)."`
 	}
-
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "write_file",
-		Description: "Write a generated source file to disk. The path must be one of the files declared in the node's outputs list. Overwrites existing content.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args writeFileArgs) (*mcp.CallToolResult, any, error) {
+		Description: "Write a generated file to disk.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteFileArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Path, args.Content)
 		if err != nil {
 			return &mcp.CallToolResult{
@@ -97,9 +97,9 @@ func main() {
 		}, nil, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "validate_specs",
-		Description: "Validate the spec tree and check whether output artifacts are up to date.",
+		Description: "Validate specs and check artifact staleness.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		report := mcpvalidatespecs.MCPValidateSpecs()
 		text := formatValidationReport(report)
@@ -108,15 +108,14 @@ func main() {
 		}, nil, nil
 	})
 
-	type chainHashArgs struct {
-		LogicalName string `json:"logical_name" jsonschema:"logical name of the node to compute the chain hash for"`
+	type AcceptArgs struct {
+		LogicalName string `json:"logical_name" jsonschema:"Logical name of the node whose artifact was modified."`
 	}
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "chain_hash",
-		Description: "Compute the chain hash for a node.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args chainHashArgs) (*mcp.CallToolResult, any, error) {
-		result, err := mcpchainhash.MCPChainHash(args.LogicalName)
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "accept",
+		Description: "Accept a modified artifact.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args AcceptArgs) (*mcp.CallToolResult, any, error) {
+		result, err := mcpaccept.MCPAccept(args.LogicalName)
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
@@ -128,7 +127,26 @@ func main() {
 		}, nil, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
+	type DumpChainArgs struct {
+		LogicalName string `json:"logical_name" jsonschema:"Logical name of the target node."`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "dump_chain",
+		Description: "Dump the spec chain to a file.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args DumpChainArgs) (*mcp.CallToolResult, any, error) {
+		result, err := mcpdumpchain.MCPDumpChain(args.LogicalName)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
+				IsError: true,
+			}, nil, nil
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
+		}, nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "version",
 		Description: "Print the tool version.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
@@ -137,32 +155,43 @@ func main() {
 		}, nil, nil
 	})
 
-	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+	if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	os.Exit(0)
 }
 
-func formatValidationReport(report *mcpvalidatespecs.ValidationReport) string {
-	if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
-		return "Spec tree is valid and all artifacts are up to date."
-	}
-
+func formatValidationReport(report mcpvalidatespecs.ValidationReport) string {
 	var sb strings.Builder
 
-	for _, e := range report.FormatErrors {
-		fmt.Fprintf(&sb, "Format error — Node: %s | Rule: %s | Detail: %s\n", e.Node, e.Rule, e.Detail)
+	if len(report.FormatErrors) == 0 && len(report.Cycles) == 0 && len(report.Staleness) == 0 {
+		sb.WriteString("All specs are valid.\n")
+		return sb.String()
 	}
 
-	for _, name := range report.Cycles {
-		fmt.Fprintf(&sb, "Cycle detected involving: %s\n", name)
+	if len(report.FormatErrors) > 0 {
+		sb.WriteString("Format errors:\n")
+		for _, fe := range report.FormatErrors {
+			sb.WriteString(fmt.Sprintf("  [%s] %s: %s\n", fe.Node, fe.Rule, fe.Detail))
+		}
 	}
 
-	for _, s := range report.Staleness {
-		fmt.Fprintf(&sb, "Staleness — Node: %s | Path: %s | Status: %s | Rank: %d | Detail: %s\n",
-			s.Node, s.ArtifactPath, s.Status, s.Rank, s.Detail)
+	if len(report.Cycles) > 0 {
+		sb.WriteString("Cycles:\n")
+		for _, c := range report.Cycles {
+			sb.WriteString(fmt.Sprintf("  %s\n", c))
+		}
+	}
+
+	if len(report.Staleness) > 0 {
+		sb.WriteString("Staleness:\n")
+		for _, se := range report.Staleness {
+			sb.WriteString(fmt.Sprintf("  [%s] %s (%s) rank=%d", se.Status, se.Node, se.ArtifactPath, se.Rank))
+			if se.Detail != "" {
+				sb.WriteString(fmt.Sprintf(": %s", se.Detail))
+			}
+			sb.WriteString("\n")
+		}
 	}
 
 	return sb.String()

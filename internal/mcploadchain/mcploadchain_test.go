@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/mcp_tools/load_chain@aki7cOIZUhtmLilddJvbJOflQJc
+// code-from-spec: SPEC/golang/test/cases/mcp_tools/load_chain@-S1D5etJqp6dDyhv_P20Ufcmc2k
 package mcploadchain_test
 
 import (
@@ -7,603 +7,685 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
 )
 
-func testChdir(t *testing.T, dir string) {
-	t.Helper()
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("testChdir: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("testChdir: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chdir(orig); err != nil {
-			t.Errorf("testChdir cleanup: %v", err)
-		}
-	})
-}
+func TestMCPLoadChain_SimpleLeafNode(t *testing.T) {
+	testutils.Chdir(t)
 
-func testWriteFile(t *testing.T, path, content string) {
-	t.Helper()
-	dir := path[:strings.LastIndex(path, "/")]
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatalf("testWriteFile MkdirAll %s: %v", dir, err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("testWriteFile %s: %v", path, err)
-	}
-}
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nroot context content")
+	root.Write()
 
-func testParseResult(result string) (firstLine, context, input, existingArtifact string) {
-	lines := strings.Split(result, "\n")
-	if len(lines) > 0 {
-		firstLine = lines[0]
-	}
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetPublic("## Interface\ninterface content")
+	a.SetAgent("agent instructions here")
+	a.Write()
 
-	const (
-		delimContext  = "--- context ---"
-		delimInput    = "--- input ---"
-		delimArtifact = "--- existing artifact ---"
-	)
-
-	var contextLines, inputLines, artifactLines []string
-	section := ""
-	for _, line := range lines[1:] {
-		switch line {
-		case delimContext:
-			section = "context"
-		case delimInput:
-			section = "input"
-		case delimArtifact:
-			section = "artifact"
-		default:
-			switch section {
-			case "context":
-				contextLines = append(contextLines, line)
-			case "input":
-				inputLines = append(inputLines, line)
-			case "artifact":
-				artifactLines = append(artifactLines, line)
-			}
-		}
-	}
-
-	context = strings.Join(contextLines, "\n")
-	input = strings.Join(inputLines, "\n")
-	existingArtifact = strings.Join(artifactLines, "\n")
-	return
-}
-
-func TestMCPLoadChain_TC01_SimpleLeafNode(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
-
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n# Public\n## Context\nRoot context line.\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\n---\n# SPEC/a\n# Public\n## Interface\nInterface description.\n# Agent\nAgent guidance.\n")
-
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	firstLine, context, input, artifact := testParseResult(result)
-
+	lines := strings.SplitN(result, "\n", 2)
+	if len(lines) < 2 {
+		t.Fatalf("expected at least two lines, got: %q", result)
+	}
+	firstLine := lines[0]
 	if !strings.HasPrefix(firstLine, "chain_hash: ") {
-		t.Errorf("first line should start with 'chain_hash: ', got: %q", firstLine)
+		t.Errorf("first line does not start with 'chain_hash: ': %q", firstLine)
 	}
-	hashPart := strings.TrimPrefix(firstLine, "chain_hash: ")
-	hashPart = strings.TrimSpace(hashPart)
-	if len(hashPart) != 27 {
-		t.Errorf("hash should be 27 characters, got %d: %q", len(hashPart), hashPart)
+	hash := strings.TrimPrefix(firstLine, "chain_hash: ")
+	hash = strings.TrimSpace(hash)
+	if len(hash) != 27 {
+		t.Errorf("expected 27-character hash, got %d characters: %q", len(hash), hash)
 	}
 
-	if !strings.Contains(context, "## Context") {
-		t.Errorf("context should contain '## Context'")
+	if !strings.Contains(result, "<chain>") {
+		t.Error("expected <chain> root element")
 	}
-	if !strings.Contains(context, "Root context line.") {
-		t.Errorf("context should contain 'Root context line.'")
+	if !strings.Contains(result, `<entry name="SPEC/root"`) {
+		t.Error("expected entry for SPEC/root")
 	}
-	if strings.Contains(context, "# Public") {
-		t.Errorf("context should not contain '# Public'")
+	if !strings.Contains(result, "## Context") {
+		t.Error("expected ## Context content in constraints")
 	}
-	if !strings.Contains(context, "output: out/a.txt") {
-		t.Errorf("context should contain 'output: out/a.txt'")
+	if !strings.Contains(result, `<entry name="SPEC/root/a"`) {
+		t.Error("expected entry for SPEC/root/a")
 	}
-	if !strings.Contains(context, "## Interface") {
-		t.Errorf("context should contain '## Interface'")
+	if !strings.Contains(result, "## Interface") {
+		t.Error("expected ## Interface content in constraints")
 	}
-	if !strings.Contains(context, "Interface description.") {
-		t.Errorf("context should contain 'Interface description.'")
+	if strings.Contains(result, "# Public") {
+		t.Error("# Public heading should not appear in output")
 	}
-	if !strings.Contains(context, "# Agent") {
-		t.Errorf("context should contain '# Agent'")
+	if !strings.Contains(result, "<instructions>") {
+		t.Error("expected <instructions> element")
 	}
-	if !strings.Contains(context, "Agent guidance.") {
-		t.Errorf("context should contain 'Agent guidance.'")
+	if !strings.Contains(result, "agent instructions here") {
+		t.Error("expected agent content in instructions")
 	}
-	if input != "" {
-		t.Errorf("input section should be absent, got: %q", input)
+	if strings.Contains(result, "# Agent") {
+		t.Error("# Agent heading should not appear in instructions")
 	}
-	if artifact != "" {
-		t.Errorf("existing artifact section should be absent, got: %q", artifact)
+	if strings.Contains(result, "<existing_artifact>") {
+		t.Error("expected no <existing_artifact> section")
+	}
+	if strings.Contains(result, "<input>") {
+		t.Error("expected no <input> section")
 	}
 }
 
-func TestMCPLoadChain_TC02_AncestorPublicContentIncluded(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_AncestorPublicContentIncluded(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n# Public\n## Overview\nRoot overview.\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\n---\n# SPEC/a\n# Public\n## Details\nNode a details.\n")
-	testWriteFile(t, "code-from-spec/a/b/_node.md", "---\noutput: out/b.txt\n---\n# SPEC/a/b\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Overview\nroot overview")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a/b")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetPublic("## Details\na details")
+	a.Write()
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/a/b")
+	b.SetOutput("out/b.txt")
+	b.SetPublic("## Contract\nb contract")
+	b.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a/b")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "## Overview") {
-		t.Errorf("context should contain '## Overview'")
+	if !strings.Contains(result, `<entry name="SPEC/root"`) {
+		t.Error("expected entry for SPEC/root")
 	}
-	if !strings.Contains(context, "Root overview.") {
-		t.Errorf("context should contain 'Root overview.'")
+	if !strings.Contains(result, "## Overview") {
+		t.Error("expected ## Overview content")
 	}
-	if !strings.Contains(context, "## Details") {
-		t.Errorf("context should contain '## Details'")
+	if !strings.Contains(result, `<entry name="SPEC/root/a"`) {
+		t.Error("expected entry for SPEC/root/a")
 	}
-	if !strings.Contains(context, "Node a details.") {
-		t.Errorf("context should contain 'Node a details.'")
+	if !strings.Contains(result, "## Details") {
+		t.Error("expected ## Details content")
 	}
-	if strings.Contains(context, "# Public") {
-		t.Errorf("context should not contain '# Public'")
+	if !strings.Contains(result, `<entry name="SPEC/root/a/b"`) {
+		t.Error("expected entry for SPEC/root/a/b")
+	}
+	if !strings.Contains(result, "## Contract") {
+		t.Error("expected ## Contract content")
 	}
 }
 
-func TestMCPLoadChain_TC03_AncestorWithoutPublicSectionSkipped(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_AncestorWithoutPublicSkipped(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\n---\n# SPEC/a\n# Public\n## Interface\nNode a interface.\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetPublic("## Interface\ninterface content")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "## Interface") {
-		t.Errorf("context should contain '## Interface'")
+	if strings.Contains(result, `<entry name="SPEC/root"`) {
+		t.Error("expected no entry for SPEC/root (no public section)")
 	}
-	if !strings.Contains(context, "Node a interface.") {
-		t.Errorf("context should contain 'Node a interface.'")
+	if !strings.Contains(result, `<entry name="SPEC/root/a"`) {
+		t.Error("expected entry for SPEC/root/a")
+	}
+	if !strings.Contains(result, "## Interface") {
+		t.Error("expected ## Interface content")
 	}
 }
 
-func TestMCPLoadChain_TC04_AncestorWithEmptyPublicSectionSkipped(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_AncestorWithEmptyPublicSkipped(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n# Public\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\n---\n# SPEC/a\n# Public\n## Interface\nNode a interface.\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetPublic("## Interface\ninterface content")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "## Interface") {
-		t.Errorf("context should contain '## Interface'")
-	}
-	if !strings.Contains(context, "Node a interface.") {
-		t.Errorf("context should contain 'Node a interface.'")
+	if strings.Contains(result, `<entry name="SPEC/root"`) {
+		t.Error("expected no entry for SPEC/root (empty public section)")
 	}
 }
 
-func TestMCPLoadChain_TC05_DependencyWithoutQualifierFullPublicIncluded(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_DependencyWithoutQualifier(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\n---\n# SPEC/b\n# Public\n## Interface\nNode b interface.\n## Constraints\nNode b constraints.\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\ndepends_on:\n  - SPEC/b\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetPublic("## Interface\nb interface\n## Constraints\nb constraints")
+	b.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.AddDependsOn("SPEC/root/b")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "## Interface") {
-		t.Errorf("context should contain '## Interface'")
+	if !strings.Contains(result, `<entry name="SPEC/root/b"`) {
+		t.Error("expected entry for SPEC/root/b")
 	}
-	if !strings.Contains(context, "Node b interface.") {
-		t.Errorf("context should contain 'Node b interface.'")
+	if !strings.Contains(result, "## Interface") {
+		t.Error("expected ## Interface content")
 	}
-	if !strings.Contains(context, "## Constraints") {
-		t.Errorf("context should contain '## Constraints'")
-	}
-	if !strings.Contains(context, "Node b constraints.") {
-		t.Errorf("context should contain 'Node b constraints.'")
+	if !strings.Contains(result, "## Constraints") {
+		t.Error("expected ## Constraints content")
 	}
 }
 
-func TestMCPLoadChain_TC06_DependencyWithQualifierSubsectionOnly(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_DependencyWithQualifier(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\n---\n# SPEC/b\n# Public\n## Interface\nNode b interface.\n## Constraints\nNode b constraints.\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\ndepends_on:\n  - SPEC/b(interface)\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetPublic("## Interface\nb interface\n## Constraints\nb constraints")
+	b.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.AddDependsOn("SPEC/root/b(interface)")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "## Interface") {
-		t.Errorf("context should contain '## Interface'")
+	if !strings.Contains(result, `<entry name="SPEC/root/b(interface)"`) {
+		t.Error("expected entry for SPEC/root/b(interface)")
 	}
-	if !strings.Contains(context, "Node b interface.") {
-		t.Errorf("context should contain 'Node b interface.'")
+	if !strings.Contains(result, "## Interface") {
+		t.Error("expected ## Interface content")
 	}
-	if strings.Contains(context, "## Constraints") {
-		t.Errorf("context should not contain '## Constraints'")
-	}
-	if strings.Contains(context, "Node b constraints.") {
-		t.Errorf("context should not contain 'Node b constraints.'")
+	if strings.Contains(result, "## Constraints") {
+		t.Error("expected ## Constraints content to be excluded when qualifier is 'interface'")
 	}
 }
 
-func TestMCPLoadChain_TC07_ArtifactDependencyTagLineRemoved(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_ARTIFACTDependency(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\noutput: out/b.go\n---\n# SPEC/b\n")
-	testWriteFile(t, "out/b.go", "// code-from-spec: SPEC/b@AAAAAAAAAAAAAAAAAAAAAAAAAAA\npackage main\n// body content\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\ndepends_on:\n  - ARTIFACT/b\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetOutput("out/b.go")
+	b.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	if err := os.WriteFile("out/b.go", []byte("package b\n// artifact content"), 0644); err != nil {
+		t.Fatalf("failed to write out/b.go: %v", err)
+	}
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.go")
+	a.AddDependsOn("ARTIFACT/root/b")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "package main") {
-		t.Errorf("context should contain 'package main'")
+	if !strings.Contains(result, `<entry name="ARTIFACT/root/b"`) {
+		t.Error("expected entry for ARTIFACT/root/b")
 	}
-	if !strings.Contains(context, "// body content") {
-		t.Errorf("context should contain '// body content'")
-	}
-	if strings.Contains(context, "code-from-spec:") {
-		t.Errorf("context should not contain the artifact tag line")
+	if !strings.Contains(result, "artifact content") {
+		t.Error("expected artifact file content in constraints")
 	}
 }
 
-func TestMCPLoadChain_TC08_ExternalDependencyFullContent(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_EXTERNALDependency(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\ndepends_on:\n  - EXTERNAL/data/config.yaml\n---\n# SPEC/a\n")
-	testWriteFile(t, "data/config.yaml", "key: value\nsetting: enabled\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	if err := os.MkdirAll("data", 0755); err != nil {
+		t.Fatalf("failed to create data dir: %v", err)
+	}
+	if err := os.WriteFile("data/config.yaml", []byte("key: value\nother: data"), 0644); err != nil {
+		t.Fatalf("failed to write data/config.yaml: %v", err)
+	}
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.AddDependsOn("EXTERNAL/data/config.yaml")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "key: value") {
-		t.Errorf("context should contain 'key: value'")
+	if !strings.Contains(result, `<entry name="EXTERNAL/data/config.yaml"`) {
+		t.Error("expected entry for EXTERNAL/data/config.yaml")
 	}
-	if !strings.Contains(context, "setting: enabled") {
-		t.Errorf("context should contain 'setting: enabled'")
+	if !strings.Contains(result, "key: value") {
+		t.Error("expected external file content in constraints")
 	}
 }
 
-func TestMCPLoadChain_TC09_TargetFrontmatterOutputOnly(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_TargetAgentSectionInInstructions(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\ndepends_on:\n  - SPEC/b\n---\n# SPEC/a\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\n---\n# SPEC/b\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetPublic("## Interface\nsome interface")
+	a.SetAgent("do this specific thing")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "output: out/a.txt") {
-		t.Errorf("context should contain 'output: out/a.txt'")
+	if !strings.Contains(result, `<entry name="SPEC/root/a"`) {
+		t.Error("expected entry for SPEC/root/a")
 	}
-	if strings.Contains(context, "depends_on") {
-		t.Errorf("context frontmatter should not contain 'depends_on'")
+	if !strings.Contains(result, "## Interface") {
+		t.Error("expected ## Interface in constraints")
+	}
+	if !strings.Contains(result, "<instructions>") {
+		t.Error("expected <instructions> element")
+	}
+	if !strings.Contains(result, "do this specific thing") {
+		t.Error("expected agent content in instructions")
 	}
 }
 
-func TestMCPLoadChain_TC10_TargetAgentSectionIncluded(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_TargetWithoutAgentSection(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\n---\n# SPEC/a\n# Public\n## Interface\nPublic interface.\n# Agent\nAgent-specific guidance.\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetPublic("## Interface\nsome interface")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "## Interface") {
-		t.Errorf("context should contain '## Interface'")
-	}
-	if !strings.Contains(context, "Public interface.") {
-		t.Errorf("context should contain 'Public interface.'")
-	}
-	if !strings.Contains(context, "# Agent") {
-		t.Errorf("context should contain '# Agent'")
-	}
-	if !strings.Contains(context, "Agent-specific guidance.") {
-		t.Errorf("context should contain 'Agent-specific guidance.'")
-	}
-	if strings.Contains(context, "# Public") {
-		t.Errorf("context should not contain '# Public'")
+	if strings.Contains(result, "<instructions>") {
+		t.Error("expected no <instructions> element when no agent section")
 	}
 }
 
-func TestMCPLoadChain_TC11_TargetWithoutAgentSectionSkipped(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_InputPresentARTIFACT(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\n---\n# SPEC/a\n# Public\n## Interface\nPublic interface.\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetOutput("out/data.json")
+	b.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	if err := os.WriteFile("out/data.json", []byte(`{"key":"value"}`), 0644); err != nil {
+		t.Fatalf("failed to write out/data.json: %v", err)
+	}
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetInput("ARTIFACT/root/b")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, context, _, _ := testParseResult(result)
-
-	if !strings.Contains(context, "## Interface") {
-		t.Errorf("context should contain '## Interface'")
+	if !strings.Contains(result, "<input>") {
+		t.Error("expected <input> element")
 	}
-	if !strings.Contains(context, "Public interface.") {
-		t.Errorf("context should contain 'Public interface.'")
+	if !strings.Contains(result, `{"key":"value"}`) {
+		t.Error("expected artifact file content in input")
 	}
-	if strings.Contains(context, "# Agent") {
-		t.Errorf("context should not contain '# Agent'")
+	constraintsIdx := strings.Index(result, "<constraints>")
+	inputContentIdx := strings.Index(result, `{"key":"value"}`)
+	if constraintsIdx >= 0 && inputContentIdx >= 0 {
+		constraintsEnd := strings.Index(result, "</constraints>")
+		if constraintsEnd >= 0 && inputContentIdx < constraintsEnd {
+			t.Error("input content should not appear inside <constraints>")
+		}
 	}
 }
 
-func TestMCPLoadChain_TC12_InputPresentInSeparateSection(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_EXTERNALInput(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/b/_node.md", "---\noutput: out/data.json\n---\n# SPEC/b\n")
-	testWriteFile(t, "out/data.json", "{\"key\": \"value\"}\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\ninput: ARTIFACT/b\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	if err := os.MkdirAll("docs/vendor", 0755); err != nil {
+		t.Fatalf("failed to create docs/vendor dir: %v", err)
+	}
+	if err := os.WriteFile("docs/vendor/spec.yaml", []byte("spec: content\nversion: 1"), 0644); err != nil {
+		t.Fatalf("failed to write docs/vendor/spec.yaml: %v", err)
+	}
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetInput("EXTERNAL/docs/vendor/spec.yaml")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result, "--- input ---") {
-		t.Errorf("result should contain '--- input ---'")
+	if !strings.Contains(result, "<input>") {
+		t.Error("expected <input> element")
 	}
-
-	_, context, input, _ := testParseResult(result)
-
-	if !strings.Contains(input, "{\"key\": \"value\"}") {
-		t.Errorf("input section should contain '{\"key\": \"value\"}'")
-	}
-	if strings.Contains(input, "code-from-spec:") {
-		t.Errorf("input section should not contain the artifact tag line")
-	}
-	if strings.Contains(context, "{\"key\": \"value\"}") {
-		t.Errorf("input content should not appear in context section")
+	if !strings.Contains(result, "spec: content") {
+		t.Error("expected external file content in input")
 	}
 }
 
-func TestMCPLoadChain_TC13_ExternalInputFullContentInInputSection(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_SPECInput(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\ninput: EXTERNAL/docs/vendor/spec.yaml\n---\n# SPEC/a\n")
-	testWriteFile(t, "docs/vendor/spec.yaml", "version: 1\ntitle: Vendor spec\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetPublic("## Acceptance tests\nacceptance test content")
+	b.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetInput("SPEC/root/b")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result, "--- input ---") {
-		t.Errorf("result should contain '--- input ---'")
+	if !strings.Contains(result, "<input>") {
+		t.Error("expected <input> element")
 	}
-
-	_, _, input, _ := testParseResult(result)
-
-	if !strings.Contains(input, "version: 1") {
-		t.Errorf("input section should contain 'version: 1'")
-	}
-	if !strings.Contains(input, "title: Vendor spec") {
-		t.Errorf("input section should contain 'title: Vendor spec'")
+	if !strings.Contains(result, "## Acceptance tests") {
+		t.Error("expected ## Acceptance tests content in input")
 	}
 }
 
-func TestMCPLoadChain_TC14_NoInputSectionAbsent(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_NoInput(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if strings.Contains(result, "--- input ---") {
-		t.Errorf("result should not contain '--- input ---'")
+	if strings.Contains(result, "<input>") {
+		t.Error("expected no <input> element when no input declared")
 	}
 }
 
-func TestMCPLoadChain_TC15_ExistingArtifactPresentInSeparateSection(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_ExistingArtifactPresent(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\n---\n# SPEC/a\n")
-	testWriteFile(t, "out/a.go", "package main\nfunc main() {}\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	if err := os.WriteFile("out/a.go", []byte("package a\n// existing content"), 0644); err != nil {
+		t.Fatalf("failed to write out/a.go: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result, "--- existing artifact ---") {
-		t.Errorf("result should contain '--- existing artifact ---'")
+	if !strings.Contains(result, "<existing_artifact>") {
+		t.Error("expected <existing_artifact> element")
 	}
-
-	_, _, _, artifact := testParseResult(result)
-
-	if !strings.Contains(artifact, "package main") {
-		t.Errorf("existing artifact section should contain 'package main'")
-	}
-	if !strings.Contains(artifact, "func main() {}") {
-		t.Errorf("existing artifact section should contain 'func main() {}'")
+	if !strings.Contains(result, "existing content") {
+		t.Error("expected artifact file content in existing_artifact")
 	}
 }
 
-func TestMCPLoadChain_TC16_ExistingArtifactAbsentSectionOmitted(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_ExistingArtifactAbsent(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.go\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if strings.Contains(result, "--- existing artifact ---") {
-		t.Errorf("result should not contain '--- existing artifact ---'")
+	if strings.Contains(result, "<existing_artifact>") {
+		t.Error("expected no <existing_artifact> element when file does not exist")
 	}
 }
 
-func TestMCPLoadChain_TC17_HashIsDeterministic(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_HashIsDeterministic(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n# Public\n## Overview\nStable content.\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Overview\nstable overview content")
+	root.Write()
 
-	result1, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.Write()
+
+	result1, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("first call unexpected error: %v", err)
 	}
-	result2, err := mcploadchain.MCPLoadChain("SPEC/a")
+
+	result2, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("second call unexpected error: %v", err)
 	}
 
-	firstLine1 := strings.SplitN(result1, "\n", 2)[0]
-	firstLine2 := strings.SplitN(result2, "\n", 2)[0]
-
-	if firstLine1 != firstLine2 {
-		t.Errorf("hash lines differ: %q vs %q", firstLine1, firstLine2)
+	hash1 := strings.SplitN(result1, "\n", 2)[0]
+	hash2 := strings.SplitN(result2, "\n", 2)[0]
+	if hash1 != hash2 {
+		t.Errorf("hashes differ: %q vs %q", hash1, hash2)
 	}
 }
 
-func TestMCPLoadChain_TC18_InvalidLogicalName(t *testing.T) {
+func TestMCPLoadChain_InvalidLogicalName(t *testing.T) {
+	testutils.Chdir(t)
+
 	_, err := mcploadchain.MCPLoadChain("INVALID/something")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal("expected error for invalid logical name")
 	}
-	if !errors.Is(err, logicalnames.ErrUnsupportedReference) {
-		t.Errorf("expected ErrUnsupportedReference, got: %v", err)
+	if !errors.Is(err, parsing.ErrUnrecognizedPrefix) {
+		t.Errorf("expected ErrUnrecognizedPrefix, got: %v", err)
 	}
 }
 
-func TestMCPLoadChain_TC19_NonexistentNodeFile(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_NonexistentNodeFile(t *testing.T) {
+	testutils.Chdir(t)
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/nonexistent")
+	_, err := mcploadchain.MCPLoadChain("SPEC/root/nonexistent")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal("expected error for nonexistent node")
 	}
-	if !errors.Is(err, filereader.ErrFileUnreadable) {
+	if !errors.Is(err, oslayer.ErrFileUnreadable) {
 		t.Errorf("expected ErrFileUnreadable, got: %v", err)
 	}
 }
 
-func TestMCPLoadChain_TC20_NoOutputDeclared(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_NoOutputDeclared(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.Write()
+
+	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal("expected error when no output declared")
 	}
 	if !errors.Is(err, mcploadchain.ErrNoOutput) {
 		t.Errorf("expected ErrNoOutput, got: %v", err)
 	}
 }
 
-func TestMCPLoadChain_TC21_InvalidOutputPathTraversal(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_InvalidOutputPathTraversal(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: ../../etc/passwd\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("../../etc/passwd")
+	a.Write()
+
+	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal("expected error for traversal output path")
 	}
 	if !errors.Is(err, mcploadchain.ErrInvalidOutputPath) {
 		t.Errorf("expected ErrInvalidOutputPath, got: %v", err)
 	}
 }
 
-func TestMCPLoadChain_TC22_UnresolvableDependency(t *testing.T) {
-	tmp := t.TempDir()
-	testChdir(t, tmp)
+func TestMCPLoadChain_ModifiedArtifactBlocked(t *testing.T) {
+	testutils.Chdir(t)
 
-	testWriteFile(t, "code-from-spec/_node.md", "---\n---\n# SPEC\n")
-	testWriteFile(t, "code-from-spec/a/_node.md", "---\noutput: out/a.txt\ndepends_on:\n  - SPEC/missing\n---\n# SPEC/a\n")
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/a")
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	if err := os.WriteFile("out/a.go", []byte("original"), 0644); err != nil {
+		t.Fatalf("failed to write out/a.go: %v", err)
+	}
+
+	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
+		t.Fatalf("failed to create code-from-spec dir: %v", err)
+	}
+	manifestContent := "code-from-spec: v5\n" +
+		"ARTIFACT/root/a;path:out/a.go;checksum:Kx9mP2vB7wY2tHsJ8dFak4Xz9pQ;chain:Jz3qR7nL5cW1gT4yK8mDfAx0vBe\n"
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	if err := os.WriteFile("out/a.go", []byte("modified"), 0644); err != nil {
+		t.Fatalf("failed to overwrite out/a.go: %v", err)
+	}
+
+	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal("expected error for modified artifact")
+	}
+	if !errors.Is(err, mcploadchain.ErrArtifactModified) {
+		t.Errorf("expected ErrArtifactModified, got: %v", err)
+	}
+}
+
+func TestMCPLoadChain_NoManifestModifiedCheckSkipped(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	if err := os.WriteFile("out/a.go", []byte("some content"), 0644); err != nil {
+		t.Fatalf("failed to write out/a.go: %v", err)
+	}
+
+	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error when no manifest: %v", err)
+	}
+}
+
+func TestMCPLoadChain_UnresolvableDependency(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.AddDependsOn("SPEC/root/missing")
+	a.Write()
+
+	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	if err == nil {
+		t.Fatal("expected error for unresolvable dependency")
 	}
 }

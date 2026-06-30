@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/utils/node_ranking@S0bKOaJguwnMhdZ-ALmqoD4bVu8
+// code-from-spec: SPEC/golang/implementation/spec_tree/ranking@kzwp30wnkOJQR3E14o2v3pW9RxQ
 package noderanking
 
 import (
@@ -7,73 +7,77 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
 )
 
 var ErrUnresolvableReference = errors.New("unresolvable reference")
 
-type NodeRankInput struct {
-	LogicalName string
-	Frontmatter *frontmatter.Frontmatter
-}
-
 type NodeRankEntry struct {
-	LogicalName string
-	Rank        int
+	Reference parsing.CfsReference
+	Rank      int
 }
 
 type rankEntry struct {
-	logicalName string
-	deps        []string
-	rank        int
+	ref  parsing.CfsReference
+	deps []string
+	rank int
 }
 
-func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, error) {
+func unqualifiedName(ref string) string {
+	idx := strings.Index(ref, "(")
+	if idx >= 0 {
+		return ref[:idx]
+	}
+	return ref
+}
+
+func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) {
 	entryMap := make(map[string]*rankEntry)
 
-	for _, input := range entries {
-		entryMap[input.LogicalName] = &rankEntry{
-			logicalName: input.LogicalName,
-			deps:        []string{},
-			rank:        0,
+	for _, node := range entries {
+		entryMap[node.Reference.LogicalName] = &rankEntry{
+			ref:  node.Reference,
+			deps: []string{},
+			rank: 0,
 		}
 
-		if input.Frontmatter != nil && input.Frontmatter.Output != "" {
-			bare := strings.TrimPrefix(input.LogicalName, "SPEC/")
+		if node.Frontmatter != nil && node.Frontmatter.Output != nil {
+			bare := strings.TrimPrefix(node.Reference.LogicalName, "SPEC/")
 			artifactName := "ARTIFACT/" + bare
+			parentName := node.Reference.LogicalName
+			artifactRef := parsing.CfsReference{
+				NodeType:    parsing.CfsNodeTypeArtifact,
+				LogicalName: artifactName,
+				Qualifier:   nil,
+				Path:        *node.Frontmatter.Output,
+				ParentName:  &parentName,
+			}
 			entryMap[artifactName] = &rankEntry{
-				logicalName: artifactName,
-				deps:        []string{input.LogicalName},
-				rank:        0,
+				ref:  artifactRef,
+				deps: []string{node.Reference.LogicalName},
+				rank: 0,
 			}
 		}
 	}
 
-	for _, input := range entries {
-		entry := entryMap[input.LogicalName]
+	for _, node := range entries {
+		entry := entryMap[node.Reference.LogicalName]
 
-		if input.LogicalName == "SPEC" {
+		if node.Reference.ParentName != nil {
+			entry.deps = append(entry.deps, *node.Reference.ParentName)
+		}
+
+		if node.Frontmatter == nil {
 			continue
 		}
 
-		parent, err := logicalnames.LogicalNameGetParent(input.LogicalName)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %w", ErrUnresolvableReference, err)
-		}
-		entry.deps = append(entry.deps, parent)
-
-		if input.Frontmatter == nil {
-			continue
-		}
-
-		for _, ref := range input.Frontmatter.DependsOn {
-			if logicalnames.LogicalNameIsSpec(ref) {
-				bareName := logicalnames.LogicalNameStripQualifier(ref)
-				if _, ok := entryMap[bareName]; !ok {
+		for _, ref := range node.Frontmatter.DependsOn {
+			if strings.HasPrefix(ref, "SPEC/") {
+				unqualified := unqualifiedName(ref)
+				if _, ok := entryMap[unqualified]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
 				}
-				entry.deps = append(entry.deps, bareName)
+				entry.deps = append(entry.deps, unqualified)
 			} else if strings.HasPrefix(ref, "ARTIFACT/") {
 				if _, ok := entryMap[ref]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
@@ -86,32 +90,38 @@ func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, erro
 			}
 		}
 
-		if input.Frontmatter.Input != "" {
-			inp := input.Frontmatter.Input
-			if strings.HasPrefix(inp, "ARTIFACT/") {
+		if node.Frontmatter.Input != nil {
+			inp := *node.Frontmatter.Input
+			if strings.HasPrefix(inp, "SPEC/") {
+				unqualified := unqualifiedName(inp)
+				if _, ok := entryMap[unqualified]; !ok {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, inp)
+				}
+				entry.deps = append(entry.deps, unqualified)
+			} else if strings.HasPrefix(inp, "ARTIFACT/") {
 				if _, ok := entryMap[inp]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, inp)
 				}
 				entry.deps = append(entry.deps, inp)
 			} else if strings.HasPrefix(inp, "EXTERNAL/") {
-				// external — skip
+				continue
 			}
 		}
 	}
 
 	n := len(entryMap)
-	cycles := []string{}
+	cycleCandidates := []string{}
 	changed := false
 
 	for i := 1; i <= n; i++ {
 		changed = false
 
-		for _, entry := range entryMap {
-			if entry.logicalName == "SPEC" {
+		for logicalName, entry := range entryMap {
+			if len(entry.deps) == 0 {
 				continue
 			}
 
-			maxDepRank := -1
+			maxDepRank := 0
 			for _, dep := range entry.deps {
 				if depEntry, ok := entryMap[dep]; ok {
 					if depEntry.rank > maxDepRank {
@@ -121,15 +131,12 @@ func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, erro
 			}
 
 			newRank := 1 + maxDepRank
-			if maxDepRank == -1 {
-				newRank = 1
-			}
 
 			if newRank > entry.rank {
 				entry.rank = newRank
 				changed = true
 				if i == n {
-					cycles = append(cycles, entry.logicalName)
+					cycleCandidates = append(cycleCandidates, logicalName)
 				}
 			}
 		}
@@ -139,15 +146,16 @@ func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, erro
 		}
 	}
 
-	if !changed {
-		cycles = []string{}
+	cycles := []string{}
+	if changed {
+		cycles = cycleCandidates
 	}
 
-	ranked := make([]*NodeRankEntry, 0, len(entryMap))
+	ranked := make([]NodeRankEntry, 0, len(entryMap))
 	for _, entry := range entryMap {
-		ranked = append(ranked, &NodeRankEntry{
-			LogicalName: entry.logicalName,
-			Rank:        entry.rank,
+		ranked = append(ranked, NodeRankEntry{
+			Reference: entry.ref,
+			Rank:      entry.rank,
 		})
 	}
 
@@ -155,7 +163,7 @@ func NodeRankCompute(entries []*NodeRankInput) ([]*NodeRankEntry, []string, erro
 		if ranked[i].Rank != ranked[j].Rank {
 			return ranked[i].Rank < ranked[j].Rank
 		}
-		return ranked[i].LogicalName < ranked[j].LogicalName
+		return ranked[i].Reference.LogicalName < ranked[j].Reference.LogicalName
 	})
 
 	return ranked, cycles, nil

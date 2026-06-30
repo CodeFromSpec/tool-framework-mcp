@@ -1,19 +1,11 @@
 # SPEC/golang/implementation
 
-Go implementation of the functional specifications.
+Go implementation of the spec tree components.
 
 # Public
 
 ## Implementation rules
 
-- Implement the pseudocode from the `input` artifact.
-- Declare types, error sentinels, and function signatures
-  exactly as specified in the interface artifact from
-  `depends_on` — same names, same receiver types, same
-  return types. The interface is the contract. The output
-  file is the sole `.go` file in the package — it must
-  contain all declarations from the interface.
-- Use the package name declared in the interface artifact.
 - Write idiomatic Go: camelCase for local variables and
   parameters, exported names for public API, receiver
   methods where the interface specifies them.
@@ -21,3 +13,24 @@ Go implementation of the functional specifications.
   can match with `errors.Is()`.
 - Write straightforward code. Simple and readable over
   clever and compact.
+
+# Private
+
+## Decisions
+
+### File lock timeout (30 seconds)
+
+All `OpenFile` calls use a timeout of 30000 ms (30
+seconds). This is a safety net against deadlocks or
+bugs — in normal operation, locks are acquired
+instantly because contention is negligible. If a lock
+is not acquired within 30 seconds, something is wrong
+and failing is better than hanging indefinitely.
+
+### Sentinel error names in Agent sections
+
+Agent sections reference errors by their Go sentinel
+name (`ErrXxx`) instead of prose descriptions. This
+ensures the generated code uses the exact sentinel
+declared in the `# Public ## Interface` section and
+eliminates ambiguity about which error to return.

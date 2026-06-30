@@ -1,294 +1,321 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@wwwtnIv_FapPoH-JqkFI89Le2PA
+// code-from-spec: SPEC/golang/implementation/mcp_tools/load_chain@R0sjf2uGamuA6F1nvHMrtgS8290
 package mcploadchain
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"errors"
-	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/filereader"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/frontmatter"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/logicalnames"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/parsenode"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/pathutils"
-	"github.com/CodeFromSpec/tool-framework-mcp/v4/internal/textnormalization"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
 )
 
-var ErrNoOutput = errors.New("no output")
-var ErrInvalidOutputPath = errors.New("invalid output path")
+var (
+	ErrNoOutput          = errors.New("target node has no output field")
+	ErrInvalidOutputPath = errors.New("output path is invalid")
+	ErrArtifactModified  = errors.New("artifact file was modified outside the framework")
+)
 
 func MCPLoadChain(logicalName string) (string, error) {
-	targetFilePath, err := logicalnames.LogicalNameToPath(logicalName)
+	node, err := parsing.ParseNode(logicalName)
 	if err != nil {
-		return "", fmt.Errorf("resolving logical name: %w", err)
+		return "", err
 	}
 
-	fm, err := frontmatter.FrontmatterParse(targetFilePath)
-	if err != nil {
-		return "", fmt.Errorf("parsing frontmatter: %w", err)
+	if node.Frontmatter == nil || node.Frontmatter.Output == nil {
+		return "", ErrNoOutput
 	}
 
-	if fm.Output == "" {
-		return "", fmt.Errorf("%w", ErrNoOutput)
+	outputPath := *node.Frontmatter.Output
+
+	if err := oslayer.ValidateStringIsCfsPath(outputPath); err != nil {
+		return "", ErrInvalidOutputPath
 	}
 
-	if err := pathutils.PathValidateCfs(fm.Output); err != nil {
-		return "", fmt.Errorf("%w: %w", ErrInvalidOutputPath, err)
+	artifactLogicalName := "ARTIFACT/" + strings.TrimPrefix(logicalName, "SPEC/")
+
+	m, err := manifest.OpenManifest(true)
+	if err == nil {
+		if entry, ok := m.Entries[artifactLogicalName]; ok {
+			fileChecksum, readErr := computeFileChecksum(oslayer.CfsPath(outputPath))
+			if readErr == nil {
+				if fileChecksum != entry.Checksum {
+					return "", ErrArtifactModified
+				}
+			}
+		}
 	}
 
 	chain, err := chainresolver.ChainResolve(logicalName)
 	if err != nil {
-		return "", fmt.Errorf("resolving chain: %w", err)
+		return "", err
 	}
 
 	chainHash, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
-		return "", fmt.Errorf("computing chain hash: %w", err)
-	}
-
-	var contextParts []string
-
-	for _, ancestor := range chain.Ancestors {
-		if ancestor == nil {
-			continue
-		}
-		node, err := parsenode.NodeParse(ancestor.UnqualifiedLogicalName)
-		if err != nil {
-			return "", fmt.Errorf("parsing ancestor node %q: %w", ancestor.UnqualifiedLogicalName, err)
-		}
-		if node.Public == nil || len(node.Public.Subsections) == 0 {
-			continue
-		}
-		block := buildPublicSubsectionsBlock(node.Public.Subsections)
-		contextParts = append(contextParts, block)
-	}
-
-	for _, dep := range chain.Dependencies {
-		if dep == nil {
-			continue
-		}
-		if logicalnames.LogicalNameIsArtifact(dep.UnqualifiedLogicalName) {
-			content, err := readFileSkippingArtifactTag(dep.FilePath)
-			if err != nil {
-				return "", fmt.Errorf("reading artifact dependency %q: %w", dep.UnqualifiedLogicalName, err)
-			}
-			contextParts = append(contextParts, content)
-		} else if logicalnames.LogicalNameIsExternal(dep.UnqualifiedLogicalName) {
-			content, err := readFileAll(dep.FilePath)
-			if err != nil {
-				return "", fmt.Errorf("reading external dependency %q: %w", dep.UnqualifiedLogicalName, err)
-			}
-			contextParts = append(contextParts, content)
-		} else if logicalnames.LogicalNameIsSpec(dep.UnqualifiedLogicalName) {
-			node, err := parsenode.NodeParse(dep.UnqualifiedLogicalName)
-			if err != nil {
-				return "", fmt.Errorf("parsing dependency node %q: %w", dep.UnqualifiedLogicalName, err)
-			}
-			if dep.Qualifier == nil {
-				if node.Public == nil || len(node.Public.Subsections) == 0 {
-					continue
-				}
-				block := buildPublicSubsectionsBlock(node.Public.Subsections)
-				contextParts = append(contextParts, block)
-			} else {
-				if node.Public == nil {
-					continue
-				}
-				normalizedQualifier := textnormalization.NormalizeText(*dep.Qualifier)
-				var found *parsenode.NodeSubsection
-				for _, sub := range node.Public.Subsections {
-					if sub.Heading == normalizedQualifier {
-						found = sub
-						break
-					}
-				}
-				if found != nil {
-					block := buildSubsectionBlock(found)
-					contextParts = append(contextParts, block)
-				}
-			}
-		}
-	}
-
-	if chain.Target != nil {
-		frontmatterBlock := "---\noutput: " + fm.Output + "\n---\n"
-		contextParts = append(contextParts, frontmatterBlock)
-
-		targetNode, err := parsenode.NodeParse(chain.Target.UnqualifiedLogicalName)
-		if err != nil {
-			return "", fmt.Errorf("parsing target node: %w", err)
-		}
-
-		if targetNode.Public != nil && len(targetNode.Public.Subsections) > 0 {
-			block := buildPublicSubsectionsBlock(targetNode.Public.Subsections)
-			contextParts = append(contextParts, block)
-		}
-
-		if targetNode.Agent != nil {
-			agentBlock := buildAgentBlock(targetNode)
-			contextParts = append(contextParts, agentBlock)
-		}
+		return "", err
 	}
 
 	var sb strings.Builder
+
 	sb.WriteString("chain_hash: ")
 	sb.WriteString(chainHash)
 	sb.WriteString("\n")
-	sb.WriteString("--- context ---\n")
-	sb.WriteString(strings.Join(contextParts, "\n"))
+	sb.WriteString("<chain>\n")
 
-	if chain.Input != nil {
-		sb.WriteString("\n--- input ---\n")
-		var inputContent string
-		if logicalnames.LogicalNameIsArtifact(chain.Input.UnqualifiedLogicalName) {
-			inputContent, err = readFileSkippingArtifactTag(chain.Input.FilePath)
-			if err != nil {
-				return "", fmt.Errorf("reading input artifact: %w", err)
-			}
-		} else {
-			inputContent, err = readFileAll(chain.Input.FilePath)
-			if err != nil {
-				return "", fmt.Errorf("reading input file: %w", err)
-			}
-		}
-		sb.WriteString(inputContent)
-	}
-
-	existingPath := &pathutils.PathCfs{Value: fm.Output}
-	existingContent, err := readFileAll(*existingPath)
-	if err == nil {
-		sb.WriteString("\n--- existing artifact ---\n")
+	existingContent, readErr := readFileContent(oslayer.CfsPath(outputPath))
+	if readErr == nil {
+		sb.WriteString("<existing_artifact>\n")
 		sb.WriteString(existingContent)
+		sb.WriteString("</existing_artifact>\n")
 	}
 
-	return sb.String(), nil
-}
+	sb.WriteString("<constraints>\n")
 
-func readFileAll(cfsPath pathutils.PathCfs) (string, error) {
-	reader, err := filereader.FileOpen(cfsPath)
-	if err != nil {
-		return "", err
-	}
-	defer filereader.FileClose(reader)
-
-	var lines []string
-	for {
-		line, err := filereader.FileReadLine(reader)
-		if errors.Is(err, filereader.ErrEndOfFile) {
-			break
+	for _, ancestor := range chain.Ancestors {
+		ancestorNode, parseErr := parsing.ParseNode(ancestor.LogicalName)
+		if parseErr != nil {
+			return "", parseErr
 		}
-		if err != nil {
-			return "", err
-		}
-		lines = append(lines, line)
-	}
-
-	var sb strings.Builder
-	for _, line := range lines {
-		sb.WriteString(line)
-		sb.WriteString("\n")
-	}
-	return sb.String(), nil
-}
-
-func readFileSkippingArtifactTag(cfsPath pathutils.PathCfs) (string, error) {
-	reader, err := filereader.FileOpen(cfsPath)
-	if err != nil {
-		return "", err
-	}
-	defer filereader.FileClose(reader)
-
-	var lines []string
-	artifactTagSkipped := false
-	for {
-		line, err := filereader.FileReadLine(reader)
-		if errors.Is(err, filereader.ErrEndOfFile) {
-			break
-		}
-		if err != nil {
-			return "", err
-		}
-		if !artifactTagSkipped && strings.Contains(line, "code-from-spec:") {
-			artifactTagSkipped = true
+		if ancestorNode.Public == nil || len(ancestorNode.Public.Subsections) == 0 {
 			continue
 		}
-		lines = append(lines, line)
+		content := extractPublicContent(ancestorNode, nil)
+		if content == "" {
+			continue
+		}
+		sb.WriteString("<entry name=\"")
+		sb.WriteString(ancestor.LogicalName)
+		sb.WriteString("\">\n")
+		sb.WriteString(content)
+		sb.WriteString("</entry>\n")
 	}
 
-	var sb strings.Builder
-	for _, line := range lines {
-		sb.WriteString(line)
-		sb.WriteString("\n")
+	for _, dep := range chain.Dependencies {
+		switch {
+		case strings.HasPrefix(dep.LogicalName, "ARTIFACT/"):
+			fileContent, readErr := readFileContent(oslayer.CfsPath(dep.Path))
+			if readErr != nil {
+				return "", readErr
+			}
+			sb.WriteString("<entry name=\"")
+			sb.WriteString(dep.LogicalName)
+			sb.WriteString("\">\n")
+			sb.WriteString(fileContent)
+			sb.WriteString("</entry>\n")
+
+		case strings.HasPrefix(dep.LogicalName, "EXTERNAL/"):
+			fileContent, readErr := readFileContent(oslayer.CfsPath(dep.Path))
+			if readErr != nil {
+				return "", readErr
+			}
+			sb.WriteString("<entry name=\"")
+			sb.WriteString(dep.LogicalName)
+			sb.WriteString("\">\n")
+			sb.WriteString(fileContent)
+			sb.WriteString("</entry>\n")
+
+		case strings.HasPrefix(dep.LogicalName, "SPEC/"):
+			depNode, parseErr := parsing.ParseNode(dep.LogicalName)
+			if parseErr != nil {
+				return "", parseErr
+			}
+			content := extractPublicContent(depNode, dep.Qualifier)
+			if content == "" {
+				continue
+			}
+			entryName := dep.LogicalName
+			if dep.Qualifier != nil {
+				entryName = entryName + "(" + *dep.Qualifier + ")"
+			}
+			sb.WriteString("<entry name=\"")
+			sb.WriteString(entryName)
+			sb.WriteString("\">\n")
+			sb.WriteString(content)
+			sb.WriteString("</entry>\n")
+		}
 	}
+
+	targetNode, err := parsing.ParseNode(chain.Target.LogicalName)
+	if err != nil {
+		return "", err
+	}
+	if targetNode.Public != nil && len(targetNode.Public.Subsections) > 0 {
+		content := extractPublicContent(targetNode, nil)
+		if content != "" {
+			sb.WriteString("<entry name=\"")
+			sb.WriteString(chain.Target.LogicalName)
+			sb.WriteString("\">\n")
+			sb.WriteString(content)
+			sb.WriteString("</entry>\n")
+		}
+	}
+
+	sb.WriteString("</constraints>\n")
+
+	if targetNode.Agent != nil {
+		agentContent := buildAgentContent(targetNode.Agent)
+		sb.WriteString("<instructions>\n")
+		sb.WriteString(agentContent)
+		sb.WriteString("</instructions>\n")
+	}
+
+	if chain.Input != nil {
+		sb.WriteString("<input>\n")
+		inputContent, inputErr := resolveInputContent(chain.Input)
+		if inputErr != nil {
+			return "", inputErr
+		}
+		sb.WriteString(inputContent)
+		sb.WriteString("</input>\n")
+	}
+
+	sb.WriteString("</chain>\n")
+
 	return sb.String(), nil
 }
 
-func buildSubsectionBlock(sub *parsenode.NodeSubsection) string {
+func computeFileChecksum(cfsPath oslayer.CfsPath) (string, error) {
+	handle, err := oslayer.OpenFile(cfsPath, "read", 30000)
+	if err != nil {
+		return "", err
+	}
+	defer handle.Close()
+
+	var sb strings.Builder
+	for {
+		line, err := handle.ReadLine()
+		if err != nil {
+			if errors.Is(err, oslayer.ErrEndOfFile) {
+				break
+			}
+			return "", err
+		}
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+
+	content := sb.String()
+	sum := sha1.Sum([]byte(content))
+	checksum := base64.RawURLEncoding.EncodeToString(sum[:])
+	return checksum, nil
+}
+
+func readFileContent(cfsPath oslayer.CfsPath) (string, error) {
+	handle, err := oslayer.OpenFile(cfsPath, "read", 30000)
+	if err != nil {
+		return "", err
+	}
+	defer handle.Close()
+
+	var sb strings.Builder
+	for {
+		line, err := handle.ReadLine()
+		if err != nil {
+			if errors.Is(err, oslayer.ErrEndOfFile) {
+				break
+			}
+			return "", err
+		}
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+
+	return sb.String(), nil
+}
+
+func extractPublicContent(node *parsing.Node, qualifier *string) string {
+	if node.Public == nil {
+		return ""
+	}
+
+	if qualifier != nil {
+		normalizedQualifier := parsing.NormalizeText(*qualifier)
+		for _, sub := range node.Public.Subsections {
+			if parsing.NormalizeText(sub.Heading) == normalizedQualifier {
+				return renderSubsection(sub)
+			}
+		}
+		return ""
+	}
+
+	var parts []string
+	for _, sub := range node.Public.Subsections {
+		parts = append(parts, renderSubsection(sub))
+	}
+	return strings.Join(parts, "\n")
+}
+
+func renderSubsection(sub *parsing.NodeSubsection) string {
 	var sb strings.Builder
 	sb.WriteString(strings.TrimRight(sub.RawHeading, " \t"))
 	sb.WriteString("\n")
-
-	content := trimLeadingBlankLines(sub.Content)
-	content = trimTrailingBlankLines(content)
-	for _, line := range content {
+	for _, line := range sub.Content {
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
 	return sb.String()
 }
 
-func buildPublicSubsectionsBlock(subsections []*parsenode.NodeSubsection) string {
+func buildAgentContent(agentSection *parsing.NodeSection) string {
 	var blocks []string
-	for _, sub := range subsections {
-		blocks = append(blocks, buildSubsectionBlock(sub))
-	}
-	return strings.Join(blocks, "\n")
-}
 
-func buildAgentBlock(node *parsenode.Node) string {
-	agent := node.Agent
-	var sb strings.Builder
-
-	sb.WriteString(strings.TrimRight(agent.RawHeading, " \t"))
-	sb.WriteString("\n")
-
-	content := trimLeadingBlankLines(agent.Content)
-	content = trimTrailingBlankLines(content)
-	for _, line := range content {
-		sb.WriteString(line)
-		sb.WriteString("\n")
-	}
-
-	for _, sub := range agent.Subsections {
-		sb.WriteString("\n")
-		sb.WriteString(strings.TrimRight(sub.RawHeading, " \t"))
-		sb.WriteString("\n")
-
-		subContent := trimLeadingBlankLines(sub.Content)
-		subContent = trimTrailingBlankLines(subContent)
-		for _, line := range subContent {
+	trimmedContent := trimBlankLines(agentSection.Content)
+	if len(trimmedContent) > 0 {
+		var sb strings.Builder
+		for _, line := range trimmedContent {
 			sb.WriteString(line)
 			sb.WriteString("\n")
 		}
+		blocks = append(blocks, sb.String())
 	}
 
-	return sb.String()
+	for _, sub := range agentSection.Subsections {
+		var sb strings.Builder
+		sb.WriteString(strings.TrimRight(sub.RawHeading, " \t"))
+		sb.WriteString("\n")
+		for _, line := range sub.Content {
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+		blocks = append(blocks, sb.String())
+	}
+
+	result := strings.Join(blocks, "\n")
+	if !strings.HasSuffix(result, "\n") {
+		result += "\n"
+	}
+	return result
 }
 
-func trimLeadingBlankLines(lines []string) []string {
+func trimBlankLines(lines []string) []string {
 	start := 0
 	for start < len(lines) && strings.TrimSpace(lines[start]) == "" {
 		start++
 	}
-	return lines[start:]
-}
-
-func trimTrailingBlankLines(lines []string) []string {
 	end := len(lines)
-	for end > 0 && strings.TrimSpace(lines[end-1]) == "" {
+	for end > start && strings.TrimSpace(lines[end-1]) == "" {
 		end--
 	}
-	return lines[:end]
+	return lines[start:end]
+}
+
+func resolveInputContent(ref *parsing.CfsReference) (string, error) {
+	switch {
+	case strings.HasPrefix(ref.LogicalName, "ARTIFACT/"):
+		return readFileContent(oslayer.CfsPath(ref.Path))
+	case strings.HasPrefix(ref.LogicalName, "EXTERNAL/"):
+		return readFileContent(oslayer.CfsPath(ref.Path))
+	case strings.HasPrefix(ref.LogicalName, "SPEC/"):
+		inputNode, err := parsing.ParseNode(ref.LogicalName)
+		if err != nil {
+			return "", err
+		}
+		return extractPublicContent(inputNode, ref.Qualifier), nil
+	}
+	return "", nil
 }
