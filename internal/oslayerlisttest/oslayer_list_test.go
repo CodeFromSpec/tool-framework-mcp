@@ -1,161 +1,149 @@
-// code-from-spec: SPEC/golang/tests/oslayer/list@b1uXG89uFtjnc-fekwKlAhVYApg
-package oslayerlisttest_test
+// code-from-spec: SPEC/golang/test/cases/oslayer/list@C5c6H6Ze74XQPVAVSf0iFUdiWJY
+package oslayerlisttest
 
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"runtime"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
 )
 
-func testChdir(t *testing.T, dir string) {
-	t.Helper()
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("testChdir: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("testChdir: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chdir(orig); err != nil {
-			t.Errorf("testChdir cleanup: %v", err)
-		}
-	})
-}
-
 func TestListAllFiles_FlatDirectory(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	dir := testutils.Chdir(t)
 
-	if err := os.WriteFile("a.txt", []byte("a"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	if err := os.MkdirAll("flat", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile("b.txt", []byte("b"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
+		if err := os.WriteFile("flat/"+name, []byte("x"), 0644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
 	}
-	if err := os.WriteFile("c.txt", []byte("c"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	_ = dir
 
-	results, err := oslayer.ListAllFiles(".")
+	results, err := oslayer.ListAllFiles("flat")
 	if err != nil {
-		t.Fatalf("ListAllFiles: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(results) != 3 {
-		t.Fatalf("expected 3 files, got %d: %v", len(results), results)
+		t.Fatalf("expected 3 files, got %d", len(results))
 	}
-	expected := []oslayer.CfsPath{"a.txt", "b.txt", "c.txt"}
-	for i, p := range results {
-		if p != expected[i] {
-			t.Errorf("results[%d] = %q, want %q", i, p, expected[i])
+	expected := []oslayer.CfsPath{"flat/a.txt", "flat/b.txt", "flat/c.txt"}
+	for i, e := range expected {
+		if results[i] != e {
+			t.Errorf("index %d: expected %q, got %q", i, e, results[i])
 		}
 	}
 }
 
 func TestListAllFiles_Recursive(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	testutils.Chdir(t)
 
-	if err := os.MkdirAll("dir/sub/deep", 0755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
+	dirs := []string{"dir/sub/deep"}
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			t.Fatalf("mkdir %s: %v", d, err)
+		}
 	}
-	if err := os.WriteFile("dir/alpha.txt", []byte("a"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	files := map[string]string{
+		"dir/alpha.txt":          "x",
+		"dir/sub/beta.txt":       "x",
+		"dir/sub/deep/gamma.txt": "x",
 	}
-	if err := os.WriteFile("dir/sub/beta.txt", []byte("b"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	if err := os.WriteFile("dir/sub/deep/gamma.txt", []byte("c"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	for path, content := range files {
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
 	}
 
 	results, err := oslayer.ListAllFiles("dir")
 	if err != nil {
-		t.Fatalf("ListAllFiles: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(results) != 3 {
-		t.Fatalf("expected 3 files, got %d: %v", len(results), results)
+		t.Fatalf("expected 3 files, got %d", len(results))
 	}
-	expected := []oslayer.CfsPath{"dir/alpha.txt", "dir/sub/beta.txt", "dir/sub/deep/gamma.txt"}
-	for i, p := range results {
-		if p != expected[i] {
-			t.Errorf("results[%d] = %q, want %q", i, p, expected[i])
+	expected := []oslayer.CfsPath{
+		"dir/alpha.txt",
+		"dir/sub/beta.txt",
+		"dir/sub/deep/gamma.txt",
+	}
+	for i, e := range expected {
+		if results[i] != e {
+			t.Errorf("index %d: expected %q, got %q", i, e, results[i])
 		}
 	}
 }
 
 func TestListAllFiles_SortedAlphabetically(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	testutils.Chdir(t)
 
-	if err := os.WriteFile("z.txt", []byte("z"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	if err := os.MkdirAll("sorted", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile("a.txt", []byte("a"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	if err := os.WriteFile("m.txt", []byte("m"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	for _, name := range []string{"z.txt", "a.txt", "m.txt"} {
+		if err := os.WriteFile("sorted/"+name, []byte("x"), 0644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
 	}
 
-	results, err := oslayer.ListAllFiles(".")
+	results, err := oslayer.ListAllFiles("sorted")
 	if err != nil {
-		t.Fatalf("ListAllFiles: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(results) != 3 {
-		t.Fatalf("expected 3 files, got %d: %v", len(results), results)
+		t.Fatalf("expected 3 files, got %d", len(results))
 	}
-	expected := []oslayer.CfsPath{"a.txt", "m.txt", "z.txt"}
-	for i, p := range results {
-		if p != expected[i] {
-			t.Errorf("results[%d] = %q, want %q", i, p, expected[i])
+	expected := []oslayer.CfsPath{"sorted/a.txt", "sorted/m.txt", "sorted/z.txt"}
+	for i, e := range expected {
+		if results[i] != e {
+			t.Errorf("index %d: expected %q, got %q", i, e, results[i])
 		}
 	}
 }
 
 func TestListAllFiles_EmptyDirectory(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	testutils.Chdir(t)
 
-	if err := os.Mkdir("emptydir", 0755); err != nil {
-		t.Fatalf("Mkdir: %v", err)
+	if err := os.MkdirAll("empty", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
 
-	results, err := oslayer.ListAllFiles("emptydir")
+	results, err := oslayer.ListAllFiles("empty")
 	if err != nil {
-		t.Fatalf("ListAllFiles: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(results) != 0 {
-		t.Fatalf("expected empty list, got %d: %v", len(results), results)
+		t.Fatalf("expected empty list, got %d items", len(results))
 	}
 }
 
 func TestListAllFiles_HiddenFilesIncluded(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	testutils.Chdir(t)
 
-	if err := os.WriteFile(".hidden", []byte("hidden"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	if err := os.MkdirAll("hidden", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile("visible.txt", []byte("visible"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	for _, name := range []string{".hidden", "visible.txt"} {
+		if err := os.WriteFile("hidden/"+name, []byte("x"), 0644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
 	}
 
-	results, err := oslayer.ListAllFiles(".")
+	results, err := oslayer.ListAllFiles("hidden")
 	if err != nil {
-		t.Fatalf("ListAllFiles: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(results) != 2 {
-		t.Fatalf("expected 2 files, got %d: %v", len(results), results)
+		t.Fatalf("expected 2 files, got %d", len(results))
 	}
-	expected := []oslayer.CfsPath{".hidden", "visible.txt"}
-	for i, p := range results {
-		if p != expected[i] {
-			t.Errorf("results[%d] = %q, want %q", i, p, expected[i])
+	expected := []oslayer.CfsPath{"hidden/.hidden", "hidden/visible.txt"}
+	for i, e := range expected {
+		if results[i] != e {
+			t.Errorf("index %d: expected %q, got %q", i, e, results[i])
 		}
 	}
 }
@@ -165,54 +153,51 @@ func TestListAllFiles_SymlinkToFileWithinRoot(t *testing.T) {
 		t.Skip("symlinks not reliably supported on this platform")
 	}
 
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	testutils.Chdir(t)
 
-	if err := os.WriteFile("real.txt", []byte("real"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	if err := os.MkdirAll("syms", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.Symlink("real.txt", "link.txt"); err != nil {
-		t.Skip("symlinks not supported: " + err.Error())
+	if err := os.WriteFile("syms/real.txt", []byte("x"), 0644); err != nil {
+		t.Fatalf("write real.txt: %v", err)
+	}
+	if err := os.Symlink("real.txt", "syms/link.txt"); err != nil {
+		t.Skipf("symlink creation failed, skipping: %v", err)
 	}
 
-	results, err := oslayer.ListAllFiles(".")
+	results, err := oslayer.ListAllFiles("syms")
 	if err != nil {
-		t.Fatalf("ListAllFiles: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(results) != 2 {
-		t.Fatalf("expected 2 files, got %d: %v", len(results), results)
+		t.Fatalf("expected 2 files, got %d", len(results))
 	}
-	expected := []oslayer.CfsPath{"link.txt", "real.txt"}
-	for i, p := range results {
-		if p != expected[i] {
-			t.Errorf("results[%d] = %q, want %q", i, p, expected[i])
+	expected := []oslayer.CfsPath{"syms/link.txt", "syms/real.txt"}
+	for i, e := range expected {
+		if results[i] != e {
+			t.Errorf("index %d: expected %q, got %q", i, e, results[i])
 		}
 	}
 }
 
-func TestListAllFiles_DirectoryWithOnlySubdirectories(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestListAllFiles_OnlySubdirectories(t *testing.T) {
+	testutils.Chdir(t)
 
-	if err := os.MkdirAll("parent/child1/grandchild", 0755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	if err := os.Mkdir("parent/child2", 0755); err != nil {
-		t.Fatalf("Mkdir: %v", err)
+	if err := os.MkdirAll("nodirs/a/b", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
 
-	results, err := oslayer.ListAllFiles("parent")
+	results, err := oslayer.ListAllFiles("nodirs")
 	if err != nil {
-		t.Fatalf("ListAllFiles: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(results) != 0 {
-		t.Fatalf("expected empty list, got %d: %v", len(results), results)
+		t.Fatalf("expected empty list, got %d items", len(results))
 	}
 }
 
-func TestListAllFiles_DirectoryDoesNotExist(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestListAllFiles_DirectoryNotFound(t *testing.T) {
+	testutils.Chdir(t)
 
 	_, err := oslayer.ListAllFiles("nonexistent/dir")
 	if err == nil {
@@ -223,9 +208,8 @@ func TestListAllFiles_DirectoryDoesNotExist(t *testing.T) {
 	}
 }
 
-func TestListAllFiles_PropagatesValidationErrors(t *testing.T) {
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+func TestListAllFiles_InvalidCfsPath(t *testing.T) {
+	testutils.Chdir(t)
 
 	_, err := oslayer.ListAllFiles("../../outside")
 	if err == nil {
@@ -236,31 +220,30 @@ func TestListAllFiles_PropagatesValidationErrors(t *testing.T) {
 	}
 }
 
-func TestListAllFiles_PropagatesConversionErrors(t *testing.T) {
+func TestListAllFiles_SymlinkOutsideRoot(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinks not reliably supported on this platform")
 	}
 
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	testutils.Chdir(t)
+
+	if err := os.MkdirAll("outsidelink", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile("outsidelink/regular.txt", []byte("x"), 0644); err != nil {
+		t.Fatalf("write regular.txt: %v", err)
+	}
 
 	outsideDir := t.TempDir()
-	outsideFile := filepath.Join(outsideDir, "outside.txt")
-	if err := os.WriteFile(outsideFile, []byte("outside"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	outsideFile := outsideDir + "/outside.txt"
+	if err := os.WriteFile(outsideFile, []byte("y"), 0644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+	if err := os.Symlink(outsideFile, "outsidelink/escape.txt"); err != nil {
+		t.Skipf("symlink creation failed, skipping: %v", err)
 	}
 
-	if err := os.Mkdir("mydir", 0755); err != nil {
-		t.Fatalf("Mkdir: %v", err)
-	}
-	if err := os.WriteFile("mydir/regular.txt", []byte("regular"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	if err := os.Symlink(outsideFile, "mydir/link_outside.txt"); err != nil {
-		t.Skip("symlinks not supported: " + err.Error())
-	}
-
-	_, err := oslayer.ListAllFiles("mydir")
+	_, err := oslayer.ListAllFiles("outsidelink")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -271,26 +254,25 @@ func TestListAllFiles_PropagatesConversionErrors(t *testing.T) {
 
 func TestListAllFiles_WalkError(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("directory permission restrictions not effective on this platform")
+		t.Skip("directory permission restrictions may not prevent traversal on this platform")
 	}
 
-	tempDir := t.TempDir()
-	testChdir(t, tempDir)
+	testutils.Chdir(t)
 
-	if err := os.MkdirAll("parent/restricted", 0755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
+	if err := os.MkdirAll("restricted/sub", 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile("parent/restricted/file.txt", []byte("data"), 0644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	if err := os.WriteFile("restricted/sub/file.txt", []byte("x"), 0644); err != nil {
+		t.Fatalf("write file.txt: %v", err)
 	}
-	if err := os.Chmod("parent/restricted", 0000); err != nil {
-		t.Fatalf("Chmod: %v", err)
+	if err := os.Chmod("restricted/sub", 0000); err != nil {
+		t.Fatalf("chmod: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = os.Chmod("parent/restricted", 0755)
+		_ = os.Chmod("restricted/sub", 0755)
 	})
 
-	_, err := oslayer.ListAllFiles("parent")
+	_, err := oslayer.ListAllFiles("restricted")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

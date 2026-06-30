@@ -68,7 +68,7 @@ types) must use the suffix `LN`.
       Path = path, ParentName = parent (nil or
       pointer).
 
-   c. If `stripped` starts with `"ARTIFACT/"`:
+   b. If `stripped` starts with `"ARTIFACT/"`:
       Let `relative` = stripped with "ARTIFACT/" removed.
       If `relative` is empty, raise ErrInvalidName.
       Let generatorName = "SPEC/" + relative.
@@ -83,7 +83,7 @@ types) must use the suffix `LN`.
       Path = *node.Frontmatter.Output,
       ParentName = pointer to generatorName.
 
-   d. If `stripped` starts with `"EXTERNAL/"`:
+   c. If `stripped` starts with `"EXTERNAL/"`:
       Let `relative` = stripped with "EXTERNAL/" removed.
       If `relative` is empty, raise ErrInvalidName.
       Return CfsReference with
@@ -91,7 +91,7 @@ types) must use the suffix `LN`.
       LogicalName = stripped, Qualifier = nil,
       Path = relative, ParentName = nil.
 
-   e. Otherwise: raise ErrUnrecognizedPrefix.
+   d. Otherwise: raise ErrUnrecognizedPrefix.
 
 ### CfsReferenceFromPath(cfsPath: oslayer.CfsPath) -> *CfsReference
 

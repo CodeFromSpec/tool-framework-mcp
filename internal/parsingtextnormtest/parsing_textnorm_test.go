@@ -1,5 +1,5 @@
-// code-from-spec: SPEC/golang/tests/parsing/text_normalization@W8CVxfcd09e-hLnmUBMNDGDkX5E
-package parsingtextnormtest_test
+// code-from-spec: SPEC/golang/test/cases/parsing/text_normalization@2oI1FUqe5pydSd4J9miBlZSHCuk
+package parsingtextnormtest
 
 import (
 	"testing"
