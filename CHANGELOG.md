@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.1](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v4.1.0...v4.1.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* Remove path parameter from write_file tool ([#23](https://github.com/CodeFromSpec/tool-framework-mcp/issues/23)) ([0056377](https://github.com/CodeFromSpec/tool-framework-mcp/commit/0056377ca150ecece09908e90db2397c5537ce26))
+
 ## [4.1.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v4.0.0...v4.1.0) (2026-06-30)
 
 
