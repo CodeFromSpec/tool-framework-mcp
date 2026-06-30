@@ -32,7 +32,7 @@ ARTIFACT/golang/test/cases/chain/hash;path:internal/chainhash/chainhash_test.go;
 ARTIFACT/golang/test/cases/chain/resolver;path:internal/chainresolver/chainresolver_test.go;checksum:vim_PX8YJuTnGhXW8wlJlptnu7k;chain:0GBawSbriWqr4NTvCd1F4Vz0-dQ
 ARTIFACT/golang/test/cases/manifest;path:internal/manifest/manifest_test.go;checksum:tEfwFTzv5HZob9FIU5UEM0vItCY;chain:jyhHy5TQ8yhwjgcR5JLIgh9m6Xw
 ARTIFACT/golang/test/cases/mcp_tools/accept;path:internal/mcpaccept/mcpaccept_test.go;checksum:EXjBTw5WIFz56QpQHtLazEgcJjU;chain:oNHU715Gin7T_ZHE3aRfMJDp4PM
-ARTIFACT/golang/test/cases/mcp_tools/dump_chain;path:internal/mcpdumpchain/mcpdumpchain_test.go;checksum:hSrTMq5QS2Ylqr5fgFXjZoaGyvM;chain:8JtTLMvTYw2lFdLtfX3daJRp-Vw
+ARTIFACT/golang/test/cases/mcp_tools/dump_chain;path:internal/mcpdumpchain/mcpdumpchain_test.go;checksum:f-YcTZGmXG2utzZmFbU51wpposU;chain:8JtTLMvTYw2lFdLtfX3daJRp-Vw
 ARTIFACT/golang/test/cases/mcp_tools/load_chain;path:internal/mcploadchain/mcploadchain_test.go;checksum:zk9OGovUtxgucxxjd3EK7CA86dY;chain:1EIeDjIDBmtXVDQRqqtvQjp5CFc
 ARTIFACT/golang/test/cases/mcp_tools/prune_cache;path:internal/mcpprunecache/mcpprunecache_test.go;checksum:WWWtfw1RE7rr-db0tdIBf8e56sY;chain:goBEP8AkPC0JCc1nPPBo5PCiEdk
 ARTIFACT/golang/test/cases/mcp_tools/reconstruct_cache;path:internal/mcpreconstructcache/mcpreconstructcache_test.go;checksum:SxRvoll1lhyh9TSlzz7y5Bixl80;chain:ivEH3sl_C4PvZzWKluoh_8dtpho

@@ -35,8 +35,9 @@ func TestMCPDumpChain_WritesDumpChainXml(t *testing.T) {
 		t.Fatalf("dump_chain.xml not found: %v", err)
 	}
 	content := string(data)
+
 	if !strings.HasPrefix(content, "<chain>") {
-		t.Errorf("content does not start with <chain>: %q", content[:min(len(content), 50)])
+		t.Errorf("content does not start with <chain>: %q", content[:min(len(content), 60)])
 	}
 	if !strings.Contains(content, "</chain>") {
 		t.Error("content does not contain </chain>")
