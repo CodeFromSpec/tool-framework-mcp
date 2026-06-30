@@ -1,5 +1,7 @@
 code-from-spec: v5
+ARTIFACT/domain/code-from-spec/cache-details;path:code-from-spec/domain/code-from-spec/cache-details/output.md;checksum:U4WVMo_7iEQ6fzBTeLgm8s1KEJg;chain:oDoljFIwq4csZZmAO85OV2xJ7kk
 ARTIFACT/domain/code-from-spec/manifest-format;path:code-from-spec/domain/code-from-spec/manifest-format/output.md;checksum:rdlaanqStQ2EgZ-GxOPJxj5X4v8;chain:mtf_auD4sSu2NLF0tiaMYFNu_bk
+ARTIFACT/golang/implementation/cache;path:internal/cache/cache.go;checksum:pWVdp2M8kExTmXVfeyw3OG7QEqE;chain:94qderbYcwX6Y8H2X-gGiRQphts
 ARTIFACT/golang/implementation/chain/hash;path:internal/chainhash/chainhash.go;checksum:qWryXs3kAyHpX1DcF1ZLWkPaVS8;chain:u49nMZWMuVj4mSIF1T3Q93WjXWU
 ARTIFACT/golang/implementation/chain/resolver;path:internal/chainresolver/chainresolver.go;checksum:6vYZQBAJ_oFSTmjLUtdsWlny0aE;chain:dIRAUM0-TuP0pR23C_xeNOzGgjQ
 ARTIFACT/golang/implementation/manifest;path:internal/manifest/manifest.go;checksum:eeHnuWb3paa44y9budq_nNtvBYk;chain:FfPTjz-iMV8ugbrG2EoLn4B4lxc

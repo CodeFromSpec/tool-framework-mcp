@@ -55,7 +55,8 @@ Setup:
 Actions:
 1. Call chainhash.ChainHashCompute twice with the same Chain.
 
-Expected: Both results are identical strings.
+Expected: Both chain hash results are identical strings.
+Both positions slices have the same length and content.
 
 #### Hash is 27 characters
 
@@ -68,7 +69,8 @@ Setup:
 Actions:
 1. Call chainhash.ChainHashCompute.
 
-Expected: Result is exactly 27 characters long.
+Expected: Chain hash is exactly 27 characters long.
+Positions slice is non-empty.
 
 #### Hash changes when ancestor content changes
 

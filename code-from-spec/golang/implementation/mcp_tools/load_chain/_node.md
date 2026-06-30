@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/implementation/cache
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
@@ -109,8 +110,9 @@ Implement the load chain tool as a Go package.
 ### Step 2 — Compute chain hash
 
 5. Call `chainhash.ChainHashCompute(chain)` with the resolved
-   chain. If it fails, propagate the error. Store the
-   result as `chain_hash`.
+   chain. It returns `(chain_hash, positions, err)`.
+   If it fails, propagate the error. Store
+   `chain_hash`. Ignore `positions` for now.
 
 ### Step 3 — Build XML document
 
@@ -235,11 +237,40 @@ Implement the load chain tool as a Go package.
 
 7. Return the assembled string.
 
+### Step 4 — Write to cache
+
+8. Build a map from position label to extracted content:
+   during Step 3, each time content is extracted for a
+   constraints entry, instructions, or input, store
+   the extracted content string in a map keyed by the
+   label that `ChainHashCompute` would use for that
+   position:
+   - Ancestors and SPEC dependencies: the logical name
+     (with qualifier if present).
+   - ARTIFACT/ and EXTERNAL/ dependencies: the logical
+     name.
+   - Target node's `# Public`: the logical name.
+   - Target node's `# Agent`:
+     `"AGENT[" + logicalName + "]"`.
+   - Input: `"INPUT[" + referenceName + "]"` (with
+     qualifier if present).
+
+9. For each position in `positions` (from Step 2):
+   Look up position.Label in the content map. If
+   found, call `cache.WriteContent(position.Hash,
+   content)`. Ignore errors — cache is best-effort.
+
+10. Call `cache.WriteChain(chain_hash, positions)`.
+    Ignore errors.
+
 ## Go-specific guidance
 
 - Use the `chainresolver` package for `ChainResolve`
   and `Chain`.
-- Use the `chainhash` package for `ChainHashCompute`.
+- Use the `chainhash` package for `ChainHashCompute`
+  and `ContentHash`.
+- Use the `cache` package for `WriteContent` and
+  `WriteChain`.
 - Use the `manifest` package for `OpenManifest`,
   `Manifest`, `ManifestEntry`.
 - Use `crypto/sha1` and `encoding/base64`
