@@ -60,11 +60,14 @@ For each node in entries:
    nil:
    - Construct artifact logical name: strip "SPEC/" prefix from
      node.Reference.LogicalName and prepend "ARTIFACT/".
-   - Call parsing.CfsReferenceFromName(artifact logical name). If it
-     fails, raise ErrUnresolvableReference. Let `artifact_ref` be the
-     result.
+   - Construct a CfsReference directly:
+     - NodeType: parsing.CfsNodeTypeArtifact
+     - LogicalName: the artifact logical name
+     - Qualifier: nil
+     - Path: *node.Frontmatter.Output
+     - ParentName: pointer to node.Reference.LogicalName
    - Add an artifact entry keyed by that artifact logical name with:
-     - ref: *artifact_ref
+     - ref: the constructed CfsReference
      - deps: list containing the generating node's logical name
      - rank: 0
 
@@ -72,48 +75,44 @@ For each node in entries:
 
 For each spec node entry in the entry map:
 
-1. Find the corresponding node to get its Reference.ParentName field.
+1. Find the corresponding node to get its Reference.ParentName and
+   Frontmatter fields.
 
-2. If ParentName is nil: skip — root node has no parent dependency.
+2. **Parent dependency**: If ParentName is not nil, add *ParentName to
+   the entry's deps list.
 
-3. Otherwise:
+3. **depends_on dependencies**: If node.Frontmatter is not nil, for
+   each reference in node.Frontmatter.DependsOn:
+   - If reference starts with "SPEC/":
+     - Extract the unqualified logical name: if the reference contains
+       "(", take the portion before it; otherwise use the reference
+       as-is.
+     - If the unqualified name is not a key in the entry map, raise
+       ErrUnresolvableReference.
+     - Add the unqualified name to the entry's deps list.
+   - Else if reference starts with "ARTIFACT/":
+     - If reference is not a key in the entry map, raise
+       ErrUnresolvableReference.
+     - Add reference to the entry's deps list.
+   - Else if reference starts with "EXTERNAL/": skip.
+   - Else: raise ErrUnresolvableReference.
 
-   a. **Parent dependency**: Add *ParentName to the entry's deps list.
-
-   b. **depends_on dependencies**: if node.Frontmatter is not nil, for
-      each reference in node.Frontmatter.DependsOn:
-      - If reference starts with "SPEC/":
-        - Call parsing.CfsReferenceFromName(reference). If it fails,
-          raise ErrUnresolvableReference. Let `dep_ref` be the result.
-        - If dep_ref.LogicalName is not a key in the entry map, raise
-          ErrUnresolvableReference.
-        - Add dep_ref.LogicalName to the entry's deps list.
-      - Else if reference starts with "ARTIFACT/":
-        - If reference is not a key in the entry map, raise
-          ErrUnresolvableReference.
-        - Add reference to the entry's deps list.
-      - Else if reference starts with "EXTERNAL/": skip.
-      - Else: raise ErrUnresolvableReference.
-
-   c. **input dependency**: If node.Frontmatter is not nil and
-      node.Frontmatter.Input is not nil:
-      - If *node.Frontmatter.Input starts with "SPEC/":
-        - Call parsing.CfsReferenceFromName(*node.Frontmatter.Input).
-          If it fails, raise ErrUnresolvableReference. Let `input_ref`
-          be the result.
-        - If input_ref.LogicalName is not a key in the entry map, raise
-          ErrUnresolvableReference.
-        - Add input_ref.LogicalName to the entry's deps list.
-      - Else if starts with "ARTIFACT/":
-        - If not a key in the entry map, raise
-          ErrUnresolvableReference.
-        - Add to the entry's deps list.
-      - Else if starts with "EXTERNAL/": skip.
+4. **input dependency**: If node.Frontmatter is not nil and
+   node.Frontmatter.Input is not nil:
+   - If *node.Frontmatter.Input starts with "SPEC/":
+     - Extract the unqualified logical name: if the value contains "(",
+       take the portion before it; otherwise use as-is.
+     - If the unqualified name is not a key in the entry map, raise
+       ErrUnresolvableReference.
+     - Add the unqualified name to the entry's deps list.
+   - Else if starts with "ARTIFACT/":
+     - If not a key in the entry map, raise ErrUnresolvableReference.
+     - Add to the entry's deps list.
+   - Else if starts with "EXTERNAL/": skip.
 
 ### Step 3 — Initialize ranks
 
-All entries start with rank 0 from step 1. Root nodes (those whose
-ParentName is nil) keep rank 0 — they have no parent dependency.
+All entries start with rank 0.
 
 ### Step 4 — Iterate and detect cycles
 
@@ -145,8 +144,10 @@ ParentName is nil) keep rank 0 — they have no parent dependency.
 ## Go-specific guidance
 
 - Use the `parsing` package for `Node`, `CfsReference`,
-  `CfsReferenceFromName`. Use `strings.HasPrefix` for ARTIFACT/ and
-  EXTERNAL/ classification.
+  `CfsNodeTypeArtifact`. Do not call `CfsReferenceFromName` — construct
+  CfsReference values directly. Use `strings.HasPrefix` for SPEC/,
+  ARTIFACT/, and EXTERNAL/ classification. Use `strings.Index` to find
+  "(" for qualifier extraction.
 - The package name should be `noderanking`.
 - `NodeRankEntry` is the only exported struct in this package.
 - Return `([]NodeRankEntry, []string, error)` — ranked entries, cycle
