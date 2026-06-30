@@ -64,12 +64,12 @@ Implement the write file tool as a Go package.
 1. If logical_name does not start with "SPEC/",
    return ErrNotASpecReference.
 
-2. Call `parsing.ParseNode(logical_name)`.
+2. If logical_name contains "(", return
+   ErrQualifierNotAllowed.
+
+3. Call `parsing.ParseNode(logical_name)`.
    If it fails, return ErrUnreadableFrontmatter.
    Store the result as node.
-
-3. If node.Reference.Qualifier is not nil, return error
-   ErrQualifierNotAllowed.
 
 5. If `node.Frontmatter.Output` is nil, return error
    ErrNoOutput.

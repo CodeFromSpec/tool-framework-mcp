@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@J6Z6zM5el9TtQiSNJ_DlAZDOU6k
+// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@rb68Dz0BYCUIJSP9F_hpCB43jcI
 package mcpwritefile
 
 import (
@@ -19,7 +19,7 @@ var (
 	ErrNotASpecReference     = errors.New("logical name is not a SPEC/ reference")
 	ErrQualifierNotAllowed   = errors.New("logical name must not contain a qualifier")
 	ErrUnreadableFrontmatter = errors.New("node frontmatter cannot be parsed")
-	ErrNoOutput              = errors.New("target node has no output field")
+	ErrNoOutput              = errors.New("node has no output field")
 	ErrPathNotInOutput       = errors.New("path is not declared in the node's output")
 )
 
@@ -28,13 +28,13 @@ func MCPWriteFile(logicalName, path, content string) (string, error) {
 		return "", ErrNotASpecReference
 	}
 
+	if strings.Contains(logicalName, "(") {
+		return "", ErrQualifierNotAllowed
+	}
+
 	node, err := parsing.ParseNode(logicalName)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
-	}
-
-	if node.Reference.Qualifier != nil {
-		return "", ErrQualifierNotAllowed
 	}
 
 	if node.Frontmatter == nil || node.Frontmatter.Output == nil {
@@ -99,6 +99,6 @@ func computeChecksum(content string) string {
 	if !strings.HasSuffix(normalized, "\n") {
 		normalized += "\n"
 	}
-	sum := sha1.Sum([]byte(normalized))
-	return base64.RawURLEncoding.EncodeToString(sum[:])
+	h := sha1.Sum([]byte(normalized))
+	return base64.RawURLEncoding.EncodeToString(h[:])
 }

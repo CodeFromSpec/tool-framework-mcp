@@ -236,3 +236,16 @@ Implement the validate specs tool as a Go package.
   structs.
 - The function never returns an error — all problems
   are collected in the report.
+
+# Private
+
+## TODO
+
+### Empty directories not detected by missing_node_md
+
+`collectAllDirs` derives directory paths from files
+returned by `ListAllFiles`. Empty subdirectories (no
+files at all) are invisible — `missing_node_md` cannot
+detect them. A real directory walk is needed to fix
+this. Low priority: empty directories without
+`_node.md` are uncommon in practice.

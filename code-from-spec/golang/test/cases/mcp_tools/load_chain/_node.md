@@ -2,6 +2,7 @@
 depends_on:
   - SPEC/golang/test/utils/chdir
   - SPEC/golang/test/utils/create_spec_node
+  - ARTIFACT/domain/code-from-spec/manifest-format
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/chain/hash
@@ -81,17 +82,17 @@ Setup:
   `# SPEC/root/a`, `# Public` → `## Details` with
   content.
 - Create `code-from-spec/root/a/b/_node.md` with
-  `# SPEC/root/a/b`, frontmatter `output: out/b.txt`.
+  `# SPEC/root/a/b`, frontmatter `output: out/b.txt`,
+  `# Public` → `## Contract` with content.
 
 Actions:
 1. Call `mcploadchain.MCPLoadChain("SPEC/root/a/b")`.
 
 Expected:
-- `<constraints>` contains
+- `<constraints>` contains three entries:
   `<entry name="SPEC/root">` with `## Overview`,
   `<entry name="SPEC/root/a">` with `## Details`,
-  and `<entry name="SPEC/root/a/b">` (if it has
-  public content).
+  `<entry name="SPEC/root/a/b">` with `## Contract`.
 
 #### Ancestor without public section skipped
 
@@ -472,3 +473,6 @@ Expected:
   check for expected elements and content. Do not
   parse with `encoding/xml` — simple string checks
   are sufficient.
+- The manifest file path is `code-from-spec/.manifest`
+  — write manifest fixtures there, not at `.manifest`
+  in the working directory root.

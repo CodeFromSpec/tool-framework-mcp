@@ -6,6 +6,7 @@ depends_on:
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/mcp_tools/validate_specs
   - SPEC/golang/implementation/mcp_tools/write_file
+  - SPEC/golang/implementation/spec_tree/validate(interface)
 output: cmd/framework-mcp/main.go
 ---
 
