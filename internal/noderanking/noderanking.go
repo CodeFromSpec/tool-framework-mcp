@@ -167,3 +167,5 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 
 	return ranked, cycles, nil
 }
+</content>
+</invoke>

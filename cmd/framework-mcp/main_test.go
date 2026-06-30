@@ -327,3 +327,5 @@ func TestVersionToolReturnsVersionString(t *testing.T) {
 		t.Errorf("expected version string to contain 'dev', got: %s", text)
 	}
 }
+</content>
+</invoke>

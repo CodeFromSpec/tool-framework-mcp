@@ -1064,3 +1064,5 @@ func TestDuplicateSubsectionInAgent(t *testing.T) {
 		t.Errorf("expected ErrDuplicateSubsection, got %v", err)
 	}
 }
+</content>
+</invoke>

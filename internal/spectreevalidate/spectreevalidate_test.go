@@ -71,6 +71,15 @@ func hasError(errs []spectreevalidate.FormatError, node, rule string) bool {
 	return len(findErrors(errs, node, rule)) > 0
 }
 
+func hasErrorWithRule(errs []spectreevalidate.FormatError, rule string) bool {
+	for _, e := range errs {
+		if e.Rule == rule {
+			return true
+		}
+	}
+	return false
+}
+
 func TestHappyPath_ValidLeafNode(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -776,12 +785,8 @@ func TestMissingNodeMd_AllHaveNodes_NoError(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if hasError(errs, "", "missing_node_md") {
-		for _, e := range errs {
-			if e.Rule == "missing_node_md" {
-				t.Errorf("unexpected missing_node_md error: %v", e)
-			}
-		}
+	if hasErrorWithRule(errs, "missing_node_md") {
+		t.Errorf("expected no missing_node_md error, got %v", errs)
 	}
 }
 

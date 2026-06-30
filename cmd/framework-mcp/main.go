@@ -9,6 +9,8 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpaccept"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpdumpchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpprunecache"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpreconstructcache"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpvalidatespecs"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpwritefile"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -22,12 +24,14 @@ Starts an MCP server over stdin/stdout for Code from Spec
 projects.
 
 Tools:
-  load_chain       Load the spec chain for a node.
-  write_file       Write a generated file to disk.
-  validate_specs   Validate specs and check artifact staleness.
-  accept           Accept a modified artifact.
-  dump_chain       Dump the spec chain to a file.
-  version          Print the tool version.
+  load_chain          Load the spec chain for a node.
+  write_file          Write a generated file to disk.
+  validate_specs      Validate specs and check artifact staleness.
+  accept              Accept a modified artifact.
+  dump_chain          Dump the spec chain to a file.
+  reconstruct_cache   Rebuild cache from current state.
+  prune_cache         Remove unreferenced cache files.
+  version             Print the tool version.
 
 MCP configuration example:
   {
@@ -133,6 +137,38 @@ func main() {
 		Description: "Dump the spec chain to a file.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args DumpChainArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcpdumpchain.MCPDumpChain(args.LogicalName)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
+				IsError: true,
+			}, nil, nil
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
+		}, nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "reconstruct_cache",
+		Description: "Rebuild cache from current state.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := mcpreconstructcache.MCPReconstructCache()
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
+				IsError: true,
+			}, nil, nil
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
+		}, nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "prune_cache",
+		Description: "Remove unreferenced cache files.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := mcpprunecache.MCPPruneCache()
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},

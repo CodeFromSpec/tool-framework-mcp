@@ -7,6 +7,8 @@ import (
 )
 
 func TestNormalizeText(t *testing.T) {
+	nbsp := string(rune(0x00A0))
+
 	tests := []struct {
 		name   string
 		input  string
@@ -99,8 +101,8 @@ func TestNormalizeText(t *testing.T) {
 		},
 		{
 			name:   "non-breaking space is not whitespace",
-			input:  "hello" + " " + "world",
-			expect: "hello" + " " + "world",
+			input:  "hello" + nbsp + "world",
+			expect: "hello" + nbsp + "world",
 		},
 		{
 			name:   "single character",

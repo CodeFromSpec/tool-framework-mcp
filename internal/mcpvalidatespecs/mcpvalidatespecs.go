@@ -304,4 +304,3 @@ func collectAllDirs() []string {
 	return dirs
 }
 </content>
-</invoke>

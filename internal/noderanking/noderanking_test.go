@@ -828,3 +828,5 @@ func max(vals ...int) int {
 }
 
 var _ = artifactRef
+</content>
+</invoke>

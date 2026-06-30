@@ -19,48 +19,6 @@ type ContentHash struct {
 	Hash  string
 }
 
-func extractBlock(content []string) string {
-	start := 0
-	for start < len(content) {
-		if strings.TrimSpace(content[start]) != "" {
-			break
-		}
-		start++
-	}
-
-	end := len(content) - 1
-	for end >= start {
-		if strings.TrimSpace(content[end]) != "" {
-			break
-		}
-		end--
-	}
-
-	if start > end {
-		return ""
-	}
-
-	return strings.Join(content[start:end+1], "\n") + "\n"
-}
-
-func formatSection(rawHeading string, content []string) string {
-	head := strings.TrimRight(rawHeading, " \t") + "\n"
-	body := extractBlock(content)
-	return head + body
-}
-
-func concatenateSubsections(subsections []*parsing.NodeSubsection) string {
-	result := ""
-	for _, sub := range subsections {
-		block := formatSection(sub.RawHeading, sub.Content)
-		if result != "" && block != "" {
-			result += "\n"
-		}
-		result += block
-	}
-	return result
-}
-
 func hashPublicSubsections(node *parsing.Node) []byte {
 	if node.Public == nil {
 		return nil
@@ -68,7 +26,7 @@ func hashPublicSubsections(node *parsing.Node) []byte {
 	if len(node.Public.Subsections) == 0 {
 		return nil
 	}
-	text := concatenateSubsections(node.Public.Subsections)
+	text := parsing.ConcatenateSubsections(node.Public.Subsections)
 	sum := sha1.Sum([]byte(text))
 	return sum[:]
 }
@@ -80,7 +38,7 @@ func hashQualifiedSubsection(node *parsing.Node, qualifier string) []byte {
 	}
 	for _, sub := range node.Public.Subsections {
 		if sub.Heading == normalizedQualifier {
-			text := formatSection(sub.RawHeading, sub.Content)
+			text := parsing.FormatSection(sub.RawHeading, sub.Content)
 			sum := sha1.Sum([]byte(text))
 			return sum[:]
 		}
@@ -89,46 +47,19 @@ func hashQualifiedSubsection(node *parsing.Node, qualifier string) []byte {
 }
 
 func hashAgentSection(node *parsing.Node) []byte {
-	if node.Agent == nil {
+	text := parsing.ExtractAgentContent(node)
+	if text == "" {
 		return nil
-	}
-	if extractBlock(node.Agent.Content) == "" && len(node.Agent.Subsections) == 0 {
-		return nil
-	}
-	text := extractBlock(node.Agent.Content)
-	for _, sub := range node.Agent.Subsections {
-		subBlock := formatSection(sub.RawHeading, sub.Content)
-		if text != "" && subBlock != "" {
-			text += "\n"
-		}
-		text += subBlock
 	}
 	sum := sha1.Sum([]byte(text))
 	return sum[:]
 }
 
 func hashFileContent(filePath oslayer.CfsPath) ([]byte, error) {
-	handle, err := oslayer.OpenFile(filePath, "read", 30000)
+	text, err := parsing.ReadFileContent(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("opening file %s: %w", filePath, err)
+		return nil, fmt.Errorf("reading file %s: %w", filePath, err)
 	}
-
-	var sb strings.Builder
-	for {
-		line, err := handle.ReadLine()
-		if errors.Is(err, oslayer.ErrEndOfFile) {
-			break
-		}
-		if err != nil {
-			handle.Close()
-			return nil, fmt.Errorf("reading file %s: %w", filePath, err)
-		}
-		sb.WriteString(line)
-		sb.WriteString("\n")
-	}
-	handle.Close()
-
-	text := sb.String()
 	sum := sha1.Sum([]byte(text))
 	return sum[:], nil
 }

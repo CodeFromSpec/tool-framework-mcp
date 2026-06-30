@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpaccept"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
@@ -22,6 +24,19 @@ func checksumOf(content string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
+func currentChainHash(t *testing.T, logicalName string) string {
+	t.Helper()
+	chain, err := chainresolver.ChainResolve(logicalName)
+	if err != nil {
+		t.Fatalf("ChainResolve: %v", err)
+	}
+	hash, _, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("ChainHashCompute: %v", err)
+	}
+	return hash
+}
+
 func writeManifestEntry(t *testing.T, logicalName, checksum, chainHash string) {
 	t.Helper()
 	m, err := manifest.OpenManifest(false)
@@ -34,6 +49,18 @@ func writeManifestEntry(t *testing.T, logicalName, checksum, chainHash string) {
 		Checksum:  checksum,
 		ChainHash: chainHash,
 	}
+	if err := m.Save(); err != nil {
+		t.Fatalf("Save manifest: %v", err)
+	}
+}
+
+func writeEmptyManifest(t *testing.T) {
+	t.Helper()
+	m, err := manifest.OpenManifest(false)
+	if err != nil {
+		t.Fatalf("OpenManifest: %v", err)
+	}
+	defer func() { _ = m.Discard() }()
 	if err := m.Save(); err != nil {
 		t.Fatalf("Save manifest: %v", err)
 	}
@@ -55,6 +82,7 @@ func TestMCPAccept_AcceptsModifiedArtifact(t *testing.T) {
 	testutils.Chdir(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root")
+	b.SetPublic("## Context\ncontent")
 	b.Write()
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
@@ -64,8 +92,8 @@ func TestMCPAccept_AcceptsModifiedArtifact(t *testing.T) {
 	fileContent := "modified content"
 	writeFile(t, "out/a.go", fileContent)
 
+	chainHash := currentChainHash(t, "SPEC/root/a")
 	staleChecksum := "AAAAAAAAAAAAAAAAAAAAAAAAAAA"
-	chainHash := "BBBBBBBBBBBBBBBBBBBBBBBBBBB"
 	writeManifestEntry(t, "ARTIFACT/root/a", staleChecksum, chainHash)
 
 	result, err := mcpaccept.MCPAccept("SPEC/root/a")
@@ -90,6 +118,91 @@ func TestMCPAccept_AcceptsModifiedArtifact(t *testing.T) {
 	}
 	if entry.ChainHash != chainHash {
 		t.Fatalf("expected chain hash %q unchanged, got %q", chainHash, entry.ChainHash)
+	}
+}
+
+func TestMCPAccept_AcceptsStaleArtifact(t *testing.T) {
+	testutils.Chdir(t)
+
+	b := testutils.CreateSpecNode(t, "SPEC/root")
+	b.SetPublic("## Context\ncontent")
+	b.Write()
+
+	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetOutput("out/a.go")
+	ba.Write()
+
+	fileContent := "artifact content"
+	writeFile(t, "out/a.go", fileContent)
+
+	correctChecksum := checksumOf(fileContent)
+	staleChainHash := "AAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	writeManifestEntry(t, "ARTIFACT/root/a", correctChecksum, staleChainHash)
+
+	result, err := mcpaccept.MCPAccept("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "accepted out/a.go" {
+		t.Fatalf("expected 'accepted out/a.go', got %q", result)
+	}
+
+	m, err := manifest.OpenManifest(true)
+	if err != nil {
+		t.Fatalf("OpenManifest read: %v", err)
+	}
+	entry, ok := m.Entries["ARTIFACT/root/a"]
+	if !ok {
+		t.Fatal("manifest entry not found after accept")
+	}
+	if entry.Checksum != correctChecksum {
+		t.Fatalf("expected checksum %q unchanged, got %q", correctChecksum, entry.Checksum)
+	}
+	expectedChainHash := currentChainHash(t, "SPEC/root/a")
+	if entry.ChainHash != expectedChainHash {
+		t.Fatalf("expected chain hash %q, got %q", expectedChainHash, entry.ChainHash)
+	}
+}
+
+func TestMCPAccept_CreatesEntryWhenNoneExists(t *testing.T) {
+	testutils.Chdir(t)
+
+	b := testutils.CreateSpecNode(t, "SPEC/root")
+	b.SetPublic("## Context\ncontent")
+	b.Write()
+
+	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetOutput("out/a.go")
+	ba.Write()
+
+	fileContent := "new content"
+	writeFile(t, "out/a.go", fileContent)
+
+	writeEmptyManifest(t)
+
+	result, err := mcpaccept.MCPAccept("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "accepted out/a.go" {
+		t.Fatalf("expected 'accepted out/a.go', got %q", result)
+	}
+
+	m, err := manifest.OpenManifest(true)
+	if err != nil {
+		t.Fatalf("OpenManifest read: %v", err)
+	}
+	entry, ok := m.Entries["ARTIFACT/root/a"]
+	if !ok {
+		t.Fatal("manifest entry not found after accept")
+	}
+	expectedChecksum := checksumOf(fileContent)
+	if entry.Checksum != expectedChecksum {
+		t.Fatalf("expected checksum %q, got %q", expectedChecksum, entry.Checksum)
+	}
+	expectedChainHash := currentChainHash(t, "SPEC/root/a")
+	if entry.ChainHash != expectedChainHash {
+		t.Fatalf("expected chain hash %q, got %q", expectedChainHash, entry.ChainHash)
 	}
 }
 
@@ -126,24 +239,6 @@ func TestMCPAccept_NoOutputDeclared(t *testing.T) {
 	}
 }
 
-func TestMCPAccept_NoManifestEntry_NotModified(t *testing.T) {
-	testutils.Chdir(t)
-
-	b := testutils.CreateSpecNode(t, "SPEC/root")
-	b.Write()
-
-	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
-	ba.SetOutput("out/a.go")
-	ba.Write()
-
-	writeFile(t, "out/a.go", "some content")
-
-	_, err := mcpaccept.MCPAccept("SPEC/root/a")
-	if !errors.Is(err, mcpaccept.ErrNotModified) {
-		t.Fatalf("expected ErrNotModified, got %v", err)
-	}
-}
-
 func TestMCPAccept_ArtifactFileDoesNotExist(t *testing.T) {
 	testutils.Chdir(t)
 
@@ -154,21 +249,20 @@ func TestMCPAccept_ArtifactFileDoesNotExist(t *testing.T) {
 	ba.SetOutput("out/a.go")
 	ba.Write()
 
-	writeManifestEntry(t, "ARTIFACT/root/a", "AAAAAAAAAAAAAAAAAAAAAAAAAAA", "BBBBBBBBBBBBBBBBBBBBBBBBBBB")
-
 	_, err := mcpaccept.MCPAccept("SPEC/root/a")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if errors.Is(err, mcpaccept.ErrNotModified) {
-		t.Fatalf("expected oslayer error, got ErrNotModified")
+	if errors.Is(err, mcpaccept.ErrAlreadyUpToDate) {
+		t.Fatalf("expected oslayer error, got ErrAlreadyUpToDate")
 	}
 }
 
-func TestMCPAccept_ChecksumAlreadyMatches_NotModified(t *testing.T) {
+func TestMCPAccept_AlreadyUpToDate(t *testing.T) {
 	testutils.Chdir(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root")
+	b.SetPublic("## Context\ncontent")
 	b.Write()
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
@@ -179,10 +273,11 @@ func TestMCPAccept_ChecksumAlreadyMatches_NotModified(t *testing.T) {
 	writeFile(t, "out/a.go", fileContent)
 
 	matchingChecksum := checksumOf(fileContent)
-	writeManifestEntry(t, "ARTIFACT/root/a", matchingChecksum, "BBBBBBBBBBBBBBBBBBBBBBBBBBB")
+	matchingChainHash := currentChainHash(t, "SPEC/root/a")
+	writeManifestEntry(t, "ARTIFACT/root/a", matchingChecksum, matchingChainHash)
 
 	_, err := mcpaccept.MCPAccept("SPEC/root/a")
-	if !errors.Is(err, mcpaccept.ErrNotModified) {
-		t.Fatalf("expected ErrNotModified, got %v", err)
+	if !errors.Is(err, mcpaccept.ErrAlreadyUpToDate) {
+		t.Fatalf("expected ErrAlreadyUpToDate, got %v", err)
 	}
 }

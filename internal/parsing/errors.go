@@ -21,3 +21,5 @@ var (
 	ErrNoOutput           = errors.New("no output declared")
 	ErrInvalidPath        = errors.New("invalid path")
 )
+</content>
+</invoke>
