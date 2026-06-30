@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/test/utils/helpers
   - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/spec_tree/ranking
 output: internal/noderanking/noderanking_test.go

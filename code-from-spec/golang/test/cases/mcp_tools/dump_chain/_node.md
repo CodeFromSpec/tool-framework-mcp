@@ -1,6 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/test/utils/chdir
+  - SPEC/golang/test/utils/create_spec_node
   - SPEC/golang/implementation/mcp_tools/dump_chain
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/oslayer(interface)

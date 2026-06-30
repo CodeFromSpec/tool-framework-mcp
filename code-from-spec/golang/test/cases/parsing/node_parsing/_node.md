@@ -1,6 +1,8 @@
 ---
 depends_on:
   - SPEC/golang/test/utils/chdir
+  - SPEC/golang/test/utils/create_spec_node
+  - SPEC/golang/test/utils/helpers
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
 output: internal/parsingnodeparsingtest/parsing_parsenode_test.go

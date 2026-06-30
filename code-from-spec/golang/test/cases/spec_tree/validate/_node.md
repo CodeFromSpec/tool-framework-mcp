@@ -1,6 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/test/utils/chdir
+  - SPEC/golang/test/utils/helpers
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/spec_tree/validate
