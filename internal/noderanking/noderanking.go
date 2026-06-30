@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/spec_tree/ranking@iTR8XVbTiKiW_WlxhfuFggWlqPQ
+// code-from-spec: SPEC/golang/implementation/spec_tree/ranking@kzwp30wnkOJQR3E14o2v3pW9RxQ
 package noderanking
 
 import (
@@ -23,6 +23,14 @@ type rankEntry struct {
 	rank int
 }
 
+func unqualifiedName(ref string) string {
+	idx := strings.Index(ref, "(")
+	if idx >= 0 {
+		return ref[:idx]
+	}
+	return ref
+}
+
 func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) {
 	entryMap := make(map[string]*rankEntry)
 
@@ -36,12 +44,16 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 		if node.Frontmatter != nil && node.Frontmatter.Output != nil {
 			bare := strings.TrimPrefix(node.Reference.LogicalName, "SPEC/")
 			artifactName := "ARTIFACT/" + bare
-			artifactRef, err := parsing.CfsReferenceFromName(artifactName)
-			if err != nil {
-				return nil, nil, fmt.Errorf("%w: %s: %w", ErrUnresolvableReference, artifactName, err)
+			parentName := node.Reference.LogicalName
+			artifactRef := parsing.CfsReference{
+				NodeType:    parsing.CfsNodeTypeArtifact,
+				LogicalName: artifactName,
+				Qualifier:   nil,
+				Path:        *node.Frontmatter.Output,
+				ParentName:  &parentName,
 			}
 			entryMap[artifactName] = &rankEntry{
-				ref:  *artifactRef,
+				ref:  artifactRef,
 				deps: []string{node.Reference.LogicalName},
 				rank: 0,
 			}
@@ -51,9 +63,7 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 	for _, node := range entries {
 		entry := entryMap[node.Reference.LogicalName]
 
-		if node.Reference.ParentName == nil {
-			// root node — no parent dependency
-		} else {
+		if node.Reference.ParentName != nil {
 			entry.deps = append(entry.deps, *node.Reference.ParentName)
 		}
 
@@ -63,14 +73,11 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 
 		for _, ref := range node.Frontmatter.DependsOn {
 			if strings.HasPrefix(ref, "SPEC/") {
-				depRef, err := parsing.CfsReferenceFromName(ref)
-				if err != nil {
-					return nil, nil, fmt.Errorf("%w: %s: %w", ErrUnresolvableReference, ref, err)
-				}
-				if _, ok := entryMap[depRef.LogicalName]; !ok {
+				unqualified := unqualifiedName(ref)
+				if _, ok := entryMap[unqualified]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
 				}
-				entry.deps = append(entry.deps, depRef.LogicalName)
+				entry.deps = append(entry.deps, unqualified)
 			} else if strings.HasPrefix(ref, "ARTIFACT/") {
 				if _, ok := entryMap[ref]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
@@ -86,21 +93,18 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 		if node.Frontmatter.Input != nil {
 			inp := *node.Frontmatter.Input
 			if strings.HasPrefix(inp, "SPEC/") {
-				inputRef, err := parsing.CfsReferenceFromName(inp)
-				if err != nil {
-					return nil, nil, fmt.Errorf("%w: %s: %w", ErrUnresolvableReference, inp, err)
-				}
-				if _, ok := entryMap[inputRef.LogicalName]; !ok {
+				unqualified := unqualifiedName(inp)
+				if _, ok := entryMap[unqualified]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, inp)
 				}
-				entry.deps = append(entry.deps, inputRef.LogicalName)
+				entry.deps = append(entry.deps, unqualified)
 			} else if strings.HasPrefix(inp, "ARTIFACT/") {
 				if _, ok := entryMap[inp]; !ok {
 					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, inp)
 				}
 				entry.deps = append(entry.deps, inp)
 			} else if strings.HasPrefix(inp, "EXTERNAL/") {
-				// external — skip
+				continue
 			}
 		}
 	}

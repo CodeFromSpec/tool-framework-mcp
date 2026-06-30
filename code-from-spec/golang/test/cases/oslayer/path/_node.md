@@ -185,5 +185,7 @@ Expected: corresponds to current working directory.
   package).
 - Use `testutils.Chdir(t)` to create a temp dir and
   set the working directory.
-- For symlink tests, skip on platforms where symlinks
-  are not supported.
+- For symlink tests, if `os.Symlink` returns an error
+  when creating the symlink, skip the test — the
+  platform may not support symlinks or may require
+  elevated privileges.
