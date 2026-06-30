@@ -34,11 +34,10 @@ heading. Leaf nodes need frontmatter with `output`.
 For ARTIFACT and external file tests, create the
 referenced files on disk at the declared paths.
 
-The output format is: first line `chain_hash: <hash>`,
-followed by an XML document with `<chain>` as root
+The output is an XML document with `<chain>` as root
 element containing `<existing_artifact>`,
 `<constraints>`, `<instructions>`, and `<input>`
-sections.
+sections. No `chain_hash:` prefix line.
 
 ## Test cases
 
@@ -60,9 +59,7 @@ Actions:
 1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
 
 Expected:
-- First line matches `chain_hash: ` followed by
-  exactly 27 non-whitespace characters.
-- Contains `<chain>` root element.
+- Output starts with `<chain>`.
 - `<constraints>` contains `<entry name="SPEC/root">`
   with `## Context` content, and
   `<entry name="SPEC/root/a">` with `## Interface`
@@ -356,7 +353,7 @@ Actions:
 1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")` twice.
 
 Expected:
-- Both calls return identical `chain_hash` values.
+- Both calls return identical output strings.
 
 ### Error cases
 

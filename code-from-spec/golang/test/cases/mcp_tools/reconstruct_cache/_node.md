@@ -85,7 +85,7 @@ Expected:
 
 ### Edge cases
 
-#### No manifest — returns error
+#### No manifest — succeeds with no work
 
 Setup:
 - Do not create a `.manifest` file or lock file.
@@ -94,7 +94,8 @@ Actions:
 1. Call `mcpreconstructcache.MCPReconstructCache()`.
 
 Expected:
-- Returns error (manifest cannot be opened).
+- No error.
+- Returns a non-empty string.
 
 #### Empty manifest — zero entries processed
 
