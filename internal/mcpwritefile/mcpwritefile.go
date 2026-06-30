@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@q2XnhBWrHIPmGISZRnV1eCm6ifw
+// code-from-spec: SPEC/golang/implementation/mcp_tools/write_file@xNFjX38jjiiATIl7ge3NeGtNXMU
 package mcpwritefile
 
 import (
@@ -20,10 +20,9 @@ var (
 	ErrQualifierNotAllowed   = errors.New("logical name must not contain a qualifier")
 	ErrUnreadableFrontmatter = errors.New("node frontmatter cannot be parsed")
 	ErrNoOutput              = errors.New("node has no output field")
-	ErrPathNotInOutput       = errors.New("path is not declared in the node's output")
 )
 
-func MCPWriteFile(logicalName, path, content string) (string, error) {
+func MCPWriteFile(logicalName, content string) (string, error) {
 	if !strings.HasPrefix(logicalName, "SPEC/") {
 		return "", ErrNotASpecReference
 	}
@@ -41,12 +40,10 @@ func MCPWriteFile(logicalName, path, content string) (string, error) {
 		return "", ErrNoOutput
 	}
 
+	path := *node.Frontmatter.Output
+
 	if err := oslayer.ValidateStringIsCfsPath(path); err != nil {
 		return "", err
-	}
-
-	if path != *node.Frontmatter.Output {
-		return "", ErrPathNotInOutput
 	}
 
 	cfsPath := oslayer.CfsPath(path)

@@ -10,8 +10,9 @@ output: internal/mcpwritefile/mcpwritefile.go
 
 # SPEC/golang/implementation/mcp_tools/write_file
 
-Writes a generated source file to disk after validating
-the path against the node's declared output.
+Writes a generated source file to disk. The output path
+is derived from the node's frontmatter — the caller only
+provides the logical name and the content.
 
 # Public
 
@@ -26,20 +27,20 @@ the path against the node's declared output.
 ## Interface
 
 ```go
-func MCPWriteFile(logicalName, path, content string) (string, error)
+func MCPWriteFile(logicalName, content string) (string, error)
 ```
 
 ### Input
 
 | Parameter | Required | Description |
 |---|---|---|
-| `logicalName` | yes | Logical name of the node whose output authorizes the write. |
-| `path` | yes | Relative file path from project root (forward slashes). |
+| `logicalName` | yes | Logical name of the node whose output declares the target path. |
 | `content` | yes | Complete file content (UTF-8 text). |
 
 ### Output
 
-A success message: `"wrote <path>"`.
+A success message: `"wrote <path>"`, where `<path>` is
+the output path read from the node's frontmatter.
 
 ### Errors
 
@@ -50,8 +51,6 @@ A success message: `"wrote <path>"`.
 - `ErrUnreadableFrontmatter`: the node's frontmatter
   cannot be parsed.
 - `ErrNoOutput`: target node has no output field.
-- `ErrPathNotInOutput`: path is not declared in the
-  node's output.
 - Propagated errors from `parsing`, `oslayer`
   packages.
 
@@ -71,16 +70,15 @@ Implement the write file tool as a Go package.
    If it fails, return ErrUnreadableFrontmatter.
    Store the result as node.
 
-5. If `node.Frontmatter.Output` is nil, return error
+4. If `node.Frontmatter.Output` is nil, return error
    ErrNoOutput.
 
-6. Call `oslayer.ValidateStringIsCfsPath` with path. If it fails,
-   propagate the error.
+5. Store `*node.Frontmatter.Output` as path.
 
-7. If path does not exactly match `*node.Frontmatter.Output`,
-   return ErrPathNotInOutput.
+6. Call `oslayer.ValidateStringIsCfsPath` with path.
+   If it fails, propagate the error.
 
-8. Construct an `oslayer.CfsPath` record with value set to
+7. Construct an `oslayer.CfsPath` record with value set to
    path. Call `oslayer.OpenFile` with that CfsPath, mode "overwrite",
    and timeout 30000. If it fails, propagate the error.
    Store the result as handle.
