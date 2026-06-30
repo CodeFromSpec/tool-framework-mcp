@@ -23,20 +23,14 @@ already in place.
 1. **Create the spec directory.** If `code-from-spec/`
    does not exist, create it.
 
-2. **Download the methodology file.** Download
-   `CODE_FROM_SPEC.md` from
-   `https://raw.githubusercontent.com/CodeFromSpec/framework/main/CODE_FROM_SPEC.md`
-   and save it to `code-from-spec/.rules/CODE_FROM_SPEC.md`.
-   Create the directory if needed.
-
-3. **Download the MCP server.** Detect the platform
+2. **Download the MCP server.** Detect the platform
    (OS + architecture) and download the appropriate
    `framework-mcp` binary from
    `https://github.com/CodeFromSpec/tool-framework-mcp/releases/latest`
    into `code-from-spec/.tools/`. On Windows, the binary is
    `framework-mcp.exe`.
 
-4. **Configure .gitignore.** Add the following entries
+3. **Configure .gitignore.** Add the following entries
    to `.gitignore`. Create the file if it does not exist.
    Do not duplicate entries that already exist.
 
@@ -44,7 +38,7 @@ already in place.
    - `/code-from-spec/.cache/`
    - `/code-from-spec/.manifest.lock`
 
-5. **Configure the MCP server.** Create or update
+4. **Configure the MCP server.** Create or update
    `.mcp.json` in the project root:
 
    ```json
@@ -62,13 +56,13 @@ already in place.
    as the command. If `.mcp.json` already exists and has
    other servers, merge — do not overwrite.
 
-6. **Install subagent definitions.** Download and save
+5. **Install subagent definitions.** Download and save
    to `.claude/agents/`. Create the directory if needed.
 
    - `cfs-artifact-generation` from
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/subagents/cfs-artifact-generation.md`
 
-7. **Install skills.** Download the following skills and
+6. **Install skills.** Download the following skills and
    save them to `.claude/skills/<name>/SKILL.md`:
 
    - `cfs-generate` from
@@ -79,10 +73,12 @@ already in place.
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-check-meta-language/SKILL.md`
    - `cfs-init-session` from
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-init-session/SKILL.md`
+   - `cfs-init-session/CODE_FROM_SPEC.md` from
+     `https://raw.githubusercontent.com/CodeFromSpec/framework/main/CODE_FROM_SPEC.md`
 
    Create directories as needed.
 
-8. **Verify.** Ask the user to restart Claude Code (or
+7. **Verify.** Ask the user to restart Claude Code (or
    run `/mcp`) so the new MCP server is detected. Once
    reconnected, call `validate_specs` to confirm
    everything is wired up. Expect a clean report.

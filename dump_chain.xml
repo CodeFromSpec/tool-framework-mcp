@@ -1,3 +1,51 @@
+chain_hash: mtf_auD4sSu2NLF0tiaMYFNu_bk
+<chain>
+<existing_artifact>
+[//]: # (code-from-spec: SPEC/domain/code-from-spec/manifest@46H21Guh5w3hIRodQFTqKTnBR_A)
+
+# Manifest format
+
+## Header
+
+The first line of the manifest identifies the framework and version:
+
+```
+code-from-spec: v5
+```
+
+## Entry
+
+Each subsequent line is one artifact entry. Fields are in fixed order, separated by `;`:
+
+```
+ARTIFACT/payments/fees/calculation;path:internal/fees/calculation.go;checksum:Kx9mP2vB7wY2tHsJ8dFak4Xz9pQ;chain:Jz3qR7nL5cW1gT4yK8mDfAx0vBe
+```
+
+Fields:
+1. `ARTIFACT/<name>` — logical name
+2. `path:<path>` — output file path, relative to project root
+3. `checksum:<hash>` — hash of file content at generation time
+4. `chain:<hash>` — chain hash at generation time
+</existing_artifact>
+<constraints>
+</constraints>
+<instructions>
+Extract exactly the following from the input:
+
+1. The header line format (with example).
+2. The entry line format — fields, separators, ordering
+   (with example).
+
+Nothing else.
+
+Place all content under a single `# Manifest format`
+heading.
+
+The output will be used as minimal context to teach an
+AI agent how to parse and write the manifest file.
+Keep it concise.
+</instructions>
+<input>
 # Manifest
 
 The manifest tracks the state of every generated artifact.
@@ -94,3 +142,5 @@ must acquire a shared lock; any process that writes it
 must acquire an exclusive lock. A read must not see a
 partially-written manifest, and two writes must not
 interleave.
+</input>
+</chain>

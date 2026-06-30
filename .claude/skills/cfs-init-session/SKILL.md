@@ -12,7 +12,7 @@ working on a project that uses Code from Spec.
 
 ## What to do
 
-1. Read `code-from-spec/.rules/CODE_FROM_SPEC.md`.
+1. Read `CODE_FROM_SPEC.md` from this skill's directory.
    This is the methodology specification — understand
    it and follow it for the remainder of the session.
 
