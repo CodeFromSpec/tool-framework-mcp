@@ -43,8 +43,8 @@ The framework-mcp MCP server must be connected (the
    **Staleness** (if any):
 
    Group by rank (ascending). For each rank, list the
-   stale artifacts with their status (`stale`, `missing`,
-   or `malformed tag`) and output path. Show counts per
+   artifacts with their status (`stale`, `modified`,
+   `missing`, or `orphan`) and output path. Show counts per
    rank and total.
 
    Example:

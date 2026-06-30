@@ -45,9 +45,7 @@ artifacts, or when stale artifacts exist.
    >
    > Steps:
    > 1. Call `load_chain` with logical_name `<logical-name>` to
-   >    receive the complete spec chain. The response is a
-   >    single formatted string. The first line is
-   >    `chain_hash: <hash>` — extract this hash. After
+   >    receive the complete spec chain. After
    >    `--- context ---` is the spec chain. If
    >    `--- input ---` is present, it contains the input
    >    artifact. If `--- existing artifact ---` is present,
@@ -60,18 +58,12 @@ artifacts, or when stale artifacts exist.
    >    as a starting point. Compare it against the spec
    >    and make only the changes needed. If no existing
    >    artifact section is present, generate from scratch.
-   > 4. Generate the artifact content. The artifact must
-   >    contain the artifact tag:
-   >    `code-from-spec: <logical-name>@<chain-hash>`
-   >    where `<chain-hash>` is the hash extracted in step 1.
-   >    Place the tag as early in the file as practical, inside
-   >    a comment appropriate for the file type.
-   > 5. Call `write_file` with the complete file content
-   >    (including the artifact tag with the correct hash).
-   > 6. If the spec has gaps or contradictions that prevent
+   > 4. Generate the artifact content and call `write_file`
+   >    with the complete file content.
+   > 5. If the spec has gaps or contradictions that prevent
    >    generation, do not guess — report the problem clearly
    >    instead of writing a file.
-   > 7. After generating, list any assumptions you made where
+   > 6. After generating, list any assumptions you made where
    >    the spec was silent or ambiguous. Label this section
    >    `## Assumptions`. Include: format choices, field
    >    mappings you inferred, interpretations of ambiguous
@@ -80,11 +72,9 @@ artifacts, or when stale artifacts exist.
 4. **After each rank completes, run `validate_specs` again
    before starting the next rank.** This is mandatory, not
    an optimization to skip. Regenerating rank N changes
-   artifact content, which changes the chain hashes of
-   rank N+1 artifacts that depend on them. Without
-   re-validating, the staleness list is stale itself —
-   artifacts that became stale are missed, and artifacts
-   that are generated use outdated hashes. The
+   artifact content, which may cause rank N+1 artifacts
+   that depend on them to become stale. Without
+   re-validating, newly stale artifacts are missed. The
    `validate_specs` call between ranks is what keeps the
    generation session consistent.
 5. After all ranks are processed, run `validate_specs` a

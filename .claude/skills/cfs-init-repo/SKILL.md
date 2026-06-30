@@ -20,29 +20,29 @@ if so. This makes the skill safe to re-run — it fills
 in whatever is missing without overwriting what is
 already in place.
 
-1. **Create the spec root.** If `code-from-spec/_node.md`
-   does not exist, create it with minimal content:
-
-   ```markdown
-   # SPEC
-   ```
+1. **Create the spec directory.** If `code-from-spec/`
+   does not exist, create it.
 
 2. **Download the methodology file.** Download
    `CODE_FROM_SPEC.md` from
-   `https://raw.githubusercontent.com/CodeFromSpec/framework/main/rules/CODE_FROM_SPEC.md`
-   and save it to `code-from-spec/_rules/CODE_FROM_SPEC.md`.
+   `https://raw.githubusercontent.com/CodeFromSpec/framework/main/CODE_FROM_SPEC.md`
+   and save it to `code-from-spec/.rules/CODE_FROM_SPEC.md`.
    Create the directory if needed.
 
 3. **Download the MCP server.** Detect the platform
    (OS + architecture) and download the appropriate
    `framework-mcp` binary from
    `https://github.com/CodeFromSpec/tool-framework-mcp/releases/latest`
-   into `code-from-spec/_tools/`. On Windows, the binary is
+   into `code-from-spec/.tools/`. On Windows, the binary is
    `framework-mcp.exe`.
 
-4. **Configure .gitignore.** Add `/code-from-spec/_tools/`
+4. **Configure .gitignore.** Add the following entries
    to `.gitignore`. Create the file if it does not exist.
-   Do not duplicate if the entry already exists.
+   Do not duplicate entries that already exist.
+
+   - `/code-from-spec/.tools/`
+   - `/code-from-spec/.cache/`
+   - `/code-from-spec/.manifest.lock`
 
 5. **Configure the MCP server.** Create or update
    `.mcp.json` in the project root:
@@ -52,13 +52,13 @@ already in place.
      "mcpServers": {
        "framework-mcp": {
          "type": "stdio",
-         "command": "code-from-spec/_tools/framework-mcp"
+         "command": "code-from-spec/.tools/framework-mcp"
        }
      }
    }
    ```
 
-   On Windows, use `code-from-spec/_tools/framework-mcp.exe`
+   On Windows, use `code-from-spec/.tools/framework-mcp.exe`
    as the command. If `.mcp.json` already exists and has
    other servers, merge — do not overwrite.
 
@@ -67,8 +67,6 @@ already in place.
 
    - `cfs-artifact-generation` from
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/subagents/cfs-artifact-generation.md`
-   - `cfs-spec-review` from
-     `https://raw.githubusercontent.com/CodeFromSpec/framework/main/subagents/cfs-spec-review.md`
 
 7. **Install skills.** Download the following skills and
    save them to `.claude/skills/<name>/SKILL.md`:
@@ -79,8 +77,6 @@ already in place.
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-status/SKILL.md`
    - `cfs-check-meta-language` from
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-check-meta-language/SKILL.md`
-   - `cfs-spec-review` from
-     `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-spec-review/SKILL.md`
    - `cfs-init-session` from
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-init-session/SKILL.md`
 
