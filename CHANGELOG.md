@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.2.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v4.1.1...v4.2.0) (2026-06-30)
+
+
+### Features
+
+* add spec chain cache with disposition tracking ([#27](https://github.com/CodeFromSpec/tool-framework-mcp/issues/27)) ([f2ed342](https://github.com/CodeFromSpec/tool-framework-mcp/commit/f2ed342971d001e095b5aa1f9c93f64f802480ea))
+* migrating repo to use code-from-spec v5 (from v4) ([#25](https://github.com/CodeFromSpec/tool-framework-mcp/issues/25)) ([cae1a9f](https://github.com/CodeFromSpec/tool-framework-mcp/commit/cae1a9f37453a83d3238cb33972d0ef41ee71e98))
+
 ## [4.1.1](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v4.1.0...v4.1.1) (2026-06-30)
 
 
