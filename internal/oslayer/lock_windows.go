@@ -1,13 +1,13 @@
 //go:build windows
 
-// code-from-spec: SPEC/golang/implementation/oslayer/file/lock_windows@GFoa0p0dWT5fa-lMBPkOqe8WUXw
+// code-from-spec: SPEC/golang/implementation/oslayer/file/lock_windows@TEpbfFGJq7JwXvZYLF2FgR0Ucmk
 
 package oslayer
 
 import (
-	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"golang.org/x/sys/windows"
 )
@@ -29,39 +29,36 @@ func fileLockShared(f *os.File, timeoutMs int) error {
 		return nil
 	}
 
-	event, err := windows.CreateEvent(nil, 1, 0, nil)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrLockFailed, err)
-	}
-	defer windows.CloseHandle(event)
+	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
+	sleep := 1 * time.Millisecond
 
-	ol := windows.Overlapped{
-		HEvent: event,
-	}
-
-	err = windows.LockFileEx(
-		windows.Handle(f.Fd()),
-		0,
-		0,
-		^uint32(0),
-		^uint32(0),
-		&ol,
-	)
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, windows.ERROR_IO_PENDING) {
-		result, waitErr := windows.WaitForSingleObject(event, uint32(timeoutMs))
-		if result == uint32(windows.WAIT_OBJECT_0) {
+	for {
+		ol := &windows.Overlapped{}
+		err := windows.LockFileEx(
+			windows.Handle(f.Fd()),
+			windows.LOCKFILE_FAIL_IMMEDIATELY,
+			0,
+			^uint32(0),
+			^uint32(0),
+			ol,
+		)
+		if err == nil {
 			return nil
 		}
-		if result == uint32(windows.WAIT_TIMEOUT) {
-			windows.CancelIo(windows.Handle(f.Fd()))
+		if windows.ERROR_LOCK_VIOLATION != 0 && err == windows.ERROR_LOCK_VIOLATION {
+			// lock held by another process, retry
+		} else {
+			return fmt.Errorf("%w: %w", ErrLockFailed, err)
+		}
+		if time.Now().After(deadline) || time.Now().Equal(deadline) {
 			return ErrLockTimeout
 		}
-		return fmt.Errorf("%w: %w", ErrLockFailed, waitErr)
+		time.Sleep(sleep)
+		sleep *= 2
+		if sleep > 100*time.Millisecond {
+			sleep = 100 * time.Millisecond
+		}
 	}
-	return fmt.Errorf("%w: %w", ErrLockFailed, err)
 }
 
 func fileLockExclusive(f *os.File, timeoutMs int) error {
@@ -81,37 +78,34 @@ func fileLockExclusive(f *os.File, timeoutMs int) error {
 		return nil
 	}
 
-	event, err := windows.CreateEvent(nil, 1, 0, nil)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrLockFailed, err)
-	}
-	defer windows.CloseHandle(event)
+	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
+	sleep := 1 * time.Millisecond
 
-	ol := windows.Overlapped{
-		HEvent: event,
-	}
-
-	err = windows.LockFileEx(
-		windows.Handle(f.Fd()),
-		windows.LOCKFILE_EXCLUSIVE_LOCK,
-		0,
-		^uint32(0),
-		^uint32(0),
-		&ol,
-	)
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, windows.ERROR_IO_PENDING) {
-		result, waitErr := windows.WaitForSingleObject(event, uint32(timeoutMs))
-		if result == uint32(windows.WAIT_OBJECT_0) {
+	for {
+		ol := &windows.Overlapped{}
+		err := windows.LockFileEx(
+			windows.Handle(f.Fd()),
+			windows.LOCKFILE_FAIL_IMMEDIATELY|windows.LOCKFILE_EXCLUSIVE_LOCK,
+			0,
+			^uint32(0),
+			^uint32(0),
+			ol,
+		)
+		if err == nil {
 			return nil
 		}
-		if result == uint32(windows.WAIT_TIMEOUT) {
-			windows.CancelIo(windows.Handle(f.Fd()))
+		if windows.ERROR_LOCK_VIOLATION != 0 && err == windows.ERROR_LOCK_VIOLATION {
+			// lock held by another process, retry
+		} else {
+			return fmt.Errorf("%w: %w", ErrLockFailed, err)
+		}
+		if time.Now().After(deadline) || time.Now().Equal(deadline) {
 			return ErrLockTimeout
 		}
-		return fmt.Errorf("%w: %w", ErrLockFailed, waitErr)
+		time.Sleep(sleep)
+		sleep *= 2
+		if sleep > 100*time.Millisecond {
+			sleep = 100 * time.Millisecond
+		}
 	}
-	return fmt.Errorf("%w: %w", ErrLockFailed, err)
 }
