@@ -1,10 +1,11 @@
 //go:build windows
 
-// code-from-spec: SPEC/golang/implementation/oslayer/file/lock_windows@TEpbfFGJq7JwXvZYLF2FgR0Ucmk
+// code-from-spec: SPEC/golang/implementation/oslayer/file/lock_windows@XoO3_ynbkj913l64xKmIerclos8
 
 package oslayer
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -45,12 +46,11 @@ func fileLockShared(f *os.File, timeoutMs int) error {
 		if err == nil {
 			return nil
 		}
-		if windows.ERROR_LOCK_VIOLATION != 0 && err == windows.ERROR_LOCK_VIOLATION {
-			// lock held by another process, retry
+		if errors.Is(err, windows.ERROR_LOCK_VIOLATION) {
 		} else {
 			return fmt.Errorf("%w: %w", ErrLockFailed, err)
 		}
-		if time.Now().After(deadline) || time.Now().Equal(deadline) {
+		if !time.Now().Before(deadline) {
 			return ErrLockTimeout
 		}
 		time.Sleep(sleep)
@@ -94,12 +94,11 @@ func fileLockExclusive(f *os.File, timeoutMs int) error {
 		if err == nil {
 			return nil
 		}
-		if windows.ERROR_LOCK_VIOLATION != 0 && err == windows.ERROR_LOCK_VIOLATION {
-			// lock held by another process, retry
+		if errors.Is(err, windows.ERROR_LOCK_VIOLATION) {
 		} else {
 			return fmt.Errorf("%w: %w", ErrLockFailed, err)
 		}
-		if time.Now().After(deadline) || time.Now().Equal(deadline) {
+		if !time.Now().Before(deadline) {
 			return ErrLockTimeout
 		}
 		time.Sleep(sleep)

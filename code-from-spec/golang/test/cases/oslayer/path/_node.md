@@ -11,7 +11,7 @@ output: internal/oslayerpathtest/oslayer_path_test.go
 
 ## Test cases
 
-### ValidateCfsPath
+### ValidateStringIsCfsPath
 
 #### Valid simple relative path
 

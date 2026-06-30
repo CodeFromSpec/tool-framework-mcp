@@ -227,7 +227,7 @@ Implement the validate specs tool as a Go package.
 - Use the `manifest` package for `OpenManifest`,
   `Manifest`, `ManifestEntry`.
 - Use the `oslayer` package for `OpenFile`,
-  `.ReadLine()`, `.Close()`, `ValidateCfsPath`, and
+  `.ReadLine()`, `.Close()`, `ValidateStringIsCfsPath`, and
   `CfsPath`.
 - Use `crypto/sha1` and `encoding/base64`
   (base64.RawURLEncoding) for checksum computation.

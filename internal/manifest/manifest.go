@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/manifest@kSLzEitpWECuAAclG9nrEB25rlo
+// code-from-spec: SPEC/golang/implementation/manifest@T0ZodL6lfBB_Jwi-d_b_2aKiDt4
 package manifest
 
 import (

@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@rO4tOr6V9-XUv8F2hzy4_tnS4rg
+// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@qGr5RrtU6-OP6RhLlRtewowW2V0
 package parsing
 
 import (

@@ -317,12 +317,15 @@ Expected outcome:
 - Use `testutils.Chdir(t)` to create a temp dir and
   set the working directory (manifest paths are relative
   to the working directory).
-- Create `code-from-spec/` subdirectory in the temp dir
-  before each test that needs manifest files.
-- Helper to write `.manifest` files: write header
-  `"code-from-spec: v5\n"` followed by entry lines in
-  the expected format.
-- Helper to read `.manifest` files back for assertions.
+- The manifest file path is `code-from-spec/.manifest`
+  and the lock file path is `code-from-spec/.manifest.lock`
+  — both relative to the working directory. Create the
+  `code-from-spec/` subdirectory before writing.
+- Helper to write manifest files: write to
+  `code-from-spec/.manifest` with header
+  `"code-from-spec: v5\n"` followed by entry lines.
+- Helper to read manifest files: read from
+  `code-from-spec/.manifest` for assertions.
 - For concurrency tests, use goroutines with
   `sync.WaitGroup` and channels for synchronization.
   Use short timeouts to avoid hanging tests.

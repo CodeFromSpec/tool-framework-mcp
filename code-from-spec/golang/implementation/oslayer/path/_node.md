@@ -18,7 +18,7 @@ Ownership section as a Go file in package `oslayer`.
 
 This file declares and implements:
 - Types: `CfsPath`, `OsPath`
-- Functions: `GetProjectRoot`, `ValidateCfsPath`,
+- Functions: `GetProjectRoot`, `ValidateStringIsCfsPath`,
   `CfsPathToOs`, `OsPathToCfs`
 
 The following exist in other files of this package and
@@ -41,7 +41,7 @@ types) must use the suffix `Path`.
    If it cannot be read, raise ErrCannotDetermineRoot.
 2. Return the working directory as an OsPath.
 
-### ValidateCfsPath
+### ValidateStringIsCfsPath
 
 1. If value is empty, raise ErrPathEmpty.
 2. If value starts with "/" or matches a drive letter
@@ -54,7 +54,7 @@ types) must use the suffix `Path`.
 
 ### CfsPathToOs
 
-1. Call ValidateCfsPath with string(cfsPath). If it
+1. Call ValidateStringIsCfsPath with string(cfsPath). If it
    raises an error, propagate it.
 2. Call GetProjectRoot. If it raises an error,
    propagate it. Store the result as root.

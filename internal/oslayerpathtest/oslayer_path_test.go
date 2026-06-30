@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/test/cases/oslayer/path@5Y5IjjuIMVDmhW-xppS5zVCjPq0
+// code-from-spec: SPEC/golang/test/cases/oslayer/path@wEx89cj-shT6kQw3njkcEIkzZyo
 package oslayerpathtest
 
 import (
@@ -12,7 +12,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
 )
 
-func TestValidateCfsPath(t *testing.T) {
+func TestValidateStringIsCfsPath(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -92,7 +92,7 @@ func TestValidateCfsPath(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := oslayer.ValidateCfsPath(tc.input)
+			err := oslayer.ValidateStringIsCfsPath(tc.input)
 			if tc.wantErr == nil {
 				if err != nil {
 					t.Errorf("expected no error, got %v", err)

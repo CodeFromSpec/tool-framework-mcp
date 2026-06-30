@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/path@LP80mH7SHbyyitqA6BtVwfAvvwo
+// code-from-spec: SPEC/golang/implementation/oslayer/path@x81mrEMn-iGdnnrAG195bck63lI
 package oslayer
 
 import (
@@ -19,7 +19,7 @@ func GetProjectRoot() (OsPath, error) {
 	return OsPath(wd), nil
 }
 
-func ValidateCfsPath(value string) error {
+func ValidateStringIsCfsPath(value string) error {
 	if value == "" {
 		return fmt.Errorf("%w", ErrPathEmpty)
 	}
@@ -46,7 +46,7 @@ func containedInRootPath(resolved, root string) bool {
 }
 
 func CfsPathToOs(cfsPath CfsPath) (OsPath, error) {
-	if err := ValidateCfsPath(string(cfsPath)); err != nil {
+	if err := ValidateStringIsCfsPath(string(cfsPath)); err != nil {
 		return "", err
 	}
 	root, err := GetProjectRoot()

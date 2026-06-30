@@ -74,7 +74,7 @@ Implement the write file tool as a Go package.
 5. If `node.Frontmatter.Output` is nil, return error
    ErrNoOutput.
 
-6. Call `oslayer.ValidateCfsPath` with path. If it fails,
+6. Call `oslayer.ValidateStringIsCfsPath` with path. If it fails,
    propagate the error.
 
 7. If path does not exactly match `*node.Frontmatter.Output`,
@@ -120,7 +120,7 @@ Implement the write file tool as a Go package.
 
 - Use the `parsing` package for `ParseNode` and
   `Node`.
-- Use the `oslayer` package for `ValidateCfsPath`,
+- Use the `oslayer` package for `ValidateStringIsCfsPath`,
   `CfsPath`, `OpenFile`, `.Write()`, and `.Close()`.
 - Use the `chainresolver` package for `ChainResolve`.
 - Use the `chainhash` package for `ChainHashCompute`.

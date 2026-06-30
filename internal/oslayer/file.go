@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/file/core@Y67QciOqPiINERO3NHqwR9MrRg0
+// code-from-spec: SPEC/golang/implementation/oslayer/file/core@5N_I2XZa63VP1Oiaqv7TuFCKlGI
 package oslayer
 
 import (

@@ -33,7 +33,7 @@ Never exposed in the framework's public API.
 
 ```go
 func GetProjectRoot() (OsPath, error)
-func ValidateCfsPath(value string) error
+func ValidateStringIsCfsPath(value string) error
 func CfsPathToOs(cfsPath CfsPath) (OsPath, error)
 func OsPathToCfs(osPath OsPath) (CfsPath, error)
 ```
@@ -42,7 +42,7 @@ func OsPathToCfs(osPath OsPath) (CfsPath, error)
 
 Returns the current working directory as an `OsPath`.
 
-#### ValidateCfsPath
+#### ValidateStringIsCfsPath
 
 Checks that a string is a valid `CfsPath`: non-empty,
 relative, forward slashes only, no `..` traversal.
@@ -133,7 +133,7 @@ Deletes a file from disk.
 - `ErrCannotDetermineRoot` (GetProjectRoot)
 - `ErrPathEmpty`, `ErrPathAbsolute`,
   `ErrPathContainsBackslash`, `ErrDirectoryTraversal`
-  (ValidateCfsPath)
+  (ValidateStringIsCfsPath)
 - `ErrResolvesOutsideRoot` (CfsPathToOs, OsPathToCfs)
 - `ErrDirectoryNotFound`, `ErrWalkError` (ListAllFiles)
 - `ErrFileUnreadable`, `ErrCannotCreateDirectory`,

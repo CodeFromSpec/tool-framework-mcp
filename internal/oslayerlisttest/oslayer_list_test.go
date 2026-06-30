@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/test/cases/oslayer/list@C5c6H6Ze74XQPVAVSf0iFUdiWJY
+// code-from-spec: SPEC/golang/test/cases/oslayer/list@USRoA3jPYEYWeeV-SHa0fr2KmcM
 package oslayerlisttest
 
 import (
@@ -12,7 +12,7 @@ import (
 )
 
 func TestListAllFiles_FlatDirectory(t *testing.T) {
-	dir := testutils.Chdir(t)
+	testutils.Chdir(t)
 
 	if err := os.MkdirAll("flat", 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -22,7 +22,6 @@ func TestListAllFiles_FlatDirectory(t *testing.T) {
 			t.Fatalf("write %s: %v", name, err)
 		}
 	}
-	_ = dir
 
 	results, err := oslayer.ListAllFiles("flat")
 	if err != nil {

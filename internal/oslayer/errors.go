@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/errors@QwRaTIldZwBSQmC2C_WGf2O-vw0
+// code-from-spec: SPEC/golang/implementation/oslayer/errors@ZC9eLTL-2hBdtmpSanGszGMcOKM
 package oslayer
 
 import "errors"

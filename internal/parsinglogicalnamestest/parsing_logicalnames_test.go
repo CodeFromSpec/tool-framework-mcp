@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/test/cases/parsing/logical_names@SSZkiQMkm18Q5SvxCIj09QZ3hfA
+// code-from-spec: SPEC/golang/test/cases/parsing/logical_names@4JiXmgfq3EC5ARfbJUC4tP3ucgA
 package parsinglogicalnamestest
 
 import (

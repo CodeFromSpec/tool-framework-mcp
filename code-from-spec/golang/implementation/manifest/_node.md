@@ -59,6 +59,24 @@ concurrent writers block until the lock is released.
 
 Errors: `ErrLockTimeout`, propagated oslayer errors.
 
+#### Usage pattern (writable)
+
+```go
+m, err := manifest.OpenManifest(false)
+if err != nil {
+    return err
+}
+defer func() { _ = m.Discard() }()
+// ... work with m.Entries ...
+m.Save()
+```
+
+Always defer `Discard` immediately after opening a
+writable manifest. This ensures the lock is released
+even if the function returns early due to an error.
+`Discard` after `Save` returns `ErrManifestClosed`,
+which the defer safely ignores.
+
 ### Save
 
 Writes the entries map to disk, creating the manifest

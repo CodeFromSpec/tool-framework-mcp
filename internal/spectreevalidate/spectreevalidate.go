@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/spec_tree/validate@77bkcD9y12k_OmhSkLuST5oRlpA
+// code-from-spec: SPEC/golang/implementation/spec_tree/validate@z4eFkPhiMNC-FhF0MNiZ1LvIJBI
 package spectreevalidate
 
 import (
@@ -204,7 +204,7 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 		}
 
 		if entry.Frontmatter != nil && entry.Frontmatter.Output != nil {
-			if err := oslayer.ValidateCfsPath(*entry.Frontmatter.Output); err != nil {
+			if err := oslayer.ValidateStringIsCfsPath(*entry.Frontmatter.Output); err != nil {
 				errs = append(errs, FormatError{
 					Node:   entry.Reference.LogicalName,
 					Rule:   "output_paths",

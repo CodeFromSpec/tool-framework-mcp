@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/test/cases/parsing/node_parsing@-suzS3UeVm9QukNlgRLDK7-of50
+// code-from-spec: SPEC/golang/test/cases/parsing/node_parsing@eqNtMVGTa4MNckEcidFOETzm7-8
 package parsingnodeparsingtest
 
 import (

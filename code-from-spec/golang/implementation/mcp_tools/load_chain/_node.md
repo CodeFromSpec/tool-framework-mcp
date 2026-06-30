@@ -86,7 +86,7 @@ Implement the load chain tool as a Go package.
    parse the target node. If it fails, propagate the
    error. If `node.Frontmatter.Output` is nil,
    return error ErrNoOutput. Call
-   `oslayer.ValidateCfsPath(*node.Frontmatter.Output)`.
+   `oslayer.ValidateStringIsCfsPath(*node.Frontmatter.Output)`.
    If it fails, return ErrInvalidOutputPath.
 
 3. Check if the artifact is modified:
@@ -250,7 +250,7 @@ Implement the load chain tool as a Go package.
   `NodeSubsection`, and
   `NodeFrontmatter`.
 - Use the `oslayer` package for `OpenFile`,
-  `.ReadLine()`, `.Close()`, `ValidateCfsPath`, and
+  `.ReadLine()`, `.Close()`, `ValidateStringIsCfsPath`, and
   `CfsPath`.
 - Type checks on `LogicalName` use string
   prefix comparisons (`strings.HasPrefix`).

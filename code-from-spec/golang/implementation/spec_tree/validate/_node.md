@@ -177,8 +177,8 @@ Implement the spec tree validation as a Go package.
 ### Rule: output_paths (per entry)
 
    If entry.Frontmatter.Output is not nil:
-     Call oslayer.ValidateCfsPath(*entry.Frontmatter.Output).
-     If ValidateCfsPath raises any error:
+     Call oslayer.ValidateStringIsCfsPath(*entry.Frontmatter.Output).
+     If ValidateStringIsCfsPath raises any error:
        Append FormatError with rule "output_paths",
        detail "output path is invalid: <error message>".
 
@@ -234,7 +234,7 @@ Return `errors`.
 ## Go-specific guidance
 
 - Use the `oslayer` package for `OpenFile`, `.Close()`
-  (only for EXTERNAL existence checks), `ValidateCfsPath`,
+  (only for EXTERNAL existence checks), `ValidateStringIsCfsPath`,
   and `CfsPath`.
 - Use the `parsing` package for `NormalizeText`,
   `CfsReferenceFromName` (only for SPEC references in
