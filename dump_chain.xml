@@ -1,0 +1,1023 @@
+chain_hash: 8JtTLMvTYw2lFdLtfX3daJRp-Vw
+<chain>
+<existing_artifact>
+package mcpdumpchain_test
+
+import (
+	"errors"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpdumpchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
+)
+
+func TestMCPDumpChain_WritesDumpChainXml(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nsome context content")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	result, err := mcpdumpchain.MCPDumpChain("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "wrote dump_chain.xml" {
+		t.Errorf("expected 'wrote dump_chain.xml', got %q", result)
+	}
+
+	data, err := os.ReadFile("dump_chain.xml")
+	if err != nil {
+		t.Fatalf("dump_chain.xml not found: %v", err)
+	}
+	content := string(data)
+
+	if !strings.HasPrefix(content, "chain_hash: ") {
+		t.Errorf("content does not start with 'chain_hash: '")
+	}
+
+	lines := strings.SplitN(content, "\n", 2)
+	hashLine := lines[0]
+	hashPart := strings.TrimPrefix(hashLine, "chain_hash: ")
+	hashPart = strings.TrimRight(hashPart, "\r")
+	if len(hashPart) != 27 {
+		t.Errorf("expected 27-character hash, got %d characters: %q", len(hashPart), hashPart)
+	}
+
+	if !strings.Contains(content, "<chain>") {
+		t.Errorf("content does not contain '<chain>'")
+	}
+	if !strings.Contains(content, "</chain>") {
+		t.Errorf("content does not contain '</chain>'")
+	}
+	if !strings.Contains(content, "<constraints>") {
+		t.Errorf("content does not contain '<constraints>'")
+	}
+	if !strings.Contains(content, `<entry name="SPEC/root">`) {
+		t.Errorf("content does not contain entry for SPEC/root")
+	}
+}
+
+func TestMCPDumpChain_ContentMatchesMCPLoadChain(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nsome context content")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.go")
+	a.SetAgent("agent instructions here")
+	a.Write()
+
+	expected, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("MCPLoadChain failed: %v", err)
+	}
+
+	_, err = mcpdumpchain.MCPDumpChain("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("MCPDumpChain failed: %v", err)
+	}
+
+	data, err := os.ReadFile("dump_chain.xml")
+	if err != nil {
+		t.Fatalf("dump_chain.xml not found: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("file content does not match MCPLoadChain output\ngot:  %q\nwant: %q", string(data), expected)
+	}
+}
+
+func TestMCPDumpChain_OverwritesExisting(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nsome context content")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	err := os.WriteFile("dump_chain.xml", []byte("old"), 0644)
+	if err != nil {
+		t.Fatalf("failed to write existing dump_chain.xml: %v", err)
+	}
+
+	_, err = mcpdumpchain.MCPDumpChain("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("MCPDumpChain failed: %v", err)
+	}
+
+	data, err := os.ReadFile("dump_chain.xml")
+	if err != nil {
+		t.Fatalf("dump_chain.xml not found: %v", err)
+	}
+
+	if string(data) == "old" {
+		t.Errorf("dump_chain.xml was not overwritten")
+	}
+	if !strings.Contains(string(data), "chain_hash: ") {
+		t.Errorf("dump_chain.xml does not contain new chain content")
+	}
+}
+
+func TestMCPDumpChain_NoOutput(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.Write()
+
+	_, err := mcpdumpchain.MCPDumpChain("SPEC/root/a")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, mcploadchain.ErrNoOutput) {
+		t.Errorf("expected ErrNoOutput, got %v", err)
+	}
+
+	_, statErr := os.Stat("dump_chain.xml")
+	if statErr == nil {
+		t.Errorf("dump_chain.xml should not exist when error occurs")
+	}
+}
+
+func TestMCPDumpChain_InvalidLogicalName(t *testing.T) {
+	testutils.Chdir(t)
+
+	_, err := mcpdumpchain.MCPDumpChain("INVALID/something")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+</existing_artifact>
+<constraints>
+<entry name="SPEC/golang">
+## Go module
+
+The module path is `github.com/CodeFromSpec/tool-framework-mcp/v5`.
+All internal package imports must use this prefix.
+
+## Language
+
+Go (minimum 1.24).
+
+## Dependencies
+
+- Standard library unless explicitly stated otherwise.
+
+## Project root
+
+The tool is always executed from the project root directory.
+The working directory of the process is the project root.
+All relative paths — spec files, generated source files — are
+resolved against it.
+
+## Comments
+
+Do not write comments in generated code. No doc
+comments, no inline comments, no section markers.
+The spec tree is the documentation.
+
+## File I/O
+
+All file access must go through the `oslayer` package
+at `internal/oslayer`. Never use `os.ReadFile`,
+`os.WriteFile`, `os.Open`, or other `os` file
+functions directly. The `oslayer` package ensures
+consistent CRLF→LF normalization and file locking.
+
+## Constraints
+
+- Always check pointers for nil before dereferencing,
+  including struct fields that are pointers. Do not rely
+  on caller guarantees — defend at the point of use.
+- Every error return value must be checked.
+- Always compare errors with `errors.Is` or `errors.As`,
+  never with `==`. Sentinel errors may be wrapped.
+- No test framework beyond the standard `testing` package.
+- No configuration files.
+</entry>
+<entry name="SPEC/golang/test/cases">
+## Test rules
+
+- Use an external test package for black-box testing.
+  Import the package under test explicitly. This
+  ensures tests exercise the public API only.
+- Tests that perform file I/O use `testutils.Chdir(t)`
+  for isolation. Pure function tests (no file I/O)
+  do not need it.
+- Use `errors.Is` to check error sentinels.
+- Use table-driven tests where appropriate.
+
+## Imports
+
+Import the `testutils` package for shared helpers:
+- `testutils.Chdir(t)` — create temp dir and set
+  working directory.
+- `testutils.CreateSpecNode(t, logicalName)` — builder
+  for valid `_node.md` files.
+- `testutils.WriteRawNode(t, logicalName, content)` —
+  write arbitrary `_node.md` content (for error tests).
+- `testutils.Ptr(value)` — create a pointer to any
+  value (for `*string` fields like `Output`, `Input`,
+  `Qualifier`, `ParentName`).
+
+Do not define local helpers for these operations.
+
+## Temporary files and CfsPath
+
+Tests that create files and pass them as `CfsPath`
+values must change the working directory to a temp dir
+so that `GetProjectRoot` and `CfsPathToOs` resolve
+paths correctly. Without this, `t.TempDir()` creates
+directories in the OS temp location, which may be on a
+different drive (Windows) or outside the project root —
+causing path resolution to fail.
+
+Use `testutils.Chdir(t)`:
+
+1. Call `dir := testutils.Chdir(t)`.
+2. Create spec nodes with `testutils.CreateSpecNode`
+   or files with `os.WriteFile`.
+3. Pass relative paths as `CfsPath` values.
+
+## CfsPath values in tests
+
+`CfsPath` values must always use forward slashes (`/`),
+even on Windows. Never use `filepath.Separator` or
+backslashes in `CfsPath` values. For example, to test a
+nonexistent file: `CfsPath("nonexistent/file.txt")`,
+not `"nonexistent\file.txt"`.
+
+## Error propagation across packages
+
+When a function propagates an error from another package
+(e.g. `parsing.ParseNode` propagating from `OpenFile`),
+the error chain preserves the original sentinel. Use
+`errors.Is` with the sentinel from the **originating**
+package (e.g. `oslayer.ErrFileUnreadable`), not a
+re-declared sentinel in the calling package — unless
+the calling package's interface explicitly declares its
+own sentinel and wraps it.
+
+## Constructing records from other packages
+
+When tests construct records manually (e.g.
+`parsing.Node`, `Chain`), the field values
+must be consistent with what the real producers would
+generate:
+
+- `NodeSection.Heading` is the **normalized** form
+  (lowercase, whitespace collapsed) as produced by
+  `parsing.ParseNode`. Example: `"spec/a"` for a node
+  at `SPEC/a`.
+- `NodeSection.RawHeading` is the original line as read
+  from the file. Example: `"# SPEC/a"`.
+- `NodeSection.Content` is a `[]string` (list of lines).
+- `Chain` fields hold `parsing.CfsReference` values.
+  `CfsReference.LogicalName` must be a valid logical
+  name (`SPEC/` for spec nodes, `ARTIFACT/` for
+  artifacts). For spec nodes, the logical name must
+  resolve to a `_node.md` file that exists on disk.
+  Tests must create the spec tree files accordingly.
+- Use `testutils.Ptr("value")` for `*string` fields
+  (`Output`, `Input`, `Qualifier`, `ParentName`).
+
+## Creating _node.md files in tests
+
+Use `testutils.CreateSpecNode` for valid nodes — it
+handles path derivation, directory creation, frontmatter
+format, and the node name heading:
+
+```go
+b := testutils.CreateSpecNode(t, "SPEC/a/b")
+b.SetOutput("internal/a/b.go")
+b.AddDependsOn("SPEC/other")
+b.SetPublic("## Interface\ncontent")
+b.Write()
+```
+
+Use `testutils.WriteRawNode` for malformed content
+(testing parse error cases):
+
+```go
+testutils.WriteRawNode(t, "SPEC/a", "not valid markdown")
+```
+
+Rules for `_node.md` content (enforced by
+`CreateSpecNode`, relevant for `WriteRawNode`):
+
+- The first heading in the file body must be
+  `# <logical-name>` (e.g. `# SPEC/root` for a root
+  node, `# SPEC/root/a` for a child).
+  `parsing.ParseNode` validates that the first heading
+  matches the logical name.
+- Bare `SPEC` (without a trailing slash) is not a valid
+  logical name. Root nodes are direct children of
+  `code-from-spec/` (e.g. `SPEC/root` at
+  `code-from-spec/root/_node.md`).
+- Frontmatter is optional. Only include frontmatter
+  fields that the node actually uses.
+
+## Hash format
+
+- Hashes are exactly 27 characters of base64url
+  (RFC 4648 §5, no padding). Characters allowed:
+  `A-Z`, `a-z`, `0-9`, `-`, `_`.
+- When the test spec specifies exact hash values or
+  other string literals, use them verbatim — do not
+  invent substitutes.
+- When a test needs a placeholder stale hash (one that
+  will not match the computed chain hash), use a
+  27-character string like `AAAAAAAAAAAAAAAAAAAAAAAAAAA`
+  — easy to verify the length is correct.
+</entry>
+<entry name="SPEC/golang/implementation/mcp_tools/dump_chain">
+## Package
+
+`package mcpdumpchain`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpdumpchain"`
+
+## Interface
+
+```go
+func MCPDumpChain(logicalName string) (string, error)
+```
+
+### Input
+
+| Parameter | Required | Description |
+|---|---|---|
+| `logicalName` | yes | Logical name of the target node. The node must declare `output`. |
+
+### Output
+
+A success message: `"wrote dump_chain.xml"`.
+
+### Errors
+
+- Propagated errors from `MCPLoadChain` (including
+  `ErrNoOutput`, `ErrInvalidOutputPath`,
+  `ErrArtifactModified`).
+- Propagated errors from `oslayer` package.
+</entry>
+<entry name="SPEC/golang/implementation/mcp_tools/load_chain">
+## Package
+
+`package mcploadchain`
+
+## Import
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"`
+
+## Interface
+
+```go
+func MCPLoadChain(logicalName string) (string, error)
+```
+
+### Input
+
+| Parameter | Required | Description |
+|---|---|---|
+| `logicalName` | yes | Logical name of the target node. |
+
+### Output
+
+An XML document as a string, as defined in
+CHAIN_ASSEMBLY.md. The document has up to seven
+sections in this order:
+
+1. **`<previous_constraints>`** — old spec content for
+   positions that changed or were removed. Present
+   only when cache is available and the existing
+   artifact is present on disk.
+2. **`<previous_instructions>`** — previous `# Agent`
+   content. Present only when cache is available, the
+   existing artifact is present, and instructions
+   changed or were removed.
+3. **`<previous_input>`** — previous input content.
+   Present only when cache is available, the existing
+   artifact is present, and input changed or was
+   removed.
+4. **`<existing_artifact>`** — current content of the
+   artifact file on disk. Present only when the file
+   exists.
+5. **`<constraints>`** — the current spec content. Each
+   position is an `<entry>` element with a `name`
+   attribute. Entries appear in chain assembly order:
+   ancestors, then depends_on (sorted), then target
+   node's `# Public`. When cache is available and the
+   existing artifact is present, each entry carries a
+   `disposition` attribute (`unchanged`, `changed`, or
+   `added`).
+6. **`<instructions>`** — the target node's `# Agent`
+   section (heading not included). Present only when
+   the node has an `# Agent` section. May carry a
+   `disposition` attribute.
+7. **`<input>`** — the content referenced by the target
+   node's `input` field. Present only when the node
+   declares `input`. May carry a `disposition`
+   attribute.
+
+### Errors
+
+- `ErrNoOutput`: target node has no output field.
+- `ErrInvalidOutputPath`: the output path fails path
+  validation.
+- `ErrArtifactModified`: the artifact file was modified
+  outside the framework (checksum in manifest does not
+  match file on disk). The artifact must be accepted
+  or deleted before regeneration.
+- Propagated errors from `parsing`, `chainresolver`,
+  `chainhash`, `oslayer`, `manifest` packages.
+</entry>
+<entry name="SPEC/golang/implementation/oslayer(interface)">
+## Interface
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"`
+
+### Path types
+
+```go
+type CfsPath string
+type OsPath string
+```
+
+`CfsPath` is a path in the Code from Spec standard
+format: forward slash separator, relative to project
+root, no `..` components, no drive letters, no leading
+`/`, no backslashes.
+
+`OsPath` is an absolute path in the OS's native format.
+Never exposed in the framework's public API.
+
+### Path functions
+
+```go
+func GetProjectRoot() (OsPath, error)
+func ValidateStringIsCfsPath(value string) error
+func CfsPathToOs(cfsPath CfsPath) (OsPath, error)
+func OsPathToCfs(osPath OsPath) (CfsPath, error)
+```
+
+#### GetProjectRoot
+
+Returns the current working directory as an `OsPath`.
+
+#### ValidateStringIsCfsPath
+
+Checks that a string is a valid `CfsPath`: non-empty,
+relative, forward slashes only, no `..` traversal.
+Returns nil if valid, an error otherwise.
+
+#### CfsPathToOs
+
+Converts a `CfsPath` to an absolute `OsPath` by
+joining it with the project root. Validates the path
+and resolves symlinks. Rejects paths that resolve
+outside the project root.
+
+#### OsPathToCfs
+
+Converts an absolute `OsPath` to a `CfsPath` relative
+to the project root. Resolves symlinks. Rejects paths
+outside the project root.
+
+### File listing
+
+```go
+func ListAllFiles(cfsPath CfsPath) ([]CfsPath, error)
+```
+
+Returns all files (not directories) found recursively
+under the given directory. Results are sorted
+alphabetically. If the directory exists but contains
+no files, returns nil.
+
+### File operations
+
+```go
+type File struct { /* unexported fields */ }
+
+func OpenFile(cfsPath CfsPath, mode string, timeoutMs int) (*File, error)
+func (f *File) ReadLine() (string, error)
+func (f *File) Write(content string) error
+func (f *File) SkipLines(count int) error
+func (f *File) Close()
+func RenameFile(source, destination CfsPath) error
+func DeleteFile(cfsPath CfsPath) error
+```
+
+#### OpenFile
+
+Opens a file and acquires a lock based on the mode:
+- `"read"` — shared lock. File must exist.
+- `"overwrite"` — exclusive lock. Creates or truncates.
+  Creates intermediate directories.
+- `"append"` — exclusive lock. Creates without
+  truncating. Creates intermediate directories.
+
+#### ReadLine
+
+Reads the next line from a file opened in `"read"`
+mode. Strips the trailing line terminator (LF or
+CRLF). Returns `ErrEndOfFile` when no more data is
+available.
+
+#### Write
+
+Writes content to a file opened in `"overwrite"` or
+`"append"` mode. Writes bytes exactly as received,
+no transformation.
+
+#### SkipLines
+
+Discards the next `count` lines from a file opened in
+`"read"` mode. Stops silently if end of file is
+reached before all lines are skipped.
+
+#### Close
+
+Releases the file handle and its lock. Safe to call
+on an already-closed handle (no-op).
+
+#### RenameFile
+
+Performs an atomic OS-level rename. Overwrites the
+destination if it exists.
+
+#### DeleteFile
+
+Deletes a file from disk.
+
+### Errors
+
+- `ErrCannotDetermineRoot` (GetProjectRoot)
+- `ErrPathEmpty`, `ErrPathAbsolute`,
+  `ErrPathContainsBackslash`, `ErrDirectoryTraversal`
+  (ValidateStringIsCfsPath)
+- `ErrResolvesOutsideRoot` (CfsPathToOs, OsPathToCfs)
+- `ErrDirectoryNotFound`, `ErrWalkError`,
+  `ErrSymlinkNotAllowed` (ListAllFiles)
+- `ErrFileUnreadable`, `ErrCannotCreateDirectory`,
+  `ErrCannotOpenFile`, `ErrInvalidMode`, `ErrLockTimeout`,
+  `ErrLockFailed` (OpenFile)
+- `ErrEndOfFile`, `ErrWrongMode`, `ErrFileIO` (ReadLine)
+- `ErrWrongMode`, `ErrCannotWriteFile` (Write)
+- `ErrWrongMode`, `ErrFileIO` (SkipLines)
+- `ErrCannotRename` (RenameFile)
+- `ErrCannotDelete` (DeleteFile)
+</entry>
+<entry name="SPEC/golang/implementation/parsing(interface)">
+## Interface
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"`
+
+### Text normalization
+
+```go
+func NormalizeText(rawString string) string
+```
+
+Pure function. Trims leading/trailing whitespace
+(U+0020 and U+0009 only), collapses internal
+whitespace runs to a single space, applies Unicode
+simple case folding.
+
+| Input | Output |
+|---|---|
+| `"  Interface  "` | `"interface"` |
+| `"PUBLIC"` | `"public"` |
+| `"Straße"` | `"strasse"` |
+| `""` | `""` |
+
+### Node parsing
+
+```go
+type NodeFrontmatter struct {
+    DependsOn []string
+    Input     *string
+    Output    *string
+}
+
+type NodeSubsection struct {
+    Heading    string
+    RawHeading string
+    Content    []string
+}
+
+type NodeSection struct {
+    Heading     string
+    RawHeading  string
+    Content     []string
+    Subsections []*NodeSubsection
+}
+
+type Node struct {
+    Reference   CfsReference     // mandatory
+    Frontmatter *NodeFrontmatter // nil if absent
+    NameSection NodeSection      // mandatory
+    Public      *NodeSection     // nil if absent
+    Agent       *NodeSection     // nil if absent
+    Private     *NodeSection     // nil if absent
+}
+
+func ParseNode(logicalName string) (*Node, error)
+```
+
+`NodeFrontmatter` fields are nil when absent from the
+YAML. `DependsOn` defaults to nil (not empty slice)
+when absent.
+
+`Heading` is the normalized form (after `NormalizeText`),
+used for comparisons and lookups. `RawHeading` is the
+original heading line as it appears in the file (including
+`#` prefix and closing `##` if present), preserved for
+hashing.
+
+`Content` is a list of lines between the heading and
+the next structural heading (or end of file). Lines do
+not include line terminators.
+
+#### ParseNode
+
+Opens a spec node file, extracts frontmatter and body,
+and returns a structured representation. The file is
+opened and read once.
+
+Errors:
+- `ErrNotASpecReference`
+- `ErrHasQualifier`
+- `ErrFileUnreadable`
+- `ErrMalformedYAML`
+- `ErrUnexpectedContentBeforeFirstHeading`
+- `ErrNodeNameDoesNotMatch`
+- `ErrDuplicatePublicSection`
+- `ErrDuplicateAgentSection`
+- `ErrDuplicatePrivateSection`
+- `ErrUnrecognizedSection`
+- `ErrDuplicateSubsection`
+
+### Content extraction
+
+```go
+func ExtractBlock(content []string) string
+func FormatSection(rawHeading string, content []string) string
+func ConcatenateSubsections(subsections []*NodeSubsection) string
+func ExtractAgentContent(node *Node) string
+func ReadFileContent(cfsPath oslayer.CfsPath) (string, error)
+```
+
+#### ExtractBlock
+
+Extracts the content of a block (section or subsection)
+with boundary normalization:
+
+1. Remove leading blank lines (empty or whitespace-only,
+   U+0020 and U+0009).
+2. Remove trailing blank lines.
+3. If nothing remains, return empty string.
+4. Join remaining lines with `\n` and append exactly
+   one `\n`.
+
+Interior blank lines and all other whitespace are
+preserved — they may carry meaning (code blocks,
+output formats).
+
+#### FormatSection
+
+Renders a single subsection as its heading line
+(trailing whitespace removed) followed by its extracted
+content:
+
+1. Let `head` = `rawHeading` with trailing whitespace
+   removed, followed by `\n`.
+2. Let `body` = `ExtractBlock(content)`.
+3. Return concatenation of `head` and `body`.
+
+#### ConcatenateSubsections
+
+Concatenates multiple subsections in document order.
+Each subsection is rendered with `FormatSection`.
+Consecutive non-empty blocks are separated by exactly
+one blank line.
+
+#### ExtractAgentContent
+
+Extracts the full content of a node's `# Agent` section
+(heading not included), including subsections. Returns
+empty string if the node has no `# Agent` section or if
+the section is empty.
+
+Uses `ExtractBlock` for the direct content and
+`FormatSection` for each subsection. Consecutive
+non-empty blocks are separated by exactly one blank
+line. The result ends with exactly one `\n`.
+
+#### ReadFileContent
+
+Reads an entire file and returns its content as a
+single string. Opens the file with `oslayer.OpenFile`
+in `"read"` mode with timeout 30000, reads all lines
+with `ReadLine` until `ErrEndOfFile`, joins lines with
+`\n`, and appends a trailing `\n`.
+
+Propagates `oslayer.ErrFileUnreadable` if the file
+does not exist.
+
+### CFS references
+
+```go
+type CfsNodeType int
+
+const (
+    CfsNodeTypeSpec     CfsNodeType = iota
+    CfsNodeTypeArtifact
+    CfsNodeTypeExternal
+)
+
+type CfsReference struct {
+    NodeType    CfsNodeType
+    LogicalName string
+    Qualifier   *string
+    Path        string
+    ParentName  *string
+}
+
+func CfsReferenceFromName(logicalName string) (*CfsReference, error)
+func CfsReferenceFromPath(cfsPath oslayer.CfsPath) (*CfsReference, error)
+```
+
+#### CfsReference fields
+
+- **NodeType** — `CfsNodeTypeSpec`, `CfsNodeTypeArtifact`,
+  or `CfsNodeTypeExternal`.
+- **LogicalName** — the unqualified logical name
+  including the prefix. For `SPEC/x/y(z)`, LogicalName
+  is `SPEC/x/y`. For `ARTIFACT/x`, LogicalName is
+  `ARTIFACT/x`. For `EXTERNAL/f.go`, LogicalName is
+  `EXTERNAL/f.go`.
+- **Qualifier** — nil if absent. For `SPEC/x/y(z)`,
+  Qualifier points to `"z"`.
+- **Path** — resolved file path as a CfsPath value:
+  - SPEC: the `_node.md` path
+    (e.g. `code-from-spec/x/y/_node.md`).
+  - EXTERNAL: the file path relative to project root
+    (e.g. `README.md`).
+  - ARTIFACT: the value of `output` from the generator
+    node's frontmatter (e.g. `internal/foo/foo.go`).
+- **ParentName** — nil for root SPEC nodes (direct
+  children of `code-from-spec/`, e.g. `SPEC/golang`)
+  and EXTERNAL references. For non-root SPEC nodes,
+  the parent's logical name (e.g. `SPEC/x` for
+  `SPEC/x/y`). For ARTIFACT references, the generator
+  node's logical name (e.g. `SPEC/x/y` for
+  `ARTIFACT/x/y`).
+
+#### CfsReferenceFromName
+
+Parses a logical name string into a fully resolved
+`CfsReference` struct. For ARTIFACT/ references, reads
+the generator node's frontmatter via `ParseNode` to
+resolve the output path.
+
+Errors:
+- `ErrUnrecognizedPrefix`: the string does not start
+  with `SPEC/`, `ARTIFACT/`, or `EXTERNAL/`. Bare
+  `SPEC` (without a trailing slash) is not valid.
+- `ErrInvalidName`: the path portion is empty or
+  invalid after stripping the prefix.
+- `ErrNoOutput`: an ARTIFACT reference's generator node
+  has no `output` field in its frontmatter.
+- Propagated errors from `ParseNode`.
+
+#### CfsReferenceFromPath
+
+Reverse resolution: takes a CfsPath value like
+`code-from-spec/x/y/_node.md` and returns a
+`CfsReference` with NodeType = `CfsNodeTypeSpec`,
+fully resolved.
+
+Errors:
+- `ErrInvalidPath`: the path does not match the
+  expected `code-from-spec/.../_node.md` pattern.
+</entry>
+<entry name="SPEC/golang/test/utils/chdir">
+## Package
+
+`package testutils`
+
+## Interface
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"`
+
+```go
+func Chdir(t *testing.T) string
+```
+
+Creates a temporary directory via `t.TempDir()`,
+changes the working directory to it, and registers
+a `t.Cleanup` to restore the original directory when
+the test finishes. Returns the path to the temporary
+directory.
+
+Calls `t.Helper()` so that failures are reported at
+the caller's line. Calls `t.Fatalf` if `os.Getwd` or
+`os.Chdir` fails. Calls `t.Errorf` if the cleanup
+restore fails.
+</entry>
+<entry name="SPEC/golang/test/utils/create_spec_node">
+## Package
+
+`package testutils`
+
+## Interface
+
+`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"`
+
+### NodeBuilder
+
+```go
+type NodeBuilder struct { /* unexported fields */ }
+
+func CreateSpecNode(t *testing.T, logicalName string) *NodeBuilder
+func (b *NodeBuilder) SetOutput(value string)
+func (b *NodeBuilder) SetInput(value string)
+func (b *NodeBuilder) AddDependsOn(value string)
+func (b *NodeBuilder) SetPublic(content string)
+func (b *NodeBuilder) SetAgent(content string)
+func (b *NodeBuilder) SetPrivate(content string)
+func (b *NodeBuilder) Write()
+```
+
+#### CreateSpecNode
+
+Creates a `NodeBuilder` for the given logical name
+(e.g. `SPEC/a/b`). The builder stores `t` and the
+logical name for later use by `Write`.
+
+#### SetOutput, SetInput
+
+Set the `output` or `input` frontmatter field.
+
+#### AddDependsOn
+
+Appends a `depends_on` entry. Can be called multiple
+times.
+
+#### SetPublic, SetAgent, SetPrivate
+
+Set the content for the `# Public`, `# Agent`, or
+`# Private` section. The content is placed after the
+section heading — the heading itself is added
+automatically by `Write`.
+
+#### Write
+
+Writes the `_node.md` file to disk. Derives the file
+path from the logical name (`SPEC/a/b` →
+`code-from-spec/a/b/_node.md`). Creates intermediate
+directories. Assembles the file content:
+
+1. Frontmatter block (if any field was set): `output`,
+   `input`, `depends_on` between `---` delimiters.
+2. Node name heading: `# <logicalName>`.
+3. `# Public` section (if set).
+4. `# Agent` section (if set).
+5. `# Private` section (if set).
+
+Calls `t.Helper()`. Calls `t.Fatalf` on failure.
+
+### WriteRawNode
+
+```go
+func WriteRawNode(t *testing.T, logicalName string, content string)
+```
+
+Creates a `_node.md` file at the path derived from
+the logical name, with `content` written exactly as
+provided — no heading, no frontmatter, no validation.
+Creates intermediate directories.
+
+Use this for tests that need malformed content:
+missing headings, invalid frontmatter, wrong node
+names, etc.
+
+Calls `t.Helper()`. Calls `t.Fatalf` on failure.
+</entry>
+</constraints>
+<instructions>
+## Test setup guidance
+
+`mcpdumpchain.MCPDumpChain` calls `mcploadchain.MCPLoadChain` internally and
+writes the result to `dump_chain.xml`. Tests must
+create a valid spec tree on disk. Use `testutils.Chdir`
+pattern.
+
+## Test cases
+
+### Happy path
+
+#### Writes dump_chain.xml
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+
+Actions:
+1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
+
+Expected:
+- Return value = `"wrote dump_chain.xml"`.
+- File `dump_chain.xml` exists on disk.
+- Content starts with `<chain>`.
+- Content contains `</chain>`.
+- Content contains `<constraints>` with
+  `<entry name="SPEC/root">`.
+
+#### Content matches mcploadchain.MCPLoadChain output
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`,
+  `# Agent` with content.
+
+Actions:
+1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")` → store as
+   `expected`.
+2. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
+3. Read `dump_chain.xml` from disk.
+
+Expected:
+- File content equals `expected`.
+
+#### Overwrites existing dump_chain.xml
+
+Setup:
+- Create spec tree as above.
+- Create `dump_chain.xml` with content "old".
+
+Actions:
+1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
+
+Expected:
+- `dump_chain.xml` contains the new chain, not "old".
+
+### Error cases
+
+#### No output declared
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`. No output in frontmatter.
+
+Actions:
+1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
+
+Expected:
+- Error propagated from mcploadchain.MCPLoadChain (mcploadchain.ErrNoOutput).
+- `dump_chain.xml` does not exist.
+
+#### Invalid logical name
+
+Actions:
+1. Call `mcpdumpchain.MCPDumpChain("INVALID/something")`.
+
+Expected:
+- Error propagated from mcploadchain.MCPLoadChain.
+
+## Go-specific guidance
+
+- The package name is `mcpdumpchain_test` (external
+  test package).
+- Use `testutils.Chdir(t)` to create a temp dir and
+  set the working directory.
+- Read `dump_chain.xml` with `os.ReadFile` to verify
+  content.
+</instructions>
+</chain>

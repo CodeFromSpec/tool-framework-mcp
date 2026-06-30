@@ -133,11 +133,15 @@ func TestMCPReconstructCache_SkipsDeletedNodesGracefully(t *testing.T) {
 	}
 }
 
-func TestMCPReconstructCache_NoManifestReturnsError(t *testing.T) {
+func TestMCPReconstructCache_NoManifestSucceedsWithNoWork(t *testing.T) {
 	testutils.Chdir(t)
 
-	if _, err := mcpreconstructcache.MCPReconstructCache(); err == nil {
-		t.Fatalf("expected error when no manifest exists")
+	summary, err := mcpreconstructcache.MCPReconstructCache()
+	if err != nil {
+		t.Fatalf("MCPReconstructCache failed: %v", err)
+	}
+	if summary == "" {
+		t.Fatalf("expected non-empty summary string")
 	}
 }
 

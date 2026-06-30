@@ -30,22 +30,8 @@ func TestMCPLoadChain_SimpleLeafNode(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	lines := strings.SplitN(result, "\n", 2)
-	if len(lines) < 2 {
-		t.Fatalf("expected at least two lines, got: %q", result)
-	}
-	firstLine := lines[0]
-	if !strings.HasPrefix(firstLine, "chain_hash: ") {
-		t.Errorf("first line does not start with 'chain_hash: ': %q", firstLine)
-	}
-	hash := strings.TrimPrefix(firstLine, "chain_hash: ")
-	hash = strings.TrimSpace(hash)
-	if len(hash) != 27 {
-		t.Errorf("expected 27-character hash, got %d characters: %q", len(hash), hash)
-	}
-
-	if !strings.Contains(result, "<chain>") {
-		t.Error("expected <chain> root element")
+	if !strings.HasPrefix(result, "<chain>") {
+		t.Errorf("output does not start with '<chain>'")
 	}
 	if !strings.Contains(result, `<entry name="SPEC/root"`) {
 		t.Error("expected entry for SPEC/root")
@@ -542,10 +528,8 @@ func TestMCPLoadChain_HashIsDeterministic(t *testing.T) {
 		t.Fatalf("second call unexpected error: %v", err)
 	}
 
-	hash1 := strings.SplitN(result1, "\n", 2)[0]
-	hash2 := strings.SplitN(result2, "\n", 2)[0]
-	if hash1 != hash2 {
-		t.Errorf("hashes differ: %q vs %q", hash1, hash2)
+	if result1 != result2 {
+		t.Errorf("results differ between calls")
 	}
 }
 
