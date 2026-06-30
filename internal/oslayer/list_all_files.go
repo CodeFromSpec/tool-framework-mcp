@@ -1,7 +1,6 @@
 package oslayer
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -20,7 +19,7 @@ func ListAllFiles(cfsPath CfsPath) ([]CfsPath, error) {
 		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, cfsPath)
 	}
 
-	var resultsListAccumulator []CfsPath
+	var resultsList []CfsPath
 
 	walkErr := filepath.WalkDir(string(osPath), func(entryOsPath string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -40,23 +39,17 @@ func ListAllFiles(cfsPath CfsPath) ([]CfsPath, error) {
 			return convErr
 		}
 
-		resultsListAccumulator = append(resultsListAccumulator, converted)
+		resultsList = append(resultsList, converted)
 		return nil
 	})
 
 	if walkErr != nil {
-		if errors.Is(walkErr, ErrSymlinkNotAllowed) {
-			return nil, walkErr
-		}
-		if errors.Is(walkErr, ErrWalkError) {
-			return nil, walkErr
-		}
 		return nil, walkErr
 	}
 
-	sort.Slice(resultsListAccumulator, func(i, j int) bool {
-		return resultsListAccumulator[i] < resultsListAccumulator[j]
+	sort.Slice(resultsList, func(i, j int) bool {
+		return resultsList[i] < resultsList[j]
 	})
 
-	return resultsListAccumulator, nil
+	return resultsList, nil
 }
