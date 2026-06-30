@@ -34,3 +34,6 @@ coverage.html
 
 todo.md
 THIRD_PARTY_LICENSES
+
+/code-from-spec/.cache/
+/code-from-spec/.manifest.lock

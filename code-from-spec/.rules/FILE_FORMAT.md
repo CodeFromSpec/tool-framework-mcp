@@ -1,12 +1,12 @@
 # File Format
 
 Detailed file format rules for Code from Spec specification
-files. This document assumes familiarity with
-[CODE_FROM_SPEC.md](CODE_FROM_SPEC.md).
+files. This level of detail is primarily relevant for tool
+implementors. Spec authors and AI agents can rely on the
+summary in CODE_FROM_SPEC.md.
 
-This level of detail is primarily relevant for tool implementors
-(parsers, staleness checkers, chain assemblers). Spec authors
-and AI agents can rely on the summary in CODE_FROM_SPEC.md.
+This document assumes familiarity with
+[CODE_FROM_SPEC.md](../CODE_FROM_SPEC.md).
 
 ---
 
@@ -42,10 +42,10 @@ Setext headings are not supported.
 
 Only two heading levels are structural for the framework:
 
-- **Level 1 (`#`)** — delimits top-level sections (node name,
-  `# Public`, `# Agent`, private sections).
-- **Level 2 (`##`)** — delimits subsections within a top-level
-  section (e.g. `## Interface` within `# Public`).
+- **Level 1 (`#`)** — delimits top-level sections (node
+  name section, `# Public`, `# Agent`, `# Private`).
+- **Level 2 (`##`)** — delimits subsections within a
+  top-level section (e.g. `## Interface` within `# Public`).
 
 Headings of level 3 and deeper (`###`, `####`, ...) are content
 within the section or subsection that contains them. They have no
@@ -112,7 +112,7 @@ are never normalized. Boundary blank lines, by contrast, are
 document layout: they separate blocks and belong to no block.
 
 This makes a block's extracted content independent of its
-surroundings. Adding a private section after `# Public`, or
+surroundings. Adding `# Private` after `# Public`, or
 appending a new `##` subsection, does not change the
 extracted content of neighboring blocks — and therefore does
 not change their hashes.
@@ -124,12 +124,3 @@ subsections of `# Public`, in document order — each block is
 rendered as its heading line (with trailing whitespace
 removed) followed by its extracted content, and consecutive
 blocks are separated by exactly one blank line.
-
-### Chain delivery
-
-When the chain is delivered as text (e.g. by `load_chain`),
-the rendered output of each entry is separated from the next
-by exactly one blank line. This applies between consecutive
-ancestors, between the last ancestor and the first
-dependency, between consecutive dependencies, and so on
-through the entire chain assembly order.
