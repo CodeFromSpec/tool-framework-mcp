@@ -83,8 +83,8 @@ Setup:
 Actions:
 1. Call `ListAllFiles`.
 
-Expected:
-- Both `link.txt` and `real.txt` returned.
+Expected: Error `ErrSymlinkNotAllowed`. Symlinks are
+not allowed in the spec tree.
 Skip on platforms where symlinks are not supported.
 
 #### Directory with only subdirectories
@@ -115,7 +115,7 @@ Actions:
 
 Expected: Error `ErrDirectoryTraversal`.
 
-#### Propagates conversion errors from OsPathToCfs
+#### Symlink pointing outside root rejected
 
 Setup:
 - Create directory with a regular file and a symlink
@@ -124,7 +124,7 @@ Setup:
 Actions:
 1. Call `ListAllFiles`.
 
-Expected: Error `ErrResolvesOutsideRoot`.
+Expected: Error `ErrSymlinkNotAllowed`.
 Skip on platforms where symlinks are not supported.
 
 #### Walk error

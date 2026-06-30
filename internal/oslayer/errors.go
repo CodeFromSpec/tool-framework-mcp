@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/errors@ZC9eLTL-2hBdtmpSanGszGMcOKM
+// code-from-spec: SPEC/golang/implementation/oslayer/errors@fKFibrxV05_ujIb89WeEWMhIZUM
 package oslayer
 
 import "errors"
@@ -26,4 +26,5 @@ var (
 	ErrCannotWriteFile       = errors.New("cannot write file")
 	ErrCannotRename          = errors.New("cannot rename file")
 	ErrCannotDelete          = errors.New("cannot delete file")
+	ErrSymlinkNotAllowed     = errors.New("symlinks are not allowed in the spec tree")
 )

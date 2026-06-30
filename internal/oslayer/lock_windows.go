@@ -1,6 +1,6 @@
 //go:build windows
 
-// code-from-spec: SPEC/golang/implementation/oslayer/file/lock_windows@XoO3_ynbkj913l64xKmIerclos8
+// code-from-spec: SPEC/golang/implementation/oslayer/file/lock_windows@SzCkZBKBNkkPIRl-1adTD1jtSYY
 
 package oslayer
 

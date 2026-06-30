@@ -135,7 +135,8 @@ Deletes a file from disk.
   `ErrPathContainsBackslash`, `ErrDirectoryTraversal`
   (ValidateStringIsCfsPath)
 - `ErrResolvesOutsideRoot` (CfsPathToOs, OsPathToCfs)
-- `ErrDirectoryNotFound`, `ErrWalkError` (ListAllFiles)
+- `ErrDirectoryNotFound`, `ErrWalkError`,
+  `ErrSymlinkNotAllowed` (ListAllFiles)
 - `ErrFileUnreadable`, `ErrCannotCreateDirectory`,
   `ErrCannotOpenFile`, `ErrInvalidMode`, `ErrLockTimeout`,
   `ErrLockFailed` (OpenFile)

@@ -22,7 +22,8 @@ can be used but must not be redeclared:
 - Functions: `CfsPathToOs`, `OsPathToCfs` — declared
   in `path.go`.
 - Error sentinels (`ErrDirectoryNotFound`,
-  `ErrWalkError`) — declared in `errors.go`.
+  `ErrWalkError`, `ErrSymlinkNotAllowed`) — declared
+  in `errors.go`.
 
 To avoid name collisions with other files in this
 package, all identifiers you declare beyond the ones
@@ -48,7 +49,9 @@ types) must use the suffix `List`.
    For each entry encountered during the walk:
      If the entry is a directory, skip it (continue
      traversal but do not add).
-     If the entry is a file:
+     If the entry is a symlink, raise
+     ErrSymlinkNotAllowed.
+     If the entry is a regular file:
        Call OsPathToCfs(OsPath(entry_os_path)) to
        convert it to a CfsPath. If it raises any error,
        propagate it.

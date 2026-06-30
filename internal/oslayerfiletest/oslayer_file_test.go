@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/test/cases/oslayer/file@1LULl25XjfYLmSibwDVWqV2UHks
+// code-from-spec: SPEC/golang/test/cases/oslayer/file@BkzxydUvXSe9mDsaCrNtkmxVGSs
 package oslayerfiletest
 
 import (

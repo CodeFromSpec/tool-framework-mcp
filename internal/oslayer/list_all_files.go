@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/list_all_files@OwKgV2ooGJdCiTRzo_rUXGwFnpU
+// code-from-spec: SPEC/golang/implementation/oslayer/list_all_files@e1nHxkYhJi8TwsAI-IywSBv_h44
 package oslayer
 
 import (
@@ -20,7 +20,7 @@ func ListAllFiles(cfsPath CfsPath) ([]CfsPath, error) {
 		return nil, fmt.Errorf("%w: %s", ErrDirectoryNotFound, cfsPath)
 	}
 
-	var results []CfsPath
+	var resultsList []CfsPath
 
 	walkErr := filepath.WalkDir(string(osPath), func(entryPath string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -29,20 +29,23 @@ func ListAllFiles(cfsPath CfsPath) ([]CfsPath, error) {
 		if d.IsDir() {
 			return nil
 		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("%w: %s", ErrSymlinkNotAllowed, entryPath)
+		}
 		converted, convErr := OsPathToCfs(OsPath(entryPath))
 		if convErr != nil {
 			return convErr
 		}
-		results = append(results, converted)
+		resultsList = append(resultsList, converted)
 		return nil
 	})
 	if walkErr != nil {
 		return nil, fmt.Errorf("%w: %s", ErrWalkError, walkErr)
 	}
 
-	sort.Slice(results, func(i, j int) bool {
-		return results[i] < results[j]
+	sort.Slice(resultsList, func(i, j int) bool {
+		return resultsList[i] < resultsList[j]
 	})
 
-	return results, nil
+	return resultsList, nil
 }

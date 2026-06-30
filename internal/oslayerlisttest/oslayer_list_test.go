@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/test/cases/oslayer/list@USRoA3jPYEYWeeV-SHa0fr2KmcM
+// code-from-spec: SPEC/golang/test/cases/oslayer/list@CinQj_7Fco8uvTDcM052CbQqn60
 package oslayerlisttest
 
 import (
@@ -41,20 +41,14 @@ func TestListAllFiles_FlatDirectory(t *testing.T) {
 func TestListAllFiles_Recursive(t *testing.T) {
 	testutils.Chdir(t)
 
-	dirs := []string{"dir/sub/deep"}
-	for _, d := range dirs {
+	for _, d := range []string{"dir/sub/deep"} {
 		if err := os.MkdirAll(d, 0755); err != nil {
 			t.Fatalf("mkdir %s: %v", d, err)
 		}
 	}
-	files := map[string]string{
-		"dir/alpha.txt":          "x",
-		"dir/sub/beta.txt":       "x",
-		"dir/sub/deep/gamma.txt": "x",
-	}
-	for path, content := range files {
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			t.Fatalf("write %s: %v", path, err)
+	for _, f := range []string{"dir/alpha.txt", "dir/sub/beta.txt", "dir/sub/deep/gamma.txt"} {
+		if err := os.WriteFile(f, []byte("x"), 0644); err != nil {
+			t.Fatalf("write %s: %v", f, err)
 		}
 	}
 
@@ -164,18 +158,12 @@ func TestListAllFiles_SymlinkToFileWithinRoot(t *testing.T) {
 		t.Skipf("symlink creation failed, skipping: %v", err)
 	}
 
-	results, err := oslayer.ListAllFiles("syms")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	_, err := oslayer.ListAllFiles("syms")
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
-	if len(results) != 2 {
-		t.Fatalf("expected 2 files, got %d", len(results))
-	}
-	expected := []oslayer.CfsPath{"syms/link.txt", "syms/real.txt"}
-	for i, e := range expected {
-		if results[i] != e {
-			t.Errorf("index %d: expected %q, got %q", i, e, results[i])
-		}
+	if !errors.Is(err, oslayer.ErrSymlinkNotAllowed) {
+		t.Errorf("expected ErrSymlinkNotAllowed, got %v", err)
 	}
 }
 
@@ -246,8 +234,8 @@ func TestListAllFiles_SymlinkOutsideRoot(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, oslayer.ErrResolvesOutsideRoot) {
-		t.Errorf("expected ErrResolvesOutsideRoot, got %v", err)
+	if !errors.Is(err, oslayer.ErrSymlinkNotAllowed) {
+		t.Errorf("expected ErrSymlinkNotAllowed, got %v", err)
 	}
 }
 
