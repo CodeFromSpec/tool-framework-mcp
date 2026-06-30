@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - SPEC/golang/implementation/cache
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
@@ -96,7 +97,8 @@ Implement the write file tool as a Go package.
 12. Call `chainresolver.ChainResolve(logical_name)`. If it fails,
     propagate the error.
 
-13. Call `chainhash.ChainHashCompute(chain)`. If it fails,
+13. Call `chainhash.ChainHashCompute(chain)`. It returns
+    `(chain_hash, positions, err)`. If it fails,
     propagate the error.
 
 14. Call `manifest.OpenManifest(false)`. If it fails,
@@ -111,7 +113,10 @@ Implement the write file tool as a Go package.
 16. Call `m.Save()`. If it fails,
     propagate the error.
 
-17. Return "wrote <path>" where <path> is the path
+17. Call `cache.WriteChain(chain_hash, positions)`.
+    Ignore errors — cache is best-effort.
+
+18. Return "wrote <path>" where <path> is the path
     string.
 
 ## Go-specific guidance
@@ -121,7 +126,9 @@ Implement the write file tool as a Go package.
 - Use the `oslayer` package for `ValidateStringIsCfsPath`,
   `CfsPath`, `OpenFile`, `.Write()`, and `.Close()`.
 - Use the `chainresolver` package for `ChainResolve`.
-- Use the `chainhash` package for `ChainHashCompute`.
+- Use the `chainhash` package for `ChainHashCompute`
+  and `ContentHash`.
+- Use the `cache` package for `WriteChain`.
 - Use the `manifest` package for `OpenManifest`,
   `Manifest`, `ManifestEntry`.
 - Use `crypto/sha1` and `encoding/base64`

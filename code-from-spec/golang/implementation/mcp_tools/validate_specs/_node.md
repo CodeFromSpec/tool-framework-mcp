@@ -144,7 +144,9 @@ Implement the validate specs tool as a Go package.
         to staleness. Continue to next node.
 
      c. Call `chainhash.ChainHashCompute(chain)` using the result
-        from step (b). If it fails: Append
+        from step (b). It returns
+        `(chain_hash, positions, err)`. Ignore
+        `positions`. If it fails: Append
         StalenessEntry(
           node=node.logical_name,
           artifact_path=frontmatter.output,

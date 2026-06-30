@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
@@ -15,7 +17,7 @@ import (
 var ErrNotASpecReference = errors.New("not a SPEC/ reference")
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
 var ErrNoOutput = errors.New("node has no output field")
-var ErrNotModified = errors.New("artifact is not in modified status")
+var ErrAlreadyUpToDate = errors.New("artifact is already up to date")
 
 func MCPAccept(logicalName string) (string, error) {
 	if !strings.HasPrefix(logicalName, "SPEC/") {
@@ -32,17 +34,6 @@ func MCPAccept(logicalName string) (string, error) {
 	}
 
 	artifactLogicalName := "ARTIFACT/" + strings.TrimPrefix(logicalName, "SPEC/")
-
-	m, err := manifest.OpenManifest(false)
-	if err != nil {
-		return "", fmt.Errorf("opening manifest: %w", err)
-	}
-	defer func() { _ = m.Discard() }()
-
-	entry, exists := m.Entries[artifactLogicalName]
-	if !exists {
-		return "", ErrNotModified
-	}
 
 	artifactPath := oslayer.CfsPath(*node.Frontmatter.Output)
 	handle, err := oslayer.OpenFile(artifactPath, "read", 30000)
@@ -72,11 +63,43 @@ func MCPAccept(logicalName string) (string, error) {
 	sum := hasher.Sum(nil)
 	checksum := base64.RawURLEncoding.EncodeToString(sum)[:27]
 
-	if checksum == entry.Checksum {
-		return "", ErrNotModified
+	chain, err := chainresolver.ChainResolve(logicalName)
+	if err != nil {
+		return "", fmt.Errorf("resolving chain: %w", err)
+	}
+
+	chainHash, _, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		return "", fmt.Errorf("computing chain hash: %w", err)
+	}
+
+	m, err := manifest.OpenManifest(false)
+	if err != nil {
+		return "", fmt.Errorf("opening manifest: %w", err)
+	}
+	defer func() { _ = m.Discard() }()
+
+	entry, exists := m.Entries[artifactLogicalName]
+	if !exists {
+		m.Entries[artifactLogicalName] = manifest.ManifestEntry{
+			Path:      *node.Frontmatter.Output,
+			Checksum:  checksum,
+			ChainHash: chainHash,
+		}
+
+		if err := m.Save(); err != nil {
+			return "", fmt.Errorf("saving manifest: %w", err)
+		}
+
+		return "accepted " + *node.Frontmatter.Output, nil
+	}
+
+	if entry.Checksum == checksum && entry.ChainHash == chainHash {
+		return "", ErrAlreadyUpToDate
 	}
 
 	entry.Checksum = checksum
+	entry.ChainHash = chainHash
 	m.Entries[artifactLogicalName] = entry
 
 	if err := m.Save(); err != nil {

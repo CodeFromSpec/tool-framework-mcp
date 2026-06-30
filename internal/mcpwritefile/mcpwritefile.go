@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/cache"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
@@ -65,7 +66,7 @@ func MCPWriteFile(logicalName, content string) (string, error) {
 		return "", err
 	}
 
-	chainHash, err := chainhash.ChainHashCompute(chain)
+	chainHash, positions, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		return "", err
 	}
@@ -86,6 +87,8 @@ func MCPWriteFile(logicalName, content string) (string, error) {
 	if err := m.Save(); err != nil {
 		return "", err
 	}
+
+	_ = cache.WriteChain(chainHash, positions)
 
 	return "wrote " + path, nil
 }

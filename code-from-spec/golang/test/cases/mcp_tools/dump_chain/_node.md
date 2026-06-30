@@ -39,9 +39,8 @@ Actions:
 Expected:
 - Return value = `"wrote dump_chain.xml"`.
 - File `dump_chain.xml` exists on disk.
-- Content starts with `chain_hash: ` followed by
-  27 characters.
-- Content contains `<chain>` and `</chain>`.
+- Content starts with `<chain>`.
+- Content contains `</chain>`.
 - Content contains `<constraints>` with
   `<entry name="SPEC/root">`.
 

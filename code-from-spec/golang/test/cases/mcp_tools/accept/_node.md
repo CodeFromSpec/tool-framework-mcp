@@ -2,6 +2,8 @@
 depends_on:
   - SPEC/golang/test/utils/chdir
   - SPEC/golang/test/utils/create_spec_node
+  - SPEC/golang/implementation/chain/hash
+  - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/mcp_tools/accept
   - SPEC/golang/implementation/oslayer(interface)
@@ -15,10 +17,17 @@ output: internal/mcpaccept/mcpaccept_test.go
 
 ## Test setup guidance
 
-`MCPAccept` reads frontmatter and the manifest, then
-updates the manifest checksum. Tests must create spec
-tree files, output files, and manifest entries on disk.
-Use the `testutils.Chdir` pattern.
+`MCPAccept` reads frontmatter, computes checksum and
+chain hash, then updates the manifest. Tests must
+create spec tree files, output files, and manifest
+entries on disk. Use the `testutils.Chdir` pattern.
+
+To produce valid manifest entries with matching chain
+hashes, use `chainresolver.ChainResolve` and
+`chainhash.ChainHashCompute`. To compute file
+checksums, use SHA-1 of the content (after CRLF→LF
+normalization, with trailing LF), encoded as base64url
+(27 chars).
 
 ## Test cases
 
@@ -28,14 +37,16 @@ Use the `testutils.Chdir` pattern.
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
-  `# SPEC/root`.
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.go`.
 - Create `out/a.go` with content "modified content".
+- Compute the current chain hash for SPEC/root/a.
 - Create `.manifest` with entry for ARTIFACT/root/a
   with checksum that does NOT match the hash of
   "modified content" (simulating a modified file),
-  and some chain hash.
+  and the current chain hash.
 
 Actions:
 1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
@@ -44,7 +55,50 @@ Expected:
 - Return value = `"accepted out/a.go"`.
 - Read manifest: entry for ARTIFACT/root/a has
   Checksum updated to match the hash of
-  "modified content". ChainHash is unchanged.
+  "modified content". ChainHash unchanged.
+
+#### Accepts stale artifact
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `out/a.go` with content "artifact content".
+- Compute the current checksum for "artifact content".
+- Create `.manifest` with entry for ARTIFACT/root/a
+  with the correct checksum but a stale chain hash
+  (e.g. `AAAAAAAAAAAAAAAAAAAAAAAAAAA`).
+
+Actions:
+1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
+
+Expected:
+- Return value = `"accepted out/a.go"`.
+- Read manifest: entry for ARTIFACT/root/a has
+  ChainHash updated to the current chain hash.
+  Checksum unchanged.
+
+#### Creates entry when none exists
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+- Create `out/a.go` with content "new content".
+- Create an empty `.manifest` (header only, no entries).
+  Create the `.manifest.lock` file.
+
+Actions:
+1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
+
+Expected:
+- Return value = `"accepted out/a.go"`.
+- Read manifest: entry for ARTIFACT/root/a exists
+  with correct checksum and chain hash.
 
 ### Error cases
 
@@ -78,23 +132,6 @@ Actions:
 Expected:
 - Error `mcpaccept.ErrNoOutput`.
 
-#### No manifest entry — not modified
-
-Setup:
-- Create `code-from-spec/root/_node.md` with
-  `# SPEC/root`.
-- Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
-- Create `out/a.go` with content.
-- No `.manifest` file (or manifest without entry for
-  ARTIFACT/root/a).
-
-Actions:
-1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
-
-Expected:
-- Error `mcpaccept.ErrNotModified`.
-
 #### Artifact file does not exist on disk
 
 Setup:
@@ -102,8 +139,6 @@ Setup:
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.go`.
-- Create `.manifest` with entry for ARTIFACT/root/a
-  with some checksum and chain hash.
 - Do not create `out/a.go` on disk.
 
 Actions:
@@ -113,22 +148,24 @@ Expected:
 - Error propagated from oslayer (cannot read file
   to compute hash).
 
-#### Checksum already matches — not modified
+#### Already up to date
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
-  `# SPEC/root`.
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.go`.
 - Create `out/a.go` with content "same content".
+- Compute both the current checksum and chain hash.
 - Create `.manifest` with entry for ARTIFACT/root/a
-  with checksum matching the hash of "same content".
+  with matching checksum and matching chain hash.
 
 Actions:
 1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
 
 Expected:
-- Error `mcpaccept.ErrNotModified`.
+- Error `mcpaccept.ErrAlreadyUpToDate`.
 
 ## Go-specific guidance
 
@@ -139,6 +176,10 @@ Expected:
 - Create `.manifest` files using
   `manifest.OpenManifest(false)` + `m.Save()`, or by
   writing the file directly.
+- Use `chainresolver.ChainResolve` and
+  `chainhash.ChainHashCompute` to compute valid chain
+  hashes for test fixtures.
 - To compute file checksums for setup, use SHA-1 of
   the content (after CRLF→LF normalization, with
   trailing LF), encoded as base64url (27 chars).
+- Use `errors.Is` for error sentinel checks.

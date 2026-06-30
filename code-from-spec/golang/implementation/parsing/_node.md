@@ -99,6 +99,73 @@ Errors:
 - `ErrUnrecognizedSection`
 - `ErrDuplicateSubsection`
 
+### Content extraction
+
+```go
+func ExtractBlock(content []string) string
+func FormatSection(rawHeading string, content []string) string
+func ConcatenateSubsections(subsections []*NodeSubsection) string
+func ExtractAgentContent(node *Node) string
+func ReadFileContent(cfsPath oslayer.CfsPath) (string, error)
+```
+
+#### ExtractBlock
+
+Extracts the content of a block (section or subsection)
+with boundary normalization:
+
+1. Remove leading blank lines (empty or whitespace-only,
+   U+0020 and U+0009).
+2. Remove trailing blank lines.
+3. If nothing remains, return empty string.
+4. Join remaining lines with `\n` and append exactly
+   one `\n`.
+
+Interior blank lines and all other whitespace are
+preserved — they may carry meaning (code blocks,
+output formats).
+
+#### FormatSection
+
+Renders a single subsection as its heading line
+(trailing whitespace removed) followed by its extracted
+content:
+
+1. Let `head` = `rawHeading` with trailing whitespace
+   removed, followed by `\n`.
+2. Let `body` = `ExtractBlock(content)`.
+3. Return concatenation of `head` and `body`.
+
+#### ConcatenateSubsections
+
+Concatenates multiple subsections in document order.
+Each subsection is rendered with `FormatSection`.
+Consecutive non-empty blocks are separated by exactly
+one blank line.
+
+#### ExtractAgentContent
+
+Extracts the full content of a node's `# Agent` section
+(heading not included), including subsections. Returns
+empty string if the node has no `# Agent` section or if
+the section is empty.
+
+Uses `ExtractBlock` for the direct content and
+`FormatSection` for each subsection. Consecutive
+non-empty blocks are separated by exactly one blank
+line. The result ends with exactly one `\n`.
+
+#### ReadFileContent
+
+Reads an entire file and returns its content as a
+single string. Opens the file with `oslayer.OpenFile`
+in `"read"` mode with timeout 30000, reads all lines
+with `ReadLine` until `ErrEndOfFile`, joins lines with
+`\n`, and appends a trailing `\n`.
+
+Propagates `oslayer.ErrFileUnreadable` if the file
+does not exist.
+
 ### CFS references
 
 ```go

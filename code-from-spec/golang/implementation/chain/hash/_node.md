@@ -24,11 +24,36 @@ all chain positions from disk and hashing their content.
 ## Interface
 
 ```go
-func ChainHashCompute(chain chainresolver.Chain) (string, error)
+type ContentHash struct {
+    Label string
+    Hash  string
+}
+
+func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error)
 ```
 
+### ContentHash
+
+A content hash for a single chain position. `Label`
+identifies the position using the same conventions as
+the cache chain file format:
+
+- Ancestors, dependencies, and the target node's
+  `# Public`: the logical name directly
+  (e.g. `SPEC/payments`, `SPEC/x(qualifier)`,
+  `ARTIFACT/y`, `EXTERNAL/z`).
+- Target node's `# Agent`: `AGENT[<logical-name>]`.
+- Input: `INPUT[<reference>]`.
+
+`Hash` is the 27-character base64url encoded SHA-1
+of the position's processed content.
+
+### ChainHashCompute
+
 Receives a `Chain` (as returned by `ChainResolve`) and
-returns a 27-character base64url encoded SHA-1 hash.
+returns the 27-character chain hash and the ordered
+list of content hashes for each position that
+contributed to the chain.
 
 ### Errors
 
@@ -41,42 +66,17 @@ Implement the chain hash component as a Go package.
 
 ## Logic
 
-### Block extraction helpers
-
-**ExtractBlock(content: list of string) -> string**
-
-1. Remove leading blank lines from `content`
-   (lines that are empty or contain only spaces and tabs).
-2. Remove trailing blank lines.
-3. If nothing remains, return empty string.
-4. Join remaining lines with `\n` and append exactly
-   one `\n`.
-
-**FormatSection(raw_heading: string, content: list of string) -> string**
-
-1. Let `head` = `raw_heading` with trailing whitespace
-   removed, followed by `\n`.
-2. Let `body` = `ExtractBlock(content)`.
-3. Return concatenation of `head` and `body`.
-
-**ConcatenateSubsections(subsections: list of parsing.NodeSubsection) -> string**
-
-1. Let `result` = empty string.
-2. For each subsection in `subsections`:
-   a. Let `block` = `FormatSection(subsection.raw_heading,
-      subsection.content)`.
-   b. If `result` is not empty and `block` is not empty,
-      append `\n` to `result`.
-   c. Append `block` to `result`.
-3. Return `result`.
-
 ### Content hash helpers
+
+Uses `parsing.ConcatenateSubsections`,
+`parsing.FormatSection`, `parsing.ExtractAgentContent`,
+and `parsing.ReadFileContent` for content extraction.
 
 **HashPublicSubsections(node: parsing.Node) -> optional raw bytes (20)**
 
 1. If `node.public` is absent, return absent.
 2. If `node.public.subsections` is empty, return absent.
-3. Let `text` = `ConcatenateSubsections(node.public.subsections)`.
+3. Let `text` = `parsing.ConcatenateSubsections(node.public.subsections)`.
 4. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
@@ -86,116 +86,117 @@ Implement the chain hash component as a Go package.
 2. Find the subsection in `node.public.subsections`
    whose `heading` equals `normalized_qualifier`.
 3. If not found, return absent.
-4. Let `text` = `FormatSection(subsection.raw_heading,
+4. Let `text` = `parsing.FormatSection(subsection.raw_heading,
    subsection.content)`.
 5. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
 **HashAgentSection(node: parsing.Node) -> optional raw bytes (20)**
 
-1. If `node.agent` is absent, return absent.
-2. If `node.agent.content` is empty (after blank-line
-   removal) and `node.agent.subsections` is empty,
-   return absent.
-3. Let `text` = `ExtractBlock(node.agent.content)`.
-4. For each subsection in `node.agent.subsections`:
-   a. Let `sub_block` = `FormatSection(
-      subsection.raw_heading, subsection.content)`.
-   b. If `text` is not empty and `sub_block` is not
-      empty, append `\n` to `text`.
-   c. Append `sub_block` to `text`.
-5. Compute SHA-1 of `text` (UTF-8 bytes). Return the
+1. Let `text` = `parsing.ExtractAgentContent(node)`.
+2. If `text` is empty, return absent.
+3. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
 **HashFileContent(file_path: oslayer.CfsPath) -> raw bytes (20)**
 
-1. Call `oslayer.OpenFile(file_path, mode="read",
-   timeout_ms=30000)`. If `oslayer.OpenFile` raises
-   `oslayer.ErrFileUnreadable`, propagate the error.
-2. Let `lines` = empty list.
-3. Loop:
-   a. Call `handle.ReadLine()`.
-   b. If `oslayer.ErrEndOfFile` is raised, exit loop.
-   c. Append the line followed by `"\n"` to `lines`.
-4. Call `handle.Close()`.
-   (Call `handle.Close()` in error paths too before
-   re-raising.)
-5. Let `text` = concatenation of all strings in `lines`.
-6. Compute SHA-1 of `text` (UTF-8 bytes). Return the
+1. Let `text` = `parsing.ReadFileContent(file_path)`.
+   If it fails, propagate the error.
+2. Compute SHA-1 of `text` (UTF-8 bytes). Return the
    raw 20 bytes.
 
 ### Main function
 
-**ChainHashCompute(chain: chainresolver.Chain) -> string**
+**ChainHashCompute(chain: chainresolver.Chain) -> (string, []ContentHash)**
 
 **Step 1 — Collect content hashes**
 
 Let `hashes` = empty list of raw byte sequences
 (each 20 bytes).
+Let `positions` = empty list of ContentHash.
+
+Helper: `recordPosition(label, rawHash)`:
+  Encode rawHash as base64url (27 chars).
+  Append ContentHash{Label: label, Hash: encoded}
+  to `positions`.
+  Append rawHash to `hashes`.
 
 1. For each `ancestor` in `chain.Ancestors` (from root
    to target's parent):
    a. Call `parsing.ParseNode(ancestor.LogicalName)`.
       If it fails, raise ErrParseFailure.
    b. Let `h` = `HashPublicSubsections(node)`.
-   c. If `h` is present, append `h` to `hashes`.
+   c. If `h` is present, call
+      `recordPosition(ancestor.LogicalName, h)`.
 
 2. For each `dep` in `chain.Dependencies` (already
    sorted alphabetically by logical name):
-   a. If dep.LogicalName starts with "ARTIFACT/":
+   a. Let `label` = dep.LogicalName. If dep.Qualifier
+      is not nil, append "(" + *dep.Qualifier + ")"
+      to label.
+   b. If dep.LogicalName starts with "ARTIFACT/":
       Let `h` = `HashFileContent(
       oslayer.CfsPath(dep.Path))`.
-      Append `h` to `hashes`.
-   b. Else if dep.LogicalName starts with "EXTERNAL/":
+      Call `recordPosition(label, h)`.
+   c. Else if dep.LogicalName starts with "EXTERNAL/":
       Let `h` = `HashFileContent(
       oslayer.CfsPath(dep.Path))`.
-      Append `h` to `hashes`.
-   c. Else if dep.LogicalName starts with "SPEC/":
+      Call `recordPosition(label, h)`.
+   d. Else if dep.LogicalName starts with "SPEC/":
       Call `parsing.ParseNode(dep.LogicalName)`.
       If it fails, raise ErrParseFailure.
       If `dep.Qualifier` is nil:
         Let `h` = `HashPublicSubsections(node)`.
-        If `h` is present, append `h` to `hashes`.
+        If `h` is present, call
+        `recordPosition(label, h)`.
       If `dep.Qualifier` is not nil:
         Let `h` = `HashQualifiedSubsection(node,
         *dep.Qualifier)`.
-        If `h` is present, append `h` to `hashes`.
+        If `h` is present, call
+        `recordPosition(label, h)`.
 
 3. Target `# Public`:
    a. Call `parsing.ParseNode(chain.Target.LogicalName)`.
       If it fails, raise ErrParseFailure.
    b. Let `h` = `HashPublicSubsections(node)`.
-   c. If `h` is present, append `h` to `hashes`.
+   c. If `h` is present, call
+      `recordPosition(chain.Target.LogicalName, h)`.
    d. Save this `node` result as `target_node`.
 
 4. Target `# Agent`:
    a. Let `h` = `HashAgentSection(target_node)`.
-   b. If `h` is present, append `h` to `hashes`.
+   b. If `h` is present, call
+      `recordPosition("AGENT[" + chain.Target.LogicalName + "]", h)`.
 
 5. If `chain.Input` is not nil:
    a. Append a single byte `0x49` (`I`) to
-      `concatenated` (see step 2) as a marker before
-      the input content hash. In practice: append a
-      one-byte slice containing `0x49` to `hashes`.
+      `hashes` as a marker before the input content
+      hash. Do NOT add a position entry for the marker.
    b. Let `input` = `chain.Input`.
-   c. If input.LogicalName starts with "ARTIFACT/":
+   c. Let `inputLabel` = input.LogicalName. If
+      input.Qualifier is not nil, append
+      "(" + *input.Qualifier + ")" to inputLabel.
+      Let `inputLabel` = "INPUT[" + inputLabel + "]".
+   d. If input.LogicalName starts with "ARTIFACT/":
       Let `h` = `HashFileContent(
       oslayer.CfsPath(input.Path))`.
-      Append `h` to `hashes`.
-   d. Else if input.LogicalName starts with "EXTERNAL/":
+      Call `recordPosition(inputLabel, h)`.
+   e. Else if input.LogicalName starts with "EXTERNAL/":
       Let `h` = `HashFileContent(
       oslayer.CfsPath(input.Path))`.
-      Append `h` to `hashes`.
-   e. Else if input.LogicalName starts with "SPEC/":
+      Call `recordPosition(inputLabel, h)`.
+   f. Else if input.LogicalName starts with "SPEC/":
       Call `parsing.ParseNode(input.LogicalName)`.
       If it fails, raise ErrParseFailure.
       If `input.Qualifier` is nil:
         Let `h` = `HashPublicSubsections(node)`.
-        If `h` is present, append `h` to `hashes`.
+        If `h` is present, call
+        `recordPosition(inputLabel, h)`.
       If `input.Qualifier` is not nil:
         Let `h` = `HashQualifiedSubsection(node,
         *input.Qualifier)`.
-        If `h` is present, append `h` to `hashes`.
+        If `h` is present, call
+        `recordPosition(inputLabel, h)`.
 
 **Step 2 — Compute final hash**
 
@@ -205,7 +206,7 @@ Let `hashes` = empty list of raw byte sequences
 2. Compute SHA-1 of `concatenated`.
 3. Encode the resulting 20 bytes as base64url (RFC 4648
    §5, no padding) — producing 27 characters.
-4. Return the 27-character string.
+4. Return the 27-character string and `positions`.
 
 ## Go-specific guidance
 

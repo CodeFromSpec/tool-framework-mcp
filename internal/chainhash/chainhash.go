@@ -14,46 +14,9 @@ import (
 
 var ErrParseFailure = errors.New("parse failure")
 
-func extractBlock(content []string) string {
-	start := 0
-	for start < len(content) {
-		if strings.TrimSpace(content[start]) != "" {
-			break
-		}
-		start++
-	}
-
-	end := len(content) - 1
-	for end >= start {
-		if strings.TrimSpace(content[end]) != "" {
-			break
-		}
-		end--
-	}
-
-	if start > end {
-		return ""
-	}
-
-	return strings.Join(content[start:end+1], "\n") + "\n"
-}
-
-func formatSection(rawHeading string, content []string) string {
-	head := strings.TrimRight(rawHeading, " \t") + "\n"
-	body := extractBlock(content)
-	return head + body
-}
-
-func concatenateSubsections(subsections []*parsing.NodeSubsection) string {
-	result := ""
-	for _, sub := range subsections {
-		block := formatSection(sub.RawHeading, sub.Content)
-		if result != "" && block != "" {
-			result += "\n"
-		}
-		result += block
-	}
-	return result
+type ContentHash struct {
+	Label string
+	Hash  string
 }
 
 func hashPublicSubsections(node *parsing.Node) []byte {
@@ -63,7 +26,7 @@ func hashPublicSubsections(node *parsing.Node) []byte {
 	if len(node.Public.Subsections) == 0 {
 		return nil
 	}
-	text := concatenateSubsections(node.Public.Subsections)
+	text := parsing.ConcatenateSubsections(node.Public.Subsections)
 	sum := sha1.Sum([]byte(text))
 	return sum[:]
 }
@@ -75,7 +38,7 @@ func hashQualifiedSubsection(node *parsing.Node, qualifier string) []byte {
 	}
 	for _, sub := range node.Public.Subsections {
 		if sub.Heading == normalizedQualifier {
-			text := formatSection(sub.RawHeading, sub.Content)
+			text := parsing.FormatSection(sub.RawHeading, sub.Content)
 			sum := sha1.Sum([]byte(text))
 			return sum[:]
 		}
@@ -84,48 +47,29 @@ func hashQualifiedSubsection(node *parsing.Node, qualifier string) []byte {
 }
 
 func hashAgentSection(node *parsing.Node) []byte {
-	if node.Agent == nil {
+	text := parsing.ExtractAgentContent(node)
+	if text == "" {
 		return nil
-	}
-	if extractBlock(node.Agent.Content) == "" && len(node.Agent.Subsections) == 0 {
-		return nil
-	}
-	text := extractBlock(node.Agent.Content)
-	for _, sub := range node.Agent.Subsections {
-		subBlock := formatSection(sub.RawHeading, sub.Content)
-		if text != "" && subBlock != "" {
-			text += "\n"
-		}
-		text += subBlock
 	}
 	sum := sha1.Sum([]byte(text))
 	return sum[:]
 }
 
 func hashFileContent(filePath oslayer.CfsPath) ([]byte, error) {
-	handle, err := oslayer.OpenFile(filePath, "read", 30000)
+	text, err := parsing.ReadFileContent(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("opening file %s: %w", filePath, err)
+		return nil, fmt.Errorf("reading file %s: %w", filePath, err)
 	}
-
-	var sb strings.Builder
-	for {
-		line, err := handle.ReadLine()
-		if errors.Is(err, oslayer.ErrEndOfFile) {
-			break
-		}
-		if err != nil {
-			handle.Close()
-			return nil, fmt.Errorf("reading file %s: %w", filePath, err)
-		}
-		sb.WriteString(line)
-		sb.WriteString("\n")
-	}
-	handle.Close()
-
-	text := sb.String()
 	sum := sha1.Sum([]byte(text))
 	return sum[:], nil
+}
+
+func referenceLabel(ref parsing.CfsReference) string {
+	label := ref.LogicalName
+	if ref.Qualifier != nil {
+		label += "(" + *ref.Qualifier + ")"
+	}
+	return label
 }
 
 func processSpecDep(ref parsing.CfsReference) ([]byte, error) {
@@ -139,81 +83,90 @@ func processSpecDep(ref parsing.CfsReference) ([]byte, error) {
 	return hashQualifiedSubsection(node, *ref.Qualifier), nil
 }
 
-func ChainHashCompute(chain chainresolver.Chain) (string, error) {
+func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error) {
 	var hashes [][]byte
+	var positions []ContentHash
+
+	recordPosition := func(label string, rawHash []byte) {
+		encoded := base64.RawURLEncoding.EncodeToString(rawHash)
+		positions = append(positions, ContentHash{Label: label, Hash: encoded})
+		hashes = append(hashes, rawHash)
+	}
 
 	for _, ancestor := range chain.Ancestors {
 		node, err := parsing.ParseNode(ancestor.LogicalName)
 		if err != nil {
-			return "", fmt.Errorf("%w: ancestor %s: %s", ErrParseFailure, ancestor.LogicalName, err)
+			return "", nil, fmt.Errorf("%w: ancestor %s: %s", ErrParseFailure, ancestor.LogicalName, err)
 		}
 		h := hashPublicSubsections(node)
 		if h != nil {
-			hashes = append(hashes, h)
+			recordPosition(ancestor.LogicalName, h)
 		}
 	}
 
 	for _, dep := range chain.Dependencies {
+		label := referenceLabel(dep)
 		if strings.HasPrefix(dep.LogicalName, "ARTIFACT/") {
 			h, err := hashFileContent(oslayer.CfsPath(dep.Path))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
-			hashes = append(hashes, h)
+			recordPosition(label, h)
 		} else if strings.HasPrefix(dep.LogicalName, "EXTERNAL/") {
 			h, err := hashFileContent(oslayer.CfsPath(dep.Path))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
-			hashes = append(hashes, h)
+			recordPosition(label, h)
 		} else if strings.HasPrefix(dep.LogicalName, "SPEC/") {
 			h, err := processSpecDep(dep)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			if h != nil {
-				hashes = append(hashes, h)
+				recordPosition(label, h)
 			}
 		}
 	}
 
 	targetNode, err := parsing.ParseNode(chain.Target.LogicalName)
 	if err != nil {
-		return "", fmt.Errorf("%w: target %s: %s", ErrParseFailure, chain.Target.LogicalName, err)
+		return "", nil, fmt.Errorf("%w: target %s: %s", ErrParseFailure, chain.Target.LogicalName, err)
 	}
 
 	h := hashPublicSubsections(targetNode)
 	if h != nil {
-		hashes = append(hashes, h)
+		recordPosition(chain.Target.LogicalName, h)
 	}
 
 	agentHash := hashAgentSection(targetNode)
 	if agentHash != nil {
-		hashes = append(hashes, agentHash)
+		recordPosition("AGENT["+chain.Target.LogicalName+"]", agentHash)
 	}
 
 	if chain.Input != nil {
 		hashes = append(hashes, []byte{0x49})
 		input := chain.Input
+		inputLabel := "INPUT[" + referenceLabel(*input) + "]"
 		if strings.HasPrefix(input.LogicalName, "ARTIFACT/") {
 			h, err := hashFileContent(oslayer.CfsPath(input.Path))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
-			hashes = append(hashes, h)
+			recordPosition(inputLabel, h)
 		} else if strings.HasPrefix(input.LogicalName, "EXTERNAL/") {
 			h, err := hashFileContent(oslayer.CfsPath(input.Path))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
-			hashes = append(hashes, h)
+			recordPosition(inputLabel, h)
 		} else if strings.HasPrefix(input.LogicalName, "SPEC/") {
 			h, err := processSpecDep(*input)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			if h != nil {
-				hashes = append(hashes, h)
+				recordPosition(inputLabel, h)
 			}
 		}
 	}
@@ -225,5 +178,5 @@ func ChainHashCompute(chain chainresolver.Chain) (string, error) {
 
 	finalSum := sha1.Sum(concatenated)
 	encoded := base64.RawURLEncoding.EncodeToString(finalSum[:])
-	return encoded, nil
+	return encoded, positions, nil
 }

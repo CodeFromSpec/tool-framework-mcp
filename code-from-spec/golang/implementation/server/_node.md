@@ -4,6 +4,8 @@ depends_on:
   - SPEC/golang/implementation/mcp_tools/accept
   - SPEC/golang/implementation/mcp_tools/dump_chain
   - SPEC/golang/implementation/mcp_tools/load_chain
+  - SPEC/golang/implementation/mcp_tools/prune_cache
+  - SPEC/golang/implementation/mcp_tools/reconstruct_cache
   - SPEC/golang/implementation/mcp_tools/validate_specs
   - SPEC/golang/implementation/mcp_tools/write_file
   - SPEC/golang/implementation/spec_tree/validate(interface)
@@ -53,6 +55,10 @@ the server.
    - `mcpaccept.MCPAccept` — tool name `accept`.
    - `mcpdumpchain.MCPDumpChain` — tool name
      `dump_chain`.
+   - `mcpreconstructcache.MCPReconstructCache` — tool
+     name `reconstruct_cache`.
+   - `mcpprunecache.MCPPruneCache` — tool name
+     `prune_cache`.
    - `version` — tool name `version`. Takes no parameters.
      Returns the value of a package-level variable
      `var Version = "dev"`. This variable is overridden
@@ -72,12 +78,14 @@ Starts an MCP server over stdin/stdout for Code from Spec
 projects.
 
 Tools:
-  load_chain       Load the spec chain for a node.
-  write_file       Write a generated file to disk.
-  validate_specs   Validate specs and check artifact staleness.
-  accept           Accept a modified artifact.
-  dump_chain       Dump the spec chain to a file.
-  version          Print the tool version.
+  load_chain          Load the spec chain for a node.
+  write_file          Write a generated file to disk.
+  validate_specs      Validate specs and check artifact staleness.
+  accept              Accept a modified artifact.
+  dump_chain          Dump the spec chain to a file.
+  reconstruct_cache   Rebuild cache from current state.
+  prune_cache         Remove unreferenced cache files.
+  version             Print the tool version.
 
 MCP configuration example:
   {
@@ -101,9 +109,10 @@ MCP configuration example:
 
 ## Go-specific guidance
 
-- Import the five MCP tool packages:
+- Import the seven MCP tool packages:
   `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`,
-  `mcpaccept`, `mcpdumpchain`.
+  `mcpaccept`, `mcpdumpchain`, `mcpreconstructcache`,
+  `mcpprunecache`.
 - Each tool handler receives MCP request parameters and
   calls the corresponding package function.
 - The handler wraps the function result into an MCP

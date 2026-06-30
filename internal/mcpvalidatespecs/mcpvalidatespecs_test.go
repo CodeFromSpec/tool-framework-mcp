@@ -27,7 +27,7 @@ func computeChainHash(t *testing.T, logicalName string) string {
 	if err != nil {
 		t.Fatalf("ChainResolve(%q): %v", logicalName, err)
 	}
-	hash, err := chainhash.ChainHashCompute(chain)
+	hash, _, err := chainhash.ChainHashCompute(chain)
 	if err != nil {
 		t.Fatalf("ChainHashCompute: %v", err)
 	}
