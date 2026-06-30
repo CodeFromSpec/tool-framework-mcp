@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/server@8luDa157eFbG8PlKAliRnDHPCWE
 package main
 
 import (

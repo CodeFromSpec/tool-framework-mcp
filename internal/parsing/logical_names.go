@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/parsing/logical_names@3fOgxLOrrAWZ-kTlVXOBSi3D0qo
 package parsing
 
 import (

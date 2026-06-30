@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/accept@ltZOJt_LUGsWDD3Pdb3fyJ_1dCo
 package mcpaccept
 
 import (

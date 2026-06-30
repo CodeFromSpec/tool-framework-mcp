@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/test/cases/mcp_tools/accept@a2mcJWcEKYVETgqQbTns6KZsvzc
 package mcpaccept_test
 
 import (

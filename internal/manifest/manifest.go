@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/manifest@t9YT-RbUeeUZIixmnRpOlZmsBgo
 package manifest
 
 import (

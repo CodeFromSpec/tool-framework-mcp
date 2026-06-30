@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/test/cases/server@4udDAmAv3QDDMjxsZ34htB6qXR4
 package main_test
 
 import (
