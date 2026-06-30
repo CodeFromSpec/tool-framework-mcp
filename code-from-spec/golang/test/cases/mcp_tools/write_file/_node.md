@@ -16,10 +16,10 @@ output: internal/mcpwritefile/mcpwritefile_test.go
 ## Test setup guidance
 
 `MCPWriteFile` reads the node's frontmatter from disk
-to validate the path against the declared output. Tests
-must create `_node.md` files with frontmatter containing
-an output declaration. Use `testutils.Chdir` and create the
-spec tree structure (`code-from-spec/.../_node.md`).
+to derive the output path. Tests must create `_node.md`
+files with frontmatter containing an output declaration.
+Use `testutils.Chdir` and create the spec tree structure
+(`code-from-spec/.../_node.md`).
 
 ## Test cases
 
@@ -33,7 +33,7 @@ Setup:
   frontmatter `output: output/file.go`.
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "output/file.go",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a",
    "package main")`.
 
 Expected:
@@ -49,7 +49,7 @@ Setup:
   frontmatter `output: output/file.go`.
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "output/file.go",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a",
    "package main")`.
 2. Call `manifest.OpenManifest(true)`.
 
@@ -68,7 +68,7 @@ Setup:
 
 Actions:
 1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a",
-   "deep/nested/dir/file.go", "package main")`.
+   "package main")`.
 
 Expected:
 - Success. All intermediate directories created.
@@ -83,8 +83,7 @@ Setup:
 - Create `output/file.go` with content `"old"`.
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "output/file.go",
-   "new")`.
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "new")`.
 
 Expected:
 - Success. File content is `"new"`.
@@ -94,7 +93,7 @@ Expected:
 #### Invalid logical name — ARTIFACT reference
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("ARTIFACT/x", "out.go", "")`.
+1. Call `mcpwritefile.MCPWriteFile("ARTIFACT/x", "")`.
 
 Expected:
 - Error `mcpwritefile.ErrNotASpecReference`.
@@ -107,7 +106,7 @@ Setup:
   frontmatter `output: out.go`.
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a(interface)", "out.go",
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a(interface)",
    "")`.
 
 Expected:
@@ -116,7 +115,7 @@ Expected:
 #### Nonexistent node file
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/missing", "out.go", "")`.
+1. Call `mcpwritefile.MCPWriteFile("SPEC/missing", "")`.
 
 Expected:
 - Error `mcpwritefile.ErrUnreadableFrontmatter`.
@@ -129,64 +128,10 @@ Setup:
   Empty frontmatter (no output).
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "out.go", "")`.
+1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "")`.
 
 Expected:
 - Error `mcpwritefile.ErrNoOutput`.
-
-#### Path not in output
-
-Setup:
-- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
-- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: allowed/file.go`.
-
-Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "other/file.go", "")`.
-
-Expected:
-- Error `mcpwritefile.ErrPathNotInOutput`.
-
-#### Path validation — empty path
-
-Setup:
-- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
-- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: out.go`.
-
-Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "", "")`.
-
-Expected:
-- Error `oslayer.ErrPathEmpty`.
-
-#### Path validation — traversal
-
-Setup:
-- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
-- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: out.go`.
-
-Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "../../etc/passwd",
-   "")`.
-
-Expected:
-- Error `oslayer.ErrDirectoryTraversal`.
-
-#### Path validation — backslash
-
-Setup:
-- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
-- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: out.go`.
-
-Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "output\\file.go",
-   "")`.
-
-Expected:
-- Error `oslayer.ErrPathContainsBackslash`.
 
 ## Go-specific guidance
 
