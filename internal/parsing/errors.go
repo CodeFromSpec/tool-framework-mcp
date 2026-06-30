@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/parsing/errors@Q-5W2CutWQVbXBJz5eCDcTPDprE
 package parsing
 
 import "errors"

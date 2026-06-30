@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/validate_specs@qisGS48E6tghk8coS3y0q8-iNSg
 package mcpvalidatespecs
 
 import (

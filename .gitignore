@@ -30,7 +30,10 @@ coverage.html
 
 # Runtime tooling (downloaded, not committed)
 /tools/
-/code-from-spec/_tools/
+/code-from-spec/.tools/
 
 todo.md
 THIRD_PARTY_LICENSES
+
+/code-from-spec/.cache/
+/code-from-spec/.manifest.lock

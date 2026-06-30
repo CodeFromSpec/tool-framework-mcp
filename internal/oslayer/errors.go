@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/errors@fKFibrxV05_ujIb89WeEWMhIZUM
 package oslayer
 
 import "errors"

@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/accept@ltZOJt_LUGsWDD3Pdb3fyJ_1dCo
 package mcpaccept
 
 import (
@@ -38,21 +37,16 @@ func MCPAccept(logicalName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("opening manifest: %w", err)
 	}
+	defer func() { _ = m.Discard() }()
 
 	entry, exists := m.Entries[artifactLogicalName]
 	if !exists {
-		if discardErr := m.Discard(); discardErr != nil {
-			return "", fmt.Errorf("discarding manifest: %w", discardErr)
-		}
 		return "", ErrNotModified
 	}
 
 	artifactPath := oslayer.CfsPath(*node.Frontmatter.Output)
 	handle, err := oslayer.OpenFile(artifactPath, "read", 30000)
 	if err != nil {
-		if discardErr := m.Discard(); discardErr != nil {
-			return "", fmt.Errorf("discarding manifest: %w", discardErr)
-		}
 		return "", fmt.Errorf("opening artifact file: %w", err)
 	}
 
@@ -64,9 +58,6 @@ func MCPAccept(logicalName string) (string, error) {
 				break
 			}
 			handle.Close()
-			if discardErr := m.Discard(); discardErr != nil {
-				return "", fmt.Errorf("discarding manifest: %w", discardErr)
-			}
 			return "", fmt.Errorf("reading artifact file: %w", readErr)
 		}
 		contentBuilder.WriteString(line)
@@ -82,9 +73,6 @@ func MCPAccept(logicalName string) (string, error) {
 	checksum := base64.RawURLEncoding.EncodeToString(sum)[:27]
 
 	if checksum == entry.Checksum {
-		if discardErr := m.Discard(); discardErr != nil {
-			return "", fmt.Errorf("discarding manifest: %w", discardErr)
-		}
 		return "", ErrNotModified
 	}
 

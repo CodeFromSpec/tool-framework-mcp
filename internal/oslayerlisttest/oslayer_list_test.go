@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/test/cases/oslayer/list@CinQj_7Fco8uvTDcM052CbQqn60
 package oslayerlisttest
 
 import (

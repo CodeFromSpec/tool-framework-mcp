@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/chain/resolver@5trtTlaTyfR0jeS21NA8aahtvCs
 package chainresolver
 
 import (

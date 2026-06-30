@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/test/utils/create_spec_node@JGdSBmOi0bkiCsFclqqC41zzSww
 package testutils
 
 import (

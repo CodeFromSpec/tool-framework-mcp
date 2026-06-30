@@ -1,5 +1,3 @@
-[//]: # (code-from-spec: SPEC/domain/code-from-spec/manifest@46H21Guh5w3hIRodQFTqKTnBR_A)
-
 # Manifest format
 
 ## Header

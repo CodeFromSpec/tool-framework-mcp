@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/parsing/text_normalization@h3hNOvZJZmSygqNIJUDhgthifYw
 package parsing
 
 import (

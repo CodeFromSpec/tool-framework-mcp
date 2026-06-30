@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/test/utils/chdir@cKY1laDjF37NxxYeajTgtPDgdI0
 package testutils
 
 import (

@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/test/cases/spec_tree/ranking@7XQNNcFxJ7HQr6_rDOIIsXoe-0s
 package noderanking_test
 
 import (

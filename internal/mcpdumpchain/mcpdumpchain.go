@@ -1,4 +1,3 @@
-// code-from-spec: SPEC/golang/implementation/mcp_tools/dump_chain@UuRoDhcB7k43Uv16-dE3h5R8siw
 package mcpdumpchain
 
 import (

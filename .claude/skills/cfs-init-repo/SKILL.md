@@ -20,31 +20,25 @@ if so. This makes the skill safe to re-run — it fills
 in whatever is missing without overwriting what is
 already in place.
 
-1. **Create the spec root.** If `code-from-spec/_node.md`
-   does not exist, create it with minimal content:
+1. **Create the spec directory.** If `code-from-spec/`
+   does not exist, create it.
 
-   ```markdown
-   # SPEC
-   ```
-
-2. **Download the methodology file.** Download
-   `CODE_FROM_SPEC.md` from
-   `https://raw.githubusercontent.com/CodeFromSpec/framework/main/rules/CODE_FROM_SPEC.md`
-   and save it to `code-from-spec/_rules/CODE_FROM_SPEC.md`.
-   Create the directory if needed.
-
-3. **Download the MCP server.** Detect the platform
+2. **Download the MCP server.** Detect the platform
    (OS + architecture) and download the appropriate
    `framework-mcp` binary from
    `https://github.com/CodeFromSpec/tool-framework-mcp/releases/latest`
-   into `code-from-spec/_tools/`. On Windows, the binary is
+   into `code-from-spec/.tools/`. On Windows, the binary is
    `framework-mcp.exe`.
 
-4. **Configure .gitignore.** Add `/code-from-spec/_tools/`
+3. **Configure .gitignore.** Add the following entries
    to `.gitignore`. Create the file if it does not exist.
-   Do not duplicate if the entry already exists.
+   Do not duplicate entries that already exist.
 
-5. **Configure the MCP server.** Create or update
+   - `/code-from-spec/.tools/`
+   - `/code-from-spec/.cache/`
+   - `/code-from-spec/.manifest.lock`
+
+4. **Configure the MCP server.** Create or update
    `.mcp.json` in the project root:
 
    ```json
@@ -52,25 +46,23 @@ already in place.
      "mcpServers": {
        "framework-mcp": {
          "type": "stdio",
-         "command": "code-from-spec/_tools/framework-mcp"
+         "command": "code-from-spec/.tools/framework-mcp"
        }
      }
    }
    ```
 
-   On Windows, use `code-from-spec/_tools/framework-mcp.exe`
+   On Windows, use `code-from-spec/.tools/framework-mcp.exe`
    as the command. If `.mcp.json` already exists and has
    other servers, merge — do not overwrite.
 
-6. **Install subagent definitions.** Download and save
+5. **Install subagent definitions.** Download and save
    to `.claude/agents/`. Create the directory if needed.
 
    - `cfs-artifact-generation` from
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/subagents/cfs-artifact-generation.md`
-   - `cfs-spec-review` from
-     `https://raw.githubusercontent.com/CodeFromSpec/framework/main/subagents/cfs-spec-review.md`
 
-7. **Install skills.** Download the following skills and
+6. **Install skills.** Download the following skills and
    save them to `.claude/skills/<name>/SKILL.md`:
 
    - `cfs-generate` from
@@ -79,14 +71,14 @@ already in place.
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-status/SKILL.md`
    - `cfs-check-meta-language` from
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-check-meta-language/SKILL.md`
-   - `cfs-spec-review` from
-     `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-spec-review/SKILL.md`
    - `cfs-init-session` from
      `https://raw.githubusercontent.com/CodeFromSpec/framework/main/skills/cfs-init-session/SKILL.md`
+   - `cfs-init-session/CODE_FROM_SPEC.md` from
+     `https://raw.githubusercontent.com/CodeFromSpec/framework/main/CODE_FROM_SPEC.md`
 
    Create directories as needed.
 
-8. **Verify.** Ask the user to restart Claude Code (or
+7. **Verify.** Ask the user to restart Claude Code (or
    run `/mcp`) so the new MCP server is detected. Once
    reconnected, call `validate_specs` to confirm
    everything is wired up. Expect a clean report.
