@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v4.0.0...v4.1.0) (2026-06-30)
+
+
+### Features
+
+* tool supports v5, no cache support yet ([#21](https://github.com/CodeFromSpec/tool-framework-mcp/issues/21)) ([1b4d11a](https://github.com/CodeFromSpec/tool-framework-mcp/commit/1b4d11a1b967b24805276c81d1f7c1a7f2a329e9))
+
 ## [4.0.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v3.0.0...v4.0.0) (2026-06-15)
 
 
