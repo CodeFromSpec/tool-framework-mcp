@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/manifest@YjvHG3CyVNBuRH1blXeIJPucF4Q
+// code-from-spec: SPEC/golang/implementation/manifest@kSLzEitpWECuAAclG9nrEB25rlo
 package manifest
 
 import (
@@ -10,10 +10,10 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 )
 
-var ErrLockTimeout          = errors.New("lock timeout")
-var ErrReadOnly             = errors.New("read only")
-var ErrManifestClosed       = errors.New("manifest closed")
-var ErrManifestFormatError  = errors.New("manifest format error")
+var ErrLockTimeout = errors.New("lock timeout")
+var ErrReadOnly = errors.New("read only")
+var ErrManifestClosed = errors.New("manifest closed")
+var ErrManifestFormatError = errors.New("manifest format error")
 
 type ManifestEntry struct {
 	Path      string

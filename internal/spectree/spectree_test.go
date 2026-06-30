@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/tests/spec_tree/scan@cwkTVAw5kND4YZrQiM8l9wIoxv8
+// code-from-spec: SPEC/golang/tests/spec_tree/scan@zpIbpVkywKhyUrLj75L2Vr2xAas
 package spectree_test
 
 import (

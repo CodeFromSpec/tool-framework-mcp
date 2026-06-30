@@ -67,6 +67,11 @@ types) must use the suffix `NP`.
     Set frontmatter = nil. Let `body` = `source`.
     Skip to step 4.
 
+- If the next line is `---\n`:
+    Set frontmatter = nil. Let `body` = everything
+    after the closing `---\n`.
+    Skip to step 4.
+
 - Find the next occurrence of `\n---\n` after the
   first line. If not found, raise ErrMalformedYAML.
 
@@ -74,10 +79,6 @@ types) must use the suffix `NP`.
   closing `\n---\n` as `yaml_text`.
 
 - Let `body` = everything after the closing `---\n`.
-
-- If `yaml_text` is empty (nothing between delimiters):
-    Set frontmatter = nil.
-    Skip to step 4.
 
 - Parse `yaml_text` as YAML. If parsing fails, raise
   ErrMalformedYAML.

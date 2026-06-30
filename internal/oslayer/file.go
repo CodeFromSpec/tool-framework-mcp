@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/oslayer/file/core@n44sveE8Oavl0g197c-tpvnDYVI
+// code-from-spec: SPEC/golang/implementation/oslayer/file/core@Y67QciOqPiINERO3NHqwR9MrRg0
 package oslayer
 
 import (
@@ -38,10 +38,10 @@ func OpenFile(cfsPath CfsPath, mode string, timeoutMs int) (*File, error) {
 			if errors.Is(err, ErrLockTimeout) {
 				return nil, err
 			}
-			return nil, fmt.Errorf("cannot acquire shared lock on %q: %w", osPath, ErrLockTimeout)
+			return nil, fmt.Errorf("cannot acquire shared lock on %q: %w", osPath, ErrLockFailed)
 		}
 		scanner := bufio.NewScanner(handle)
-		scanner.Split(scanLinesCRLF)
+		scanner.Split(scanLinesCRLFFile)
 		return &File{
 			mode:    mode,
 			osPath:  osPath,
@@ -66,7 +66,7 @@ func OpenFile(cfsPath CfsPath, mode string, timeoutMs int) (*File, error) {
 			if errors.Is(err, ErrLockTimeout) {
 				return nil, err
 			}
-			return nil, fmt.Errorf("cannot acquire exclusive lock on %q: %w", osPath, ErrLockTimeout)
+			return nil, fmt.Errorf("cannot acquire exclusive lock on %q: %w", osPath, ErrLockFailed)
 		}
 		return &File{
 			mode:   mode,
@@ -85,7 +85,7 @@ func OpenFile(cfsPath CfsPath, mode string, timeoutMs int) (*File, error) {
 		if errors.Is(err, ErrLockTimeout) {
 			return nil, err
 		}
-		return nil, fmt.Errorf("cannot acquire exclusive lock on %q: %w", osPath, ErrLockTimeout)
+		return nil, fmt.Errorf("cannot acquire exclusive lock on %q: %w", osPath, ErrLockFailed)
 	}
 	return &File{
 		mode:   mode,
@@ -95,7 +95,7 @@ func OpenFile(cfsPath CfsPath, mode string, timeoutMs int) (*File, error) {
 	}, nil
 }
 
-func scanLinesCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
+func scanLinesCRLFFile(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
 	}
@@ -127,7 +127,7 @@ func (f *File) ReadLine() (string, error) {
 		return f.scanner.Text(), nil
 	}
 	if err := f.scanner.Err(); err != nil {
-		return "", fmt.Errorf("error reading file: %w", ErrEndOfFile)
+		return "", fmt.Errorf("error reading file: %w", ErrFileIO)
 	}
 	return "", ErrEndOfFile
 }
@@ -152,6 +152,9 @@ func (f *File) SkipLines(count int) error {
 	}
 	for i := 0; i < count; i++ {
 		if !f.scanner.Scan() {
+			if err := f.scanner.Err(); err != nil {
+				return fmt.Errorf("error reading file: %w", ErrFileIO)
+			}
 			return nil
 		}
 	}

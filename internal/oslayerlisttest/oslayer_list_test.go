@@ -1,7 +1,8 @@
-// code-from-spec: SPEC/golang/tests/oslayer/list@EcOFM29uzzeF24txkMqo6_X0jjg
+// code-from-spec: SPEC/golang/tests/oslayer/list@b1uXG89uFtjnc-fekwKlAhVYApg
 package oslayerlisttest_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -217,7 +218,7 @@ func TestListAllFiles_DirectoryDoesNotExist(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !isErr(err, oslayer.ErrDirectoryNotFound) {
+	if !errors.Is(err, oslayer.ErrDirectoryNotFound) {
 		t.Errorf("expected ErrDirectoryNotFound, got %v", err)
 	}
 }
@@ -230,7 +231,7 @@ func TestListAllFiles_PropagatesValidationErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !isErr(err, oslayer.ErrDirectoryTraversal) {
+	if !errors.Is(err, oslayer.ErrDirectoryTraversal) {
 		t.Errorf("expected ErrDirectoryTraversal, got %v", err)
 	}
 }
@@ -263,7 +264,7 @@ func TestListAllFiles_PropagatesConversionErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !isErr(err, oslayer.ErrResolvesOutsideRoot) {
+	if !errors.Is(err, oslayer.ErrResolvesOutsideRoot) {
 		t.Errorf("expected ErrResolvesOutsideRoot, got %v", err)
 	}
 }
@@ -293,33 +294,7 @@ func TestListAllFiles_WalkError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !isErr(err, oslayer.ErrWalkError) {
+	if !errors.Is(err, oslayer.ErrWalkError) {
 		t.Errorf("expected ErrWalkError, got %v", err)
 	}
-}
-
-func isErr(err, target error) bool {
-	if err == nil {
-		return false
-	}
-	type unwrapper interface {
-		Unwrap() error
-	}
-	type multiUnwrapper interface {
-		Unwrap() []error
-	}
-	if err == target {
-		return true
-	}
-	if u, ok := err.(unwrapper); ok {
-		return isErr(u.Unwrap(), target)
-	}
-	if mu, ok := err.(multiUnwrapper); ok {
-		for _, e := range mu.Unwrap() {
-			if isErr(e, target) {
-				return true
-			}
-		}
-	}
-	return false
 }

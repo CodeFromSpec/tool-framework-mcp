@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@ER6DaHwQeusnu2_BjH066zF60do
+// code-from-spec: SPEC/golang/implementation/parsing/node_parsing@rO4tOr6V9-XUv8F2hzy4_tnS4rg
 package parsing
 
 import (
@@ -113,6 +113,12 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 	}
 
 	rest := source[4:]
+
+	if bytes.HasPrefix(rest, []byte("---\n")) {
+		body := rest[4:]
+		return nil, body, nil
+	}
+
 	idx := bytes.Index(rest, []byte("\n---\n"))
 	if idx < 0 {
 		return nil, nil, fmt.Errorf("%w", ErrMalformedYAML)
@@ -120,10 +126,6 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 
 	yamlText := rest[:idx]
 	body := rest[idx+5:]
-
-	if len(yamlText) == 0 {
-		return nil, body, nil
-	}
 
 	var raw rawFrontmatterNP
 	if err := yaml.Unmarshal(yamlText, &raw); err != nil {

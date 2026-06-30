@@ -53,7 +53,8 @@ types) must use the suffix `LN`.
 
    a. If `stripped` starts with `"SPEC/"`:
       Let `relative` = stripped with "SPEC/" removed.
-      If `relative` is empty, raise ErrInvalidName.
+      If `relative` is empty or ends with `"/"`,
+      raise ErrInvalidName.
       Let path = "code-from-spec/" + relative +
       "/_node.md".
       Compute parent: find the last "/" in relative.
@@ -97,17 +98,16 @@ types) must use the suffix `LN`.
 1. Let `value` = string(cfsPath).
 
 2. If `value` does not start with "code-from-spec/",
-   raise ErrInvalidPath.
+   raise ErrInvalidPath. Remove "code-from-spec/"
+   prefix.
 
 3. If `value` does not end with "/_node.md",
-   raise ErrInvalidPath.
+   raise ErrInvalidPath. Remove "/_node.md" suffix.
 
-4. Remove "code-from-spec/" prefix and "/_node.md"
-   suffix. Let `relative` = the remainder.
-   If `relative` is empty, raise ErrInvalidPath.
+4. If `value` is empty, raise ErrInvalidPath.
 
-5. Let logicalName = "SPEC/" + relative.
-   Compute parent: find the last "/" in relative.
+5. Let logicalName = "SPEC/" + value.
+   Compute parent: find the last "/" in value.
    If no "/" found, parent is nil (root node).
    If "/" found, parent = "SPEC/" + substring before
    the last "/".
@@ -115,7 +115,8 @@ types) must use the suffix `LN`.
 6. Return CfsReference with
    NodeType = CfsNodeTypeSpec,
    LogicalName = logicalName, Qualifier = nil,
-   Path = value, ParentName = parent (nil or pointer).
+   Path = string(cfsPath), ParentName = parent
+   (nil or pointer).
 
 ## Go-specific guidance
 

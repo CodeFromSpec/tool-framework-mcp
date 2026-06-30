@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/parsing/logical_names@oYuD1Ar58tSrQ9mA-4hF9eEWyJ4
+// code-from-spec: SPEC/golang/implementation/parsing/logical_names@VtTL2dKRdbG7Oes-h87-IOLooY8
 package parsing
 
 import (
@@ -28,35 +28,32 @@ func stringPtrLN(s string) *string {
 	return &s
 }
 
-func extractQualifierLN(logicalName string) (stripped string, qualifier *string) {
-	openIdx := strings.Index(logicalName, "(")
-	if openIdx == -1 {
-		return logicalName, nil
-	}
-	closeIdx := strings.Index(logicalName[openIdx:], ")")
-	if closeIdx == -1 {
-		return logicalName, nil
-	}
-	q := logicalName[openIdx+1 : openIdx+closeIdx]
-	return logicalName[:openIdx], stringPtrLN(q)
-}
-
 func computeParentLN(prefix, relative string) *string {
-	lastSlash := strings.LastIndex(relative, "/")
-	if lastSlash == -1 {
+	idx := strings.LastIndex(relative, "/")
+	if idx < 0 {
 		return nil
 	}
-	return stringPtrLN(prefix + relative[:lastSlash])
+	return stringPtrLN(prefix + relative[:idx])
 }
 
 func CfsReferenceFromName(logicalName string) (*CfsReference, error) {
-	stripped, qualifier := extractQualifierLN(logicalName)
+	var qualifier *string
+	stripped := logicalName
+
+	if idx := strings.Index(logicalName, "("); idx >= 0 {
+		closing := strings.Index(logicalName[idx:], ")")
+		if closing >= 0 {
+			q := logicalName[idx+1 : idx+closing]
+			qualifier = stringPtrLN(q)
+			stripped = logicalName[:idx]
+		}
+	}
 
 	switch {
 	case strings.HasPrefix(stripped, "SPEC/"):
 		relative := strings.TrimPrefix(stripped, "SPEC/")
-		if relative == "" {
-			return nil, ErrInvalidName
+		if relative == "" || strings.HasSuffix(relative, "/") {
+			return nil, fmt.Errorf("%w: %q", ErrInvalidName, logicalName)
 		}
 		path := "code-from-spec/" + relative + "/_node.md"
 		parent := computeParentLN("SPEC/", relative)
@@ -71,15 +68,15 @@ func CfsReferenceFromName(logicalName string) (*CfsReference, error) {
 	case strings.HasPrefix(stripped, "ARTIFACT/"):
 		relative := strings.TrimPrefix(stripped, "ARTIFACT/")
 		if relative == "" {
-			return nil, ErrInvalidName
+			return nil, fmt.Errorf("%w: %q", ErrInvalidName, logicalName)
 		}
 		generatorName := "SPEC/" + relative
 		node, err := ParseNode(generatorName)
 		if err != nil {
-			return nil, fmt.Errorf("resolving artifact %q: %w", stripped, err)
+			return nil, fmt.Errorf("resolving artifact %q: %w", logicalName, err)
 		}
 		if node.Frontmatter == nil || node.Frontmatter.Output == nil {
-			return nil, ErrNoOutput
+			return nil, fmt.Errorf("%w: %q", ErrNoOutput, logicalName)
 		}
 		return &CfsReference{
 			NodeType:    CfsNodeTypeArtifact,
@@ -92,7 +89,7 @@ func CfsReferenceFromName(logicalName string) (*CfsReference, error) {
 	case strings.HasPrefix(stripped, "EXTERNAL/"):
 		relative := strings.TrimPrefix(stripped, "EXTERNAL/")
 		if relative == "" {
-			return nil, ErrInvalidName
+			return nil, fmt.Errorf("%w: %q", ErrInvalidName, logicalName)
 		}
 		return &CfsReference{
 			NodeType:    CfsNodeTypeExternal,
@@ -103,34 +100,38 @@ func CfsReferenceFromName(logicalName string) (*CfsReference, error) {
 		}, nil
 
 	default:
-		return nil, ErrUnrecognizedPrefix
+		return nil, fmt.Errorf("%w: %q", ErrUnrecognizedPrefix, logicalName)
 	}
 }
 
 func CfsReferenceFromPath(cfsPath oslayer.CfsPath) (*CfsReference, error) {
 	value := string(cfsPath)
 
-	if !strings.HasPrefix(value, "code-from-spec/") {
-		return nil, ErrInvalidPath
+	const specPrefix = "code-from-spec/"
+	const nodeSuffix = "/_node.md"
+
+	if !strings.HasPrefix(value, specPrefix) {
+		return nil, fmt.Errorf("%w: %q", ErrInvalidPath, value)
 	}
-	if !strings.HasSuffix(value, "/_node.md") {
-		return nil, ErrInvalidPath
+	value = strings.TrimPrefix(value, specPrefix)
+
+	if !strings.HasSuffix(value, nodeSuffix) {
+		return nil, fmt.Errorf("%w: %q", ErrInvalidPath, string(cfsPath))
+	}
+	value = value[:len(value)-len(nodeSuffix)]
+
+	if value == "" {
+		return nil, fmt.Errorf("%w: %q", ErrInvalidPath, string(cfsPath))
 	}
 
-	relative := strings.TrimPrefix(value, "code-from-spec/")
-	relative = strings.TrimSuffix(relative, "/_node.md")
-	if relative == "" {
-		return nil, ErrInvalidPath
-	}
-
-	logicalName := "SPEC/" + relative
-	parent := computeParentLN("SPEC/", relative)
+	logicalName := "SPEC/" + value
+	parent := computeParentLN("SPEC/", value)
 
 	return &CfsReference{
 		NodeType:    CfsNodeTypeSpec,
 		LogicalName: logicalName,
 		Qualifier:   nil,
-		Path:        value,
+		Path:        string(cfsPath),
 		ParentName:  parent,
 	}, nil
 }

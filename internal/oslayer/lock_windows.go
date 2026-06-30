@@ -1,10 +1,12 @@
 //go:build windows
 
-// code-from-spec: SPEC/golang/implementation/oslayer/file/lock_windows@7oNKHvgMuuz7PWzatifTIQXCSHo
+// code-from-spec: SPEC/golang/implementation/oslayer/file/lock_windows@GFoa0p0dWT5fa-lMBPkOqe8WUXw
 
 package oslayer
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
 	"golang.org/x/sys/windows"
@@ -29,11 +31,11 @@ func fileLockShared(f *os.File, timeoutMs int) error {
 
 	event, err := windows.CreateEvent(nil, 1, 0, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrLockFailed, err)
 	}
 	defer windows.CloseHandle(event)
 
-	ol := &windows.Overlapped{
+	ol := windows.Overlapped{
 		HEvent: event,
 	}
 
@@ -43,23 +45,23 @@ func fileLockShared(f *os.File, timeoutMs int) error {
 		0,
 		^uint32(0),
 		^uint32(0),
-		ol,
+		&ol,
 	)
 	if err == nil {
 		return nil
 	}
-	if err == windows.ERROR_IO_PENDING {
+	if errors.Is(err, windows.ERROR_IO_PENDING) {
 		result, waitErr := windows.WaitForSingleObject(event, uint32(timeoutMs))
-		if result == windows.WAIT_OBJECT_0 {
+		if result == uint32(windows.WAIT_OBJECT_0) {
 			return nil
 		}
 		if result == uint32(windows.WAIT_TIMEOUT) {
 			windows.CancelIo(windows.Handle(f.Fd()))
 			return ErrLockTimeout
 		}
-		return waitErr
+		return fmt.Errorf("%w: %w", ErrLockFailed, waitErr)
 	}
-	return err
+	return fmt.Errorf("%w: %w", ErrLockFailed, err)
 }
 
 func fileLockExclusive(f *os.File, timeoutMs int) error {
@@ -81,11 +83,11 @@ func fileLockExclusive(f *os.File, timeoutMs int) error {
 
 	event, err := windows.CreateEvent(nil, 1, 0, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrLockFailed, err)
 	}
 	defer windows.CloseHandle(event)
 
-	ol := &windows.Overlapped{
+	ol := windows.Overlapped{
 		HEvent: event,
 	}
 
@@ -95,21 +97,21 @@ func fileLockExclusive(f *os.File, timeoutMs int) error {
 		0,
 		^uint32(0),
 		^uint32(0),
-		ol,
+		&ol,
 	)
 	if err == nil {
 		return nil
 	}
-	if err == windows.ERROR_IO_PENDING {
+	if errors.Is(err, windows.ERROR_IO_PENDING) {
 		result, waitErr := windows.WaitForSingleObject(event, uint32(timeoutMs))
-		if result == windows.WAIT_OBJECT_0 {
+		if result == uint32(windows.WAIT_OBJECT_0) {
 			return nil
 		}
 		if result == uint32(windows.WAIT_TIMEOUT) {
 			windows.CancelIo(windows.Handle(f.Fd()))
 			return ErrLockTimeout
 		}
-		return waitErr
+		return fmt.Errorf("%w: %w", ErrLockFailed, waitErr)
 	}
-	return err
+	return fmt.Errorf("%w: %w", ErrLockFailed, err)
 }
