@@ -39,29 +39,41 @@ func MCPLoadChain(logicalName string) (string, error)
 
 ### Output
 
-An XML document as a string. The first line is the
-chain hash: `chain_hash: <27-character hash>`. The
-rest is the XML document.
+An XML document as a string, as defined in
+CHAIN_ASSEMBLY.md. The document has up to seven
+sections in this order:
 
-The XML has up to four sections in this order:
-
-1. **`<existing_artifact>`** — current content of the
+1. **`<previous_constraints>`** — old spec content for
+   positions that changed or were removed. Present
+   only when cache is available and the existing
+   artifact is present on disk.
+2. **`<previous_instructions>`** — previous `# Agent`
+   content. Present only when cache is available, the
+   existing artifact is present, and instructions
+   changed or were removed.
+3. **`<previous_input>`** — previous input content.
+   Present only when cache is available, the existing
+   artifact is present, and input changed or was
+   removed.
+4. **`<existing_artifact>`** — current content of the
    artifact file on disk. Present only when the file
    exists.
-2. **`<constraints>`** — the current spec content. Each
+5. **`<constraints>`** — the current spec content. Each
    position is an `<entry>` element with a `name`
    attribute. Entries appear in chain assembly order:
    ancestors, then depends_on (sorted), then target
-   node's `# Public`.
-3. **`<instructions>`** — the target node's `# Agent`
+   node's `# Public`. When cache is available and the
+   existing artifact is present, each entry carries a
+   `disposition` attribute (`unchanged`, `changed`, or
+   `added`).
+6. **`<instructions>`** — the target node's `# Agent`
    section (heading not included). Present only when
-   the node has an `# Agent` section.
-4. **`<input>`** — the content referenced by the target
+   the node has an `# Agent` section. May carry a
+   `disposition` attribute.
+7. **`<input>`** — the content referenced by the target
    node's `input` field. Present only when the node
-   declares `input`.
-
-No `<previous_*>` sections or `disposition` attributes
-in this version (cache is not implemented yet).
+   declares `input`. May carry a `disposition`
+   attribute.
 
 ### Errors
 
@@ -107,18 +119,17 @@ Implement the load chain tool as a Go package.
 4. Call `chainresolver.ChainResolve(logical_name)` to get the
    resolved `Chain`. If it fails, propagate the error.
 
-### Step 2 — Compute chain hash
+### Step 2 — Compute content hashes
 
 5. Call `chainhash.ChainHashCompute(chain)` with the resolved
    chain. It returns `(chain_hash, positions, err)`.
    If it fails, propagate the error. Store
-   `chain_hash`. Ignore `positions` for now.
+   `chain_hash` and `positions`.
 
 ### Step 3 — Build XML document
 
 6. Build the XML document. Use a string builder.
 
-   Start with: "chain_hash: <chain_hash>\n"
    Append: "<chain>\n"
 
    **Existing artifact** (optional):

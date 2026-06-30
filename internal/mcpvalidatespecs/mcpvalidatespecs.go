@@ -303,4 +303,3 @@ func collectAllDirs() []string {
 	sort.Strings(dirs)
 	return dirs
 }
-</content>

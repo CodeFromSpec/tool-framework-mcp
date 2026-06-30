@@ -61,17 +61,70 @@ func MCPLoadChain(logicalName string) (string, error) {
 		return "", fmt.Errorf("computing chain hash: %w", err)
 	}
 
+	existingContent, existingReadErr := parsing.ReadFileContent(oslayer.CfsPath(outputPath))
+	artifactExists := existingReadErr == nil
+
+	var cachedPositions []chainhash.ContentHash
+	var cachedChainHash string
+	cacheAvailable := false
+
+	if artifactExists && m != nil {
+		if entry, ok := m.Entries[artifactLogicalName]; ok {
+			cachedChainHash = entry.ChainHash
+			if cachedChainHash != "" {
+				var readErr error
+				cachedPositions, readErr = cache.ReadChain(cachedChainHash)
+				if readErr == nil {
+					cacheAvailable = true
+				}
+			}
+		}
+	}
+
+	currentHashByLabel := make(map[string]string)
+	for _, pos := range positions {
+		currentHashByLabel[pos.Label] = pos.Hash
+	}
+
+	cachedHashByLabel := make(map[string]string)
+	if cacheAvailable {
+		for _, pos := range cachedPositions {
+			cachedHashByLabel[pos.Label] = pos.Hash
+		}
+	}
+
 	contentByLabel := make(map[string]string)
 
 	var sb strings.Builder
 
-	sb.WriteString("chain_hash: ")
-	sb.WriteString(chainHash)
-	sb.WriteString("\n")
 	sb.WriteString("<chain>\n")
 
-	existingContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(outputPath))
-	if readErr == nil {
+	if artifactExists && cacheAvailable {
+		prevConstraintsEntries := buildPreviousConstraintsEntries(chain, cachedHashByLabel, currentHashByLabel)
+		if len(prevConstraintsEntries) > 0 {
+			sb.WriteString("<previous_constraints>\n")
+			for _, e := range prevConstraintsEntries {
+				sb.WriteString(e)
+			}
+			sb.WriteString("</previous_constraints>\n")
+		}
+
+		prevInstructions := buildPreviousInstructions(logicalName, cachedHashByLabel, currentHashByLabel)
+		if prevInstructions != "" {
+			sb.WriteString("<previous_instructions>\n")
+			sb.WriteString(prevInstructions)
+			sb.WriteString("</previous_instructions>\n")
+		}
+
+		prevInput := buildPreviousInput(chain, cachedHashByLabel, currentHashByLabel)
+		if prevInput != "" {
+			sb.WriteString("<previous_input>\n")
+			sb.WriteString(prevInput)
+			sb.WriteString("</previous_input>\n")
+		}
+	}
+
+	if artifactExists {
 		sb.WriteString("<existing_artifact>\n")
 		sb.WriteString(existingContent)
 		sb.WriteString("</existing_artifact>\n")
@@ -92,9 +145,16 @@ func MCPLoadChain(logicalName string) (string, error) {
 			continue
 		}
 		contentByLabel[ancestor.LogicalName] = content
+		disposition := computeDisposition(ancestor.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
 		sb.WriteString("<entry name=\"")
 		sb.WriteString(ancestor.LogicalName)
-		sb.WriteString("\">\n")
+		sb.WriteString("\"")
+		if disposition != "" {
+			sb.WriteString(" disposition=\"")
+			sb.WriteString(disposition)
+			sb.WriteString("\"")
+		}
+		sb.WriteString(">\n")
 		sb.WriteString(content)
 		sb.WriteString("</entry>\n")
 	}
@@ -107,9 +167,16 @@ func MCPLoadChain(logicalName string) (string, error) {
 				return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
 			}
 			contentByLabel[dep.LogicalName] = fileContent
+			disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(dep.LogicalName)
-			sb.WriteString("\">\n")
+			sb.WriteString("\"")
+			if disposition != "" {
+				sb.WriteString(" disposition=\"")
+				sb.WriteString(disposition)
+				sb.WriteString("\"")
+			}
+			sb.WriteString(">\n")
 			sb.WriteString(fileContent)
 			sb.WriteString("</entry>\n")
 
@@ -119,9 +186,16 @@ func MCPLoadChain(logicalName string) (string, error) {
 				return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
 			}
 			contentByLabel[dep.LogicalName] = fileContent
+			disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(dep.LogicalName)
-			sb.WriteString("\">\n")
+			sb.WriteString("\"")
+			if disposition != "" {
+				sb.WriteString(" disposition=\"")
+				sb.WriteString(disposition)
+				sb.WriteString("\"")
+			}
+			sb.WriteString(">\n")
 			sb.WriteString(fileContent)
 			sb.WriteString("</entry>\n")
 
@@ -139,9 +213,16 @@ func MCPLoadChain(logicalName string) (string, error) {
 				entryName = entryName + "(" + *dep.Qualifier + ")"
 			}
 			contentByLabel[entryName] = content
+			disposition := computeDisposition(entryName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(entryName)
-			sb.WriteString("\">\n")
+			sb.WriteString("\"")
+			if disposition != "" {
+				sb.WriteString(" disposition=\"")
+				sb.WriteString(disposition)
+				sb.WriteString("\"")
+			}
+			sb.WriteString(">\n")
 			sb.WriteString(content)
 			sb.WriteString("</entry>\n")
 		}
@@ -155,9 +236,16 @@ func MCPLoadChain(logicalName string) (string, error) {
 		content := extractPublicContent(targetNode, nil)
 		if content != "" {
 			contentByLabel[chain.Target.LogicalName] = content
+			disposition := computeDisposition(chain.Target.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(chain.Target.LogicalName)
-			sb.WriteString("\">\n")
+			sb.WriteString("\"")
+			if disposition != "" {
+				sb.WriteString(" disposition=\"")
+				sb.WriteString(disposition)
+				sb.WriteString("\"")
+			}
+			sb.WriteString(">\n")
 			sb.WriteString(content)
 			sb.WriteString("</entry>\n")
 		}
@@ -167,14 +255,21 @@ func MCPLoadChain(logicalName string) (string, error) {
 
 	if targetNode.Agent != nil {
 		agentContent := parsing.ExtractAgentContent(targetNode)
-		contentByLabel["AGENT["+chain.Target.LogicalName+"]"] = agentContent
-		sb.WriteString("<instructions>\n")
+		agentLabel := "AGENT[" + chain.Target.LogicalName + "]"
+		contentByLabel[agentLabel] = agentContent
+		disposition := computeDisposition(agentLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+		sb.WriteString("<instructions")
+		if disposition != "" {
+			sb.WriteString(" disposition=\"")
+			sb.WriteString(disposition)
+			sb.WriteString("\"")
+		}
+		sb.WriteString(">\n")
 		sb.WriteString(agentContent)
 		sb.WriteString("</instructions>\n")
 	}
 
 	if chain.Input != nil {
-		sb.WriteString("<input>\n")
 		inputContent, inputErr := resolveInputContent(chain.Input)
 		if inputErr != nil {
 			return "", fmt.Errorf("resolving input: %w", inputErr)
@@ -185,6 +280,14 @@ func MCPLoadChain(logicalName string) (string, error) {
 		}
 		inputLabel = inputLabel + "]"
 		contentByLabel[inputLabel] = inputContent
+		disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+		sb.WriteString("<input")
+		if disposition != "" {
+			sb.WriteString(" disposition=\"")
+			sb.WriteString(disposition)
+			sb.WriteString("\"")
+		}
+		sb.WriteString(">\n")
 		sb.WriteString(inputContent)
 		sb.WriteString("</input>\n")
 	}
@@ -199,6 +302,223 @@ func MCPLoadChain(logicalName string) (string, error) {
 	_ = cache.WriteChain(chainHash, positions)
 
 	return sb.String(), nil
+}
+
+func computeDisposition(label string, currentHashByLabel, cachedHashByLabel map[string]string, diffEnabled bool) string {
+	if !diffEnabled {
+		return ""
+	}
+	currentHash, inCurrent := currentHashByLabel[label]
+	cachedHash, inCached := cachedHashByLabel[label]
+	if !inCurrent {
+		return ""
+	}
+	if !inCached {
+		return "added"
+	}
+	if currentHash == cachedHash {
+		return "unchanged"
+	}
+	return "changed"
+}
+
+func buildPreviousConstraintsEntries(chain chainresolver.Chain, cachedHashByLabel, currentHashByLabel map[string]string) []string {
+	var entries []string
+
+	for _, ancestor := range chain.Ancestors {
+		label := ancestor.LogicalName
+		cachedHash, inCached := cachedHashByLabel[label]
+		if !inCached {
+			continue
+		}
+		currentHash, inCurrent := currentHashByLabel[label]
+		if inCurrent && currentHash == cachedHash {
+			continue
+		}
+		content, readErr := cache.ReadContent(cachedHash)
+		if readErr != nil {
+			continue
+		}
+		disposition := "changed"
+		if !inCurrent {
+			disposition = "removed"
+		}
+		entries = append(entries, buildPreviousEntry(label, disposition, content))
+	}
+
+	for _, dep := range chain.Dependencies {
+		entryName := dep.LogicalName
+		if dep.Qualifier != nil {
+			entryName = entryName + "(" + *dep.Qualifier + ")"
+		}
+		cachedHash, inCached := cachedHashByLabel[entryName]
+		if !inCached {
+			continue
+		}
+		currentHash, inCurrent := currentHashByLabel[entryName]
+		if inCurrent && currentHash == cachedHash {
+			continue
+		}
+		content, readErr := cache.ReadContent(cachedHash)
+		if readErr != nil {
+			continue
+		}
+		disposition := "changed"
+		if !inCurrent {
+			disposition = "removed"
+		}
+		entries = append(entries, buildPreviousEntry(entryName, disposition, content))
+	}
+
+	targetLabel := chain.Target.LogicalName
+	cachedHash, inCached := cachedHashByLabel[targetLabel]
+	if inCached {
+		currentHash, inCurrent := currentHashByLabel[targetLabel]
+		if !(inCurrent && currentHash == cachedHash) {
+			content, readErr := cache.ReadContent(cachedHash)
+			if readErr == nil {
+				disposition := "changed"
+				if !inCurrent {
+					disposition = "removed"
+				}
+				entries = append(entries, buildPreviousEntry(targetLabel, disposition, content))
+			}
+		}
+	}
+
+	for label, cachedHash := range cachedHashByLabel {
+		if strings.HasPrefix(label, "AGENT[") || strings.HasPrefix(label, "INPUT[") {
+			continue
+		}
+		if _, inCurrent := currentHashByLabel[label]; inCurrent {
+			continue
+		}
+		inAnchors := false
+		for _, ancestor := range chain.Ancestors {
+			if ancestor.LogicalName == label {
+				inAnchors = true
+				break
+			}
+		}
+		if inAnchors {
+			continue
+		}
+		for _, dep := range chain.Dependencies {
+			depLabel := dep.LogicalName
+			if dep.Qualifier != nil {
+				depLabel = depLabel + "(" + *dep.Qualifier + ")"
+			}
+			if depLabel == label {
+				inAnchors = true
+				break
+			}
+		}
+		if inAnchors {
+			continue
+		}
+		if label == chain.Target.LogicalName {
+			continue
+		}
+		content, readErr := cache.ReadContent(cachedHash)
+		if readErr != nil {
+			continue
+		}
+		entries = append(entries, buildPreviousEntry(label, "removed", content))
+	}
+
+	return entries
+}
+
+func buildPreviousEntry(label, disposition, content string) string {
+	var sb strings.Builder
+	sb.WriteString("<entry name=\"")
+	sb.WriteString(label)
+	sb.WriteString("\" disposition=\"")
+	sb.WriteString(disposition)
+	sb.WriteString("\">\n")
+	sb.WriteString(content)
+	sb.WriteString("</entry>\n")
+	return sb.String()
+}
+
+func buildPreviousInstructions(logicalName string, cachedHashByLabel, currentHashByLabel map[string]string) string {
+	agentLabel := "AGENT[" + logicalName + "]"
+	cachedHash, inCached := cachedHashByLabel[agentLabel]
+	if !inCached {
+		return ""
+	}
+	currentHash, inCurrent := currentHashByLabel[agentLabel]
+	if inCurrent && currentHash == cachedHash {
+		return ""
+	}
+	content, readErr := cache.ReadContent(cachedHash)
+	if readErr != nil {
+		return ""
+	}
+	disposition := "changed"
+	if !inCurrent {
+		disposition = "removed"
+	}
+	var sb strings.Builder
+	sb.WriteString("<instructions disposition=\"")
+	sb.WriteString(disposition)
+	sb.WriteString("\">\n")
+	sb.WriteString(content)
+	sb.WriteString("</instructions>\n")
+	return sb.String()
+}
+
+func buildPreviousInput(chain chainresolver.Chain, cachedHashByLabel, currentHashByLabel map[string]string) string {
+	if chain.Input == nil {
+		for label, cachedHash := range cachedHashByLabel {
+			if !strings.HasPrefix(label, "INPUT[") {
+				continue
+			}
+			if _, inCurrent := currentHashByLabel[label]; inCurrent {
+				continue
+			}
+			content, readErr := cache.ReadContent(cachedHash)
+			if readErr != nil {
+				continue
+			}
+			var sb strings.Builder
+			sb.WriteString("<input disposition=\"removed\">\n")
+			sb.WriteString(content)
+			sb.WriteString("</input>\n")
+			return sb.String()
+		}
+		return ""
+	}
+
+	inputLabel := "INPUT[" + chain.Input.LogicalName
+	if chain.Input.Qualifier != nil {
+		inputLabel = inputLabel + "(" + *chain.Input.Qualifier + ")"
+	}
+	inputLabel = inputLabel + "]"
+
+	cachedHash, inCached := cachedHashByLabel[inputLabel]
+	if !inCached {
+		return ""
+	}
+	currentHash, inCurrent := currentHashByLabel[inputLabel]
+	if inCurrent && currentHash == cachedHash {
+		return ""
+	}
+	content, readErr := cache.ReadContent(cachedHash)
+	if readErr != nil {
+		return ""
+	}
+	disposition := "changed"
+	if !inCurrent {
+		disposition = "removed"
+	}
+	var sb strings.Builder
+	sb.WriteString("<input disposition=\"")
+	sb.WriteString(disposition)
+	sb.WriteString("\">\n")
+	sb.WriteString(content)
+	sb.WriteString("</input>\n")
+	return sb.String()
 }
 
 func computeFileChecksum(cfsPath oslayer.CfsPath) (string, error) {

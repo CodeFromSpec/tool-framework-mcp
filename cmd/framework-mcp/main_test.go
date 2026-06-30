@@ -277,7 +277,7 @@ func TestToolsListAdvertisesAllTools(t *testing.T) {
 		t.Fatalf("expected tools array, got: %v", result)
 	}
 
-	expected := []string{"load_chain", "write_file", "validate_specs", "accept", "dump_chain", "version"}
+	expected := []string{"load_chain", "write_file", "validate_specs", "accept", "dump_chain", "reconstruct_cache", "prune_cache", "version"}
 	found := make(map[string]bool)
 	for _, tool := range tools {
 		toolMap, ok := tool.(map[string]any)
@@ -327,5 +327,3 @@ func TestVersionToolReturnsVersionString(t *testing.T) {
 		t.Errorf("expected version string to contain 'dev', got: %s", text)
 	}
 }
-</content>
-</invoke>

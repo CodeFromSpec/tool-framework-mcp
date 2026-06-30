@@ -1016,5 +1016,3 @@ func TestUnreadableExternalFile(t *testing.T) {
 		t.Errorf("expected ErrFileUnreadable, got: %v", err)
 	}
 }
-</content>
-</invoke>
