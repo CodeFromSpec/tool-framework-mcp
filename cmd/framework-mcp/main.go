@@ -1,4 +1,4 @@
-// code-from-spec: SPEC/golang/implementation/server@yH3Mjh_1uHB7y7O6aBNuMKeJbCM
+// code-from-spec: SPEC/golang/implementation/server@8luDa157eFbG8PlKAliRnDHPCWE
 package main
 
 import (
@@ -77,15 +77,14 @@ func main() {
 	})
 
 	type WriteFileArgs struct {
-		LogicalName string `json:"logical_name" jsonschema:"Logical name of the node whose output authorizes the write."`
-		Path        string `json:"path" jsonschema:"Relative file path from project root (forward slashes)."`
+		LogicalName string `json:"logical_name" jsonschema:"Logical name of the node whose output declares the target path."`
 		Content     string `json:"content" jsonschema:"Complete file content (UTF-8 text)."`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "write_file",
 		Description: "Write a generated file to disk.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteFileArgs) (*mcp.CallToolResult, any, error) {
-		result, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Path, args.Content)
+		result, err := mcpwritefile.MCPWriteFile(args.LogicalName, args.Content)
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
