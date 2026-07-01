@@ -1,34 +1,44 @@
 # tool-framework-mcp
 
 MCP server for [Code from Spec](https://github.com/CodeFromSpec/framework).
-Provides tools for spec validation, code generation, and
-artifact management.
+Provides tools for spec validation, chain assembly, artifact
+generation, and cache management.
 
 ## Tools
 
-- **load_chain** — returns the complete spec chain for a given
-  logical name, with artifact tag lines removed from artifact
-  dependencies and input, existing source files included, and
-  the chain hash for the artifact tag
-- **write_file** — writes a generated file to disk, validated
-  against the node's declared `output`
-- **validate_specs** — validates the spec tree for format errors,
-  circular references, and artifact staleness
-- **chain_hash** — computes the chain hash for a node without
-  assembling the full context
+- **load_chain** — assembles the complete spec chain for a
+  node as an XML document, including disposition attributes
+  and previous-generation content when cache is available
+- **write_file** — writes a generated file to disk and
+  updates the manifest
+- **validate_specs** — validates the spec tree for format
+  errors, circular references, and artifact staleness
+- **accept** — accepts an artifact without regenerating,
+  updating the manifest checksum and chain hash to match
+  the current state
+- **dump_chain** — writes the spec chain to `dump_chain.xml`
+  for inspection
+- **reconstruct_cache** — populates the cache from the
+  current state of the repository
+- **prune_cache** — removes unreferenced files from the cache
 - **version** — returns the tool version
 
 ## Install
 
 Download the latest release for your platform from
 [Releases](https://github.com/CodeFromSpec/tool-framework-mcp/releases)
-and extract the binary into your project's
-`code-from-spec/_tools/` directory.
+and place the binary in your project.
 
 Or build from source:
 
 ```bash
-go build -o code-from-spec/_tools/framework-mcp ./cmd/framework-mcp
+go build -o code-from-spec/.tools/framework-mcp ./cmd/framework-mcp
+```
+
+On Windows:
+
+```bash
+go build -o code-from-spec/.tools/framework-mcp.exe ./cmd/framework-mcp
 ```
 
 ## Configure
@@ -40,14 +50,13 @@ Register the server in `.mcp.json` at the project root:
   "mcpServers": {
     "framework-mcp": {
       "type": "stdio",
-      "command": "code-from-spec/_tools/framework-mcp"
+      "command": "code-from-spec/.tools/framework-mcp"
     }
   }
 }
 ```
 
-On Windows, use `code-from-spec/_tools/framework-mcp.exe`
-as the command.
+On Windows, use `code-from-spec/.tools/framework-mcp.exe` as the command.
 
 ## Usage
 
@@ -58,14 +67,17 @@ usage information.
 Usage: framework-mcp
 
 Starts an MCP server over stdin/stdout for Code from Spec
-subagents.
+projects.
 
 Tools:
-  load_chain       Load the spec chain for a node.
-  write_file       Write a generated file to disk.
-  validate_specs   Validate specs and check artifact staleness.
-  chain_hash       Compute the chain hash for a node.
-  version          Print the tool version.
+  load_chain          Load the spec chain for a node.
+  write_file          Write a generated file to disk.
+  validate_specs      Validate specs and check artifact staleness.
+  accept              Accept a modified artifact.
+  dump_chain          Dump the spec chain to a file.
+  reconstruct_cache   Rebuild cache from current state.
+  prune_cache         Remove unreferenced cache files.
+  version             Print the tool version.
 
 MCP configuration example:
   {

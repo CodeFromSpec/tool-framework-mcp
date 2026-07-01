@@ -42,32 +42,6 @@ artifacts, or when stale artifacts exist.
    > You are a confined artifact generation subagent.
    > Your only task is to generate the artifact
    > for the node `<logical-name>`.
-   >
-   > Steps:
-   > 1. Call `load_chain` with logical_name `<logical-name>` to
-   >    receive the complete spec chain. After
-   >    `--- context ---` is the spec chain. If
-   >    `--- input ---` is present, it contains the input
-   >    artifact. If `--- existing artifact ---` is present,
-   >    it contains the current file on disk.
-   > 2. Read the context carefully. Identify the target
-   >    node's spec (its intent, contracts, and interface),
-   >    the constraints from ancestor nodes, and any
-   >    dependency specs.
-   > 3. If an existing artifact section is present, use it
-   >    as a starting point. Compare it against the spec
-   >    and make only the changes needed. If no existing
-   >    artifact section is present, generate from scratch.
-   > 4. Generate the artifact content and call `write_file`
-   >    with the complete file content.
-   > 5. If the spec has gaps or contradictions that prevent
-   >    generation, do not guess — report the problem clearly
-   >    instead of writing a file.
-   > 6. After generating, list any assumptions you made where
-   >    the spec was silent or ambiguous. Label this section
-   >    `## Assumptions`. Include: format choices, field
-   >    mappings you inferred, interpretations of ambiguous
-   >    wording. If there are none, omit the section.
 
 4. **After each rank completes, run `validate_specs` again
    before starting the next rank.** This is mandatory, not
