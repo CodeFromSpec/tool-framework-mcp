@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.0.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v4.2.0...v5.0.0) (2026-07-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* release v5, finally ([#28](https://github.com/CodeFromSpec/tool-framework-mcp/issues/28))
+
+### Features
+
+* release v5, finally ([#28](https://github.com/CodeFromSpec/tool-framework-mcp/issues/28)) ([676c136](https://github.com/CodeFromSpec/tool-framework-mcp/commit/676c1363a18e0a547d15f080165796dd634b383b))
+
 ## [4.2.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v4.1.1...v4.2.0) (2026-06-30)
 
 
