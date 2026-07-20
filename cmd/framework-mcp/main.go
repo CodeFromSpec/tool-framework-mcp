@@ -10,6 +10,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpdumpchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpprunecache"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcppruneorphans"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpreconstructcache"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpvalidatespecs"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpwritefile"
@@ -31,6 +32,7 @@ Tools:
   dump_chain          Dump the spec chain to a file.
   reconstruct_cache   Rebuild cache from current state.
   prune_cache         Remove unreferenced cache files.
+  prune_orphans       Remove orphan manifest entries and their artifacts.
   version             Print the tool version.
 
 MCP configuration example:
@@ -170,6 +172,22 @@ func main() {
 		Description: "Remove unreferenced cache files.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		result, err := mcpprunecache.MCPPruneCache()
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
+				IsError: true,
+			}, nil, nil
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
+		}, nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "prune_orphans",
+		Description: "Remove orphan manifest entries and their artifacts.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := mcppruneorphans.MCPPruneOrphans()
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},

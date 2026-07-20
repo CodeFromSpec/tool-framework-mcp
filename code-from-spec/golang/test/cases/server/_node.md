@@ -94,7 +94,7 @@ the JSON-RPC response from stdout.
 Expect: the response contains tools named `load_chain`,
 `write_file`, `validate_specs`, `accept`,
 `dump_chain`, `reconstruct_cache`, `prune_cache`,
-and `version`.
+`prune_orphans`, and `version`.
 
 ### version tool returns version string
 

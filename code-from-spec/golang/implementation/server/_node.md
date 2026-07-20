@@ -5,6 +5,7 @@ depends_on:
   - SPEC/golang/implementation/mcp_tools/dump_chain
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/mcp_tools/prune_cache
+  - SPEC/golang/implementation/mcp_tools/prune_orphans
   - SPEC/golang/implementation/mcp_tools/reconstruct_cache
   - SPEC/golang/implementation/mcp_tools/validate_specs
   - SPEC/golang/implementation/mcp_tools/write_file
@@ -62,6 +63,8 @@ the server.
      name `reconstruct_cache`.
    - `mcpprunecache.MCPPruneCache` — tool name
      `prune_cache`.
+   - `mcppruneorphans.MCPPruneOrphans` — tool name
+     `prune_orphans`.
    - `version` — tool name `version`. Takes no parameters.
      Returns the value of a package-level variable
      `var Version = "dev"`. This variable is overridden
@@ -88,6 +91,7 @@ Tools:
   dump_chain          Dump the spec chain to a file.
   reconstruct_cache   Rebuild cache from current state.
   prune_cache         Remove unreferenced cache files.
+  prune_orphans       Remove orphan manifest entries and their artifacts.
   version             Print the tool version.
 
 MCP configuration example:
@@ -112,10 +116,10 @@ MCP configuration example:
 
 ## Go-specific guidance
 
-- Import the seven MCP tool packages:
+- Import the eight MCP tool packages:
   `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`,
   `mcpaccept`, `mcpdumpchain`, `mcpreconstructcache`,
-  `mcpprunecache`.
+  `mcpprunecache`, `mcppruneorphans`.
 - Each tool handler receives MCP request parameters and
   calls the corresponding package function.
 - The handler wraps the function result into an MCP
