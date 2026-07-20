@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v5.0.0...v5.1.0) (2026-07-20)
+
+
+### Features
+
+* per-node dump files and prune_orphans tool ([#30](https://github.com/CodeFromSpec/tool-framework-mcp/issues/30)) ([5277d86](https://github.com/CodeFromSpec/tool-framework-mcp/commit/5277d865ca4054bc64cfa945521c1ec425588e7c))
+
 ## [5.0.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v4.2.0...v5.0.0) (2026-07-01)
 
 
