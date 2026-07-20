@@ -73,7 +73,7 @@ The handshake sequence is:
 All test cases in this section must follow this
 handshake before sending any request.
 
-### tools/list advertises maxResultSizeChars for load_chain
+### tools/list advertises maxResultSizeChars for load_chain and dump_chain
 
 Start the binary as a subprocess. Complete the MCP
 handshake, then send a `tools/list` request. Parse
@@ -81,6 +81,8 @@ the JSON-RPC response from stdout.
 
 Expect: the response contains a tool named `load_chain`
 with `_meta["anthropic/maxResultSizeChars"]` equal to
+`500000`, and a tool named `dump_chain` with
+`_meta["anthropic/maxResultSizeChars"]` equal to
 `500000`.
 
 ### tools/list advertises all tools

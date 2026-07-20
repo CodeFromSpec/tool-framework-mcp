@@ -135,6 +135,7 @@ func main() {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "dump_chain",
 		Description: "Dump the spec chain to a file.",
+		Meta:        mcp.Meta{"anthropic/maxResultSizeChars": 500000},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args DumpChainArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcpdumpchain.MCPDumpChain(args.LogicalName)
 		if err != nil {

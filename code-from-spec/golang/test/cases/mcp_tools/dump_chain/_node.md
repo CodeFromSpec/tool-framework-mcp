@@ -16,7 +16,10 @@ output: internal/mcpdumpchain/mcpdumpchain_test.go
 ## Test setup guidance
 
 `mcpdumpchain.MCPDumpChain` calls `mcploadchain.MCPLoadChain` internally and
-writes the result to `dump_chain.xml`. Tests must
+writes the result to a file under `code-from-spec/.dump/`,
+named after the logical name with slashes replaced by
+underscores. For `SPEC/root/a`, the dump file is
+`code-from-spec/.dump/SPEC_root_a.xml`. Tests must
 create a valid spec tree on disk. Use `testutils.Chdir`
 pattern.
 
@@ -24,7 +27,7 @@ pattern.
 
 ### Happy path
 
-#### Writes dump_chain.xml
+#### Writes dump file
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
@@ -37,8 +40,9 @@ Actions:
 1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
 
 Expected:
-- Return value = `"wrote dump_chain.xml"`.
-- File `dump_chain.xml` exists on disk.
+- Return value = `"wrote code-from-spec/.dump/SPEC_root_a.xml"`.
+- File `code-from-spec/.dump/SPEC_root_a.xml` exists on
+  disk.
 - Content starts with `<chain>`.
 - Content contains `</chain>`.
 - Content contains `<constraints>` with
@@ -58,22 +62,24 @@ Actions:
 1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")` → store as
    `expected`.
 2. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
-3. Read `dump_chain.xml` from disk.
+3. Read `code-from-spec/.dump/SPEC_root_a.xml` from disk.
 
 Expected:
 - File content equals `expected`.
 
-#### Overwrites existing dump_chain.xml
+#### Overwrites existing dump file
 
 Setup:
 - Create spec tree as above.
-- Create `dump_chain.xml` with content "old".
+- Create `code-from-spec/.dump/SPEC_root_a.xml` with
+  content "old".
 
 Actions:
 1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
 
 Expected:
-- `dump_chain.xml` contains the new chain, not "old".
+- `code-from-spec/.dump/SPEC_root_a.xml` contains the
+  new chain, not "old".
 
 ### Error cases
 
@@ -90,7 +96,7 @@ Actions:
 
 Expected:
 - Error propagated from mcploadchain.MCPLoadChain (mcploadchain.ErrNoOutput).
-- `dump_chain.xml` does not exist.
+- `code-from-spec/.dump/SPEC_root_a.xml` does not exist.
 
 #### Invalid logical name
 
@@ -106,5 +112,5 @@ Expected:
   test package).
 - Use `testutils.Chdir(t)` to create a temp dir and
   set the working directory.
-- Read `dump_chain.xml` with `os.ReadFile` to verify
+- Read the dump file with `os.ReadFile` to verify
   content.

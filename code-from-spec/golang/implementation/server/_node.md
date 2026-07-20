@@ -54,7 +54,10 @@ the server.
      `validate_specs`.
    - `mcpaccept.MCPAccept` — tool name `accept`.
    - `mcpdumpchain.MCPDumpChain` — tool name
-     `dump_chain`.
+     `dump_chain`. Set `Meta:
+     mcp.Meta{"anthropic/maxResultSizeChars": 500000}`
+     so that `tools/list` advertises the maximum result
+     size to the client.
    - `mcpreconstructcache.MCPReconstructCache` — tool
      name `reconstruct_cache`.
    - `mcpprunecache.MCPPruneCache` — tool name
