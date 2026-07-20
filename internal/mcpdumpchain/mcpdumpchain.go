@@ -1,6 +1,8 @@
 package mcpdumpchain
 
 import (
+	"strings"
+
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 )
@@ -11,7 +13,9 @@ func MCPDumpChain(logicalName string) (string, error) {
 		return "", err
 	}
 
-	handle, err := oslayer.OpenFile(oslayer.CfsPath("dump_chain.xml"), "overwrite", 30000)
+	dumpPath := "code-from-spec/.dump/" + strings.ReplaceAll(logicalName, "/", "_") + ".xml"
+
+	handle, err := oslayer.OpenFile(oslayer.CfsPath(dumpPath), "overwrite", 30000)
 	if err != nil {
 		return "", err
 	}
@@ -24,5 +28,5 @@ func MCPDumpChain(logicalName string) (string, error) {
 
 	handle.Close()
 
-	return "wrote dump_chain.xml", nil
+	return "wrote " + dumpPath, nil
 }

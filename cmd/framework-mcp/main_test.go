@@ -233,31 +233,49 @@ func TestToolsListMaxResultSizeChars(t *testing.T) {
 		t.Fatalf("expected tools array, got: %v", result)
 	}
 
+	toolsToCheck := []string{"load_chain", "dump_chain"}
+	found := make(map[string]bool)
+
 	for _, tool := range tools {
 		toolMap, ok := tool.(map[string]any)
 		if !ok {
 			continue
 		}
-		if toolMap["name"] == "load_chain" {
-			meta, ok := toolMap["_meta"].(map[string]any)
-			if !ok {
-				t.Fatalf("expected _meta for load_chain, got: %v", toolMap)
+		name, ok := toolMap["name"].(string)
+		if !ok {
+			continue
+		}
+		for _, target := range toolsToCheck {
+			if name == target {
+				meta, ok := toolMap["_meta"].(map[string]any)
+				if !ok {
+					t.Errorf("expected _meta for %s, got: %v", name, toolMap)
+					continue
+				}
+				val, ok := meta["anthropic/maxResultSizeChars"]
+				if !ok {
+					t.Errorf("expected anthropic/maxResultSizeChars in _meta for %s", name)
+					continue
+				}
+				numVal, ok := val.(float64)
+				if !ok {
+					t.Errorf("expected numeric value for %s, got: %T %v", name, val, val)
+					continue
+				}
+				if int(numVal) != 500000 {
+					t.Errorf("expected 500000 for %s, got: %v", name, numVal)
+					continue
+				}
+				found[name] = true
 			}
-			val, ok := meta["anthropic/maxResultSizeChars"]
-			if !ok {
-				t.Fatal("expected anthropic/maxResultSizeChars in _meta")
-			}
-			numVal, ok := val.(float64)
-			if !ok {
-				t.Fatalf("expected numeric value, got: %T %v", val, val)
-			}
-			if int(numVal) != 500000 {
-				t.Errorf("expected 500000, got: %v", numVal)
-			}
-			return
 		}
 	}
-	t.Fatal("load_chain tool not found in tools list")
+
+	for _, name := range toolsToCheck {
+		if !found[name] {
+			t.Errorf("tool %q not found or missing correct _meta in tools list", name)
+		}
+	}
 }
 
 func TestToolsListAdvertisesAllTools(t *testing.T) {
@@ -277,7 +295,7 @@ func TestToolsListAdvertisesAllTools(t *testing.T) {
 		t.Fatalf("expected tools array, got: %v", result)
 	}
 
-	expected := []string{"load_chain", "write_file", "validate_specs", "accept", "dump_chain", "reconstruct_cache", "prune_cache", "version"}
+	expected := []string{"load_chain", "write_file", "validate_specs", "accept", "dump_chain", "reconstruct_cache", "prune_cache", "prune_orphans", "version"}
 	found := make(map[string]bool)
 	for _, tool := range tools {
 		toolMap, ok := tool.(map[string]any)
