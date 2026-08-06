@@ -111,16 +111,12 @@ func MCPLoadChain(logicalName string) (string, error) {
 
 		prevInstructions := buildPreviousInstructions(logicalName, cachedHashByLabel, currentHashByLabel)
 		if prevInstructions != "" {
-			sb.WriteString("<previous_instructions>\n")
 			sb.WriteString(prevInstructions)
-			sb.WriteString("</previous_instructions>\n")
 		}
 
 		prevInput := buildPreviousInput(chain, cachedHashByLabel, currentHashByLabel)
 		if prevInput != "" {
-			sb.WriteString("<previous_input>\n")
 			sb.WriteString(prevInput)
-			sb.WriteString("</previous_input>\n")
 		}
 	}
 
@@ -460,11 +456,11 @@ func buildPreviousInstructions(logicalName string, cachedHashByLabel, currentHas
 		disposition = "removed"
 	}
 	var sb strings.Builder
-	sb.WriteString("<instructions disposition=\"")
+	sb.WriteString("<previous_instructions disposition=\"")
 	sb.WriteString(disposition)
 	sb.WriteString("\">\n")
 	sb.WriteString(content)
-	sb.WriteString("</instructions>\n")
+	sb.WriteString("</previous_instructions>\n")
 	return sb.String()
 }
 
@@ -482,9 +478,9 @@ func buildPreviousInput(chain chainresolver.Chain, cachedHashByLabel, currentHas
 				continue
 			}
 			var sb strings.Builder
-			sb.WriteString("<input disposition=\"removed\">\n")
+			sb.WriteString("<previous_input disposition=\"removed\">\n")
 			sb.WriteString(content)
-			sb.WriteString("</input>\n")
+			sb.WriteString("</previous_input>\n")
 			return sb.String()
 		}
 		return ""
@@ -513,11 +509,11 @@ func buildPreviousInput(chain chainresolver.Chain, cachedHashByLabel, currentHas
 		disposition = "removed"
 	}
 	var sb strings.Builder
-	sb.WriteString("<input disposition=\"")
+	sb.WriteString("<previous_input disposition=\"")
 	sb.WriteString(disposition)
 	sb.WriteString("\">\n")
 	sb.WriteString(content)
-	sb.WriteString("</input>\n")
+	sb.WriteString("</previous_input>\n")
 	return sb.String()
 }
 
