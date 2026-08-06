@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - ARTIFACT/domain/code-from-spec/chain-assembly-details
   - SPEC/golang/implementation/cache
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
