@@ -8,7 +8,7 @@ ARTIFACT/golang/implementation/chain/resolver;path:internal/chainresolver/chainr
 ARTIFACT/golang/implementation/manifest;path:internal/manifest/manifest.go;checksum:eeHnuWb3paa44y9budq_nNtvBYk;chain:FfPTjz-iMV8ugbrG2EoLn4B4lxc
 ARTIFACT/golang/implementation/mcp_tools/accept;path:internal/mcpaccept/mcpaccept.go;checksum:VY1JRp7Vmak_ztwqL_XzEKFG5lo;chain:70Iz-lgijZRSz9lKO5EBec9R2aI
 ARTIFACT/golang/implementation/mcp_tools/dump_chain;path:internal/mcpdumpchain/mcpdumpchain.go;checksum:uUlq9DHZfzFWt6iBqlqpGL9EL-A;chain:neWQ02YkE28uDSO6lk8RxDckvFc
-ARTIFACT/golang/implementation/mcp_tools/load_chain;path:internal/mcploadchain/mcploadchain.go;checksum:cq_jDCkDd8rFLfbMVIEb_moDJD4;chain:y5n_dkQiS9VyqouTBdAkq_w8Aj8
+ARTIFACT/golang/implementation/mcp_tools/load_chain;path:internal/mcploadchain/mcploadchain.go;checksum:OEKDkxBYUXYYTm3JuxsH7I0TJFM;chain:t9TlYs36TTxk-HFn3RrmgsqqhHw
 ARTIFACT/golang/implementation/mcp_tools/prune_cache;path:internal/mcpprunecache/mcpprunecache.go;checksum:uVTO9pjgwGfIO3GWKclsEV2zykc;chain:rzlFdiDMKbu-gEvYDiHj0VdA4pI
 ARTIFACT/golang/implementation/mcp_tools/prune_orphans;path:internal/mcppruneorphans/mcppruneorphans.go;checksum:4ly-Pw8DrOI0RF0DNctsm7mcoSI;chain:OBOUYgtcX36Ascv3Y7aZTwIWNAA
 ARTIFACT/golang/implementation/mcp_tools/reconstruct_cache;path:internal/mcpreconstructcache/mcpreconstructcache.go;checksum:6pbFfprS0yAbfFV2gNckUFgIdUY;chain:bUkijXfRa4kv5H7AIj_iRvxQWgI
