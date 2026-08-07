@@ -2,7 +2,7 @@ code-from-spec: v5
 ARTIFACT/domain/code-from-spec/cache-details;path:code-from-spec/domain/code-from-spec/cache-details/output.md;checksum:U4WVMo_7iEQ6fzBTeLgm8s1KEJg;chain:oDoljFIwq4csZZmAO85OV2xJ7kk
 ARTIFACT/domain/code-from-spec/chain-assembly-details;path:code-from-spec/domain/code-from-spec/chain-assembly-details/output.md;checksum:4lNG7e-xils7FmJbzZWOca8fuHo;chain:Q3W_tSX-4cT1bpi6fBedGv4hN6U
 ARTIFACT/domain/code-from-spec/manifest-format;path:code-from-spec/domain/code-from-spec/manifest-format/output.md;checksum:rdlaanqStQ2EgZ-GxOPJxj5X4v8;chain:mtf_auD4sSu2NLF0tiaMYFNu_bk
-ARTIFACT/golang/implementation/cache;path:internal/cache/cache.go;checksum:_CHggAYxY5cxHcsOJ8_Nn9vSI-0;chain:XuQxoX7N4Aj98THLbJswLEUceXs
+ARTIFACT/golang/implementation/cache;path:internal/cache/cache.go;checksum:7g01nzhfFOPAQBLRXUGSKs34xrQ;chain:XuQxoX7N4Aj98THLbJswLEUceXs
 ARTIFACT/golang/implementation/chain/hash;path:internal/chainhash/chainhash.go;checksum:KoPltt1NIPr-jImbaY1CKKO0Oys;chain:E7CiT-_gkwKBr3nPtsNo0hbIvV4
 ARTIFACT/golang/implementation/chain/resolver;path:internal/chainresolver/chainresolver.go;checksum:6vYZQBAJ_oFSTmjLUtdsWlny0aE;chain:wRvA630RCUBgadu1CWu7E9ML_sw
 ARTIFACT/golang/implementation/manifest;path:internal/manifest/manifest.go;checksum:eeHnuWb3paa44y9budq_nNtvBYk;chain:FfPTjz-iMV8ugbrG2EoLn4B4lxc
