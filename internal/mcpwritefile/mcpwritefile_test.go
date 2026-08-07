@@ -8,6 +8,7 @@ import (
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
 )
 
@@ -23,7 +24,12 @@ func TestMCPWriteFile_WritesFileSuccessfully(t *testing.T) {
 	node.SetOutput("output/file.go")
 	node.Write()
 
-	result, err := mcpwritefile.MCPWriteFile("SPEC/root/a", "package main")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	result, err := mcpwritefile.MCPWriteFile(token, "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +56,12 @@ func TestMCPWriteFile_ManifestUpdatedAfterWrite(t *testing.T) {
 	node.SetOutput("output/file.go")
 	node.Write()
 
-	_, err := mcpwritefile.MCPWriteFile("SPEC/root/a", "package main")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	_, err = mcpwritefile.MCPWriteFile(token, "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -85,7 +96,12 @@ func TestMCPWriteFile_CreatesIntermediateDirectories(t *testing.T) {
 	node.SetOutput("deep/nested/dir/file.go")
 	node.Write()
 
-	_, err := mcpwritefile.MCPWriteFile("SPEC/root/a", "package main")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	_, err = mcpwritefile.MCPWriteFile(token, "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,7 +128,12 @@ func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
 		t.Fatalf("failed to write initial file: %v", err)
 	}
 
-	_, err := mcpwritefile.MCPWriteFile("SPEC/root/a", "new")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	_, err = mcpwritefile.MCPWriteFile(token, "new")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,35 +147,24 @@ func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_ArtifactReference(t *testing.T) {
+func TestMCPWriteFile_MalformedToken(t *testing.T) {
 	testutils.Chdir(t)
 
-	_, err := mcpwritefile.MCPWriteFile("ARTIFACT/x", "")
-	if !errors.Is(err, mcpwritefile.ErrNotASpecReference) {
-		t.Errorf("expected ErrNotASpecReference, got %v", err)
-	}
-}
-
-func TestMCPWriteFile_WithQualifier(t *testing.T) {
-	testutils.Chdir(t)
-
-	root := testutils.CreateSpecNode(t, "SPEC/root")
-	root.Write()
-
-	node := testutils.CreateSpecNode(t, "SPEC/root/a")
-	node.SetOutput("out.go")
-	node.Write()
-
-	_, err := mcpwritefile.MCPWriteFile("SPEC/root/a(interface)", "")
-	if !errors.Is(err, mcpwritefile.ErrQualifierNotAllowed) {
-		t.Errorf("expected ErrQualifierNotAllowed, got %v", err)
+	_, err := mcpwritefile.MCPWriteFile("not-a-valid-token", "")
+	if !errors.Is(err, subagenttoken.ErrInvalidToken) {
+		t.Errorf("expected ErrInvalidToken, got %v", err)
 	}
 }
 
 func TestMCPWriteFile_NonexistentNode(t *testing.T) {
 	testutils.Chdir(t)
 
-	_, err := mcpwritefile.MCPWriteFile("SPEC/missing", "")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/missing")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	_, err = mcpwritefile.MCPWriteFile(token, "")
 	if !errors.Is(err, mcpwritefile.ErrUnreadableFrontmatter) {
 		t.Errorf("expected ErrUnreadableFrontmatter, got %v", err)
 	}
@@ -169,7 +179,12 @@ func TestMCPWriteFile_NoOutputDeclared(t *testing.T) {
 	node := testutils.CreateSpecNode(t, "SPEC/root/a")
 	node.Write()
 
-	_, err := mcpwritefile.MCPWriteFile("SPEC/root/a", "")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	_, err = mcpwritefile.MCPWriteFile(token, "")
 	if !errors.Is(err, mcpwritefile.ErrNoOutput) {
 		t.Errorf("expected ErrNoOutput, got %v", err)
 	}

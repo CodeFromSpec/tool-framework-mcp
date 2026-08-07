@@ -16,8 +16,8 @@ const (
 )
 
 var (
-	ErrNotFound            = errors.New("cache entry not found")
-	ErrChainFileCorrupted  = errors.New("chain file corrupted")
+	ErrNotFound           = errors.New("cache entry not found")
+	ErrChainFileCorrupted = errors.New("chain file corrupted")
 )
 
 func fileExists(targetPath oslayer.CfsPath) (bool, error) {

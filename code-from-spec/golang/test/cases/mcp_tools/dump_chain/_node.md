@@ -6,6 +6,7 @@ depends_on:
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/subagent_token(interface)
 output: internal/mcpdumpchain/mcpdumpchain_test.go
 ---
 
@@ -59,10 +60,12 @@ Setup:
   `# Agent` with content.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")` → store as
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
+   → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)` → store as
    `expected`.
-2. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
-3. Read `code-from-spec/.dump/SPEC_root_a.xml` from disk.
+3. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
+4. Read `code-from-spec/.dump/SPEC_root_a.xml` from disk.
 
 Expected:
 - File content equals `expected`.
@@ -114,3 +117,6 @@ Expected:
   set the working directory.
 - Read the dump file with `os.ReadFile` to verify
   content.
+- Import the `subagenttoken` package to mint the token
+  needed for the direct `mcploadchain.MCPLoadChain` call
+  used to compute `expected`.

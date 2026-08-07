@@ -6,6 +6,7 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/subagent_token(interface)
 output: internal/mcpwritefile/mcpwritefile.go
 ---
 
@@ -13,7 +14,8 @@ output: internal/mcpwritefile/mcpwritefile.go
 
 Writes a generated source file to disk. The output path
 is derived from the node's frontmatter — the caller only
-provides the logical name and the content.
+provides an opaque token identifying the node (see
+`mcp_tools/create_token`) and the content.
 
 # Public
 
@@ -28,14 +30,14 @@ provides the logical name and the content.
 ## Interface
 
 ```go
-func MCPWriteFile(logicalName, content string) (string, error)
+func MCPWriteFile(token, content string) (string, error)
 ```
 
 ### Input
 
 | Parameter | Required | Description |
 |---|---|---|
-| `logicalName` | yes | Logical name of the node whose output declares the target path. |
+| `token` | yes | Opaque token identifying the node whose output declares the target path, as returned by `create_token`. |
 | `content` | yes | Complete file content (UTF-8 text). |
 
 ### Output
@@ -45,15 +47,11 @@ the output path read from the node's frontmatter.
 
 ### Errors
 
-- `ErrNotASpecReference`: the logical name is not a
-  SPEC/ reference.
-- `ErrQualifierNotAllowed`: the logical name contains
-  a parenthetical qualifier.
 - `ErrUnreadableFrontmatter`: the node's frontmatter
   cannot be parsed.
 - `ErrNoOutput`: target node has no output field.
-- Propagated errors from `parsing`, `oslayer`
-  packages.
+- Propagated errors from `subagenttoken`, `parsing`,
+  `oslayer` packages.
 
 # Agent
 
@@ -61,11 +59,10 @@ Implement the write file tool as a Go package.
 
 ## Logic
 
-1. If logical_name does not start with "SPEC/",
-   return ErrNotASpecReference.
-
-2. If logical_name contains "(", return
-   ErrQualifierNotAllowed.
+1. Call `subagenttoken.SubagentTokenValidate(token)` to
+   recover the target node's logical name. If it fails,
+   propagate the error. Store the result as
+   `logical_name`.
 
 3. Call `parsing.ParseNode(logical_name)`.
    If it fails, return ErrUnreadableFrontmatter.
@@ -121,6 +118,8 @@ Implement the write file tool as a Go package.
 
 ## Go-specific guidance
 
+- Use the `subagenttoken` package for
+  `SubagentTokenValidate`.
 - Use the `parsing` package for `ParseNode` and
   `Node`.
 - Use the `oslayer` package for `ValidateStringIsCfsPath`,

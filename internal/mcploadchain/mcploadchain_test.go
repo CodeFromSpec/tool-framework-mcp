@@ -9,6 +9,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
 )
 
@@ -25,7 +26,12 @@ func TestMCPLoadChain_SimpleLeafNode(t *testing.T) {
 	a.SetAgent("agent instructions here")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,7 +87,12 @@ func TestMCPLoadChain_AncestorPublicContentIncluded(t *testing.T) {
 	b.SetPublic("## Contract\nb contract")
 	b.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a/b")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a/b")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -117,7 +128,12 @@ func TestMCPLoadChain_AncestorWithoutPublicSkipped(t *testing.T) {
 	a.SetPublic("## Interface\ninterface content")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -145,7 +161,12 @@ func TestMCPLoadChain_AncestorWithEmptyPublicSkipped(t *testing.T) {
 	a.SetPublic("## Interface\ninterface content")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -170,7 +191,12 @@ func TestMCPLoadChain_DependencyWithoutQualifier(t *testing.T) {
 	a.AddDependsOn("SPEC/root/b")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -201,7 +227,12 @@ func TestMCPLoadChain_DependencyWithQualifier(t *testing.T) {
 	a.AddDependsOn("SPEC/root/b(interface)")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -239,7 +270,12 @@ func TestMCPLoadChain_ARTIFACTDependency(t *testing.T) {
 	a.AddDependsOn("ARTIFACT/root/b")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -270,7 +306,12 @@ func TestMCPLoadChain_EXTERNALDependency(t *testing.T) {
 	a.AddDependsOn("EXTERNAL/data/config.yaml")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -295,7 +336,12 @@ func TestMCPLoadChain_TargetAgentSectionInInstructions(t *testing.T) {
 	a.SetAgent("do this specific thing")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -325,7 +371,12 @@ func TestMCPLoadChain_TargetWithoutAgentSection(t *testing.T) {
 	a.SetPublic("## Interface\nsome interface")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -357,7 +408,12 @@ func TestMCPLoadChain_InputPresentARTIFACT(t *testing.T) {
 	a.SetInput("ARTIFACT/root/b")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -396,7 +452,12 @@ func TestMCPLoadChain_EXTERNALInput(t *testing.T) {
 	a.SetInput("EXTERNAL/docs/vendor/spec.yaml")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -424,7 +485,12 @@ func TestMCPLoadChain_SPECInput(t *testing.T) {
 	a.SetInput("SPEC/root/b")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -447,7 +513,12 @@ func TestMCPLoadChain_NoInput(t *testing.T) {
 	a.SetOutput("out/a.txt")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -474,7 +545,12 @@ func TestMCPLoadChain_ExistingArtifactPresent(t *testing.T) {
 		t.Fatalf("failed to write out/a.go: %v", err)
 	}
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -497,7 +573,12 @@ func TestMCPLoadChain_ExistingArtifactAbsent(t *testing.T) {
 	a.SetOutput("out/a.go")
 	a.Write()
 
-	result, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -518,12 +599,17 @@ func TestMCPLoadChain_HashIsDeterministic(t *testing.T) {
 	a.SetOutput("out/a.txt")
 	a.Write()
 
-	result1, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result1, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("first call unexpected error: %v", err)
 	}
 
-	result2, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	result2, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("second call unexpected error: %v", err)
 	}
@@ -533,10 +619,27 @@ func TestMCPLoadChain_HashIsDeterministic(t *testing.T) {
 	}
 }
 
+func TestMCPLoadChain_InvalidToken(t *testing.T) {
+	testutils.Chdir(t)
+
+	_, err := mcploadchain.MCPLoadChain("not-a-valid-token")
+	if err == nil {
+		t.Fatal("expected error for invalid token")
+	}
+	if !errors.Is(err, subagenttoken.ErrInvalidToken) {
+		t.Errorf("expected ErrInvalidToken, got: %v", err)
+	}
+}
+
 func TestMCPLoadChain_InvalidLogicalName(t *testing.T) {
 	testutils.Chdir(t)
 
-	_, err := mcploadchain.MCPLoadChain("INVALID/something")
+	token, err := subagenttoken.SubagentTokenGenerate("INVALID/something")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
 	if err == nil {
 		t.Fatal("expected error for invalid logical name")
 	}
@@ -548,7 +651,12 @@ func TestMCPLoadChain_InvalidLogicalName(t *testing.T) {
 func TestMCPLoadChain_NonexistentNodeFile(t *testing.T) {
 	testutils.Chdir(t)
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/root/nonexistent")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/nonexistent")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
 	if err == nil {
 		t.Fatal("expected error for nonexistent node")
 	}
@@ -566,7 +674,12 @@ func TestMCPLoadChain_NoOutputDeclared(t *testing.T) {
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.Write()
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
 	if err == nil {
 		t.Fatal("expected error when no output declared")
 	}
@@ -585,7 +698,12 @@ func TestMCPLoadChain_InvalidOutputPathTraversal(t *testing.T) {
 	a.SetOutput("../../etc/passwd")
 	a.Write()
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
 	if err == nil {
 		t.Fatal("expected error for traversal output path")
 	}
@@ -624,7 +742,12 @@ func TestMCPLoadChain_ModifiedArtifactBlocked(t *testing.T) {
 		t.Fatalf("failed to overwrite out/a.go: %v", err)
 	}
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
 	if err == nil {
 		t.Fatal("expected error for modified artifact")
 	}
@@ -650,7 +773,12 @@ func TestMCPLoadChain_NoManifestModifiedCheckSkipped(t *testing.T) {
 		t.Fatalf("failed to write out/a.go: %v", err)
 	}
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("unexpected error when no manifest: %v", err)
 	}
@@ -667,7 +795,12 @@ func TestMCPLoadChain_UnresolvableDependency(t *testing.T) {
 	a.AddDependsOn("SPEC/root/missing")
 	a.Write()
 
-	_, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
 	if err == nil {
 		t.Fatal("expected error for unresolvable dependency")
 	}

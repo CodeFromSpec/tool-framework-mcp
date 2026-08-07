@@ -6,6 +6,7 @@ depends_on:
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/mcp_tools/write_file
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/subagent_token(interface)
 output: internal/mcpwritefile/mcpwritefile_test.go
 ---
 
@@ -14,6 +15,11 @@ output: internal/mcpwritefile/mcpwritefile_test.go
 # Agent
 
 ## Test setup guidance
+
+`MCPWriteFile` takes an opaque token, not a raw logical
+name. Tests must first call
+`subagenttoken.SubagentTokenGenerate(logicalName)` to
+obtain a token, then pass that token to `MCPWriteFile`.
 
 `MCPWriteFile` reads the node's frontmatter from disk
 to derive the output path. Tests must create `_node.md`
@@ -33,8 +39,9 @@ Setup:
   frontmatter `output: output/file.go`.
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a",
-   "package main")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
+   → `token`.
+2. Call `mcpwritefile.MCPWriteFile(token, "package main")`.
 
 Expected:
 - Return value = `"wrote output/file.go"`.
@@ -49,9 +56,10 @@ Setup:
   frontmatter `output: output/file.go`.
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a",
-   "package main")`.
-2. Call `manifest.OpenManifest(true)`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
+   → `token`.
+2. Call `mcpwritefile.MCPWriteFile(token, "package main")`.
+3. Call `manifest.OpenManifest(true)`.
 
 Expected:
 - Manifest contains entry keyed `ARTIFACT/root/a`.
@@ -67,8 +75,9 @@ Setup:
   frontmatter `output: deep/nested/dir/file.go`.
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a",
-   "package main")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
+   → `token`.
+2. Call `mcpwritefile.MCPWriteFile(token, "package main")`.
 
 Expected:
 - Success. All intermediate directories created.
@@ -83,39 +92,32 @@ Setup:
 - Create `output/file.go` with content `"old"`.
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "new")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
+   → `token`.
+2. Call `mcpwritefile.MCPWriteFile(token, "new")`.
 
 Expected:
 - Success. File content is `"new"`.
 
 ### Error cases
 
-#### Invalid logical name — ARTIFACT reference
+#### Invalid token — malformed
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("ARTIFACT/x", "")`.
+1. Call `mcpwritefile.MCPWriteFile("not-a-valid-token", "")`.
 
 Expected:
-- Error `mcpwritefile.ErrNotASpecReference`.
-
-#### Invalid logical name — with qualifier
-
-Setup:
-- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
-- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: out.go`.
-
-Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a(interface)",
-   "")`.
-
-Expected:
-- Error `mcpwritefile.ErrQualifierNotAllowed`.
+- Error `subagenttoken.ErrInvalidToken`.
 
 #### Nonexistent node file
 
+Setup:
+- Do not create `code-from-spec/missing/_node.md`.
+
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/missing", "")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/missing")`
+   → `token`.
+2. Call `mcpwritefile.MCPWriteFile(token, "")`.
 
 Expected:
 - Error `mcpwritefile.ErrUnreadableFrontmatter`.
@@ -128,7 +130,9 @@ Setup:
   Empty frontmatter (no output).
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("SPEC/root/a", "")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
+   → `token`.
+2. Call `mcpwritefile.MCPWriteFile(token, "")`.
 
 Expected:
 - Error `mcpwritefile.ErrNoOutput`.
@@ -139,3 +143,5 @@ Expected:
   test package).
 - Use `testutils.Chdir(t)` to create a temp dir and
   set the working directory.
+- Import the `subagenttoken` package to mint tokens for
+  `MCPWriteFile` calls.
