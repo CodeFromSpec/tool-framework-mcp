@@ -2,6 +2,7 @@
 depends_on:
   - SPEC/golang/dependencies/mcp-go-sdk
   - SPEC/golang/implementation/mcp_tools/accept
+  - SPEC/golang/implementation/mcp_tools/create_token
   - SPEC/golang/implementation/mcp_tools/dump_chain
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/mcp_tools/prune_cache
@@ -54,6 +55,8 @@ the server.
    - `mcpvalidatespecs.MCPValidateSpecs` — tool name
      `validate_specs`.
    - `mcpaccept.MCPAccept` — tool name `accept`.
+   - `mcpcreatetoken.MCPCreateToken` — tool name
+     `create_token`.
    - `mcpdumpchain.MCPDumpChain` — tool name
      `dump_chain`. Set `Meta:
      mcp.Meta{"anthropic/maxResultSizeChars": 500000}`
@@ -88,6 +91,7 @@ Tools:
   write_file          Write a generated file to disk.
   validate_specs      Validate specs and check artifact staleness.
   accept              Accept a modified artifact.
+  create_token        Mint an opaque token for a logical name.
   dump_chain          Dump the spec chain to a file.
   reconstruct_cache   Rebuild cache from current state.
   prune_cache         Remove unreferenced cache files.
@@ -116,17 +120,18 @@ MCP configuration example:
 
 ## Go-specific guidance
 
-- Import the eight MCP tool packages:
+- Import the nine MCP tool packages:
   `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`,
-  `mcpaccept`, `mcpdumpchain`, `mcpreconstructcache`,
-  `mcpprunecache`, `mcppruneorphans`.
+  `mcpaccept`, `mcpcreatetoken`, `mcpdumpchain`,
+  `mcpreconstructcache`, `mcpprunecache`,
+  `mcppruneorphans`.
 - Each tool handler receives MCP request parameters and
   calls the corresponding package function.
 - The handler wraps the function result into an MCP
   tool response (text content).
 - For `MCPLoadChain`, `MCPWriteFile`, `MCPAccept`,
-  and `MCPDumpChain`, the result is a string — return
-  directly as text content.
+  `MCPCreateToken`, and `MCPDumpChain`, the result is a
+  string — return directly as text content.
 - For `MCPValidateSpecs`, the result is
   `ValidationReport` — format as human-readable text.
 - For `version`, return `Version` directly as text

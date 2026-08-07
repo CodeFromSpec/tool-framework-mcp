@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpaccept"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpcreatetoken"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpdumpchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpprunecache"
@@ -29,6 +30,7 @@ Tools:
   write_file          Write a generated file to disk.
   validate_specs      Validate specs and check artifact staleness.
   accept              Accept a modified artifact.
+  create_token        Mint an opaque token for a logical name.
   dump_chain          Dump the spec chain to a file.
   reconstruct_cache   Rebuild cache from current state.
   prune_cache         Remove unreferenced cache files.
@@ -120,6 +122,25 @@ func main() {
 		Description: "Accept a modified artifact.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args AcceptArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcpaccept.MCPAccept(args.LogicalName)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
+				IsError: true,
+			}, nil, nil
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
+		}, nil, nil
+	})
+
+	type CreateTokenArgs struct {
+		LogicalName string `json:"logical_name" jsonschema:"Logical name of the target node."`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "create_token",
+		Description: "Mint an opaque token for a logical name.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args CreateTokenArgs) (*mcp.CallToolResult, any, error) {
+		result, err := mcpcreatetoken.MCPCreateToken(args.LogicalName)
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},

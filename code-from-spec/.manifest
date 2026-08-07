@@ -7,6 +7,7 @@ ARTIFACT/golang/implementation/chain/hash;path:internal/chainhash/chainhash.go;c
 ARTIFACT/golang/implementation/chain/resolver;path:internal/chainresolver/chainresolver.go;checksum:6vYZQBAJ_oFSTmjLUtdsWlny0aE;chain:wRvA630RCUBgadu1CWu7E9ML_sw
 ARTIFACT/golang/implementation/manifest;path:internal/manifest/manifest.go;checksum:eeHnuWb3paa44y9budq_nNtvBYk;chain:FfPTjz-iMV8ugbrG2EoLn4B4lxc
 ARTIFACT/golang/implementation/mcp_tools/accept;path:internal/mcpaccept/mcpaccept.go;checksum:VY1JRp7Vmak_ztwqL_XzEKFG5lo;chain:70Iz-lgijZRSz9lKO5EBec9R2aI
+ARTIFACT/golang/implementation/mcp_tools/create_token;path:internal/mcpcreatetoken/mcpcreatetoken.go;checksum:ASXRI-aUJqGh6V-CIXniTiELTfA;chain:K9bivl3_Uc00n1k016oXwrS40J8
 ARTIFACT/golang/implementation/mcp_tools/dump_chain;path:internal/mcpdumpchain/mcpdumpchain.go;checksum:uUlq9DHZfzFWt6iBqlqpGL9EL-A;chain:neWQ02YkE28uDSO6lk8RxDckvFc
 ARTIFACT/golang/implementation/mcp_tools/load_chain;path:internal/mcploadchain/mcploadchain.go;checksum:cq_jDCkDd8rFLfbMVIEb_moDJD4;chain:y5n_dkQiS9VyqouTBdAkq_w8Aj8
 ARTIFACT/golang/implementation/mcp_tools/prune_cache;path:internal/mcpprunecache/mcpprunecache.go;checksum:uVTO9pjgwGfIO3GWKclsEV2zykc;chain:rzlFdiDMKbu-gEvYDiHj0VdA4pI
@@ -25,7 +26,7 @@ ARTIFACT/golang/implementation/parsing/errors;path:internal/parsing/errors.go;ch
 ARTIFACT/golang/implementation/parsing/logical_names;path:internal/parsing/logical_names.go;checksum:DGa6VQKaJNxkJcCcS_Vi4VUYoHI;chain:xKwi-C0QFkKcDOmiG5fXMXwnWes
 ARTIFACT/golang/implementation/parsing/node_parsing;path:internal/parsing/node_parsing.go;checksum:qYTHB1NKn3n08Zfe7Ei2q_y03sg;chain:RJi6pHZmQYkZSqB_bXgbHWIifdw
 ARTIFACT/golang/implementation/parsing/text_normalization;path:internal/parsing/text_normalization.go;checksum:ZKanawk0CjZuwNj9UO36eMPgg0Q;chain:qdrO3Vhh2Sn8I2tfTNpOLeHUrB8
-ARTIFACT/golang/implementation/server;path:cmd/framework-mcp/main.go;checksum:K85C9zAz4Frcg3HgJI4A-aVSYbQ;chain:da0EAkK7rnQWj_lw9h2f6CdBtA4
+ARTIFACT/golang/implementation/server;path:cmd/framework-mcp/main.go;checksum:hbFGEUI2B-H794LrT2Bg99OLUSY;chain:3_fPtjzw2v-CUlK8saAS-wBA2ac
 ARTIFACT/golang/implementation/spec_tree/ranking;path:internal/noderanking/noderanking.go;checksum:diNnBFwuz4UHOHlif00ltb2cEjc;chain:T_UzSHRaxS1MXUtVVV3eMdk09QU
 ARTIFACT/golang/implementation/spec_tree/scan;path:internal/spectree/spectree.go;checksum:Q_uxmOquYltHprL-6-UJNX72Iag;chain:0qJ-dQL8x3uU1uyyN7FskwWP75k
 ARTIFACT/golang/implementation/spec_tree/validate;path:internal/spectreevalidate/spectreevalidate.go;checksum:Hlw53QiREsbo1a_0E5TBrXz128s;chain:nV8a3b8dF9cxXNmZAmpS69BSSHU
@@ -35,6 +36,7 @@ ARTIFACT/golang/test/cases/chain/hash;path:internal/chainhash/chainhash_test.go;
 ARTIFACT/golang/test/cases/chain/resolver;path:internal/chainresolver/chainresolver_test.go;checksum:vim_PX8YJuTnGhXW8wlJlptnu7k;chain:0GBawSbriWqr4NTvCd1F4Vz0-dQ
 ARTIFACT/golang/test/cases/manifest;path:internal/manifest/manifest_test.go;checksum:tEfwFTzv5HZob9FIU5UEM0vItCY;chain:jyhHy5TQ8yhwjgcR5JLIgh9m6Xw
 ARTIFACT/golang/test/cases/mcp_tools/accept;path:internal/mcpaccept/mcpaccept_test.go;checksum:EXjBTw5WIFz56QpQHtLazEgcJjU;chain:oNHU715Gin7T_ZHE3aRfMJDp4PM
+ARTIFACT/golang/test/cases/mcp_tools/create_token;path:internal/mcpcreatetoken/mcpcreatetoken_test.go;checksum:A_tdk3RqqAiW6_zOLplK2pzyhJQ;chain:D8rCbTuOgKfSUPuG2p7yt6p_1yg
 ARTIFACT/golang/test/cases/mcp_tools/dump_chain;path:internal/mcpdumpchain/mcpdumpchain_test.go;checksum:xFi4n4HcWv7VfTmE_PYMGTNIPfU;chain:Qq5EWK658eRZHahDi1z6HuwofXI
 ARTIFACT/golang/test/cases/mcp_tools/load_chain;path:internal/mcploadchain/mcploadchain_test.go;checksum:zk9OGovUtxgucxxjd3EK7CA86dY;chain:1EIeDjIDBmtXVDQRqqtvQjp5CFc
 ARTIFACT/golang/test/cases/mcp_tools/prune_cache;path:internal/mcpprunecache/mcpprunecache_test.go;checksum:WWWtfw1RE7rr-db0tdIBf8e56sY;chain:goBEP8AkPC0JCc1nPPBo5PCiEdk
@@ -49,7 +51,7 @@ ARTIFACT/golang/test/cases/parsing/content_extraction;path:internal/parsing/cont
 ARTIFACT/golang/test/cases/parsing/logical_names;path:internal/parsinglogicalnamestest/parsing_logicalnames_test.go;checksum:1uLZcfqaqGEYQ1uxxU9C9S8c4qk;chain:OjoY2QpNSaQHIrgzTJ6DoVgDE5s
 ARTIFACT/golang/test/cases/parsing/node_parsing;path:internal/parsingnodeparsingtest/parsing_parsenode_test.go;checksum:eeLQQafSO7Qpqb8eD55mveD0iUM;chain:HZ9tBj9edWUj31stVvm5WP8hlOI
 ARTIFACT/golang/test/cases/parsing/text_normalization;path:internal/parsingtextnormtest/parsing_textnorm_test.go;checksum:LSCRWH_0p_NlH3c-DcNMFDGa0nI;chain:-oxaHGEbdfV-YXYxGUmbg9r7Ec4
-ARTIFACT/golang/test/cases/server;path:cmd/framework-mcp/main_test.go;checksum:t7OWLAvTYysRo1xz64JrhW0zYvQ;chain:KYBzvhfu1PZhLwaL3ekqqAptWNA
+ARTIFACT/golang/test/cases/server;path:cmd/framework-mcp/main_test.go;checksum:-RMxMtRECx57aKwTpyYNt61HOCs;chain:1FaL0FCqWwyJ_7DnWYlzns_DP3g
 ARTIFACT/golang/test/cases/spec_tree/ranking;path:internal/noderanking/noderanking_test.go;checksum:yjApDHLKL3wOhKLiIRfdAwqfBeg;chain:PghsGLR5F_9-VLgGMBjHgSEQS5c
 ARTIFACT/golang/test/cases/spec_tree/scan;path:internal/spectree/spectree_test.go;checksum:2KGkrMr5rnv6ZgIiP0cd_dcIuDc;chain:fsGwWAYWh_PWlzNDTPpPRkfQkAE
 ARTIFACT/golang/test/cases/spec_tree/validate;path:internal/spectreevalidate/spectreevalidate_test.go;checksum:lJqGucZiH7F3BLt03HNAvVb7_6A;chain:1iflOLYm8sxYoFmDbAgeOBcy_YY
