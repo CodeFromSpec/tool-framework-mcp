@@ -15,7 +15,7 @@ var ErrInvalidToken = errors.New("invalid token")
 var fixedKey []byte
 
 func init() {
-	decoded, err := hex.DecodeString("4b1e9f2a7c3d8e05f61a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7")
+	decoded, err := hex.DecodeString("4b1e9f2a7c3d8e05f61a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f79")
 	if err != nil {
 		panic(fmt.Sprintf("subagenttoken: failed to decode fixed key: %v", err))
 	}

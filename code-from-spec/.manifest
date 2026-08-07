@@ -29,7 +29,7 @@ ARTIFACT/golang/implementation/server;path:cmd/framework-mcp/main.go;checksum:K8
 ARTIFACT/golang/implementation/spec_tree/ranking;path:internal/noderanking/noderanking.go;checksum:diNnBFwuz4UHOHlif00ltb2cEjc;chain:T_UzSHRaxS1MXUtVVV3eMdk09QU
 ARTIFACT/golang/implementation/spec_tree/scan;path:internal/spectree/spectree.go;checksum:Q_uxmOquYltHprL-6-UJNX72Iag;chain:0qJ-dQL8x3uU1uyyN7FskwWP75k
 ARTIFACT/golang/implementation/spec_tree/validate;path:internal/spectreevalidate/spectreevalidate.go;checksum:Hlw53QiREsbo1a_0E5TBrXz128s;chain:nV8a3b8dF9cxXNmZAmpS69BSSHU
-ARTIFACT/golang/implementation/subagent_token;path:internal/subagenttoken/subagenttoken.go;checksum:rJm-wwXqIW3MpGgceVaQ9JsC_xs;chain:Kg2nEMv_hlOiw7wUpYCACdWRwyw
+ARTIFACT/golang/implementation/subagent_token;path:internal/subagenttoken/subagenttoken.go;checksum:iHLOOP81GZSsHC8d3AutpzqEI1Y;chain:qTJE2nVHn4Ltcz4EkvrxOwCntAQ
 ARTIFACT/golang/test/cases/cache;path:internal/cache/cache_test.go;checksum:cHT2UjJCTujtnBW5jDhV_BOc-R0;chain:ObTn3rCk4JBZLmH3IK1dJLyjglg
 ARTIFACT/golang/test/cases/chain/hash;path:internal/chainhash/chainhash_test.go;checksum:1otTWennK559CecuWpiryb6LmkU;chain:oJcodcLibFvofisWGnRW7yzbn7A
 ARTIFACT/golang/test/cases/chain/resolver;path:internal/chainresolver/chainresolver_test.go;checksum:vim_PX8YJuTnGhXW8wlJlptnu7k;chain:0GBawSbriWqr4NTvCd1F4Vz0-dQ

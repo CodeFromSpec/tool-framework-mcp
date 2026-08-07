@@ -58,7 +58,7 @@ package-level `var` initialized from a hex literal
 decoded with `encoding/hex`:
 
 ```
-4b1e9f2a7c3d8e05f61a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7
+4b1e9f2a7c3d8e05f61a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f79
 ```
 
 This key is fixed in source on purpose — it is not a
