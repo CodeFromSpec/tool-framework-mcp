@@ -1,5 +1,22 @@
 # Changelog
 
+## [6.0.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v5.1.0...v6.0.0) (2026-08-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* version 6, documentation ([#35](https://github.com/CodeFromSpec/tool-framework-mcp/issues/35))
+
+### Features
+
+* confine generation subagents to their target node via opaque tokens ([#34](https://github.com/CodeFromSpec/tool-framework-mcp/issues/34)) ([fc0d1df](https://github.com/CodeFromSpec/tool-framework-mcp/commit/fc0d1dfab6801e444db1bf5f4d4f7aca6770be2d))
+* version 6, documentation ([#35](https://github.com/CodeFromSpec/tool-framework-mcp/issues/35)) ([a55699a](https://github.com/CodeFromSpec/tool-framework-mcp/commit/a55699aa0d7983cf06e2997a3fa2a9c7289914f5))
+
+
+### Bug Fixes
+
+* previous_instructions/previous_input double-nesting in load_chain XML ([#32](https://github.com/CodeFromSpec/tool-framework-mcp/issues/32)) ([29749e0](https://github.com/CodeFromSpec/tool-framework-mcp/commit/29749e091935f45027276b4a9bf0bd7a0804586c))
+
 ## [5.1.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v5.0.0...v5.1.0) (2026-07-20)
 
 
