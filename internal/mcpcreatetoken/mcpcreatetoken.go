@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	ErrNotASpecReference    = errors.New("logical name is not a SPEC/ reference")
-	ErrQualifierNotAllowed  = errors.New("logical name contains a parenthetical qualifier")
+	ErrNotASpecReference   = errors.New("logical name is not a SPEC/ reference")
+	ErrQualifierNotAllowed = errors.New("logical name contains a parenthetical qualifier")
 )
 
 func MCPCreateToken(logicalName string) (string, error) {

@@ -13,6 +13,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
 )
 
 var (
@@ -21,7 +22,12 @@ var (
 	ErrArtifactModified  = errors.New("artifact file was modified outside the framework")
 )
 
-func MCPLoadChain(logicalName string) (string, error) {
+func MCPLoadChain(token string) (string, error) {
+	logicalName, err := subagenttoken.SubagentTokenValidate(token)
+	if err != nil {
+		return "", fmt.Errorf("validating token: %w", err)
+	}
+
 	node, err := parsing.ParseNode(logicalName)
 	if err != nil {
 		return "", fmt.Errorf("parsing target node: %w", err)

@@ -13,22 +13,18 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
 )
 
 var (
-	ErrNotASpecReference     = errors.New("logical name is not a SPEC/ reference")
-	ErrQualifierNotAllowed   = errors.New("logical name must not contain a qualifier")
 	ErrUnreadableFrontmatter = errors.New("node frontmatter cannot be parsed")
 	ErrNoOutput              = errors.New("node has no output field")
 )
 
-func MCPWriteFile(logicalName, content string) (string, error) {
-	if !strings.HasPrefix(logicalName, "SPEC/") {
-		return "", ErrNotASpecReference
-	}
-
-	if strings.Contains(logicalName, "(") {
-		return "", ErrQualifierNotAllowed
+func MCPWriteFile(token, content string) (string, error) {
+	logicalName, err := subagenttoken.SubagentTokenValidate(token)
+	if err != nil {
+		return "", err
 	}
 
 	node, err := parsing.ParseNode(logicalName)
