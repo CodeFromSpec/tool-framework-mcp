@@ -5,10 +5,16 @@ import (
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
 )
 
 func MCPDumpChain(logicalName string) (string, error) {
-	chainContent, err := mcploadchain.MCPLoadChain(logicalName)
+	token, err := subagenttoken.SubagentTokenGenerate(logicalName)
+	if err != nil {
+		return "", err
+	}
+
+	chainContent, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		return "", err
 	}

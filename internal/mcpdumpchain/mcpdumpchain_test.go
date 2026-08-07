@@ -8,6 +8,7 @@ import (
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpdumpchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
 	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
 )
 
@@ -62,7 +63,12 @@ func TestMCPDumpChain_ContentMatchesMCPLoadChain(t *testing.T) {
 	a.SetAgent("agent instructions here")
 	a.Write()
 
-	expected, err := mcploadchain.MCPLoadChain("SPEC/root/a")
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("SubagentTokenGenerate error: %v", err)
+	}
+
+	expected, err := mcploadchain.MCPLoadChain(token)
 	if err != nil {
 		t.Fatalf("MCPLoadChain error: %v", err)
 	}

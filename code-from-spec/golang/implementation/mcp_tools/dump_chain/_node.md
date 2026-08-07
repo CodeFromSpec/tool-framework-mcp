@@ -2,6 +2,7 @@
 depends_on:
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/oslayer(interface)
+  - SPEC/golang/implementation/subagent_token(interface)
 output: internal/mcpdumpchain/mcpdumpchain.go
 ---
 
@@ -44,9 +45,9 @@ is the dump file path derived from the logical name
 
 ### Errors
 
-- Propagated errors from `MCPLoadChain` (including
-  `ErrNoOutput`, `ErrInvalidOutputPath`,
-  `ErrArtifactModified`).
+- Propagated errors from `subagenttoken`,
+  `MCPLoadChain` (including `ErrNoOutput`,
+  `ErrInvalidOutputPath`, `ErrArtifactModified`).
 - Propagated errors from `oslayer` package.
 
 # Agent
@@ -55,11 +56,14 @@ Implement the dump chain tool as a Go package.
 
 ## Logic
 
-1. Call `mcploadchain.MCPLoadChain(logical_name)`. If it fails,
+1. Call `subagenttoken.SubagentTokenGenerate(logical_name)`
+   to obtain a token. If it fails, propagate the error.
+
+2. Call `mcploadchain.MCPLoadChain(token)`. If it fails,
    propagate the error. Store the result as
    `chain_content`.
 
-2. Derive the dump file path from `logical_name`:
+3. Derive the dump file path from `logical_name`:
    replace every "/" with "_" to form the file name,
    then join with the dump directory:
    `"code-from-spec/.dump/" + <converted> + ".xml"`.
@@ -68,20 +72,22 @@ Implement the dump chain tool as a Go package.
    "code-from-spec/.dump/SPEC_golang_implementation_chain_hash.xml".
    Store as `dump_path`.
 
-3. Call `oslayer.OpenFile(oslayer.CfsPath(dump_path),
+4. Call `oslayer.OpenFile(oslayer.CfsPath(dump_path),
    "overwrite", 30000)`. If it fails, propagate the
    error. Store as handle. ("overwrite" mode creates
    the `.dump` directory if it does not exist.)
 
-4. Call `handle.Write(chain_content)`. If it fails,
+5. Call `handle.Write(chain_content)`. If it fails,
    call `handle.Close()`, then propagate the error.
 
-5. Call `handle.Close()`.
+6. Call `handle.Close()`.
 
-6. Return "wrote <dump_path>".
+7. Return "wrote <dump_path>".
 
 ## Go-specific guidance
 
+- Use the `subagenttoken` package for
+  `SubagentTokenGenerate`.
 - Use the `mcploadchain` package for `MCPLoadChain`.
 - Use the `oslayer` package for `OpenFile`, `.Write()`,
   `.Close()`, and `CfsPath`.
