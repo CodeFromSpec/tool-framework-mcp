@@ -1,6 +1,5 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/subagent_token(import)
   - SPEC/golang/implementation/subagent_token(interface)
 output: internal/subagenttoken/subagenttoken_test.go
 ---

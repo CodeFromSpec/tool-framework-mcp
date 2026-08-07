@@ -17,11 +17,9 @@ the node it was dispatched for.
 
 `package subagenttoken`
 
-## Import
+## Interface
 
 `import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"`
-
-## Interface
 
 ```go
 func SubagentTokenGenerate(logicalName string) (string, error)

@@ -7,7 +7,7 @@ ARTIFACT/golang/implementation/chain/hash;path:internal/chainhash/chainhash.go;c
 ARTIFACT/golang/implementation/chain/resolver;path:internal/chainresolver/chainresolver.go;checksum:6vYZQBAJ_oFSTmjLUtdsWlny0aE;chain:wRvA630RCUBgadu1CWu7E9ML_sw
 ARTIFACT/golang/implementation/manifest;path:internal/manifest/manifest.go;checksum:eeHnuWb3paa44y9budq_nNtvBYk;chain:FfPTjz-iMV8ugbrG2EoLn4B4lxc
 ARTIFACT/golang/implementation/mcp_tools/accept;path:internal/mcpaccept/mcpaccept.go;checksum:VY1JRp7Vmak_ztwqL_XzEKFG5lo;chain:70Iz-lgijZRSz9lKO5EBec9R2aI
-ARTIFACT/golang/implementation/mcp_tools/create_token;path:internal/mcpcreatetoken/mcpcreatetoken.go;checksum:ASXRI-aUJqGh6V-CIXniTiELTfA;chain:K9bivl3_Uc00n1k016oXwrS40J8
+ARTIFACT/golang/implementation/mcp_tools/create_token;path:internal/mcpcreatetoken/mcpcreatetoken.go;checksum:xp-joz7GeiKvSB9Ev2EOu6C1hEk;chain:8FHJpSrIfp-kuEgQhgfaKgr4pDI
 ARTIFACT/golang/implementation/mcp_tools/dump_chain;path:internal/mcpdumpchain/mcpdumpchain.go;checksum:uUlq9DHZfzFWt6iBqlqpGL9EL-A;chain:neWQ02YkE28uDSO6lk8RxDckvFc
 ARTIFACT/golang/implementation/mcp_tools/load_chain;path:internal/mcploadchain/mcploadchain.go;checksum:cq_jDCkDd8rFLfbMVIEb_moDJD4;chain:y5n_dkQiS9VyqouTBdAkq_w8Aj8
 ARTIFACT/golang/implementation/mcp_tools/prune_cache;path:internal/mcpprunecache/mcpprunecache.go;checksum:uVTO9pjgwGfIO3GWKclsEV2zykc;chain:rzlFdiDMKbu-gEvYDiHj0VdA4pI
@@ -30,7 +30,7 @@ ARTIFACT/golang/implementation/server;path:cmd/framework-mcp/main.go;checksum:hb
 ARTIFACT/golang/implementation/spec_tree/ranking;path:internal/noderanking/noderanking.go;checksum:diNnBFwuz4UHOHlif00ltb2cEjc;chain:T_UzSHRaxS1MXUtVVV3eMdk09QU
 ARTIFACT/golang/implementation/spec_tree/scan;path:internal/spectree/spectree.go;checksum:Q_uxmOquYltHprL-6-UJNX72Iag;chain:0qJ-dQL8x3uU1uyyN7FskwWP75k
 ARTIFACT/golang/implementation/spec_tree/validate;path:internal/spectreevalidate/spectreevalidate.go;checksum:Hlw53QiREsbo1a_0E5TBrXz128s;chain:nV8a3b8dF9cxXNmZAmpS69BSSHU
-ARTIFACT/golang/implementation/subagent_token;path:internal/subagenttoken/subagenttoken.go;checksum:iHLOOP81GZSsHC8d3AutpzqEI1Y;chain:qTJE2nVHn4Ltcz4EkvrxOwCntAQ
+ARTIFACT/golang/implementation/subagent_token;path:internal/subagenttoken/subagenttoken.go;checksum:iHLOOP81GZSsHC8d3AutpzqEI1Y;chain:YHuCMr4cB6zL7lSnNSAw9aGZEUo
 ARTIFACT/golang/test/cases/cache;path:internal/cache/cache_test.go;checksum:cHT2UjJCTujtnBW5jDhV_BOc-R0;chain:ObTn3rCk4JBZLmH3IK1dJLyjglg
 ARTIFACT/golang/test/cases/chain/hash;path:internal/chainhash/chainhash_test.go;checksum:1otTWennK559CecuWpiryb6LmkU;chain:oJcodcLibFvofisWGnRW7yzbn7A
 ARTIFACT/golang/test/cases/chain/resolver;path:internal/chainresolver/chainresolver_test.go;checksum:vim_PX8YJuTnGhXW8wlJlptnu7k;chain:0GBawSbriWqr4NTvCd1F4Vz0-dQ

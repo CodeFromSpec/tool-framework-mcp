@@ -9,6 +9,7 @@ depends_on:
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/mcp_tools/load_chain
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/subagent_token(interface)
 output: internal/mcploadchain/mcploadchain_test.go
 ---
 
@@ -17,6 +18,11 @@ output: internal/mcploadchain/mcploadchain_test.go
 # Agent
 
 ## Test setup guidance
+
+`MCPLoadChain` takes an opaque token, not a raw logical
+name. Tests must first call
+`subagenttoken.SubagentTokenGenerate(logicalName)` to
+obtain a token, then pass that token to `MCPLoadChain`.
 
 `MCPLoadChain` calls `ChainResolve`, `ChainHashCompute`,
 `parsing.ParseNode`, `manifest.OpenManifest`, and
@@ -56,7 +62,8 @@ Setup:
 - Do not create `out/a.txt`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - Output starts with `<chain>`.
@@ -83,7 +90,8 @@ Setup:
   `# Public` → `## Contract` with content.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a/b")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a/b")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<constraints>` contains three entries:
@@ -101,7 +109,8 @@ Setup:
   content, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<constraints>` does not contain an entry for
@@ -119,7 +128,8 @@ Setup:
   content, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<constraints>` does not contain an entry for
@@ -138,7 +148,8 @@ Setup:
   `depends_on: ["SPEC/root/b"]`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<constraints>` contains
@@ -158,7 +169,8 @@ Setup:
   `depends_on: ["SPEC/root/b(interface)"]`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<constraints>` contains
@@ -179,7 +191,8 @@ Setup:
   `depends_on: ["ARTIFACT/root/b"]`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<constraints>` contains
@@ -197,7 +210,8 @@ Setup:
   `depends_on: ["EXTERNAL/data/config.yaml"]`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<constraints>` contains
@@ -215,7 +229,8 @@ Setup:
   `# Agent` with content.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<constraints>` contains target's `## Interface`.
@@ -233,7 +248,8 @@ Setup:
   `# Agent` section.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - No `<instructions>` element in the output.
@@ -251,7 +267,8 @@ Setup:
   `input: ARTIFACT/root/b`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<input>` contains the full content of
@@ -269,7 +286,8 @@ Setup:
   `input: EXTERNAL/docs/vendor/spec.yaml`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<input>` contains the full content of
@@ -288,7 +306,8 @@ Setup:
   `input: SPEC/root/b`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<input>` contains `## Acceptance tests` content
@@ -304,7 +323,8 @@ Setup:
   No input field.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - No `<input>` element in output.
@@ -319,7 +339,8 @@ Setup:
 - Create `out/a.go` with known content.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - `<existing_artifact>` contains the full content
@@ -335,7 +356,8 @@ Setup:
 - Do not create `out/a.go`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - No `<existing_artifact>` element in output.
@@ -350,26 +372,42 @@ Setup:
   `# SPEC/root/a`, frontmatter `output: out/a.txt`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")` twice.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)` twice, reusing the
+   same `token`.
 
 Expected:
 - Both calls return identical output strings.
 
 ### Error cases
 
+#### Invalid token — malformed
+
+Actions:
+1. Call `mcploadchain.MCPLoadChain("not-a-valid-token")`.
+
+Expected:
+- Returns error `subagenttoken.ErrInvalidToken`.
+
 #### Invalid logical name — not SPEC/
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("INVALID/something")`.
+1. Call `subagenttoken.SubagentTokenGenerate("INVALID/something")`
+   → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - Returns error `parsing.ErrUnrecognizedPrefix`.
 
 #### Nonexistent node file
 
+Setup:
+- Do not create `code-from-spec/root/nonexistent/_node.md`.
+
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/nonexistent")` with no
-   `_node.md` on disk.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/nonexistent")`
+   → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - Returns error propagated from `parsing.ParseNode`
@@ -384,7 +422,8 @@ Setup:
   `# SPEC/root/a`. No output in frontmatter.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - Returns error `mcploadchain.ErrNoOutput`.
@@ -399,7 +438,8 @@ Setup:
   `output: ../../etc/passwd`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - Returns error `mcploadchain.ErrInvalidOutputPath`.
@@ -419,7 +459,8 @@ Setup:
   hash no longer matches manifest checksum).
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - Returns error `mcploadchain.ErrArtifactModified`.
@@ -435,7 +476,8 @@ Setup:
 - No `.manifest` file.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - No error. Chain is loaded normally. The modified
@@ -452,7 +494,8 @@ Setup:
 - Do not create `code-from-spec/root/missing/_node.md`.
 
 Actions:
-1. Call `mcploadchain.MCPLoadChain("SPEC/root/a")`.
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
 - Returns an error — the missing node is detected
@@ -462,6 +505,8 @@ Expected:
 
 - The package name is `mcploadchain_test` (external
   test package).
+- Import the `subagenttoken` package to mint tokens for
+  `MCPLoadChain` calls.
 - Use `testutils.Chdir(t)` to create a temp dir and
   set the working directory.
 - When creating `_node.md` files with `# Public`

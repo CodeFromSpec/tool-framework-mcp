@@ -7,6 +7,7 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/subagent_token(interface)
 output: internal/mcploadchain/mcploadchain.go
 ---
 
@@ -14,7 +15,10 @@ output: internal/mcploadchain/mcploadchain.go
 
 Loads the complete spec chain for a given node and
 returns everything the subagent needs in a single
-formatted string.
+formatted string. The target node is identified by an
+opaque token (see `mcp_tools/create_token`), not a raw
+logical name, so a subagent cannot request the chain of
+a node other than the one it was dispatched for.
 
 # Public
 
@@ -29,14 +33,14 @@ formatted string.
 ## Interface
 
 ```go
-func MCPLoadChain(logicalName string) (string, error)
+func MCPLoadChain(token string) (string, error)
 ```
 
 ### Input
 
 | Parameter | Required | Description |
 |---|---|---|
-| `logicalName` | yes | Logical name of the target node. |
+| `token` | yes | Opaque token identifying the target node, as returned by `create_token`. |
 
 ### Output
 
@@ -85,8 +89,9 @@ sections in this order:
   outside the framework (checksum in manifest does not
   match file on disk). The artifact must be accepted
   or deleted before regeneration.
-- Propagated errors from `parsing`, `chainresolver`,
-  `chainhash`, `oslayer`, `manifest` packages.
+- Propagated errors from `subagenttoken`, `parsing`,
+  `chainresolver`, `chainhash`, `oslayer`, `manifest`
+  packages.
 
 # Agent
 
@@ -94,16 +99,23 @@ Implement the load chain tool as a Go package.
 
 ## Logic
 
+### Step 0 — Resolve token
+
+1. Call `subagenttoken.SubagentTokenValidate(token)` to
+   recover the target node's logical name. If it fails,
+   propagate the error. Store the result as
+   `logical_name` for the remaining steps.
+
 ### Step 1 — Validate and resolve
 
-1. Call `parsing.ParseNode(logical_name)` to read and
+2. Call `parsing.ParseNode(logical_name)` to read and
    parse the target node. If it fails, propagate the
    error. If `node.Frontmatter.Output` is nil,
    return error ErrNoOutput. Call
    `oslayer.ValidateStringIsCfsPath(*node.Frontmatter.Output)`.
    If it fails, return ErrInvalidOutputPath.
 
-2. Check if the artifact is modified:
+3. Check if the artifact is modified:
    Call `manifest.OpenManifest(true)`. If it succeeds,
    look up the artifact logical name (strip "SPEC/"
    from logical_name, prepend "ARTIFACT/") in
@@ -117,19 +129,19 @@ Implement the load chain tool as a Go package.
    If OpenManifest fails or the entry does not exist
    or the file does not exist, skip this check.
 
-3. Call `chainresolver.ChainResolve(logical_name)` to get the
+4. Call `chainresolver.ChainResolve(logical_name)` to get the
    resolved `Chain`. If it fails, propagate the error.
 
 ### Step 2 — Compute content hashes
 
-4. Call `chainhash.ChainHashCompute(chain)` with the resolved
+5. Call `chainhash.ChainHashCompute(chain)` with the resolved
    chain. It returns `(chain_hash, positions, err)`.
    If it fails, propagate the error. Store
    `chain_hash` and `positions`.
 
 ### Step 3 — Build XML document
 
-5. Build the XML document. Use a string builder.
+6. Build the XML document. Use a string builder.
 
    Append: "<chain>\n"
 
@@ -291,11 +303,11 @@ Implement the load chain tool as a Go package.
 
    Append: "</chain>\n"
 
-6. Return the assembled string.
+7. Return the assembled string.
 
 ### Step 4 — Write to cache
 
-7. Build a map from position label to extracted content:
+8. Build a map from position label to extracted content:
    during Step 3, each time content is extracted for a
    constraints entry, instructions, or input, store
    the extracted content string in a map keyed by the
@@ -311,16 +323,18 @@ Implement the load chain tool as a Go package.
    - Input: `"INPUT[" + referenceName + "]"` (with
      qualifier if present).
 
-8. For each position in `positions` (from Step 2):
+9. For each position in `positions` (from Step 2):
    Look up position.Label in the content map. If
    found, call `cache.WriteContent(position.Hash,
    content)`. Ignore errors — cache is best-effort.
 
-9. Call `cache.WriteChain(chain_hash, positions)`.
+10. Call `cache.WriteChain(chain_hash, positions)`.
     Ignore errors.
 
 ## Go-specific guidance
 
+- Use the `subagenttoken` package for
+  `SubagentTokenValidate`.
 - Use the `chainresolver` package for `ChainResolve`
   and `Chain`.
 - Use the `chainhash` package for `ChainHashCompute`
