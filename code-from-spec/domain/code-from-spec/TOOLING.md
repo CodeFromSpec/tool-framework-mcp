@@ -45,22 +45,29 @@ Load the complete spec chain for a given node.
 
 **Parameters:**
 
-- `logical_name` (string, required) — the logical name
-  of the target node. The node must declare `output`.
+- `token` (string, required) — an opaque token
+  identifying the target node, as returned by
+  `create_token`. The node must declare `output`.
 
 **Returns:** an XML document as defined in
-CHAIN_ASSEMBLY.md. The document contains up to seven
-sections: `<previous_constraints>`,
-`<previous_instructions>`, `<previous_input>`,
-`<existing_artifact>`, `<constraints>`,
-`<instructions>`, and `<input>`.
+CHAIN_ASSEMBLY.md. The document contains up to four
+core sections:
 
-The `<previous_*>` sections are populated from the
-cache when available (see CACHE.md). The
-`<existing_artifact>` section is present only when the
-output file exists on disk — if the file does not
-exist or cannot be read, the section is omitted
-silently.
+- `<existing_artifact>` — present only when the output
+  file exists on disk. If the file does not exist or
+  cannot be read, the section is omitted silently.
+- `<constraints>` — the spec chain content. Each
+  position is an `<entry>` element with a `name`
+  attribute.
+- `<instructions>` — the target node's `# Agent`
+  section.
+- `<input>` — the content referenced by the target
+  node's `input` field.
+
+When cache is available, up to three additional
+sections may appear before the core sections:
+`<previous_constraints>`, `<previous_instructions>`,
+`<previous_input>` (see CACHE.md).
 
 The content within `<constraints>` entries matches
 exactly what is hashed — hash and delivery never
@@ -74,6 +81,9 @@ regeneration.
 If any file in the chain (other than the existing
 artifact) is unreadable, returns an error.
 
+If `token` is malformed or was not produced by
+`create_token`, returns an error.
+
 ---
 
 ## write_file
@@ -83,26 +93,62 @@ manifest.
 
 **Parameters:**
 
-- `logical_name` (string, required) — the logical name
-  of the node whose `output` authorizes the write.
-  Must not contain a parenthetical qualifier.
-- `path` (string, required) — file path relative to the
-  project root. Must match the node's declared `output`.
+- `token` (string, required) — an opaque token
+  identifying the node whose `output` declares the
+  target path, as returned by `create_token`.
 - `content` (string, required) — complete file content.
 
 **Behavior:**
 
-1. Validate that `logical_name` has no qualifier and
-   that `path` matches the `output` declared in the
-   node's frontmatter.
-2. Write the file to disk.
+1. Resolve `token` to the target node's logical name.
+   Read the node's frontmatter and derive the output
+   path from its `output` field.
+2. Write the file to disk at the derived path.
 3. Compute the checksum (hash of the written content)
    and the current chain hash.
 4. Update the manifest entry for this node with the
    new checksum and chain hash.
 
+If `token` is malformed or was not produced by
+`create_token`, returns an error.
+
 The manifest must be updated atomically. See
 MANIFEST.md ("Concurrency") for locking requirements.
+
+---
+
+## create_token
+
+Mint an opaque token for a logical name.
+
+**Parameters:**
+
+- `logical_name` (string, required) — the logical name
+  of the target node. Must be a `SPEC/` reference with
+  no parenthetical qualifier.
+
+**Returns:** an opaque token string encoding
+`logical_name`.
+
+**Behavior:**
+
+Generate a token that `load_chain` and `write_file`
+accept in place of a raw logical name, and that only
+this operation can produce. This lets an orchestrator
+hand a generation subagent a token instead of a
+logical name: since the subagent has no way to mint a
+token itself, it cannot request the chain or write the
+output of a node other than the one it was dispatched
+for, even though the chain it receives from
+`load_chain` may reference other logical names (via
+inheritance, `depends_on`, or `input`).
+
+`create_token` is intended for the orchestrator only
+and must not be exposed to generation subagents —
+exposing it defeats the confinement it provides.
+
+If `logical_name` is not a `SPEC/` reference, or
+contains a parenthetical qualifier, returns an error.
 
 ---
 
@@ -145,25 +191,32 @@ See CACHE.md for details on the cache structure.
 
 ## accept
 
-Accept a modified artifact without regenerating it.
-Updates the manifest checksum to match the current
-file on disk.
+Accept an artifact without regenerating it. Updates
+the manifest entry to match the current state:
+checksum from the file on disk, chain hash from the
+current spec tree.
 
 **Parameters:**
 
 - `logical_name` (string, required) — the logical name
-  of the node whose artifact was modified.
+  of the node whose artifact should be accepted.
 
 **Behavior:**
 
-1. Verify the artifact is in "modified" status
-   (checksum mismatch). If not, return an error.
-2. Compute the hash of the file on disk.
-3. Update the manifest entry's checksum to match.
+1. Compute the hash of the file on disk and the
+   current chain hash from the spec tree.
+2. Compare both against the manifest entry. If the
+   manifest entry exists and both already match, the
+   artifact is up to date — return an error.
+3. Update the manifest entry's checksum and chain hash
+   to match the current values.
 
-The chain hash in the manifest is not changed — the
-artifact is accepted as-is against the same spec
-version that produced it.
+This handles three cases:
+- **Modified** (checksum mismatch): the file was
+  edited outside the framework.
+- **Stale** (chain hash mismatch): the spec changed
+  but the artifact content is still correct.
+- **Modified and stale**: both changed.
 
 ---
 
@@ -180,10 +233,43 @@ inspection.
 **Behavior:**
 
 Assemble the spec chain exactly as `load_chain` would,
-and write it to `<project root>/dump_chain.xml`. This
-produces the same document the generation subagent
-would receive, allowing the orchestrator or the human
-to inspect it.
+and write it to a file under `code-from-spec/.dump/`,
+named after the logical name with path separators
+replaced by underscores (e.g.,
+`code-from-spec/.dump/SPEC_golang_implementation_chain_hash.xml`).
+Each node dumps to its own file, so multiple dumps do
+not overwrite each other. This produces the same
+document the generation subagent would receive,
+allowing the orchestrator or the human to inspect it.
+
+---
+
+## prune_orphans
+
+Remove orphan manifest entries and their artifact
+files.
+
+**Parameters:** none.
+
+**Behavior:**
+
+1. Scan the spec tree and identify manifest entries
+   whose corresponding spec node no longer exists or
+   no longer declares `output`.
+2. For each orphan entry, delete the artifact file
+   from disk first, then remove the entry from the
+   manifest. This order ensures that if the file
+   deletion fails, the manifest entry is preserved —
+   the orphan remains trackable.
+3. If the artifact file does not exist on disk, remove
+   the manifest entry directly.
+4. If the artifact file exists but cannot be deleted,
+   skip that entry — do not remove it from the
+   manifest.
+
+Returns a report of every entry pruned. See
+MANIFEST.md ("Artifact status") for the orphan status
+reported by `validate_specs`.
 
 ---
 
