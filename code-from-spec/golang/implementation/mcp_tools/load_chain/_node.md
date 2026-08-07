@@ -1,5 +1,6 @@
 ---
 depends_on:
+  - ARTIFACT/domain/code-from-spec/chain-assembly-details
   - SPEC/golang/implementation/cache
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
@@ -102,7 +103,7 @@ Implement the load chain tool as a Go package.
    `oslayer.ValidateStringIsCfsPath(*node.Frontmatter.Output)`.
    If it fails, return ErrInvalidOutputPath.
 
-3. Check if the artifact is modified:
+2. Check if the artifact is modified:
    Call `manifest.OpenManifest(true)`. If it succeeds,
    look up the artifact logical name (strip "SPEC/"
    from logical_name, prepend "ARTIFACT/") in
@@ -116,21 +117,65 @@ Implement the load chain tool as a Go package.
    If OpenManifest fails or the entry does not exist
    or the file does not exist, skip this check.
 
-4. Call `chainresolver.ChainResolve(logical_name)` to get the
+3. Call `chainresolver.ChainResolve(logical_name)` to get the
    resolved `Chain`. If it fails, propagate the error.
 
 ### Step 2 — Compute content hashes
 
-5. Call `chainhash.ChainHashCompute(chain)` with the resolved
+4. Call `chainhash.ChainHashCompute(chain)` with the resolved
    chain. It returns `(chain_hash, positions, err)`.
    If it fails, propagate the error. Store
    `chain_hash` and `positions`.
 
 ### Step 3 — Build XML document
 
-6. Build the XML document. Use a string builder.
+5. Build the XML document. Use a string builder.
 
    Append: "<chain>\n"
+
+   See `ARTIFACT/domain/code-from-spec/chain-assembly-details`
+   for the exact XML section order, presence conditions,
+   and a worked example. Follow it precisely.
+
+   **Previous constraints** (optional):
+   If cache is available and the existing artifact is
+   present on disk: for each position among ancestors,
+   dependencies, and the target's `# Public` whose cached
+   content hash differs from its current hash, or which
+   is no longer present in the current chain (removed),
+   look up its old content in the cache by the cached
+   hash. Emit one `<entry name="..." disposition="changed">`
+   (or `disposition="removed"` if no longer present) per
+   such position, containing the old content, all wrapped
+   together in a single
+   `<previous_constraints>...</previous_constraints>`
+   block. Positions whose hash is unchanged are omitted
+   entirely. Omit the whole block if there is nothing to
+   report.
+
+   **Previous instructions** (optional):
+   If cache is available, the existing artifact is
+   present, and the target's `# Agent` content hash
+   differs from its cached hash (or the node no longer
+   has an `# Agent` section): look up the old `# Agent`
+   content in the cache. The element is
+   `<previous_instructions disposition="changed">` (or
+   `disposition="removed"` if the section is gone),
+   with the old content as its entire body. Append
+   `<previous_instructions disposition="...">`, the old
+   content, then `</previous_instructions>`. Omit the
+   whole block otherwise.
+
+   **Previous input** (optional):
+   If cache is available, the existing artifact is
+   present, and the target's `input` content hash differs
+   from its cached hash (or `input` was removed): look up
+   the old input content in the cache. The element is
+   `<previous_input disposition="changed">` (or
+   `disposition="removed"`), with the old content as its
+   entire body. Append `<previous_input disposition="...">`,
+   the old content, then `</previous_input>`. Omit the
+   whole block otherwise.
 
    **Existing artifact** (optional):
    If the file at `*node.Frontmatter.Output` exists and is
@@ -246,11 +291,11 @@ Implement the load chain tool as a Go package.
 
    Append: "</chain>\n"
 
-7. Return the assembled string.
+6. Return the assembled string.
 
 ### Step 4 — Write to cache
 
-8. Build a map from position label to extracted content:
+7. Build a map from position label to extracted content:
    during Step 3, each time content is extracted for a
    constraints entry, instructions, or input, store
    the extracted content string in a map keyed by the
@@ -266,12 +311,12 @@ Implement the load chain tool as a Go package.
    - Input: `"INPUT[" + referenceName + "]"` (with
      qualifier if present).
 
-9. For each position in `positions` (from Step 2):
+8. For each position in `positions` (from Step 2):
    Look up position.Label in the content map. If
    found, call `cache.WriteContent(position.Hash,
    content)`. Ignore errors — cache is best-effort.
 
-10. Call `cache.WriteChain(chain_hash, positions)`.
+9. Call `cache.WriteChain(chain_hash, positions)`.
     Ignore errors.
 
 ## Go-specific guidance
