@@ -8,19 +8,29 @@ generation, and cache management.
 
 - **load_chain** — assembles the complete spec chain for a
   node as an XML document, including disposition attributes
-  and previous-generation content when cache is available
+  and previous-generation content when cache is available.
+  Takes an opaque token (see `create_token`), not a raw
+  logical name
 - **write_file** — writes a generated file to disk and
-  updates the manifest
+  updates the manifest. Takes an opaque token (see
+  `create_token`), not a raw logical name
+- **create_token** — mints an opaque token for a logical
+  name, for `load_chain` and `write_file`. Intended for the
+  orchestrator only — a generation subagent given only
+  `load_chain`/`write_file` cannot mint a token for a node
+  other than the one it was dispatched for
 - **validate_specs** — validates the spec tree for format
   errors, circular references, and artifact staleness
 - **accept** — accepts an artifact without regenerating,
   updating the manifest checksum and chain hash to match
   the current state
-- **dump_chain** — writes the spec chain to `dump_chain.xml`
-  for inspection
+- **dump_chain** — writes the spec chain for a node to its
+  own file under `code-from-spec/.dump/` for inspection
 - **reconstruct_cache** — populates the cache from the
   current state of the repository
 - **prune_cache** — removes unreferenced files from the cache
+- **prune_orphans** — removes orphan manifest entries and
+  their artifact files
 - **version** — returns the tool version
 
 ## Install
@@ -74,9 +84,11 @@ Tools:
   write_file          Write a generated file to disk.
   validate_specs      Validate specs and check artifact staleness.
   accept              Accept a modified artifact.
+  create_token        Mint an opaque token for a logical name.
   dump_chain          Dump the spec chain to a file.
   reconstruct_cache   Rebuild cache from current state.
   prune_cache         Remove unreferenced cache files.
+  prune_orphans       Remove orphan manifest entries and their artifacts.
   version             Print the tool version.
 
 MCP configuration example:
