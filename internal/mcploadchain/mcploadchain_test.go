@@ -732,7 +732,7 @@ func TestMCPLoadChain_ModifiedArtifactBlocked(t *testing.T) {
 	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
 		t.Fatalf("failed to create code-from-spec dir: %v", err)
 	}
-	manifestContent := "code-from-spec: v5\n" +
+	manifestContent := "code-from-spec: v6\n" +
 		"ARTIFACT/root/a;path:out/a.go;checksum:Kx9mP2vB7wY2tHsJ8dFak4Xz9pQ;chain:Jz3qR7nL5cW1gT4yK8mDfAx0vBe\n"
 	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
 		t.Fatalf("failed to write manifest: %v", err)
