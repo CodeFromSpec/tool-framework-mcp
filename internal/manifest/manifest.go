@@ -33,7 +33,7 @@ func parseManifest(f *oslayer.File) (map[string]ManifestEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading manifest header: %w", err)
 	}
-	if header != "code-from-spec: v5" {
+	if header != "code-from-spec: v6" {
 		return nil, ErrManifestFormatError
 	}
 
@@ -95,7 +95,7 @@ func OpenManifest(readOnly bool) (*Manifest, error) {
 			if errors.Is(err, oslayer.ErrFileUnreadable) {
 				return &Manifest{
 					readOnly: true,
-					Version:  "v5",
+					Version:  "v6",
 					Entries:  make(map[string]ManifestEntry),
 				}, nil
 			}
@@ -114,7 +114,7 @@ func OpenManifest(readOnly bool) (*Manifest, error) {
 
 		return &Manifest{
 			readOnly: true,
-			Version:  "v5",
+			Version:  "v6",
 			Entries:  entries,
 		}, nil
 	}
@@ -133,7 +133,7 @@ func OpenManifest(readOnly bool) (*Manifest, error) {
 		if errors.Is(err, oslayer.ErrFileUnreadable) {
 			return &Manifest{
 				readOnly: false,
-				Version:  "v5",
+				Version:  "v6",
 				Entries:  make(map[string]ManifestEntry),
 				lockFile: lockFH,
 			}, nil
@@ -152,7 +152,7 @@ func OpenManifest(readOnly bool) (*Manifest, error) {
 
 	return &Manifest{
 		readOnly: false,
-		Version:  "v5",
+		Version:  "v6",
 		Entries:  entries,
 		lockFile: lockFH,
 	}, nil
@@ -171,7 +171,7 @@ func (m *Manifest) Save() error {
 		return fmt.Errorf("opening manifest for save: %w", err)
 	}
 
-	if err := fh.Write("code-from-spec: v5\n"); err != nil {
+	if err := fh.Write("code-from-spec: v6\n"); err != nil {
 		fh.Close()
 		return fmt.Errorf("writing manifest header: %w", err)
 	}

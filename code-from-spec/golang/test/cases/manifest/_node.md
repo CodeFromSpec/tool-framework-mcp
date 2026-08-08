@@ -19,7 +19,7 @@ output: internal/manifest/manifest_test.go
 
 Setup:
 - Create a `.manifest` file with a header line
-  `"code-from-spec: v5"` and two entries, each with
+  `"code-from-spec: v6"` and two entries, each with
   distinct logical name, path, checksum, and chain_hash
   fields.
 
@@ -27,7 +27,7 @@ Actions:
 1. Call `manifest.OpenManifest(true)`.
 
 Expected outcome:
-- Returns a Manifest with `Version` = `"v5"`, and an
+- Returns a Manifest with `Version` = `"v6"`, and an
   Entries map containing both entries.
 - Each entry has the correct Path, Checksum, and
   ChainHash matching the file contents.
@@ -170,7 +170,7 @@ Actions:
 
 Expected outcome:
 - The file contains only the header line
-  `"code-from-spec: v5"`, no entry lines.
+  `"code-from-spec: v6"`, no entry lines.
 
 ### Discard — happy path
 
@@ -199,6 +199,19 @@ Expected outcome:
 Setup:
 - Create a `.manifest` file whose first line is
   `"invalid-header"`.
+
+Actions:
+1. Call `manifest.OpenManifest(true)`.
+
+Expected outcome:
+- Returns `manifest.ErrManifestFormatError`.
+
+#### Wrong version header
+
+Setup:
+- Create a `.manifest` file whose first line is
+  `"code-from-spec: v5"` (a syntactically valid header
+  for an unsupported version).
 
 Actions:
 1. Call `manifest.OpenManifest(true)`.
@@ -323,7 +336,7 @@ Expected outcome:
   `code-from-spec/` subdirectory before writing.
 - Helper to write manifest files: write to
   `code-from-spec/.manifest` with header
-  `"code-from-spec: v5\n"` followed by entry lines.
+  `"code-from-spec: v6\n"` followed by entry lines.
 - Helper to read manifest files: read from
   `code-from-spec/.manifest` for assertions.
 - For concurrency tests, use goroutines with

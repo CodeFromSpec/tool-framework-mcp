@@ -53,7 +53,7 @@ func TestOpenManifest_ReadOnly_ExistingManifest(t *testing.T) {
 	testutils.Chdir(t)
 
 	writeManifestFile(t, []string{
-		"code-from-spec: v5",
+		"code-from-spec: v6",
 		"ARTIFACT/foo/bar;path:internal/foo/bar.go;checksum:aaaaaaaaaaaaaaaaaaaaaaaaaaaa1;chain:aaaaaaaaaaaaaaaaaaaaaaaaaaaa2",
 		"ARTIFACT/foo/baz;path:internal/foo/baz.go;checksum:bbbbbbbbbbbbbbbbbbbbbbbbbbbb1;chain:bbbbbbbbbbbbbbbbbbbbbbbbbbbb2",
 	})
@@ -63,8 +63,8 @@ func TestOpenManifest_ReadOnly_ExistingManifest(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if m.Version != "v5" {
-		t.Errorf("expected Version v5, got %q", m.Version)
+	if m.Version != "v6" {
+		t.Errorf("expected Version v6, got %q", m.Version)
 	}
 	if len(m.Entries) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(m.Entries))
@@ -103,7 +103,7 @@ func TestOpenManifest_ReadOnly_HeaderOnly(t *testing.T) {
 	testutils.Chdir(t)
 
 	writeManifestFile(t, []string{
-		"code-from-spec: v5",
+		"code-from-spec: v6",
 	})
 
 	m, err := manifest.OpenManifest(true)
@@ -137,7 +137,7 @@ func TestOpenManifest_Writable_LoadsExistingEntries(t *testing.T) {
 	testutils.Chdir(t)
 
 	writeManifestFile(t, []string{
-		"code-from-spec: v5",
+		"code-from-spec: v6",
 		"ARTIFACT/alpha;path:internal/alpha.go;checksum:cccccccccccccccccccccccccc1;chain:cccccccccccccccccccccccccc2",
 	})
 
@@ -203,7 +203,7 @@ func TestSave_CreatesManifestFromScratch(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("expected 3 lines, got %d: %v", len(lines), lines)
 	}
-	if lines[0] != "code-from-spec: v5" {
+	if lines[0] != "code-from-spec: v6" {
 		t.Errorf("unexpected header: %q", lines[0])
 	}
 	expected1 := "ARTIFACT/alpha;path:internal/alpha.go;checksum:alphaChecksum11111111111111;chain:alphaChain111111111111111111"
@@ -220,7 +220,7 @@ func TestSave_OverwritesExistingManifest(t *testing.T) {
 	testutils.Chdir(t)
 
 	writeManifestFile(t, []string{
-		"code-from-spec: v5",
+		"code-from-spec: v6",
 		"ARTIFACT/alpha;path:internal/alpha.go;checksum:alphaChecksum11111111111111;chain:alphaChain111111111111111111",
 	})
 
@@ -256,7 +256,7 @@ func TestSave_ModifiedEntry(t *testing.T) {
 	testutils.Chdir(t)
 
 	writeManifestFile(t, []string{
-		"code-from-spec: v5",
+		"code-from-spec: v6",
 		"ARTIFACT/alpha;path:internal/alpha.go;checksum:old-checksum111111111111111;chain:alphaChain111111111111111111",
 	})
 
@@ -287,7 +287,7 @@ func TestSave_RemovedEntry(t *testing.T) {
 	testutils.Chdir(t)
 
 	writeManifestFile(t, []string{
-		"code-from-spec: v5",
+		"code-from-spec: v6",
 		"ARTIFACT/alpha;path:internal/alpha.go;checksum:alphaChecksum11111111111111;chain:alphaChain111111111111111111",
 		"ARTIFACT/beta;path:internal/beta.go;checksum:betaChecksum111111111111111;chain:betaChain1111111111111111111",
 	})
@@ -317,7 +317,7 @@ func TestSave_EmptyEntries(t *testing.T) {
 	testutils.Chdir(t)
 
 	writeManifestFile(t, []string{
-		"code-from-spec: v5",
+		"code-from-spec: v6",
 		"ARTIFACT/alpha;path:internal/alpha.go;checksum:alphaChecksum11111111111111;chain:alphaChain111111111111111111",
 		"ARTIFACT/beta;path:internal/beta.go;checksum:betaChecksum111111111111111;chain:betaChain1111111111111111111",
 	})
@@ -338,7 +338,7 @@ func TestSave_EmptyEntries(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("expected 1 line, got %d: %v", len(lines), lines)
 	}
-	if lines[0] != "code-from-spec: v5" {
+	if lines[0] != "code-from-spec: v6" {
 		t.Errorf("unexpected header: %q", lines[0])
 	}
 }
@@ -347,7 +347,7 @@ func TestDiscard_DoesNotModifyFile(t *testing.T) {
 	testutils.Chdir(t)
 
 	writeManifestFile(t, []string{
-		"code-from-spec: v5",
+		"code-from-spec: v6",
 		"ARTIFACT/alpha;path:internal/alpha.go;checksum:alphaChecksum11111111111111;chain:alphaChain111111111111111111",
 	})
 
@@ -385,6 +385,19 @@ func TestOpenManifest_InvalidHeader(t *testing.T) {
 
 	writeManifestFile(t, []string{
 		"invalid-header",
+	})
+
+	_, err := manifest.OpenManifest(true)
+	if !errors.Is(err, manifest.ErrManifestFormatError) {
+		t.Errorf("expected ErrManifestFormatError, got %v", err)
+	}
+}
+
+func TestOpenManifest_WrongVersionHeader(t *testing.T) {
+	testutils.Chdir(t)
+
+	writeManifestFile(t, []string{
+		"code-from-spec: v5",
 	})
 
 	_, err := manifest.OpenManifest(true)

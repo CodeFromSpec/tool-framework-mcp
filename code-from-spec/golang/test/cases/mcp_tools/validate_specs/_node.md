@@ -55,7 +55,7 @@ Setup:
 - Compute the current chain hash for SPEC/root/a.
   Compute the checksum of `out/a.go`.
 - Create `code-from-spec/.manifest` with header
-  `code-from-spec: v5` and entry:
+  `code-from-spec: v6` and entry:
   `ARTIFACT/root/a;path:out/a.go;checksum:<checksum>;chain:<chain_hash>`
 
 Actions:
@@ -389,6 +389,6 @@ Expected:
   writing the file directly
   with the correct format:
   ```
-  code-from-spec: v5
+  code-from-spec: v6
   ARTIFACT/root/a;path:out/a.go;checksum:<hash>;chain:<hash>
   ```
