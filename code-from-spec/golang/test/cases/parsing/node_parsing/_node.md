@@ -66,7 +66,7 @@ to derive the expected number.
 
 Setup:
 - Create `code-from-spec/a/_node.md` with frontmatter
-  containing depends_on (SPEC/, ARTIFACT/, EXTERNAL/
+  containing imports (SPEC/, ARTIFACT/, EXTERNAL/
   entries), input, and output. Body has `# SPEC/a`
   heading.
 
@@ -75,7 +75,7 @@ Actions:
 
 Expected:
 - node.Frontmatter is not nil.
-- node.Frontmatter.DependsOn contains all listed
+- node.Frontmatter.Imports contains all listed
   entries.
 - *node.Frontmatter.Input matches.
 - *node.Frontmatter.Output matches. No error.
@@ -86,31 +86,31 @@ Setup:
 - `_node.md` with only `output` in frontmatter.
   Body has valid heading.
 
-Expected: DependsOn nil, Input nil, Output not nil.
+Expected: Imports nil, Input nil, Output not nil.
 
-#### Parses frontmatter with only depends_on
+#### Parses frontmatter with only imports
 
 Setup:
-- `_node.md` with only `depends_on` in frontmatter.
+- `_node.md` with only `imports` in frontmatter.
   Body has valid heading.
 
-Expected: DependsOn contains values, Input nil,
+Expected: Imports contains values, Input nil,
 Output nil.
 
-#### Parses frontmatter with EXTERNAL/ in depends_on
+#### Parses frontmatter with EXTERNAL/ in imports
 
 Setup:
 - `_node.md` with
-  `depends_on: ["EXTERNAL/proto/api.proto"]`.
+  `imports: ["EXTERNAL/proto/api.proto"]`.
 
-Expected: DependsOn contains the EXTERNAL entry.
+Expected: Imports contains the EXTERNAL entry.
 
 #### Parses frontmatter with input field
 
 Setup:
 - `_node.md` with only `input` field.
 
-Expected: Input not nil, DependsOn nil, Output nil.
+Expected: Input not nil, Imports nil, Output nil.
 
 #### Ignores unknown frontmatter fields
 

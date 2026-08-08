@@ -27,7 +27,7 @@ type NodeBuilder struct { /* unexported fields */ }
 func CreateSpecNode(t *testing.T, logicalName string) *NodeBuilder
 func (b *NodeBuilder) SetOutput(value string)
 func (b *NodeBuilder) SetInput(value string)
-func (b *NodeBuilder) AddDependsOn(value string)
+func (b *NodeBuilder) AddImport(value string)
 func (b *NodeBuilder) SetPublic(content string)
 func (b *NodeBuilder) SetAgent(content string)
 func (b *NodeBuilder) SetPrivate(content string)
@@ -44,9 +44,9 @@ logical name for later use by `Write`.
 
 Set the `output` or `input` frontmatter field.
 
-#### AddDependsOn
+#### AddImport
 
-Appends a `depends_on` entry. Can be called multiple
+Appends an `imports` entry. Can be called multiple
 times.
 
 #### SetPublic, SetAgent, SetPrivate
@@ -64,7 +64,7 @@ path from the logical name (`SPEC/a/b` →
 directories. Assembles the file content:
 
 1. Frontmatter block (if any field was set): `output`,
-   `input`, `depends_on` between `---` delimiters.
+   `input`, `imports` between `---` delimiters.
 2. Node name heading: `# <logicalName>`.
 3. `# Public` section (if set).
 4. `# Agent` section (if set).
@@ -110,7 +110,7 @@ type NodeBuilder struct {
 	logicalName string
 	output      *string
 	input       *string
-	dependsOn   []string
+	imports     []string
 	public      *string
 	agent       *string
 	private     *string
@@ -121,22 +121,22 @@ func CreateSpecNode(t *testing.T, logicalName string) *NodeBuilder {
 	return &NodeBuilder{t: t, logicalName: logicalName}
 }
 
-func (b *NodeBuilder) SetOutput(value string)    { b.output = &value }
-func (b *NodeBuilder) SetInput(value string)     { b.input = &value }
-func (b *NodeBuilder) AddDependsOn(value string) { b.dependsOn = append(b.dependsOn, value) }
-func (b *NodeBuilder) SetPublic(content string)  { b.public = &content }
-func (b *NodeBuilder) SetAgent(content string)   { b.agent = &content }
+func (b *NodeBuilder) SetOutput(value string)   { b.output = &value }
+func (b *NodeBuilder) SetInput(value string)    { b.input = &value }
+func (b *NodeBuilder) AddImport(value string)   { b.imports = append(b.imports, value) }
+func (b *NodeBuilder) SetPublic(content string) { b.public = &content }
+func (b *NodeBuilder) SetAgent(content string)  { b.agent = &content }
 func (b *NodeBuilder) SetPrivate(content string) { b.private = &content }
 
 func (b *NodeBuilder) Write() {
 	b.t.Helper()
 	var buf strings.Builder
 
-	if b.output != nil || b.input != nil || len(b.dependsOn) > 0 {
+	if b.output != nil || b.input != nil || len(b.imports) > 0 {
 		buf.WriteString("---\n")
-		if len(b.dependsOn) > 0 {
-			buf.WriteString("depends_on:\n")
-			for _, dep := range b.dependsOn {
+		if len(b.imports) > 0 {
+			buf.WriteString("imports:\n")
+			for _, dep := range b.imports {
 				buf.WriteString("  - " + dep + "\n")
 			}
 		}

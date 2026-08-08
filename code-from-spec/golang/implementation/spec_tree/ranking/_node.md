@@ -35,7 +35,7 @@ names, and error.
 
 ### Errors
 
-- `ErrUnresolvableReference`: a `depends_on` or `input` target cannot
+- `ErrUnresolvableReference`: an `imports` or `input` target cannot
   be resolved.
 
 # Agent
@@ -81,8 +81,8 @@ For each spec node entry in the entry map:
 2. **Parent dependency**: If ParentName is not nil, add *ParentName to
    the entry's deps list.
 
-3. **depends_on dependencies**: If node.Frontmatter is not nil, for
-   each reference in node.Frontmatter.DependsOn:
+3. **imports dependencies**: If node.Frontmatter is not nil, for
+   each reference in node.Frontmatter.Imports:
    - If reference starts with "SPEC/":
      - Extract the unqualified logical name: if the reference contains
        "(", take the portion before it; otherwise use the reference

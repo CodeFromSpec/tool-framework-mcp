@@ -36,9 +36,9 @@ simple case folding.
 
 ```go
 type NodeFrontmatter struct {
-    DependsOn []string
-    Input     *string
-    Output    *string
+    Imports []string
+    Input   *string
+    Output  *string
 }
 
 type NodeSubsection struct {
@@ -67,7 +67,7 @@ func ParseNode(logicalName string) (*Node, error)
 ```
 
 `NodeFrontmatter` fields are nil when absent from the
-YAML. `DependsOn` defaults to nil (not empty slice)
+YAML. `Imports` defaults to nil (not empty slice)
 when absent.
 
 `Heading` is the normalized form (after `NormalizeText`),

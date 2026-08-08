@@ -57,7 +57,7 @@ Setup:
 - entries: SPEC/root (intermediate, has children
   SPEC/root/a and SPEC/root/b), SPEC/root/a (leaf,
   heading = "spec/root/a",
-  depends_on = ["SPEC/root/b"],
+  imports = ["SPEC/root/b"],
   output = "internal/out.go"),
   SPEC/root/b (leaf, heading = "spec/root/b").
 - all_dirs: ["code-from-spec", "code-from-spec/root",
@@ -124,12 +124,12 @@ Rule: "name_heading" }.
 
 ### leaf_only_fields
 
-#### Intermediate node with depends_on
+#### Intermediate node with imports
 
 Setup:
 - SPEC/root, SPEC/root/a (intermediate, has child
   SPEC/root/a/b,
-  depends_on = ["SPEC/root/b"]),
+  imports = ["SPEC/root/b"]),
   SPEC/root/a/b (leaf).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
@@ -160,7 +160,7 @@ Rule: "leaf_only_fields" }.
 Setup:
 - SPEC/root, SPEC/root/a (intermediate, has child
   SPEC/root/a/b,
-  depends_on = ["SPEC/root/b"], output = "x.go"),
+  imports = ["SPEC/root/b"], output = "x.go"),
   SPEC/root/a/b (leaf).
 
 Expected: Two spectreevalidate.FormatError entries with
@@ -187,109 +187,109 @@ Setup:
 
 Expected: No leaf_only_agent error.
 
-### dependency_targets
+### import_targets
 
-#### depends_on targets non-existent SPEC node
+#### imports targets non-existent SPEC node
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  depends_on = ["SPEC/root/missing"]).
+  imports = ["SPEC/root/missing"]).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
-Rule: "dependency_targets" }.
+Rule: "import_targets" }.
 
-#### depends_on targets ancestor
+#### imports targets ancestor
 
 Setup:
 - SPEC/root (intermediate, has child SPEC/root/a),
-  SPEC/root/a (leaf, depends_on = ["SPEC/root"]).
+  SPEC/root/a (leaf, imports = ["SPEC/root"]).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
-Rule: "dependency_targets" }.
+Rule: "import_targets" }.
 
-#### depends_on targets descendant
+#### imports targets descendant
 
 Setup:
 - SPEC/root, SPEC/root/a (intermediate, has child
   SPEC/root/a/b,
-  depends_on = ["SPEC/root/a/b"]),
+  imports = ["SPEC/root/a/b"]),
   SPEC/root/a/b (leaf).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
-Rule: "dependency_targets" }.
+Rule: "import_targets" }.
 
-#### depends_on targets self
+#### imports targets self
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  depends_on = ["SPEC/root/a"]).
+  imports = ["SPEC/root/a"]).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
-Rule: "dependency_targets" }.
+Rule: "import_targets" }.
 
-#### depends_on with valid SPEC qualifier
+#### imports with valid SPEC qualifier
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf), SPEC/root/b (leaf,
-  depends_on = ["SPEC/root/a(interface)"]).
+  imports = ["SPEC/root/a(interface)"]).
 
-Expected: No dependency_targets error.
+Expected: No import_targets error.
 
-#### depends_on with valid ARTIFACT reference
+#### imports with valid ARTIFACT reference
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf, output = "lib.go"),
   SPEC/root/b (leaf,
-  depends_on = ["ARTIFACT/root/a"]).
+  imports = ["ARTIFACT/root/a"]).
 
-Expected: No dependency_targets error.
+Expected: No import_targets error.
 
-#### depends_on with non-existent ARTIFACT reference
+#### imports with non-existent ARTIFACT reference
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  depends_on = ["ARTIFACT/root/missing"]).
+  imports = ["ARTIFACT/root/missing"]).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
-Rule: "dependency_targets" }.
+Rule: "import_targets" }.
 
-#### depends_on with valid EXTERNAL reference
+#### imports with valid EXTERNAL reference
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  depends_on = ["EXTERNAL/proto/api.proto"]).
+  imports = ["EXTERNAL/proto/api.proto"]).
 - Create "proto/api.proto" on disk.
 
-Expected: No dependency_targets error.
+Expected: No import_targets error.
 
-#### depends_on with non-existent EXTERNAL file
+#### imports with non-existent EXTERNAL file
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  depends_on = ["EXTERNAL/nonexistent.txt"]).
+  imports = ["EXTERNAL/nonexistent.txt"]).
 - Do not create the file.
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
-Rule: "dependency_targets" }.
+Rule: "import_targets" }.
 
-#### depends_on with unrecognized prefix
+#### imports with unrecognized prefix
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  depends_on = ["UNKNOWN/something"]).
+  imports = ["UNKNOWN/something"]).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
-Rule: "dependency_targets" }.
+Rule: "import_targets" }.
 
-#### Multiple invalid depends_on — one error per entry
+#### Multiple invalid imports — one error per entry
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  depends_on = ["SPEC/root/missing",
+  imports = ["SPEC/root/missing",
   "SPEC/root/also_missing"]).
 
 Expected: Two spectreevalidate.FormatError entries with
-Rule = "dependency_targets" for SPEC/root/a.
+Rule = "import_targets" for SPEC/root/a.
 
 ### input_target
 
@@ -528,11 +528,11 @@ Expected: No duplicate_subsections error.
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
   heading = "spec/wrong",
-  depends_on = ["SPEC/root/missing"], public with
+  imports = ["SPEC/root/missing"], public with
   duplicate subsections).
 
 Expected: At least three spectreevalidate.FormatError entries: name_heading,
-dependency_targets, duplicate_subsections.
+import_targets, duplicate_subsections.
 
 #### Empty input list
 

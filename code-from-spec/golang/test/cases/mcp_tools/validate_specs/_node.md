@@ -171,7 +171,7 @@ Setup:
   `# SPEC/root/a`, frontmatter `output: out/a.go`.
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`, frontmatter `output: out/b.go`,
-  `depends_on: ["SPEC/root/a"]`.
+  `imports: ["SPEC/root/a"]`.
 - No manifest entries (both are missing).
 
 Actions:
@@ -203,7 +203,7 @@ Expected:
 
 ### Format errors
 
-#### Format error from invalid depends_on
+#### Format error from invalid imports
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
@@ -211,14 +211,14 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `depends_on: ["SPEC/root/missing"]`.
+  frontmatter `imports: ["SPEC/root/missing"]`.
 
 Actions:
 1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
 
 Expected:
 - `format_errors` contains a spectreevalidate.FormatError for
-  `"SPEC/root/a"` with `Rule` = `"dependency_targets"`.
+  `"SPEC/root/a"` with `Rule` = `"import_targets"`.
 
 #### Format error from parse failure
 
@@ -288,10 +288,10 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `depends_on: ["SPEC/root/b"]`.
+  frontmatter `imports: ["SPEC/root/b"]`.
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`,
-  frontmatter `depends_on: ["SPEC/root/a"]`.
+  frontmatter `imports: ["SPEC/root/a"]`.
 
 Actions:
 1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
@@ -308,7 +308,7 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `depends_on: ["SPEC/root/missing"]`.
+  frontmatter `imports: ["SPEC/root/missing"]`.
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`, frontmatter `output: out/b.go`.
 - No manifest entry for ARTIFACT/root/b.
