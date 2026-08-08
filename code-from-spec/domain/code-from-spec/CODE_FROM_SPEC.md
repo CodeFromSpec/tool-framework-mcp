@@ -1,24 +1,33 @@
-# Code From Spec v5
+# Code from Spec v6
 
-**Code From Spec** is a methodology where code is a generated
-artifact, not the source of truth. The source of truth is a
-hierarchy of specification files. To change behavior, you change
-the specifications, and regenerate the code.
+**Code from Spec** is a methodology where specifications drive
+the code. To change behavior, you change the specifications and
+regenerate. Never edit generated artifacts directly — a fix the
+specifications don't carry will not survive the next generation.
 
-This methodology is designed for AI agent participation at every
-stage — writing specs, generating artifacts, and assisting
-non-technical contributors with spec authoring. It requires
-tooling for chain assembly, staleness detection, and manifest
-management. See Resources for the reference implementation.
+This methodology is designed for AI agents to participate at
+every stage, from spec authoring to artifact generation to
+debugging. It requires tooling for chain assembly, staleness
+detection, and manifest management. See Resources for the
+reference implementation.
 
 ---
 
-## The Model
+## Specifications
+
+Specifications carry the project's decisions.
+
+### Location
+
+Specifications live under `<project root>/code-from-spec/`.
+
+### Structure
 
 Specifications are organized as a tree — or multiple
 independent trees — of spec nodes. Each node adds precision
-to its parent — high-level intent at the root, implementation
-detail at the leaves. Only leaf nodes generate artifacts.
+to its parent — high-level decisions at the root,
+implementation detail at the leaves. Only leaf nodes
+generate artifacts.
 
 ```
 code-from-spec/
@@ -29,22 +38,6 @@ code-from-spec/
 └── integrations/
     └── database/          ← leaf
 ```
-
----
-
-## Specifications
-
-Specifications are the source of truth from which artifacts are
-generated.
-
-### Location
-
-Specifications live under `<project root>/code-from-spec/`.
-
-### Structure
-
-Specifications are organized as a tree — or multiple
-independent trees — of spec nodes.
 
 Child nodes inherit the public content of all their ancestors.
 This inheritance is automatic and mandatory.
@@ -106,7 +99,7 @@ parenthetical suffix: `SPEC/x/y(z)` targets the
 #### Content delivered in the chain
 
 When a name is included in the chain (via inheritance,
-`depends_on`, or `input`), the content delivered depends
+`imports`, or `input`), the content delivered depends
 on the prefix:
 
 - `SPEC/x` — all `##` subsections of `# Public`,
@@ -130,7 +123,7 @@ the artifact it consumes is up to date.
 
 Frontmatter is optional YAML metadata in spec nodes.
 It is not part of the node's content — it does not
-participate in inheritance or `depends_on`. The framework
+participate in inheritance or `imports`. The framework
 recognizes specific fields (described below). Unrecognized
 fields are ignored and may be used as custom fields by
 projects.
@@ -138,9 +131,9 @@ projects.
 The following fields are recognized by the framework. All
 are optional and only permitted on leaf nodes.
 
-#### depends_on
+#### imports
 
-Optional. Dependencies that provide context for generation.
+Optional. Content imported to provide context for generation.
 Each entry uses a `SPEC/`, `ARTIFACT/`, or `EXTERNAL/`
 name. When absent, the node's chain contains only
 inherited content from ancestors.
@@ -152,7 +145,7 @@ descendant would create a circular dependency.
 
 ```yaml
 ---
-depends_on:
+imports:
   - SPEC/integrations/payments-api/create-transfer
   - SPEC/architecture/backend/api-gateway
   - ARTIFACT/extraction/email-templates
@@ -163,12 +156,17 @@ depends_on:
 #### input
 
 Optional. Material to be transformed into a new artifact.
-Uses a `SPEC/`, `ARTIFACT/`, or `EXTERNAL/` name. While
-`depends_on` brings in context that informs generation,
-`input` brings in content that the generation subagent
-transforms. When absent, the subagent generates directly
-from the specification without source material to
-transform.
+Accepts a single `SPEC/`, `ARTIFACT/`, or `EXTERNAL/` name,
+or a list of names. While `imports` brings in context that
+informs generation, `input` brings in content that the
+generation subagent transforms. When absent, the subagent
+generates directly from the specification without source
+material to transform.
+
+When `input` is a list, entries are delivered in alphabetical
+order by the full logical name, using the same ordering and
+deduplication rules as `imports` (see CHAIN_HASH.md). Each
+entry is tracked independently for staleness and disposition.
 
 ```yaml
 ---
@@ -179,6 +177,14 @@ input: ARTIFACT/functional/notifications
 ```yaml
 ---
 input: SPEC/functional/notifications(acceptance-tests)
+---
+```
+
+```yaml
+---
+input:
+  - ARTIFACT/functional/notifications/email
+  - ARTIFACT/functional/notifications/sms
 ---
 ```
 
@@ -201,7 +207,7 @@ A leaf node with all fields:
 
 ```yaml
 ---
-depends_on:
+imports:
   - SPEC/integrations/payments-api/create-transfer
   - ARTIFACT/extraction/email-templates
   - EXTERNAL/proto/payments/v1/transfers.proto
@@ -225,15 +231,15 @@ immediately after the frontmatter closing `---` (if
 present) or on the first line of the file. Nothing may
 precede it, not even whitespace. The heading is the
 node's name (e.g. `# SPEC/architecture/backend/config`).
-Its content serves as intent — what this node does and
-why it exists. This section is not inherited, not
+Its content states the node's purpose — what this node
+does and why it exists. This section is not inherited, not
 importable, and not included in the chain.
 
 #### Public section
 
 Everything under `# Public` is available to other nodes:
 - Inherited automatically by all descendant nodes.
-- Imported by nodes that declare `depends_on: SPEC/x`
+- Imported by nodes that declare `imports: SPEC/x`
   or `input: SPEC/x`.
 
 All content in `# Public` must be under a `##` subsection.
@@ -338,7 +344,7 @@ FILE_FORMAT.md (under Resources) for detailed parsing rules.
 
 ## Circular References
 
-Circular references across `depends_on`, `input`, and
+Circular references across `imports`, `input`, and
 inheritance are prohibited.
 
 ---
@@ -356,9 +362,10 @@ before returning or comparing them.
 
 ## Resources
 
-### Framework repository
+### Project sites
 
-https://github.com/CodeFromSpec/framework
+- https://codefromspec.com
+- https://github.com/CodeFromSpec
 
 ### Companion documents
 
