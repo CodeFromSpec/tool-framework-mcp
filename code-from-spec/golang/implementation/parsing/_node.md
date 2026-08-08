@@ -12,7 +12,7 @@ and logical name resolution.
 
 ## Interface
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"`
 
 ### Text normalization
 

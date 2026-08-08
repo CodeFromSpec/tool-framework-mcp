@@ -17,7 +17,7 @@ chain for a given target logical name.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainresolver"`
 
 ## Interface
 

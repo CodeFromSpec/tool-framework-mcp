@@ -20,7 +20,7 @@ file are deleted.
 
 ## Interface
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpprunecache"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpprunecache"`
 
 ```go
 func MCPPruneCache() (string, error)

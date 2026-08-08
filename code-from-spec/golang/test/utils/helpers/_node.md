@@ -15,7 +15,7 @@ their own file.
 
 ## Interface
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"`
 
 ```go
 func Ptr[T any](v T) *T

@@ -17,7 +17,7 @@ as a side effect.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/noderanking"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/noderanking"`
 
 ## Interface
 

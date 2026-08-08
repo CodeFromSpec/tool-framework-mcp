@@ -22,7 +22,7 @@ what changed between generations.
 
 ## Interface
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/cache"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/cache"`
 
 ```go
 func WriteContent(contentHash string, content string) error

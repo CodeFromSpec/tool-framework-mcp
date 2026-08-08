@@ -21,7 +21,7 @@ longer declares an output.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcppruneorphans"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcppruneorphans"`
 
 ## Interface
 

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/cache"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/cache"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
 const testTimeoutMs = 1000

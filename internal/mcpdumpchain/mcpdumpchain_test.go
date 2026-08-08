@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpdumpchain"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpdumpchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
 func TestMCPDumpChain_WritesDumpFile(t *testing.T) {

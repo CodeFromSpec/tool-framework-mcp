@@ -23,7 +23,7 @@ current spec tree.
 
 ## Interface
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpaccept"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpaccept"`
 
 ```go
 func MCPAccept(logicalName string) (string, error)

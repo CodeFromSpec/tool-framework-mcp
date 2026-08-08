@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/spectree"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectree"
 )
 
 func MCPPruneOrphans() (string, error) {

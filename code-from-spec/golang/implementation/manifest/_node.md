@@ -18,7 +18,7 @@ every generated artifact.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"`
 
 ## Interface
 

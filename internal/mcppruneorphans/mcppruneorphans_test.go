@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcppruneorphans"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcppruneorphans"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
 func TestMCPPruneOrphans(t *testing.T) {

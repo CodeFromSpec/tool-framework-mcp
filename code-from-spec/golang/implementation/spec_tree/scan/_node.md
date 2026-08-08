@@ -18,7 +18,7 @@ spec nodes found.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/spectree"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectree"`
 
 ## Interface
 

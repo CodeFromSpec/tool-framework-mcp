@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
 func TestChainResolve_RootAsTarget(t *testing.T) {
