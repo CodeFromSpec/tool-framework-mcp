@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
 )
 
 func isBlankLineCE(line string) bool {

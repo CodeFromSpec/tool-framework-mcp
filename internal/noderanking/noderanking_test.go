@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/noderanking"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/noderanking"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
 func specRef(logicalName string, parentName *string) parsing.CfsReference {
