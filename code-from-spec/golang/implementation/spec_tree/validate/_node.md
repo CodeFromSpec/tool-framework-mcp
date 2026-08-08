@@ -80,9 +80,9 @@ Implement the spec tree validation as a Go package.
 ### Rule: leaf_only_fields (per entry)
 
    If `has_children` is true:
-     If entry.Frontmatter.depends_on is non-empty:
+     If entry.Frontmatter.Imports is non-empty:
        Append FormatError with rule "leaf_only_fields",
-       detail "depends_on is only permitted on leaf
+       detail "imports is only permitted on leaf
        nodes".
      If entry.Frontmatter.Input is not nil:
        Append FormatError with rule "leaf_only_fields",
@@ -98,33 +98,33 @@ Implement the spec tree validation as a Go package.
    "leaf_only_agent", detail "# Agent section is only
    permitted on leaf nodes".
 
-### Rule: dependency_targets (per entry)
+### Rule: import_targets (per entry)
 
-   For each dep in entry.Frontmatter.depends_on:
+   For each dep in entry.Frontmatter.Imports:
 
      If dep starts with "SPEC/":
        Call parsing.CfsReferenceFromName(dep). If it fails:
-         error "depends_on entry cannot be parsed: <dep>"
+         error "imports entry cannot be parsed: <dep>"
          Continue to next dep.
        Let `ref` be the result.
        If ref.LogicalName is not in `known_logical_names`:
-         error "depends_on references unknown SPEC
+         error "imports references unknown SPEC
          node: <dep>"
        Else if ref.LogicalName equals entry.Reference.LogicalName:
-         error "depends_on must not reference the node
+         error "imports must not reference the node
          itself: <dep>"
        Else if ref.LogicalName followed by "/" is a prefix of
        entry.Reference.LogicalName:
-         error "depends_on must not reference an
+         error "imports must not reference an
          ancestor: <dep>"
        Else if entry.Reference.LogicalName followed by "/" is a
        prefix of ref.LogicalName:
-         error "depends_on must not reference a
+         error "imports must not reference a
          descendant: <dep>"
 
      Else if dep starts with "ARTIFACT/":
        If dep is not in `known_logical_names`:
-         error "depends_on references unknown
+         error "imports references unknown
          ARTIFACT: <dep>"
 
      Else if dep starts with "EXTERNAL/":
@@ -133,12 +133,12 @@ Implement the spec tree validation as a Go package.
        Let cfs_path = oslayer.CfsPath(relative).
        Attempt oslayer.OpenFile(cfs_path, "read", 30000).
        If OpenFile raises any error:
-         error "depends_on references unreadable
+         error "imports references unreadable
          EXTERNAL file: <dep>"
        Else: Call handle.Close() on the returned handle.
 
      Else:
-       error "depends_on entry has unrecognized
+       error "imports entry has unrecognized
        prefix: <dep>"
 
 ### Rule: input_target (per entry)
@@ -238,7 +238,7 @@ Return `errors`.
   and `CfsPath`.
 - Use the `parsing` package for `NormalizeText`,
   `CfsReferenceFromName` (only for SPEC references in
-  dependency_targets), `NodeFrontmatter`, and `Node`.
+  import_targets), `NodeFrontmatter`, and `Node`.
   Use `strings.HasPrefix` for ARTIFACT/ and EXTERNAL/
   classification.
 - The package name should be `spectreevalidate`.

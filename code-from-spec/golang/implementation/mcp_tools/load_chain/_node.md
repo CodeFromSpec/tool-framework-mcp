@@ -66,7 +66,7 @@ sections in this order:
 5. **`<constraints>`** — the current spec content. Each
    position is an `<entry>` element with a `name`
    attribute. Entries appear in chain assembly order:
-   ancestors, then depends_on (sorted), then target
+   ancestors, then imports (sorted), then target
    node's `# Public`. When cache is available and the
    existing artifact is present, each entry carries a
    `disposition` attribute (`unchanged`, `changed`, or
@@ -152,7 +152,7 @@ Implement the load chain tool as a Go package.
    **Previous constraints** (optional):
    If cache is available and the existing artifact is
    present on disk: for each position among ancestors,
-   dependencies, and the target's `# Public` whose cached
+   imports, and the target's `# Public` whose cached
    content hash differs from its current hash, or which
    is no longer present in the current chain (removed),
    look up its old content in the cache by the cached
@@ -207,7 +207,7 @@ Implement the load chain tool as a Go package.
    Append: "<constraints>\n"
 
    Helper for extracting SPEC content (used for
-   ancestors, SPEC dependencies, and the target's
+   ancestors, SPEC imports, and the target's
    Public): given a node and an optional qualifier,
    extract the content using the same boundary
    normalization rules defined in chain/hash:
@@ -229,7 +229,7 @@ Implement the load chain tool as a Go package.
        Append the extracted content.
        Append: `</entry>\n`
 
-   For each `dep` in `chain.Dependencies` (in order):
+   For each `dep` in `chain.Imports` (in order):
      If dep.LogicalName starts with
      "ARTIFACT/":
        Read the full file at oslayer.CfsPath(dep.Path).
@@ -297,7 +297,7 @@ Implement the load chain tool as a Go package.
      starts with "SPEC/":
        Call `parsing.ParseNode(chain.Input.LogicalName)`.
        Extract content (with qualifier if present,
-       same rules as for SPEC dependencies).
+       same rules as for SPEC imports).
        Append content.
      Append: "</input>\n"
 
@@ -313,9 +313,9 @@ Implement the load chain tool as a Go package.
    the extracted content string in a map keyed by the
    label that `ChainHashCompute` would use for that
    position:
-   - Ancestors and SPEC dependencies: the logical name
+   - Ancestors and SPEC imports: the logical name
      (with qualifier if present).
-   - ARTIFACT/ and EXTERNAL/ dependencies: the logical
+   - ARTIFACT/ and EXTERNAL/ imports: the logical
      name.
    - Target node's `# Public`: the logical name.
    - Target node's `# Agent`:
