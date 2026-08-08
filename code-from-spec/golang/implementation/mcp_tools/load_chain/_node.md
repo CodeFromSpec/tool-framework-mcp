@@ -28,7 +28,7 @@ a node other than the one it was dispatched for.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcploadchain"`
 
 ## Interface
 

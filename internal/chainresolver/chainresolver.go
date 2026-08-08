@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
 )
 
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")

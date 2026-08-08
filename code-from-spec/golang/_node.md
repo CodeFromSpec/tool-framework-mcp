@@ -6,7 +6,7 @@ Technical design decisions for implementing the MCP server in Go.
 
 ## Go module
 
-The module path is `github.com/CodeFromSpec/tool-framework-mcp/v5`.
+The module path is `github.com/CodeFromSpec/tool-framework-mcp/v6`.
 All internal package imports must use this prefix.
 
 ## Language
@@ -100,3 +100,8 @@ under test.
 
 Changed from `v4` to `v5` as part of the v5 migration.
 The tool now targets Code from Spec v5 semantics.
+
+### Module path v5 → v6
+
+Changed from `v5` to `v6` as part of preparing the tool
+to target Code from Spec v6 semantics.

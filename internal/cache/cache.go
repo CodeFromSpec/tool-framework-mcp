@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
 )
 
 const (

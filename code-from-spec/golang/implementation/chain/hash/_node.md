@@ -19,7 +19,7 @@ all chain positions from disk and hashing their content.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainhash"`
 
 ## Interface
 

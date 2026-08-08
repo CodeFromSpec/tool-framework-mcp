@@ -24,7 +24,7 @@ cache. Idempotent — skips files that already exist.
 
 ## Interface
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpreconstructcache"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpreconstructcache"`
 
 ```go
 func MCPReconstructCache() (string, error)

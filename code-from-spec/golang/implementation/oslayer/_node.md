@@ -12,7 +12,7 @@ locking.
 
 ## Interface
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"`
 
 ### Path types
 

@@ -25,7 +25,7 @@ provides an opaque token identifying the node (see
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpwritefile"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwritefile"`
 
 ## Interface
 

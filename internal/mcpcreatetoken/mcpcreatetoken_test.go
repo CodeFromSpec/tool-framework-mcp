@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpcreatetoken"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpcreatetoken"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
 )
 
 func TestMCPCreateToken_RoundTrip(t *testing.T) {

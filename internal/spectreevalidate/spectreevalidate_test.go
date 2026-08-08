@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/spectreevalidate"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectreevalidate"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
 func makeNode(logicalName string, parentName *string) parsing.Node {

@@ -3,9 +3,9 @@ package mcpdumpchain
 import (
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcploadchain"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcploadchain"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
 )
 
 func MCPDumpChain(logicalName string) (string, error) {

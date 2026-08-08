@@ -3,8 +3,8 @@ package mcpprunecache
 import (
 	"fmt"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/cache"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/cache"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
 )
 
 func MCPPruneCache() (string, error) {

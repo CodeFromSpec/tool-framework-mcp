@@ -22,7 +22,7 @@ the one it was dispatched for.
 
 ## Interface
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpcreatetoken"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpcreatetoken"`
 
 ```go
 func MCPCreateToken(logicalName string) (string, error)

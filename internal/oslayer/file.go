@@ -40,7 +40,7 @@ func OpenFile(cfsPath CfsPath, mode string, timeoutMs int) (*File, error) {
 			return nil, fmt.Errorf("cannot acquire shared lock on %q: %w", osPath, ErrLockFailed)
 		}
 		scanner := bufio.NewScanner(handle)
-		scanner.Split(scanLinesCRLFFile)
+		scanner.Split(scanLinesFile)
 		return &File{
 			mode:    mode,
 			osPath:  osPath,
@@ -94,7 +94,7 @@ func OpenFile(cfsPath CfsPath, mode string, timeoutMs int) (*File, error) {
 	}, nil
 }
 
-func scanLinesCRLFFile(data []byte, atEOF bool) (advance int, token []byte, err error) {
+func scanLinesFile(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
 	}

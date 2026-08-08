@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpwritefile"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/testutils"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
 var base64urlPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{27}$`)

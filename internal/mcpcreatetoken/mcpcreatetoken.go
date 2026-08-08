@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/subagenttoken"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
 )
 
 var (

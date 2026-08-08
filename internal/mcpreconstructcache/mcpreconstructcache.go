@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/cache"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainhash"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/chainresolver"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/manifest"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/cache"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainresolver"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
 )
 
 func MCPReconstructCache() (string, error) {

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/CodeFromSpec/tool-framework-mcp/v5/internal/oslayer"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
 )
 
 var ErrLockTimeout = errors.New("lock timeout")

@@ -19,7 +19,7 @@ rules, and reports all violations found.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/spectreevalidate"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectreevalidate"`
 
 ## Interface
 

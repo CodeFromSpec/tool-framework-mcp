@@ -24,7 +24,7 @@ references, and artifact staleness.
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v5/internal/mcpvalidatespecs"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpvalidatespecs"`
 
 ## Interface
 
