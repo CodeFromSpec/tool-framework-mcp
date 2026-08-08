@@ -40,12 +40,17 @@ The document has up to seven sections, in this order:
    removed. Carries `disposition="changed"` or
    `disposition="removed"`. Contains the old content.
 
-3. **`<previous_input>`** — the previous input content,
-   as recorded in the cache. Present only when the
-   cache is available, the existing artifact is present
-   on disk, and the input changed or was removed.
-   Carries `disposition="changed"` or
-   `disposition="removed"`. Contains the old content.
+3. **`<previous_input>`** — old content for `input`
+   entries that changed or were removed, as recorded
+   in the cache. Present only when the cache is
+   available, the existing artifact is present on disk,
+   and at least one `input` entry changed or was
+   removed. Contains an `<entry>` element per affected
+   entry, with a `name` attribute and
+   `disposition="changed"` or `disposition="removed"`.
+   Entries that did not change are not listed — their
+   `unchanged` disposition is on the corresponding entry
+   in `<input>`.
 
 4. **`<existing_artifact>`** — the current content of
    the artifact file on disk. Present only when the
@@ -71,20 +76,22 @@ The document has up to seven sections, in this order:
    `unchanged`, `changed`, or `added`.
 
 7. **`<input>`** — the content referenced by the target
-   node's `input` field. For `SPEC/` references, the
-   `# Public` content is extracted using the same rules
-   as `<constraints>` entries. Present only when the
-   node declares `input`. When cache is available and
-   the existing artifact is present, carries a
-   `disposition` attribute: `unchanged`, `changed`,
-   or `added`.
+   node's `input` field. Each position is an `<entry>`
+   element with a `name` attribute, one per `input`
+   reference (a single value or each item in a list).
+   For `SPEC/` references, the `# Public` content is
+   extracted using the same rules as `<constraints>`
+   entries. Present only when the node declares `input`.
+   When cache is available and the existing artifact is
+   present, each entry carries a `disposition` attribute:
+   `unchanged`, `changed`, or `added`.
 
 Sections 1–4 provide context from the previous
 generation: what the spec said before, what input was
 used, and what was generated from them. Section 5 is
-the current source of truth. Section 6 is the
-generation guidance. Section 7 is the material to
-transform.
+the current spec content, authoritative over everything
+before it. Section 6 is the generation guidance.
+Section 7 is the material to transform.
 
 ## Generation scenarios
 
@@ -118,9 +125,20 @@ Three scenarios determine which sections are present:
 Positions within `<constraints>` appear in this order:
 
 1. Ancestors from root to the target node's parent.
-2. `depends_on` entries in alphabetical order by the
+2. `imports` entries in alphabetical order by the
    full logical name (including prefix and qualifier).
 3. The target node's `# Public`.
+
+---
+
+## Input assembly order
+
+Entries within `<input>` appear in alphabetical order by
+the full logical name (including prefix and qualifier),
+using the same ordering and deduplication rules as
+`imports` (see CHAIN_HASH.md). This order is independent
+of the `imports` list — the two are deduplicated and
+sorted separately.
 
 ---
 
@@ -145,7 +163,7 @@ Previous frontmatter (at the time of last generation):
 
 ```yaml
 ---
-depends_on:
+imports:
   - SPEC/legacy/old-fees
 input: ARTIFACT/functional/fees/calculation
 output: internal/fees/calculation.go
@@ -156,10 +174,12 @@ Current frontmatter:
 
 ```yaml
 ---
-depends_on:
+imports:
   - EXTERNAL/proto/payments/v1/transfers.proto
   - SPEC/integrations/database
-input: ARTIFACT/functional/fees/calculation
+input:
+  - ARTIFACT/functional/fees/calculation
+  - ARTIFACT/functional/fees/rounding
 output: internal/fees/calculation.go
 ---
 ```
@@ -197,8 +217,18 @@ The resulting spec chain:
   ...generation guidance...
   </instructions>
 
-  <input disposition="unchanged">
-  ...material to transform...
+  <input>
+    <entry name="ARTIFACT/functional/fees/calculation" disposition="unchanged">
+    ...material to transform...
+    </entry>
+    <entry name="ARTIFACT/functional/fees/rounding" disposition="added">
+    ...material to transform...
+    </entry>
   </input>
 </chain>
 ```
+
+`ARTIFACT/functional/fees/rounding` is new in this
+generation, so it has no counterpart in the previous chain
+and no entry in `<previous_input>` — `added` entries carry
+no old content to show.

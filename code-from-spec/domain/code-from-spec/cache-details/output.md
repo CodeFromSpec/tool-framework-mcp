@@ -30,11 +30,14 @@ Each file in `.cache/.chains/` contains the ordered list of positions that produ
 SPEC/payments: d4e5f6g7h8i9j0k1l2m3n4o5p6q
 SPEC/payments/fees: g7h8i9j0k1l2m3n4o5p6q7r8s
 SPEC/architecture/backend/config(interface): a3b4c5d6e7f8g9h0i1j2k3l4m5n
+SPEC/integrations/database: j0k1l2m3n4o5p6q7r8s9t0u
+SPEC/payments/fees/calculation: m3n4o5p6q7r8s9t0u1v2w3x
 AGENT[SPEC/payments/fees/calculation]: p6q7r8s9t0u1v2w3x4y5z6a
-INPUT[ARTIFACT/functional/calc]: s9t0u1v2w3x4y5z6a7b8c9d
+INPUT[ARTIFACT/functional/fees/calculation]: s9t0u1v2w3x4y5z6a7b8c9d
+INPUT[ARTIFACT/functional/fees/rounding]: v2w3x4y5z6a7b8c9d0e1f2g
 ```
 
-Labels for ancestors, dependencies, and the target node's `# Public` use the logical name directly. The target node's `# Agent` section is wrapped as `AGENT[...]` and the input as `INPUT[...]`. The content hash points to the corresponding file in `.cache/.content/`.
+Labels for ancestors, dependencies, and the target node's `# Public` use the logical name directly. The target node's `# Agent` section is wrapped as `AGENT[...]` and each input entry as `INPUT[...]` — one line per entry when `input` is a list. The content hash points to the corresponding file in `.cache/.content/`.
 
 ## Write-once semantics and atomic writes
 
