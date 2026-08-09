@@ -23,10 +23,10 @@ chain for a given target logical name.
 
 ```go
 type Chain struct {
-	Ancestors    []parsing.CfsReference
-	Dependencies []parsing.CfsReference
-	Target       parsing.CfsReference
-	Input        *parsing.CfsReference // nil if absent
+	Ancestors []parsing.CfsReference
+	Imports   []parsing.CfsReference
+	Target    parsing.CfsReference
+	Input     *parsing.CfsReference // nil if absent
 }
 
 func ChainResolve(targetLogicalName string) (Chain, error)
@@ -36,8 +36,8 @@ func ChainResolve(targetLogicalName string) (Chain, error)
 
 1. **Ancestors** — from root down to (but not including)
    the target node.
-2. **Dependencies** — all entries from the target's
-   `depends_on`, sorted alphabetically by logical name.
+2. **Imports** — all entries from the target's
+   `imports`, sorted alphabetically by logical name.
 3. **Target** — the target node itself.
 4. **Input** — the target's `input`, if present.
 
@@ -81,33 +81,33 @@ Otherwise:
   The last item in the sorted list is the target.
   All preceding items form the ancestors list.
 
-### Step 2 — Resolve dependencies
+### Step 2 — Resolve imports
 
 Call parsing.ParseNode(target_logical_name).
 If it fails, raise ErrUnreadableFrontmatter.
 Let `node` be the result. Let `fm` =
 node.Frontmatter.
 
-Initialize an empty dependency list.
+Initialize an empty import list.
 
-For each entry in fm.DependsOn:
+For each entry in fm.Imports:
 
   Call parsing.CfsReferenceFromName(entry).
   If it fails, raise ErrUnresolvableArtifact
   (wrapping the original error). Let `ref` be
   the result.
 
-  Add *ref to dependency list.
+  Add *ref to import list.
 
-Sort the dependency list alphabetically by
+Sort the import list alphabetically by
 LogicalName, then by Qualifier (nil sorts before
 non-nil), in a single pass.
 
-### Step 3 — Deduplicate dependencies
+### Step 3 — Deduplicate imports
 
-Initialize an empty deduplicated dependency list.
+Initialize an empty deduplicated import list.
 
-For each item in the sorted dependency list:
+For each item in the sorted import list:
 
   If item.LogicalName starts with "SPEC/":
     Check if an entry with the same LogicalName and
@@ -126,7 +126,7 @@ For each item in the sorted dependency list:
     Check if an entry with the same LogicalName
     already exists. If yes, skip. Otherwise, add.
 
-Replace the dependency list with the deduplicated
+Replace the import list with the deduplicated
 list.
 
 ### Step 4 — Resolve input
@@ -139,7 +139,7 @@ Else:
   be the result.
   Set the Chain's Input field to input_ref.
 
-Return Chain with Ancestors, Dependencies, Target,
+Return Chain with Ancestors, Imports, Target,
 Input.
 
 ## Go-specific guidance

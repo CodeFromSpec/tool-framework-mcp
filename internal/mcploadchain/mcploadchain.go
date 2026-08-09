@@ -161,7 +161,7 @@ func MCPLoadChain(token string) (string, error) {
 		sb.WriteString("</entry>\n")
 	}
 
-	for _, dep := range chain.Dependencies {
+	for _, dep := range chain.Imports {
 		switch {
 		case strings.HasPrefix(dep.LogicalName, "ARTIFACT/"):
 			fileContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(dep.Path))
@@ -276,14 +276,17 @@ func MCPLoadChain(token string) (string, error) {
 		if inputErr != nil {
 			return "", fmt.Errorf("resolving input: %w", inputErr)
 		}
-		inputLabel := "INPUT[" + chain.Input.LogicalName
+		inputEntryName := chain.Input.LogicalName
 		if chain.Input.Qualifier != nil {
-			inputLabel = inputLabel + "(" + *chain.Input.Qualifier + ")"
+			inputEntryName = inputEntryName + "(" + *chain.Input.Qualifier + ")"
 		}
-		inputLabel = inputLabel + "]"
+		inputLabel := "INPUT[" + inputEntryName + "]"
 		contentByLabel[inputLabel] = inputContent
 		disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
-		sb.WriteString("<input")
+		sb.WriteString("<input>\n")
+		sb.WriteString("<entry name=\"")
+		sb.WriteString(inputEntryName)
+		sb.WriteString("\"")
 		if disposition != "" {
 			sb.WriteString(" disposition=\"")
 			sb.WriteString(disposition)
@@ -291,6 +294,7 @@ func MCPLoadChain(token string) (string, error) {
 		}
 		sb.WriteString(">\n")
 		sb.WriteString(inputContent)
+		sb.WriteString("</entry>\n")
 		sb.WriteString("</input>\n")
 	}
 
@@ -348,7 +352,7 @@ func buildPreviousConstraintsEntries(chain chainresolver.Chain, cachedHashByLabe
 		entries = append(entries, buildPreviousEntry(label, disposition, content))
 	}
 
-	for _, dep := range chain.Dependencies {
+	for _, dep := range chain.Imports {
 		entryName := dep.LogicalName
 		if dep.Qualifier != nil {
 			entryName = entryName + "(" + *dep.Qualifier + ")"
@@ -405,7 +409,7 @@ func buildPreviousConstraintsEntries(chain chainresolver.Chain, cachedHashByLabe
 		if inAnchors {
 			continue
 		}
-		for _, dep := range chain.Dependencies {
+		for _, dep := range chain.Imports {
 			depLabel := dep.LogicalName
 			if dep.Qualifier != nil {
 				depLabel = depLabel + "(" + *dep.Qualifier + ")"
@@ -483,20 +487,25 @@ func buildPreviousInput(chain chainresolver.Chain, cachedHashByLabel, currentHas
 			if readErr != nil {
 				continue
 			}
+			entryName := label[len("INPUT[") : len(label)-1]
 			var sb strings.Builder
-			sb.WriteString("<previous_input disposition=\"removed\">\n")
+			sb.WriteString("<previous_input>\n")
+			sb.WriteString("<entry name=\"")
+			sb.WriteString(entryName)
+			sb.WriteString("\" disposition=\"removed\">\n")
 			sb.WriteString(content)
+			sb.WriteString("</entry>\n")
 			sb.WriteString("</previous_input>\n")
 			return sb.String()
 		}
 		return ""
 	}
 
-	inputLabel := "INPUT[" + chain.Input.LogicalName
+	inputEntryName := chain.Input.LogicalName
 	if chain.Input.Qualifier != nil {
-		inputLabel = inputLabel + "(" + *chain.Input.Qualifier + ")"
+		inputEntryName = inputEntryName + "(" + *chain.Input.Qualifier + ")"
 	}
-	inputLabel = inputLabel + "]"
+	inputLabel := "INPUT[" + inputEntryName + "]"
 
 	cachedHash, inCached := cachedHashByLabel[inputLabel]
 	if !inCached {
@@ -515,10 +524,14 @@ func buildPreviousInput(chain chainresolver.Chain, cachedHashByLabel, currentHas
 		disposition = "removed"
 	}
 	var sb strings.Builder
-	sb.WriteString("<previous_input disposition=\"")
+	sb.WriteString("<previous_input>\n")
+	sb.WriteString("<entry name=\"")
+	sb.WriteString(inputEntryName)
+	sb.WriteString("\" disposition=\"")
 	sb.WriteString(disposition)
 	sb.WriteString("\">\n")
 	sb.WriteString(content)
+	sb.WriteString("</entry>\n")
 	sb.WriteString("</previous_input>\n")
 	return sb.String()
 }

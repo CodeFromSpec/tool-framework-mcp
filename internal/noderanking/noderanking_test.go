@@ -154,12 +154,12 @@ func TestNodeRankCompute_MultipleIndependentRoots(t *testing.T) {
 	}
 }
 
-func TestNodeRankCompute_DependsOnIncreasesRank(t *testing.T) {
+func TestNodeRankCompute_ImportsIncreasesRank(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), nil),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/a"},
+			Imports: []string{"SPEC/root/a"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -182,12 +182,12 @@ func TestNodeRankCompute_DependsOnIncreasesRank(t *testing.T) {
 	}
 }
 
-func TestNodeRankCompute_DependsOnWithQualifier(t *testing.T) {
+func TestNodeRankCompute_ImportsWithQualifier(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), nil),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/a(interface)"},
+			Imports: []string{"SPEC/root/a(interface)"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -210,11 +210,11 @@ func TestNodeRankCompute_DependsOnWithQualifier(t *testing.T) {
 	}
 }
 
-func TestNodeRankCompute_ExternalDependsOnSkipped(t *testing.T) {
+func TestNodeRankCompute_ExternalImportsSkipped(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"EXTERNAL/proto/api.proto"},
+			Imports: []string{"EXTERNAL/proto/api.proto"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -375,14 +375,14 @@ func TestNodeRankCompute_SingleOutputArtifactRanked(t *testing.T) {
 	}
 }
 
-func TestNodeRankCompute_DependsOnArtifactReference(t *testing.T) {
+func TestNodeRankCompute_ImportsArtifactReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
 			Output: testutils.Ptr("lib.go"),
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"ARTIFACT/root/a"},
+			Imports: []string{"ARTIFACT/root/a"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -486,13 +486,13 @@ func TestNodeRankCompute_DiamondDependency(t *testing.T) {
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/c", testutils.Ptr("SPEC/root"), nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/c"},
+			Imports: []string{"SPEC/root/c"},
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/c"},
+			Imports: []string{"SPEC/root/c"},
 		}),
 		specNode("SPEC/root/d", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/a", "SPEC/root/b"},
+			Imports: []string{"SPEC/root/a", "SPEC/root/b"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -519,7 +519,7 @@ func TestNodeRankCompute_DiamondDependency(t *testing.T) {
 	}
 }
 
-func TestNodeRankCompute_DependsOnOutranksParent(t *testing.T) {
+func TestNodeRankCompute_ImportsOutranksParent(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), nil),
@@ -527,7 +527,7 @@ func TestNodeRankCompute_DependsOnOutranksParent(t *testing.T) {
 		specNode("SPEC/root/c/d", testutils.Ptr("SPEC/root/c"), nil),
 		specNode("SPEC/root/c/d/e", testutils.Ptr("SPEC/root/c/d"), nil),
 		specNode("SPEC/root/a/b", testutils.Ptr("SPEC/root/a"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/c"},
+			Imports: []string{"SPEC/root/c"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -558,18 +558,18 @@ func TestNodeRankCompute_DependsOnOutranksParent(t *testing.T) {
 	}
 }
 
-func TestNodeRankCompute_MultipleDependsOnRankFromHighest(t *testing.T) {
+func TestNodeRankCompute_MultipleImportsRankFromHighest(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), nil),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/a"},
+			Imports: []string{"SPEC/root/a"},
 		}),
 		specNode("SPEC/root/c", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/b"},
+			Imports: []string{"SPEC/root/b"},
 		}),
 		specNode("SPEC/root/d", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/a", "SPEC/root/b", "SPEC/root/c"},
+			Imports: []string{"SPEC/root/a", "SPEC/root/b", "SPEC/root/c"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -596,7 +596,7 @@ func TestNodeRankCompute_MultipleDependsOnRankFromHighest(t *testing.T) {
 	}
 }
 
-func TestNodeRankCompute_BothDependsOnAndInput(t *testing.T) {
+func TestNodeRankCompute_BothImportsAndInput(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -604,8 +604,8 @@ func TestNodeRankCompute_BothDependsOnAndInput(t *testing.T) {
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), nil),
 		specNode("SPEC/root/c", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/b"},
-			Input:     testutils.Ptr("ARTIFACT/root/a"),
+			Imports: []string{"SPEC/root/b"},
+			Input:   testutils.Ptr("ARTIFACT/root/a"),
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -654,7 +654,7 @@ func TestNodeRankCompute_SelfReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/a"},
+			Imports: []string{"SPEC/root/a"},
 		}),
 	}
 	_, cycles, err := noderanking.NodeRankCompute(entries)
@@ -670,10 +670,10 @@ func TestNodeRankCompute_SimpleCycleTwoNodes(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/b"},
+			Imports: []string{"SPEC/root/b"},
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/a"},
+			Imports: []string{"SPEC/root/a"},
 		}),
 	}
 	_, cycles, err := noderanking.NodeRankCompute(entries)
@@ -694,12 +694,12 @@ func TestNodeRankCompute_CycleThroughArtifacts(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			Output:    testutils.Ptr("a.go"),
-			DependsOn: []string{"ARTIFACT/root/b"},
+			Output:  testutils.Ptr("a.go"),
+			Imports: []string{"ARTIFACT/root/b"},
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			Output:    testutils.Ptr("b.go"),
-			DependsOn: []string{"ARTIFACT/root/a"},
+			Output:  testutils.Ptr("b.go"),
+			Imports: []string{"ARTIFACT/root/a"},
 		}),
 	}
 	_, cycles, err := noderanking.NodeRankCompute(entries)
@@ -715,10 +715,10 @@ func TestNodeRankCompute_CycleDoesNotPreventRankingUnrelatedNodes(t *testing.T) 
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/b"},
+			Imports: []string{"SPEC/root/b"},
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/a"},
+			Imports: []string{"SPEC/root/a"},
 		}),
 		specNode("SPEC/root/c", testutils.Ptr("SPEC/root"), nil),
 	}
@@ -757,7 +757,7 @@ func TestNodeRankCompute_UnresolvableSpecReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"SPEC/root/missing"},
+			Imports: []string{"SPEC/root/missing"},
 		}),
 	}
 	_, _, err := noderanking.NodeRankCompute(entries)
@@ -773,7 +773,7 @@ func TestNodeRankCompute_UnresolvableArtifactReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			DependsOn: []string{"ARTIFACT/root/missing"},
+			Imports: []string{"ARTIFACT/root/missing"},
 		}),
 	}
 	_, _, err := noderanking.NodeRankCompute(entries)

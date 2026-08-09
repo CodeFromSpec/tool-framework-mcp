@@ -145,7 +145,7 @@ Setup:
   `## Constraints`.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.txt`,
-  `depends_on: ["SPEC/root/b"]`.
+  `imports: ["SPEC/root/b"]`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -166,7 +166,7 @@ Setup:
   `## Constraints`.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.txt`,
-  `depends_on: ["SPEC/root/b(interface)"]`.
+  `imports: ["SPEC/root/b(interface)"]`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -188,7 +188,7 @@ Setup:
 - Create `out/b.go` with known content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.go`,
-  `depends_on: ["ARTIFACT/root/b"]`.
+  `imports: ["ARTIFACT/root/b"]`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -207,7 +207,7 @@ Setup:
 - Create `data/config.yaml` with known content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.txt`,
-  `depends_on: ["EXTERNAL/data/config.yaml"]`.
+  `imports: ["EXTERNAL/data/config.yaml"]`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -490,7 +490,7 @@ Setup:
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.txt`,
-  `depends_on: ["SPEC/root/missing"]`.
+  `imports: ["SPEC/root/missing"]`.
 - Do not create `code-from-spec/root/missing/_node.md`.
 
 Actions:

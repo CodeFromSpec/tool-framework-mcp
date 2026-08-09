@@ -70,7 +70,7 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 			continue
 		}
 
-		for _, ref := range node.Frontmatter.DependsOn {
+		for _, ref := range node.Frontmatter.Imports {
 			if strings.HasPrefix(ref, "SPEC/") {
 				unqualified := unqualifiedName(ref)
 				if _, ok := entryMap[unqualified]; !ok {

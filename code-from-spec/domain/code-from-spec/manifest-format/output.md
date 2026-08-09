@@ -5,7 +5,7 @@
 The first line of the manifest identifies the framework and version:
 
 ```
-code-from-spec: v5
+code-from-spec: v6
 ```
 
 ## Entry

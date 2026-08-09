@@ -98,7 +98,7 @@ format, and the node name heading:
 ```go
 b := testutils.CreateSpecNode(t, "SPEC/a/b")
 b.SetOutput("internal/a/b.go")
-b.AddDependsOn("SPEC/other")
+b.AddImport("SPEC/other")
 b.SetPublic("## Interface\ncontent")
 b.Write()
 ```

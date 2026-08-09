@@ -80,13 +80,13 @@ Expected:
 - ancestors = [SPEC/root], target = SPEC/root/a,
   dependencies = empty, input = absent.
 
-### Dependencies — SPEC/ references
+### Imports — SPEC/ references
 
 #### Dependency without qualifier
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["SPEC/root/b"]), SPEC/root/b.
+  (imports = ["SPEC/root/b"]), SPEC/root/b.
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
@@ -100,7 +100,7 @@ Expected:
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["SPEC/root/b(interface)"]),
+  (imports = ["SPEC/root/b(interface)"]),
   SPEC/root/b.
 
 Actions:
@@ -111,11 +111,11 @@ Expected:
   LogicalName = "SPEC/root/b",
   Qualifier = "interface".
 
-#### Dependencies sorted by logical name
+#### Imports sorted by logical name
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["SPEC/root/z", "SPEC/root/m",
+  (imports = ["SPEC/root/z", "SPEC/root/m",
   "SPEC/root/b"]), SPEC/root/z, SPEC/root/m,
   SPEC/root/b.
 
@@ -126,13 +126,13 @@ Expected:
 - dependencies = [SPEC/root/b, SPEC/root/m,
   SPEC/root/z] in that order.
 
-### Dependencies — ARTIFACT/ references
+### Imports — ARTIFACT/ references
 
 #### ARTIFACT dependency resolved from generating node
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["ARTIFACT/root/b"]),
+  (imports = ["ARTIFACT/root/b"]),
   SPEC/root/b (output = "out/lib.go").
 
 Actions:
@@ -147,7 +147,7 @@ Expected:
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["ARTIFACT/root/b"]),
+  (imports = ["ARTIFACT/root/b"]),
   SPEC/root/b (empty frontmatter, no output).
 
 Actions:
@@ -159,7 +159,7 @@ Expected: Error chainresolver.ErrUnresolvableArtifact.
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["ARTIFACT/root/b"]),
+  (imports = ["ARTIFACT/root/b"]),
   SPEC/root/b (output = "out/lib.go").
 - Do NOT create "out/lib.go" on disk.
 
@@ -175,7 +175,7 @@ Expected:
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["SPEC/root/c", "ARTIFACT/root/b",
+  (imports = ["SPEC/root/c", "ARTIFACT/root/b",
   "EXTERNAL/proto/api.proto"]),
   SPEC/root/b (output = "out/lib.go"), SPEC/root/c.
 
@@ -186,13 +186,13 @@ Expected:
 - dependencies sorted: ARTIFACT/root/b,
   EXTERNAL/proto/api.proto, SPEC/root/c.
 
-### Dependencies — dedup
+### Imports — dedup
 
 #### Exact duplicate — same file, same qualifier
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["SPEC/root/b", "SPEC/root/b"]),
+  (imports = ["SPEC/root/b", "SPEC/root/b"]),
   SPEC/root/b.
 
 Actions:
@@ -205,7 +205,7 @@ SPEC/root/b.
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["SPEC/root/b",
+  (imports = ["SPEC/root/b",
   "SPEC/root/b(interface)"]), SPEC/root/b.
 
 Actions:
@@ -218,7 +218,7 @@ SPEC/root/b with Qualifier = nil.
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["SPEC/root/b(interface)",
+  (imports = ["SPEC/root/b(interface)",
   "SPEC/root/b"]), SPEC/root/b.
 
 Actions:
@@ -231,7 +231,7 @@ SPEC/root/b with Qualifier = nil.
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["SPEC/root/b(interface)",
+  (imports = ["SPEC/root/b(interface)",
   "SPEC/root/b(constraints)"]), SPEC/root/b.
 
 Actions:
@@ -245,7 +245,7 @@ with Qualifier = "constraints", one with "interface"
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["ARTIFACT/root/b",
+  (imports = ["ARTIFACT/root/b",
   "ARTIFACT/root/b"]),
   SPEC/root/b (output = "out/lib.go").
 
@@ -254,13 +254,13 @@ Actions:
 
 Expected: dependencies contains one ARTIFACT entry.
 
-### Dependencies — EXTERNAL/ references
+### Imports — EXTERNAL/ references
 
 #### EXTERNAL dependency resolved to path
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["EXTERNAL/docs/api.yaml"]).
+  (imports = ["EXTERNAL/docs/api.yaml"]).
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
@@ -273,7 +273,7 @@ Path = "docs/api.yaml", Qualifier = nil.
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["EXTERNAL/proto/v1.proto",
+  (imports = ["EXTERNAL/proto/v1.proto",
   "EXTERNAL/docs/api.yaml"]).
 
 Actions:
@@ -286,7 +286,7 @@ EXTERNAL/docs/api.yaml, EXTERNAL/proto/v1.proto.
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["EXTERNAL/x.proto",
+  (imports = ["EXTERNAL/x.proto",
   "EXTERNAL/x.proto"]).
 
 Actions:
@@ -361,11 +361,11 @@ Expected: input is absent (nil).
 
 ### Error cases
 
-#### Unrecognized prefix in depends_on
+#### Unrecognized prefix in imports
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (depends_on = ["UNKNOWN/something"]).
+  (imports = ["UNKNOWN/something"]).
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").

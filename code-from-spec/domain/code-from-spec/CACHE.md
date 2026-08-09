@@ -66,16 +66,18 @@ SPEC/architecture/backend/config(interface): a3b4c5d6e7f8g9h0i1j2k3l4m5n
 SPEC/integrations/database: j0k1l2m3n4o5p6q7r8s9t0u
 SPEC/payments/fees/calculation: m3n4o5p6q7r8s9t0u1v2w3x
 AGENT[SPEC/payments/fees/calculation]: p6q7r8s9t0u1v2w3x4y5z6a
-INPUT[ARTIFACT/functional/calc]: s9t0u1v2w3x4y5z6a7b8c9d
+INPUT[ARTIFACT/functional/fees/calculation]: s9t0u1v2w3x4y5z6a7b8c9d
+INPUT[ARTIFACT/functional/fees/rounding]: v2w3x4y5z6a7b8c9d0e1f2g
 ```
 
 The label identifies the position. Labels for
 ancestors, dependencies, and the target node's
 `# Public` use the logical name directly. The target
 node's `# Agent` section, if present, is wrapped as
-`AGENT[...]` and the input, if present, as
-`INPUT[...]`. The content hash points to the
-corresponding file in `.cache/.content/`.
+`AGENT[...]`, and each `input` entry, if present, as
+`INPUT[...]` — one line per entry when `input` is a
+list. The content hash points to the corresponding file
+in `.cache/.content/`.
 
 ---
 
@@ -163,23 +165,37 @@ position:
      `.cache/.content/`.
    - **`added`** — label exists in current but not
      in old.
-4. For instructions and input, compare by content
-   hash only (the name of the reference does not
-   matter):
+4. For instructions, compare by content hash only
+   (there is only one position, so the name of the
+   reference does not matter):
    - **`unchanged`** — same content hash.
    - **`changed`** — different content hash. Old
      content is read from `.cache/.content/`.
    - **`removed`** — existed before, absent now.
      Old content is read from `.cache/.content/`.
    - **`added`** — absent before, exists now.
+5. For `input` entries, compare by name — same rule as
+   constraints entries, since `input` may hold several
+   entries and each is tracked independently:
+   - **`unchanged`** — same name, same content hash.
+   - **`changed`** — same name, different content
+     hash. Old content is read from
+     `.cache/.content/`.
+   - **`removed`** — name exists in old but not in
+     current. Old content is read from
+     `.cache/.content/`.
+   - **`added`** — name exists in current but not
+     in old.
 
-The disposition is delivered in the spec chain XML:
-current sections (`<constraints>`, `<instructions>`,
-`<input>`) carry disposition on every entry. Previous
-sections (`<previous_constraints>`,
-`<previous_instructions>`, `<previous_input>`) contain
-only `changed` and `removed` entries with their old
-content. See CHAIN_ASSEMBLY.md for the full format.
+The disposition is delivered in the spec chain XML: each
+`<constraints>` and `<input>` entry carries its own
+`disposition` attribute; `<instructions>` carries a single
+`disposition` attribute on the element itself, since it is
+always one position. Previous sections
+(`<previous_constraints>`, `<previous_instructions>`,
+`<previous_input>`) contain only `changed` and `removed`
+entries with their old content. See CHAIN_ASSEMBLY.md for
+the full format.
 
 ---
 

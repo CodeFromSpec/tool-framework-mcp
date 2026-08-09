@@ -135,7 +135,7 @@ Implement the manifest component as a Go package.
       does not exist):
         lock_file.Close().
         Return Manifest with readOnly = true,
-        Version = "v5", Entries as empty map.
+        Version = "v6", Entries as empty map.
       If OpenFile returns any other error:
         lock_file.Close().
         Propagate the error.
@@ -145,7 +145,7 @@ Implement the manifest component as a Go package.
    d. manifest_file.Close().
    e. lock_file.Close() (releases shared lock).
    f. Return Manifest with readOnly = true, Version =
-      "v5", Entries set to the parsed entries map.
+      "v6", Entries set to the parsed entries map.
       No resources are held after return.
 
 2. If readOnly is false:
@@ -169,13 +169,13 @@ Implement the manifest component as a Go package.
         entries map (see parsing steps below).
         manifest_file.Close().
    c. Return Manifest with readOnly = false, Version =
-      "v5", Entries set to the parsed (or empty) entries
+      "v6", Entries set to the parsed (or empty) entries
       map, and lock_file retained internally until
       Save or Discard.
 
 Parsing steps (shared by read and write paths):
   i.   Read the first line with file.ReadLine().
-       If the line is not "code-from-spec: v5", return
+       If the line is not "code-from-spec: v6", return
        ErrManifestFormatError (unexpected header).
   ii.  For each subsequent line (read until EndOfFile):
        Split the line on ";" into fields.
@@ -200,7 +200,7 @@ Parsing steps (shared by read and write paths):
    and timeout 30000.
    If OpenFile returns any error, propagate it.
 4. Write the header line with file.Write():
-     "code-from-spec: v5\n"
+     "code-from-spec: v6\n"
 5. Sort the keys of m.Entries alphabetically.
 6. For each key in sorted order:
      Let entry be m.Entries[key].

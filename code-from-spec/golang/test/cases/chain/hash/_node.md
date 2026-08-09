@@ -18,7 +18,7 @@ output: internal/chainhash/chainhash_test.go
 
 `ChainHashCompute` calls `parsing.ParseNode` internally
 for spec node positions (ancestors, target, SPEC/
-dependencies). `parsing.ParseNode` requires a valid
+imports). `parsing.ParseNode` requires a valid
 `SPEC/` logical name that resolves to a `_node.md` file
 on disk.
 
@@ -88,14 +88,14 @@ Actions:
 
 Expected: hash_before differs from hash_after.
 
-#### Hash changes when dependency content changes
+#### Hash changes when import content changes
 
 Setup:
 - Create `_node.md` for SPEC/root with `# Public` → `## Context`.
 - Create `_node.md` for SPEC/root/b with `# Public` →
   `## Interface` with initial content.
 - Create `_node.md` for SPEC/a.
-- Build chainresolver.Chain with target = SPEC/root/a, dependencies =
+- Build chainresolver.Chain with target = SPEC/root/a, imports =
   [SPEC/root/b (qualifier absent)].
 
 Actions:
@@ -183,15 +183,15 @@ Actions:
 
 Expected: hash_a differs from hash_b.
 
-### Dependencies
+### Imports
 
-#### SPEC dependency without qualifier — hashes Public subsections
+#### SPEC import without qualifier — hashes Public subsections
 
 Setup:
 - Create SPEC/root/b with `# Public` → `## Interface` with
   initial content.
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build chainresolver.Chain with target = SPEC/root/a, dependencies =
+- Build chainresolver.Chain with target = SPEC/root/a, imports =
   [SPEC/root/b (qualifier absent)].
 
 Actions:
@@ -201,13 +201,13 @@ Actions:
 
 Expected: hash_before differs from hash_after.
 
-#### SPEC dependency with qualifier — hashes subsection
+#### SPEC import with qualifier — hashes subsection
 
 Setup:
 - Create SPEC/root/b with `# Public` → `## Interface` with
   initial content.
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build chainresolver.Chain with target = SPEC/root/a, dependencies =
+- Build chainresolver.Chain with target = SPEC/root/a, imports =
   [SPEC/root/b, qualifier = "interface"].
 
 Actions:
@@ -222,7 +222,7 @@ Expected: hash_before differs from hash_after.
 Setup:
 - Create SPEC/root/b with `## Interface` subsection.
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build chainresolver.Chain with dependency on SPEC/root/b,
+- Build chainresolver.Chain with import on SPEC/root/b,
   qualifier = "INTERFACE" (uppercase).
 
 Actions:
@@ -231,11 +231,11 @@ Actions:
 Expected: No error. Qualifier normalized before
 matching.
 
-#### ARTIFACT dependency — hashes full file content
+#### ARTIFACT import — hashes full file content
 
 Setup:
 - Create an artifact file with content.
-- Build chainresolver.Chain with ARTIFACT dependency pointing to
+- Build chainresolver.Chain with ARTIFACT import pointing to
   that file.
 
 Actions:
@@ -245,11 +245,11 @@ Actions:
 
 Expected: hash_before differs from hash_after.
 
-#### EXTERNAL dependency — hashes all content
+#### EXTERNAL import — hashes all content
 
 Setup:
 - Create an external file with initial content.
-- Build chainresolver.Chain with EXTERNAL dependency pointing to
+- Build chainresolver.Chain with EXTERNAL import pointing to
   that file.
 
 Actions:
@@ -386,7 +386,7 @@ Setup:
   only (no `## Interface`).
 - Create SPEC/root/a with `# Public` → `## Interface`.
 - Build chainresolver.Chain with target = SPEC/root/a,
-  dependencies = [SPEC/root/b, qualifier = "interface"].
+  imports = [SPEC/root/b, qualifier = "interface"].
 
 Actions:
 1. Call chainhash.ChainHashCompute.
@@ -411,7 +411,7 @@ Expected: chainhash.ErrParseFailure.
 
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build chainresolver.Chain with ARTIFACT dependency pointing to a
+- Build chainresolver.Chain with ARTIFACT import pointing to a
   non-existent file.
 
 Actions:
@@ -423,7 +423,7 @@ Expected: oslayer.ErrFileUnreadable.
 
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build chainresolver.Chain with EXTERNAL dependency pointing to a
+- Build chainresolver.Chain with EXTERNAL import pointing to a
   non-existent file.
 
 Actions:

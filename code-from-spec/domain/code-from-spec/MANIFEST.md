@@ -25,7 +25,7 @@ One line per artifact, terminated by a newline (LF).
 Entries are ordered alphabetically by logical name.
 
 ```
-code-from-spec: v5
+code-from-spec: v6
 ARTIFACT/payments/fees/calculation;path:internal/fees/calculation.go;checksum:Kx9mP2vB7wY2tHsJ8dFak4Xz9pQ;chain:Jz3qR7nL5cW1gT4yK8mDfAx0vBe
 ```
 

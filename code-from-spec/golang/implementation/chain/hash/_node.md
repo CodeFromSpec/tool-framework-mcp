@@ -38,7 +38,7 @@ A content hash for a single chain position. `Label`
 identifies the position using the same conventions as
 the cache chain file format:
 
-- Ancestors, dependencies, and the target node's
+- Ancestors, imports, and the target node's
   `# Public`: the logical name directly
   (e.g. `SPEC/payments`, `SPEC/x(qualifier)`,
   `ARTIFACT/y`, `EXTERNAL/z`).
@@ -129,7 +129,7 @@ Helper: `recordPosition(label, rawHash)`:
    c. If `h` is present, call
       `recordPosition(ancestor.LogicalName, h)`.
 
-2. For each `dep` in `chain.Dependencies` (already
+2. For each `dep` in `chain.Imports` (already
    sorted alphabetically by logical name):
    a. Let `label` = dep.LogicalName. If dep.Qualifier
       is not nil, append "(" + *dep.Qualifier + ")"

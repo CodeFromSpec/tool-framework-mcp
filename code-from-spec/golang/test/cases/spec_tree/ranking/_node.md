@@ -37,7 +37,7 @@ cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a, SPEC/root/a/b]
-  (parent chain, no depends_on).
+  (parent chain, no imports).
 
 Expected: SPEC/root=0, SPEC/root/a=1,
 SPEC/root/a/b=2. cycles = [].
@@ -59,31 +59,31 @@ Setup:
 
 Expected: SPEC/alpha=0, SPEC/beta=0. cycles = [].
 
-#### depends_on increases rank
+#### imports increases rank
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a, SPEC/root/b
   where SPEC/root/b has
-  depends_on = ["SPEC/root/a"]].
+  imports = ["SPEC/root/a"]].
 
 Expected: rank of SPEC/root/b > rank of SPEC/root/a.
 cycles = [].
 
-#### depends_on with qualifier — qualifier stripped
+#### imports with qualifier — qualifier stripped
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a, SPEC/root/b
   where SPEC/root/b has
-  depends_on = ["SPEC/root/a(interface)"]].
+  imports = ["SPEC/root/a(interface)"]].
 
 Expected: No error. rank of SPEC/root/b >
 rank of SPEC/root/a. cycles = [].
 
-#### EXTERNAL depends_on — skipped for ranking
+#### EXTERNAL imports — skipped for ranking
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  depends_on = ["EXTERNAL/proto/api.proto"]].
+  imports = ["EXTERNAL/proto/api.proto"]].
 
 Expected: No error. SPEC/root/a rank = 1. cycles = [].
 
@@ -132,12 +132,12 @@ Setup:
 Expected: ranked contains ARTIFACT/root/a with
 rank = rank of SPEC/root/a + 1. cycles = [].
 
-#### depends_on ARTIFACT reference — used as-is
+#### imports ARTIFACT reference — used as-is
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
   output = "lib.go", SPEC/root/b with
-  depends_on = ["ARTIFACT/root/a"]].
+  imports = ["ARTIFACT/root/a"]].
 
 Expected: rank of SPEC/root/b >
 rank of ARTIFACT/root/a > rank of SPEC/root/a.
@@ -166,42 +166,42 @@ rank 1. cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/c, SPEC/root/a with
-  depends_on = ["SPEC/root/c"], SPEC/root/b with
-  depends_on = ["SPEC/root/c"], SPEC/root/d with
-  depends_on = ["SPEC/root/a", "SPEC/root/b"]].
+  imports = ["SPEC/root/c"], SPEC/root/b with
+  imports = ["SPEC/root/c"], SPEC/root/d with
+  imports = ["SPEC/root/a", "SPEC/root/b"]].
 
 Expected: SPEC/root/c=1, SPEC/root/a=2,
 SPEC/root/b=2, SPEC/root/d=3. cycles = [].
 
-#### depends_on outranks parent
+#### imports outranks parent
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a, SPEC/root/a/b
-  with depends_on = ["SPEC/root/c"], SPEC/root/c,
+  with imports = ["SPEC/root/c"], SPEC/root/c,
   SPEC/root/c/d, SPEC/root/c/d/e].
 
 Expected: rank of SPEC/root/a/b > rank of SPEC/root/a.
 SPEC/root/a/b rank = 1 + max(rank of SPEC/root/a,
 rank of SPEC/root/c). cycles = [].
 
-#### Multiple depends_on — rank from highest
+#### Multiple imports — rank from highest
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a, SPEC/root/b with
-  depends_on = ["SPEC/root/a"], SPEC/root/c with
-  depends_on = ["SPEC/root/b"], SPEC/root/d with
-  depends_on = ["SPEC/root/a", "SPEC/root/b",
+  imports = ["SPEC/root/a"], SPEC/root/c with
+  imports = ["SPEC/root/b"], SPEC/root/d with
+  imports = ["SPEC/root/a", "SPEC/root/b",
   "SPEC/root/c"]].
 
 Expected: SPEC/root/a=1, SPEC/root/b=2,
 SPEC/root/c=3, SPEC/root/d=4. cycles = [].
 
-#### Node with both depends_on and input
+#### Node with both imports and input
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
   output = "a.go", SPEC/root/b, SPEC/root/c with
-  depends_on = ["SPEC/root/b"] and
+  imports = ["SPEC/root/b"] and
   input = "ARTIFACT/root/a"].
 
 Expected: rank of SPEC/root/c = 1 + max(rank of
@@ -221,7 +221,7 @@ Expected: ranked = [], cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  depends_on = ["SPEC/root/a"]].
+  imports = ["SPEC/root/a"]].
 
 Expected: cycles is not empty.
 
@@ -229,8 +229,8 @@ Expected: cycles is not empty.
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  depends_on = ["SPEC/root/b"], SPEC/root/b with
-  depends_on = ["SPEC/root/a"]].
+  imports = ["SPEC/root/b"], SPEC/root/b with
+  imports = ["SPEC/root/a"]].
 
 Expected: cycles is not empty, contains at least one
 of SPEC/root/a or SPEC/root/b.
@@ -240,9 +240,9 @@ of SPEC/root/a or SPEC/root/b.
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
   output = "a.go" and
-  depends_on = ["ARTIFACT/root/b"], SPEC/root/b with
+  imports = ["ARTIFACT/root/b"], SPEC/root/b with
   output = "b.go" and
-  depends_on = ["ARTIFACT/root/a"]].
+  imports = ["ARTIFACT/root/a"]].
 
 Expected: cycles is not empty.
 
@@ -250,8 +250,8 @@ Expected: cycles is not empty.
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  depends_on = ["SPEC/root/b"], SPEC/root/b with
-  depends_on = ["SPEC/root/a"], SPEC/root/c
+  imports = ["SPEC/root/b"], SPEC/root/b with
+  imports = ["SPEC/root/a"], SPEC/root/c
   (no deps)].
 
 Expected: SPEC/root rank 0, SPEC/root/c rank 1.
@@ -264,7 +264,7 @@ SPEC/root/a and/or SPEC/root/b but not SPEC/root/c.
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  depends_on = ["SPEC/root/missing"]].
+  imports = ["SPEC/root/missing"]].
 
 Expected: Error noderanking.ErrUnresolvableReference.
 
@@ -272,7 +272,7 @@ Expected: Error noderanking.ErrUnresolvableReference.
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  depends_on = ["ARTIFACT/root/missing"]].
+  imports = ["ARTIFACT/root/missing"]].
 
 Expected: Error noderanking.ErrUnresolvableReference.
 

@@ -85,7 +85,7 @@ types) must use the suffix `NP`.
 
 - From the parsed YAML, extract the following fields,
   ignoring all other keys:
-  - depends_on: list of strings. If absent or null,
+  - imports: list of strings. If absent or null,
     use nil.
   - input: *string. If absent or null, use nil.
   - output: *string. If absent or null, use nil.

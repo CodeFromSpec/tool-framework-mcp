@@ -188,7 +188,7 @@ func TestMCPLoadChain_DependencyWithoutQualifier(t *testing.T) {
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetOutput("out/a.txt")
-	a.AddDependsOn("SPEC/root/b")
+	a.AddImport("SPEC/root/b")
 	a.Write()
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
@@ -224,7 +224,7 @@ func TestMCPLoadChain_DependencyWithQualifier(t *testing.T) {
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetOutput("out/a.txt")
-	a.AddDependsOn("SPEC/root/b(interface)")
+	a.AddImport("SPEC/root/b(interface)")
 	a.Write()
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
@@ -267,7 +267,7 @@ func TestMCPLoadChain_ARTIFACTDependency(t *testing.T) {
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetOutput("out/a.go")
-	a.AddDependsOn("ARTIFACT/root/b")
+	a.AddImport("ARTIFACT/root/b")
 	a.Write()
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
@@ -303,7 +303,7 @@ func TestMCPLoadChain_EXTERNALDependency(t *testing.T) {
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetOutput("out/a.txt")
-	a.AddDependsOn("EXTERNAL/data/config.yaml")
+	a.AddImport("EXTERNAL/data/config.yaml")
 	a.Write()
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
@@ -732,7 +732,7 @@ func TestMCPLoadChain_ModifiedArtifactBlocked(t *testing.T) {
 	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
 		t.Fatalf("failed to create code-from-spec dir: %v", err)
 	}
-	manifestContent := "code-from-spec: v5\n" +
+	manifestContent := "code-from-spec: v6\n" +
 		"ARTIFACT/root/a;path:out/a.go;checksum:Kx9mP2vB7wY2tHsJ8dFak4Xz9pQ;chain:Jz3qR7nL5cW1gT4yK8mDfAx0vBe\n"
 	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
 		t.Fatalf("failed to write manifest: %v", err)
@@ -792,7 +792,7 @@ func TestMCPLoadChain_UnresolvableDependency(t *testing.T) {
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetOutput("out/a.txt")
-	a.AddDependsOn("SPEC/root/missing")
+	a.AddImport("SPEC/root/missing")
 	a.Write()
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
