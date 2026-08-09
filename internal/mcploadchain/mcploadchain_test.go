@@ -201,8 +201,11 @@ func TestMCPLoadChain_DependencyWithoutQualifier(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	if !strings.Contains(result, "<references>") {
+		t.Error("expected <references> element")
+	}
 	if !strings.Contains(result, `<entry name="SPEC/root/b"`) {
-		t.Error("expected entry for SPEC/root/b")
+		t.Error("expected entry for SPEC/root/b in references")
 	}
 	if !strings.Contains(result, "## Interface") {
 		t.Error("expected ## Interface content")
@@ -237,8 +240,11 @@ func TestMCPLoadChain_DependencyWithQualifier(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	if !strings.Contains(result, "<references>") {
+		t.Error("expected <references> element")
+	}
 	if !strings.Contains(result, `<entry name="SPEC/root/b(interface)"`) {
-		t.Error("expected entry for SPEC/root/b(interface)")
+		t.Error("expected entry for SPEC/root/b(interface) in references")
 	}
 	if !strings.Contains(result, "## Interface") {
 		t.Error("expected ## Interface content")
@@ -280,11 +286,14 @@ func TestMCPLoadChain_ARTIFACTDependency(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	if !strings.Contains(result, "<references>") {
+		t.Error("expected <references> element")
+	}
 	if !strings.Contains(result, `<entry name="ARTIFACT/root/b"`) {
-		t.Error("expected entry for ARTIFACT/root/b")
+		t.Error("expected entry for ARTIFACT/root/b in references")
 	}
 	if !strings.Contains(result, "artifact content") {
-		t.Error("expected artifact file content in constraints")
+		t.Error("expected artifact file content in references")
 	}
 }
 
@@ -316,11 +325,14 @@ func TestMCPLoadChain_EXTERNALDependency(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	if !strings.Contains(result, "<references>") {
+		t.Error("expected <references> element")
+	}
 	if !strings.Contains(result, `<entry name="EXTERNAL/data/config.yaml"`) {
-		t.Error("expected entry for EXTERNAL/data/config.yaml")
+		t.Error("expected entry for EXTERNAL/data/config.yaml in references")
 	}
 	if !strings.Contains(result, "key: value") {
-		t.Error("expected external file content in constraints")
+		t.Error("expected external file content in references")
 	}
 }
 
