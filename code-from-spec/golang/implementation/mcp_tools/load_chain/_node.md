@@ -45,40 +45,48 @@ func MCPLoadChain(token string) (string, error)
 ### Output
 
 An XML document as a string, as defined in
-CHAIN_ASSEMBLY.md. The document has up to seven
-sections in this order:
+CHAIN_ASSEMBLY.md. The document has these sections in
+this order:
 
-1. **`<previous_constraints>`** — old spec content for
-   positions that changed or were removed. Present
-   only when cache is available and the existing
-   artifact is present on disk.
-2. **`<previous_instructions>`** — previous `# Agent`
+1. **`<previous_constraints>`** — old content for
+   `<constraints>` positions that changed or were
+   removed. Present only when cache is available and
+   the existing artifact is present on disk.
+2. **`<previous_references>`** — old content for
+   `<references>` positions (imports) that changed or
+   were removed. Present only when cache is available
+   and the existing artifact is present on disk.
+3. **`<previous_instructions>`** — previous `# Agent`
    content. Present only when cache is available, the
    existing artifact is present, and instructions
    changed or were removed.
-3. **`<previous_input>`** — old content for `input`
+4. **`<previous_input>`** — old content for `input`
    entries that changed or were removed. Contains an
    `<entry>` element per affected entry, with a `name`
    attribute and a `disposition` of `changed` or
    `removed`. Present only when cache is available, the
    existing artifact is present, and at least one
    `input` entry changed or was removed.
-4. **`<existing_artifact>`** — current content of the
+5. **`<existing_artifact>`** — current content of the
    artifact file on disk. Present only when the file
    exists.
-5. **`<constraints>`** — the current spec content. Each
+6. **`<constraints>`** — the inheritance line: ancestors
+   from root to the target's parent, plus the target
+   node's own `# Public` as the last entry. Each
    position is an `<entry>` element with a `name`
-   attribute. Entries appear in chain assembly order:
-   ancestors, then imports (sorted), then target
-   node's `# Public`. When cache is available and the
-   existing artifact is present, each entry carries a
+   attribute. When cache is available and the existing
+   artifact is present, each entry carries a
    `disposition` attribute (`unchanged`, `changed`, or
    `added`).
-6. **`<instructions>`** — the target node's `# Agent`
+7. **`<references>`** — the target node's `imports`,
+   in alphabetical order. Same `<entry>` shape and
+   disposition rules as `<constraints>`. Present only
+   when the node declares `imports`.
+8. **`<instructions>`** — the target node's `# Agent`
    section (heading not included). Present only when
    the node has an `# Agent` section. May carry a
    `disposition` attribute.
-7. **`<input>`** — the content referenced by the target
+9. **`<input>`** — the content referenced by the target
    node's `input` field. Each position is an `<entry>`
    element with a `name` attribute, one per `input`
    reference. Present only when the node declares
@@ -157,12 +165,12 @@ Implement the load chain tool as a Go package.
 
    **Previous constraints** (optional):
    If cache is available and the existing artifact is
-   present on disk: for each position among ancestors,
-   imports, and the target's `# Public` whose cached
-   content hash differs from its current hash, or which
-   is no longer present in the current chain (removed),
-   look up its old content in the cache by the cached
-   hash. Emit one `<entry name="..." disposition="changed">`
+   present on disk: for each position among ancestors
+   and the target's `# Public` whose cached content
+   hash differs from its current hash, or which is no
+   longer present in the current chain (removed), look
+   up its old content in the cache by the cached hash.
+   Emit one `<entry name="..." disposition="changed">`
    (or `disposition="removed"` if no longer present) per
    such position, containing the old content, all wrapped
    together in a single
@@ -170,6 +178,22 @@ Implement the load chain tool as a Go package.
    block. Positions whose hash is unchanged are omitted
    entirely. Omit the whole block if there is nothing to
    report.
+
+   **Previous references** (optional):
+   If cache is available and the existing artifact is
+   present on disk: for each position among imports
+   whose cached content hash differs from its current
+   hash, or which is no longer present in the current
+   chain (removed), look up its old content in the
+   cache by the cached hash. Emit one
+   `<entry name="..." disposition="changed">` (or
+   `disposition="removed"` if no longer present) per
+   such position, containing the old content, all
+   wrapped together in a single
+   `<previous_references>...</previous_references>`
+   block. Positions whose hash is unchanged are omitted
+   entirely. Omit the whole block if there is nothing
+   to report.
 
    **Previous instructions** (optional):
    If cache is available, the existing artifact is
@@ -239,31 +263,6 @@ Implement the load chain tool as a Go package.
        Append the extracted content.
        Append: `</entry>\n`
 
-   For each `dep` in `chain.Imports` (in order):
-     If dep.LogicalName starts with
-     "ARTIFACT/":
-       Read the full file at oslayer.CfsPath(dep.Path).
-       Append: `<entry name="<dep.LogicalName>">\n`
-       Append the full content.
-       Append: `</entry>\n`
-     Else if dep.LogicalName starts with
-     "EXTERNAL/":
-       Read the full file at oslayer.CfsPath(dep.Path).
-       Append: `<entry name="<dep.LogicalName>">\n`
-       Append the full content.
-       Append: `</entry>\n`
-     Else if dep.LogicalName starts with
-     "SPEC/":
-       Call `parsing.ParseNode(dep.LogicalName)`.
-       Extract content (with qualifier if present).
-       If content is non-empty:
-         Let entry_name = dep.LogicalName.
-         If dep.Qualifier is not nil, append
-         "(<*dep.Qualifier>)" to entry_name.
-         Append: `<entry name="<entry_name>">\n`
-         Append the extracted content.
-         Append: `</entry>\n`
-
    For the target node `chain.Target`:
      Call
      `parsing.ParseNode(chain.Target.LogicalName)`.
@@ -275,6 +274,35 @@ Implement the load chain tool as a Go package.
        Append: `</entry>\n`
 
    Append: "</constraints>\n"
+
+   **References** (optional):
+   If `chain.Imports` is non-empty:
+     Append: "<references>\n"
+     For each `dep` in `chain.Imports` (in order):
+       If dep.LogicalName starts with
+       "ARTIFACT/":
+         Read the full file at oslayer.CfsPath(dep.Path).
+         Append: `<entry name="<dep.LogicalName>">\n`
+         Append the full content.
+         Append: `</entry>\n`
+       Else if dep.LogicalName starts with
+       "EXTERNAL/":
+         Read the full file at oslayer.CfsPath(dep.Path).
+         Append: `<entry name="<dep.LogicalName>">\n`
+         Append the full content.
+         Append: `</entry>\n`
+       Else if dep.LogicalName starts with
+       "SPEC/":
+         Call `parsing.ParseNode(dep.LogicalName)`.
+         Extract content (with qualifier if present).
+         If content is non-empty:
+           Let entry_name = dep.LogicalName.
+           If dep.Qualifier is not nil, append
+           "(<*dep.Qualifier>)" to entry_name.
+           Append: `<entry name="<entry_name>">\n`
+           Append the extracted content.
+           Append: `</entry>\n`
+     Append: "</references>\n"
 
    **Instructions** (optional):
    Using the target node parsed above:
@@ -329,12 +357,13 @@ Implement the load chain tool as a Go package.
 
 8. Build a map from position label to extracted content:
    during Step 3, each time content is extracted for a
-   constraints entry, instructions, or input, store
-   the extracted content string in a map keyed by the
-   label that `ChainHashCompute` would use for that
-   position:
-   - Ancestors and SPEC imports: the logical name
-     (with qualifier if present).
+   constraints entry, references entry, instructions,
+   or input, store the extracted content string in a
+   map keyed by the label that `ChainHashCompute`
+   would use for that position:
+   - Ancestors: the logical name.
+   - Imports (references entries): the logical name
+     (with qualifier if present for SPEC/ imports).
    - ARTIFACT/ and EXTERNAL/ imports: the logical
      name.
    - Target node's `# Public`: the logical name.
