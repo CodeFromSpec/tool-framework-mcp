@@ -42,8 +42,8 @@ referenced files on disk at the declared paths.
 
 The output is an XML document with `<chain>` as root
 element containing `<existing_artifact>`,
-`<constraints>`, `<instructions>`, and `<input>`
-sections. No `chain_hash:` prefix line.
+`<constraints>`, `<references>`, `<instructions>`,
+and `<input>` sections. No `chain_hash:` prefix line.
 
 ## Test cases
 
@@ -152,7 +152,7 @@ Actions:
 2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
-- `<constraints>` contains
+- `<references>` contains
   `<entry name="SPEC/root/b">` with `## Interface`
   and `## Constraints` content.
 
@@ -173,7 +173,7 @@ Actions:
 2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
-- `<constraints>` contains
+- `<references>` contains
   `<entry name="SPEC/root/b(interface)">` with
   `## Interface` content only. Does not contain
   `## Constraints`.
@@ -195,7 +195,7 @@ Actions:
 2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
-- `<constraints>` contains
+- `<references>` contains
   `<entry name="ARTIFACT/root/b">` with the full
   content of `out/b.go`.
 
@@ -214,7 +214,7 @@ Actions:
 2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
-- `<constraints>` contains
+- `<references>` contains
   `<entry name="EXTERNAL/data/config.yaml">` with
   the full content of `data/config.yaml`.
 

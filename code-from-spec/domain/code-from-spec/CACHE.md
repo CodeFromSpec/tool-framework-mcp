@@ -155,7 +155,8 @@ position:
    `.cache/.chains/<old-chain-hash>`.
 2. Compute the current chain positions (labels and
    content hashes).
-3. For constraints entries, compare by label:
+3. For constraints and references entries, compare by
+   label:
    - **`unchanged`** — same label, same content hash.
    - **`changed`** — same label, different content
      hash. Old content is read from
@@ -175,8 +176,9 @@ position:
      Old content is read from `.cache/.content/`.
    - **`added`** — absent before, exists now.
 5. For `input` entries, compare by name — same rule as
-   constraints entries, since `input` may hold several
-   entries and each is tracked independently:
+   constraints and references entries, since `input` may
+   hold several entries and each is tracked
+   independently:
    - **`unchanged`** — same name, same content hash.
    - **`changed`** — same name, different content
      hash. Old content is read from
@@ -188,14 +190,14 @@ position:
      in old.
 
 The disposition is delivered in the spec chain XML: each
-`<constraints>` and `<input>` entry carries its own
-`disposition` attribute; `<instructions>` carries a single
-`disposition` attribute on the element itself, since it is
-always one position. Previous sections
-(`<previous_constraints>`, `<previous_instructions>`,
-`<previous_input>`) contain only `changed` and `removed`
-entries with their old content. See CHAIN_ASSEMBLY.md for
-the full format.
+`<constraints>`, `<references>`, and `<input>` entry
+carries its own `disposition` attribute; `<instructions>`
+carries a single `disposition` attribute on the element
+itself, since it is always one position. Previous sections
+(`<previous_constraints>`, `<previous_references>`,
+`<previous_instructions>`, `<previous_input>`) contain only
+`changed` and `removed` entries with their old content. See
+CHAIN_ASSEMBLY.md for the full format.
 
 ---
 

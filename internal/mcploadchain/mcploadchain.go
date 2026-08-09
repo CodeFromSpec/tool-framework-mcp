@@ -115,6 +115,15 @@ func MCPLoadChain(token string) (string, error) {
 			sb.WriteString("</previous_constraints>\n")
 		}
 
+		prevReferencesEntries := buildPreviousReferencesEntries(chain, cachedHashByLabel, currentHashByLabel)
+		if len(prevReferencesEntries) > 0 {
+			sb.WriteString("<previous_references>\n")
+			for _, e := range prevReferencesEntries {
+				sb.WriteString(e)
+			}
+			sb.WriteString("</previous_references>\n")
+		}
+
 		prevInstructions := buildPreviousInstructions(logicalName, cachedHashByLabel, currentHashByLabel)
 		if prevInstructions != "" {
 			sb.WriteString(prevInstructions)
@@ -161,75 +170,6 @@ func MCPLoadChain(token string) (string, error) {
 		sb.WriteString("</entry>\n")
 	}
 
-	for _, dep := range chain.Imports {
-		switch {
-		case strings.HasPrefix(dep.LogicalName, "ARTIFACT/"):
-			fileContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(dep.Path))
-			if readErr != nil {
-				return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
-			}
-			contentByLabel[dep.LogicalName] = fileContent
-			disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
-			sb.WriteString("<entry name=\"")
-			sb.WriteString(dep.LogicalName)
-			sb.WriteString("\"")
-			if disposition != "" {
-				sb.WriteString(" disposition=\"")
-				sb.WriteString(disposition)
-				sb.WriteString("\"")
-			}
-			sb.WriteString(">\n")
-			sb.WriteString(fileContent)
-			sb.WriteString("</entry>\n")
-
-		case strings.HasPrefix(dep.LogicalName, "EXTERNAL/"):
-			fileContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(dep.Path))
-			if readErr != nil {
-				return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
-			}
-			contentByLabel[dep.LogicalName] = fileContent
-			disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
-			sb.WriteString("<entry name=\"")
-			sb.WriteString(dep.LogicalName)
-			sb.WriteString("\"")
-			if disposition != "" {
-				sb.WriteString(" disposition=\"")
-				sb.WriteString(disposition)
-				sb.WriteString("\"")
-			}
-			sb.WriteString(">\n")
-			sb.WriteString(fileContent)
-			sb.WriteString("</entry>\n")
-
-		case strings.HasPrefix(dep.LogicalName, "SPEC/"):
-			depNode, parseErr := parsing.ParseNode(dep.LogicalName)
-			if parseErr != nil {
-				return "", fmt.Errorf("parsing dependency %s: %w", dep.LogicalName, parseErr)
-			}
-			content := extractPublicContent(depNode, dep.Qualifier)
-			if content == "" {
-				continue
-			}
-			entryName := dep.LogicalName
-			if dep.Qualifier != nil {
-				entryName = entryName + "(" + *dep.Qualifier + ")"
-			}
-			contentByLabel[entryName] = content
-			disposition := computeDisposition(entryName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
-			sb.WriteString("<entry name=\"")
-			sb.WriteString(entryName)
-			sb.WriteString("\"")
-			if disposition != "" {
-				sb.WriteString(" disposition=\"")
-				sb.WriteString(disposition)
-				sb.WriteString("\"")
-			}
-			sb.WriteString(">\n")
-			sb.WriteString(content)
-			sb.WriteString("</entry>\n")
-		}
-	}
-
 	targetNode, err := parsing.ParseNode(chain.Target.LogicalName)
 	if err != nil {
 		return "", fmt.Errorf("parsing target node: %w", err)
@@ -254,6 +194,79 @@ func MCPLoadChain(token string) (string, error) {
 	}
 
 	sb.WriteString("</constraints>\n")
+
+	if len(chain.Imports) > 0 {
+		sb.WriteString("<references>\n")
+		for _, dep := range chain.Imports {
+			switch {
+			case strings.HasPrefix(dep.LogicalName, "ARTIFACT/"):
+				fileContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(dep.Path))
+				if readErr != nil {
+					return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
+				}
+				contentByLabel[dep.LogicalName] = fileContent
+				disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				sb.WriteString("<entry name=\"")
+				sb.WriteString(dep.LogicalName)
+				sb.WriteString("\"")
+				if disposition != "" {
+					sb.WriteString(" disposition=\"")
+					sb.WriteString(disposition)
+					sb.WriteString("\"")
+				}
+				sb.WriteString(">\n")
+				sb.WriteString(fileContent)
+				sb.WriteString("</entry>\n")
+
+			case strings.HasPrefix(dep.LogicalName, "EXTERNAL/"):
+				fileContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(dep.Path))
+				if readErr != nil {
+					return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
+				}
+				contentByLabel[dep.LogicalName] = fileContent
+				disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				sb.WriteString("<entry name=\"")
+				sb.WriteString(dep.LogicalName)
+				sb.WriteString("\"")
+				if disposition != "" {
+					sb.WriteString(" disposition=\"")
+					sb.WriteString(disposition)
+					sb.WriteString("\"")
+				}
+				sb.WriteString(">\n")
+				sb.WriteString(fileContent)
+				sb.WriteString("</entry>\n")
+
+			case strings.HasPrefix(dep.LogicalName, "SPEC/"):
+				depNode, parseErr := parsing.ParseNode(dep.LogicalName)
+				if parseErr != nil {
+					return "", fmt.Errorf("parsing dependency %s: %w", dep.LogicalName, parseErr)
+				}
+				content := extractPublicContent(depNode, dep.Qualifier)
+				if content == "" {
+					continue
+				}
+				entryName := dep.LogicalName
+				if dep.Qualifier != nil {
+					entryName = entryName + "(" + *dep.Qualifier + ")"
+				}
+				contentByLabel[entryName] = content
+				disposition := computeDisposition(entryName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				sb.WriteString("<entry name=\"")
+				sb.WriteString(entryName)
+				sb.WriteString("\"")
+				if disposition != "" {
+					sb.WriteString(" disposition=\"")
+					sb.WriteString(disposition)
+					sb.WriteString("\"")
+				}
+				sb.WriteString(">\n")
+				sb.WriteString(content)
+				sb.WriteString("</entry>\n")
+			}
+		}
+		sb.WriteString("</references>\n")
+	}
 
 	if targetNode.Agent != nil {
 		agentContent := parsing.ExtractAgentContent(targetNode)
@@ -400,6 +413,53 @@ func buildPreviousConstraintsEntries(chain chainresolver.Chain, cachedHashByLabe
 		entries = append(entries, buildPreviousEntry(label, disposition, content))
 	}
 
+	targetLabel := chain.Target.LogicalName
+	if cachedHash, inCached := cachedHashByLabel[targetLabel]; inCached {
+		currentHash, inCurrent := currentHashByLabel[targetLabel]
+		if !(inCurrent && currentHash == cachedHash) {
+			content, readErr := cache.ReadContent(cachedHash)
+			if readErr == nil {
+				disposition := "changed"
+				if !inCurrent {
+					disposition = "removed"
+				}
+				entries = append(entries, buildPreviousEntry(targetLabel, disposition, content))
+			}
+		}
+	}
+
+	currentConstraintLabels := make(map[string]bool)
+	for _, ancestor := range chain.Ancestors {
+		currentConstraintLabels[ancestor.LogicalName] = true
+	}
+	currentConstraintLabels[chain.Target.LogicalName] = true
+
+	for label, cachedHash := range cachedHashByLabel {
+		if strings.HasPrefix(label, "AGENT[") || strings.HasPrefix(label, "INPUT[") {
+			continue
+		}
+		if currentConstraintLabels[label] {
+			continue
+		}
+		if _, inCurrent := currentHashByLabel[label]; inCurrent {
+			continue
+		}
+		if !isAncestorOrTargetLabel(label, chain.Target.LogicalName) {
+			continue
+		}
+		content, readErr := cache.ReadContent(cachedHash)
+		if readErr != nil {
+			continue
+		}
+		entries = append(entries, buildPreviousEntry(label, "removed", content))
+	}
+
+	return entries
+}
+
+func buildPreviousReferencesEntries(chain chainresolver.Chain, cachedHashByLabel, currentHashByLabel map[string]string) []string {
+	var entries []string
+
 	for _, dep := range chain.Imports {
 		entryName := dep.LogicalName
 		if dep.Qualifier != nil {
@@ -424,53 +484,26 @@ func buildPreviousConstraintsEntries(chain chainresolver.Chain, cachedHashByLabe
 		entries = append(entries, buildPreviousEntry(entryName, disposition, content))
 	}
 
-	targetLabel := chain.Target.LogicalName
-	cachedHash, inCached := cachedHashByLabel[targetLabel]
-	if inCached {
-		currentHash, inCurrent := currentHashByLabel[targetLabel]
-		if !(inCurrent && currentHash == cachedHash) {
-			content, readErr := cache.ReadContent(cachedHash)
-			if readErr == nil {
-				disposition := "changed"
-				if !inCurrent {
-					disposition = "removed"
-				}
-				entries = append(entries, buildPreviousEntry(targetLabel, disposition, content))
-			}
+	currentImportLabels := make(map[string]bool)
+	for _, dep := range chain.Imports {
+		label := dep.LogicalName
+		if dep.Qualifier != nil {
+			label = label + "(" + *dep.Qualifier + ")"
 		}
+		currentImportLabels[label] = true
 	}
 
 	for label, cachedHash := range cachedHashByLabel {
 		if strings.HasPrefix(label, "AGENT[") || strings.HasPrefix(label, "INPUT[") {
 			continue
 		}
+		if currentImportLabels[label] {
+			continue
+		}
 		if _, inCurrent := currentHashByLabel[label]; inCurrent {
 			continue
 		}
-		inAnchors := false
-		for _, ancestor := range chain.Ancestors {
-			if ancestor.LogicalName == label {
-				inAnchors = true
-				break
-			}
-		}
-		if inAnchors {
-			continue
-		}
-		for _, dep := range chain.Imports {
-			depLabel := dep.LogicalName
-			if dep.Qualifier != nil {
-				depLabel = depLabel + "(" + *dep.Qualifier + ")"
-			}
-			if depLabel == label {
-				inAnchors = true
-				break
-			}
-		}
-		if inAnchors {
-			continue
-		}
-		if label == chain.Target.LogicalName {
+		if isAncestorOrTargetLabel(label, chain.Target.LogicalName) {
 			continue
 		}
 		content, readErr := cache.ReadContent(cachedHash)
@@ -481,6 +514,13 @@ func buildPreviousConstraintsEntries(chain chainresolver.Chain, cachedHashByLabe
 	}
 
 	return entries
+}
+
+func isAncestorOrTargetLabel(label string, targetLogicalName string) bool {
+	if label == targetLogicalName {
+		return true
+	}
+	return strings.HasPrefix(label, "SPEC/") && strings.HasPrefix(targetLogicalName, label+"/")
 }
 
 func buildPreviousEntry(label, disposition, content string) string {

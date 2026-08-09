@@ -15,24 +15,31 @@ The spec chain is an XML document delivered via
 `load_chain`. The XML is designed to be consumed by a
 generation subagent that has no knowledge of Code from
 Spec. The element names (`<constraints>`,
-`<instructions>`, etc.) were chosen to be
-self-explanatory to the subagent, and differ from the
-terminology used elsewhere in the framework.
+`<references>`, `<instructions>`, etc.) were chosen to
+be self-explanatory to the subagent, and differ from
+the terminology used elsewhere in the framework.
 
-The document has up to seven sections, in this order:
+The document has these sections, in this order:
 
-1. **`<previous_constraints>`** — old spec content for
-   positions that changed or were removed, as recorded
-   in the cache. Present only when the cache is
-   available and the existing artifact is present on
-   disk. Contains only entries with
+1. **`<previous_constraints>`** — old content for
+   `<constraints>` positions that changed or were
+   removed, as recorded in the cache. Present only when
+   the cache is available and the existing artifact is
+   present on disk. Contains only entries with
    `disposition="changed"` or `disposition="removed"`,
    each with their old content. Positions that did not
    change are not listed — their `unchanged`
    disposition is on the corresponding entry in
    `<constraints>`.
 
-2. **`<previous_instructions>`** — the previous
+2. **`<previous_references>`** — old content for
+   `<references>` positions (imports) that changed or
+   were removed, as recorded in the cache. Present only
+   when the cache is available and the existing artifact
+   is present on disk. Same rules as
+   `<previous_constraints>`, scoped to imports.
+
+3. **`<previous_instructions>`** — the previous
    `# Agent` section (excluding the `# Agent` heading),
    as recorded in the cache. Present only when the
    cache is available, the existing artifact is present
@@ -40,7 +47,7 @@ The document has up to seven sections, in this order:
    removed. Carries `disposition="changed"` or
    `disposition="removed"`. Contains the old content.
 
-3. **`<previous_input>`** — old content for `input`
+4. **`<previous_input>`** — old content for `input`
    entries that changed or were removed, as recorded
    in the cache. Present only when the cache is
    available, the existing artifact is present on disk,
@@ -52,15 +59,17 @@ The document has up to seven sections, in this order:
    `unchanged` disposition is on the corresponding entry
    in `<input>`.
 
-4. **`<existing_artifact>`** — the current content of
+5. **`<existing_artifact>`** — the current content of
    the artifact file on disk. Present only when the
    file exists.
 
-5. **`<constraints>`** — the current spec content. Each
-   position is an `<entry>` element with a `name`
-   attribute identifying the source. When cache is
-   available and the existing artifact is present,
-   each entry carries a `disposition` attribute:
+6. **`<constraints>`** — the inheritance line: ancestors
+   from root to the target's parent, plus the target
+   node's own `# Public` as the last entry. Each position
+   is an `<entry>` element with a `name` attribute
+   identifying the source. When cache is available and
+   the existing artifact is present, each entry carries a
+   `disposition` attribute:
    - `unchanged` — same name, same content hash as
      the previous generation.
    - `changed` — same name, different content hash.
@@ -68,14 +77,21 @@ The document has up to seven sections, in this order:
    When cache is not available, entries have no
    `disposition`.
 
-6. **`<instructions>`** — the target node's `# Agent`
+7. **`<references>`** — the target node's `imports`,
+   in alphabetical order. Same `<entry>` shape and
+   disposition rules as `<constraints>`, applied to a
+   different relation: material to consult, not
+   convention to adopt. Present only when the node
+   declares `imports`.
+
+8. **`<instructions>`** — the target node's `# Agent`
    section. The `# Agent` heading is not included.
    Present only when the node has an `# Agent` section.
    When cache is available and the existing artifact
    is present, carries a `disposition` attribute:
    `unchanged`, `changed`, or `added`.
 
-7. **`<input>`** — the content referenced by the target
+9. **`<input>`** — the content referenced by the target
    node's `input` field. Each position is an `<entry>`
    element with a `name` attribute, one per `input`
    reference (a single value or each item in a list).
@@ -86,37 +102,41 @@ The document has up to seven sections, in this order:
    present, each entry carries a `disposition` attribute:
    `unchanged`, `changed`, or `added`.
 
-Sections 1–4 provide context from the previous
+Sections 1–5 provide context from the previous
 generation: what the spec said before, what input was
-used, and what was generated from them. Section 5 is
+used, and what was generated from them. Sections 6–7 are
 the current spec content, authoritative over everything
-before it. Section 6 is the generation guidance.
-Section 7 is the material to transform.
+before them. Section 8 is the generation guidance.
+Section 9 is the material to transform.
+
+This split is purely how the chain is delivered — it has
+no effect on the chain hash, which continues to identify
+each position by its full logical name regardless of
+which section carries it (see CHAIN_HASH.md).
 
 ## Generation scenarios
 
 Three scenarios determine which sections are present:
 
 - **First generation** (no existing artifact): the
-  spec chain contains only `<constraints>`,
-  `<instructions>`, and optionally `<input>`. Even
-  if the cache has data, it is not used — there is
-  no existing code to compare against.
+  spec chain contains `<constraints>` and
+  `<instructions>`, plus `<references>` and `<input>`
+  when the node declares them. Even if the cache has
+  data, it is not used — there is no existing code to
+  compare against.
 
 - **Regeneration without cache** (existing artifact,
-  no cache): the spec chain contains
-  `<existing_artifact>`, `<constraints>`,
-  `<instructions>`, and optionally `<input>`. No
-  `<previous_*>` sections — the subagent compares
-  the existing artifact directly against the current
-  spec.
+  no cache): the spec chain adds
+  `<existing_artifact>` to the above. No `<previous_*>`
+  sections — the subagent compares the existing
+  artifact directly against the current spec.
 
 - **Regeneration with cache** (existing artifact and
-  cache available): all seven sections may be present.
-  The `<previous_*>` sections and the current
-  `<constraints>`, `<instructions>`, and `<input>`
-  carry disposition attributes showing exactly what
-  changed.
+  cache available): all sections may be present. The
+  `<previous_*>` sections and the current
+  `<constraints>`, `<references>`, `<instructions>`,
+  and `<input>` carry disposition attributes showing
+  exactly what changed.
 
 ---
 
@@ -125,9 +145,15 @@ Three scenarios determine which sections are present:
 Positions within `<constraints>` appear in this order:
 
 1. Ancestors from root to the target node's parent.
-2. `imports` entries in alphabetical order by the
-   full logical name (including prefix and qualifier).
-3. The target node's `# Public`.
+2. The target node's `# Public`.
+
+---
+
+## References assembly order
+
+Positions within `<references>` appear in alphabetical
+order by the full logical name (including prefix and
+qualifier) — the target node's `imports` entries.
 
 ---
 
@@ -192,10 +218,13 @@ The resulting spec chain:
     <entry name="SPEC/payments/fees" disposition="changed">
     ...old content...
     </entry>
+  </previous_constraints>
+
+  <previous_references>
     <entry name="SPEC/legacy/old-fees" disposition="removed">
     ...old content...
     </entry>
-  </previous_constraints>
+  </previous_references>
 
   <previous_instructions disposition="changed">
   ...previous # Agent content...
@@ -208,10 +237,13 @@ The resulting spec chain:
   <constraints>
     <entry name="SPEC/payments" disposition="unchanged">...</entry>
     <entry name="SPEC/payments/fees" disposition="changed">...</entry>
-    <entry name="EXTERNAL/proto/payments/v1/transfers.proto" disposition="added">...</entry>
-    <entry name="SPEC/integrations/database" disposition="added">...</entry>
     <entry name="SPEC/payments/fees/calculation" disposition="unchanged">...</entry>
   </constraints>
+
+  <references>
+    <entry name="EXTERNAL/proto/payments/v1/transfers.proto" disposition="added">...</entry>
+    <entry name="SPEC/integrations/database" disposition="added">...</entry>
+  </references>
 
   <instructions disposition="changed">
   ...generation guidance...
