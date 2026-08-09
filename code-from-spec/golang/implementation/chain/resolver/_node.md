@@ -26,7 +26,7 @@ type Chain struct {
 	Ancestors []parsing.CfsReference
 	Imports   []parsing.CfsReference
 	Target    parsing.CfsReference
-	Input     *parsing.CfsReference // nil if absent
+	Input     []parsing.CfsReference
 }
 
 func ChainResolve(targetLogicalName string) (Chain, error)
@@ -39,7 +39,10 @@ func ChainResolve(targetLogicalName string) (Chain, error)
 2. **Imports** — all entries from the target's
    `imports`, sorted alphabetically by logical name.
 3. **Target** — the target node itself.
-4. **Input** — the target's `input`, if present.
+4. **Input** — all entries from the target's `input`,
+   sorted alphabetically by logical name. Resolved,
+   sorted, and deduplicated independently from
+   `imports` — the two lists never merge.
 
 ### Errors
 
@@ -131,13 +134,46 @@ list.
 
 ### Step 4 — Resolve input
 
-If fm.Input is nil:
-  Set the Chain's Input field to nil.
-Else:
-  Call parsing.CfsReferenceFromName(*fm.Input).
-  If it fails, propagate the error. Let `input_ref`
-  be the result.
-  Set the Chain's Input field to input_ref.
+Initialize an empty input list.
+
+For each entry in fm.Input:
+
+  Call parsing.CfsReferenceFromName(entry).
+  If it fails, raise ErrUnresolvableArtifact
+  (wrapping the original error). Let `ref` be
+  the result.
+
+  Add *ref to input list.
+
+Sort the input list alphabetically by
+LogicalName, then by Qualifier (nil sorts before
+non-nil), in a single pass.
+
+### Step 5 — Deduplicate input
+
+Initialize an empty deduplicated input list.
+
+For each item in the sorted input list:
+
+  If item.LogicalName starts with "SPEC/":
+    Check if an entry with the same LogicalName and
+    the same Qualifier already exists in the
+    deduplicated list. If yes, skip (duplicate).
+    Also check if an entry with the same LogicalName
+    and nil Qualifier already exists. If yes, skip
+    (full section covers every subsection).
+    Otherwise, add to deduplicated list.
+
+  Else if item.LogicalName starts with "ARTIFACT/":
+    Check if an entry with the same LogicalName
+    already exists. If yes, skip. Otherwise, add.
+
+  Else if item.LogicalName starts with "EXTERNAL/":
+    Check if an entry with the same LogicalName
+    already exists. If yes, skip. Otherwise, add.
+
+Set the Chain's Input field to the deduplicated
+input list.
 
 Return Chain with Ancestors, Imports, Target,
 Input.

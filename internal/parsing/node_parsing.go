@@ -15,7 +15,7 @@ import (
 
 type NodeFrontmatter struct {
 	Imports []string
-	Input   *string
+	Input   []string
 	Output  *string
 }
 
@@ -43,7 +43,7 @@ type Node struct {
 
 type rawFrontmatterNP struct {
 	Imports []string `yaml:"imports"`
-	Input   *string  `yaml:"input"`
+	Input   any      `yaml:"input"`
 	Output  *string  `yaml:"output"`
 }
 
@@ -106,6 +106,28 @@ func ParseNode(logicalName string) (*Node, error) {
 	return node, nil
 }
 
+func normalizeInputFieldNP(raw any) ([]string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	switch v := raw.(type) {
+	case string:
+		return []string{v}, nil
+	case []any:
+		result := make([]string, len(v))
+		for i, elem := range v {
+			s, ok := elem.(string)
+			if !ok {
+				return nil, fmt.Errorf("%w: input list element is not a string", ErrMalformedYAML)
+			}
+			result[i] = s
+		}
+		return result, nil
+	default:
+		return nil, fmt.Errorf("%w: input field must be a string or list of strings", ErrMalformedYAML)
+	}
+}
+
 func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 	if !bytes.HasPrefix(source, []byte("---\n")) {
 		return nil, source, nil
@@ -131,9 +153,14 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 		return nil, nil, fmt.Errorf("%w: %w", ErrMalformedYAML, err)
 	}
 
+	inputSlice, err := normalizeInputFieldNP(raw.Input)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	fm := &NodeFrontmatter{
 		Imports: raw.Imports,
-		Input:   raw.Input,
+		Input:   inputSlice,
 		Output:  raw.Output,
 	}
 

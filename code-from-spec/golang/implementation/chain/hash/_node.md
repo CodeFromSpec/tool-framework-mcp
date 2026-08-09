@@ -168,24 +168,25 @@ Helper: `recordPosition(label, rawHash)`:
    b. If `h` is present, call
       `recordPosition("AGENT[" + chain.Target.LogicalName + "]", h)`.
 
-5. If `chain.Input` is not nil:
+5. For each `input` in `chain.Input` (already sorted
+   alphabetically by logical name, independently of
+   `chain.Imports`):
    a. Append a single byte `0x49` (`I`) to
-      `hashes` as a marker before the input content
+      `hashes` as a marker before this input's content
       hash. Do NOT add a position entry for the marker.
-   b. Let `input` = `chain.Input`.
-   c. Let `inputLabel` = input.LogicalName. If
+   b. Let `inputLabel` = input.LogicalName. If
       input.Qualifier is not nil, append
       "(" + *input.Qualifier + ")" to inputLabel.
       Let `inputLabel` = "INPUT[" + inputLabel + "]".
-   d. If input.LogicalName starts with "ARTIFACT/":
+   c. If input.LogicalName starts with "ARTIFACT/":
       Let `h` = `HashFileContent(
       oslayer.CfsPath(input.Path))`.
       Call `recordPosition(inputLabel, h)`.
-   e. Else if input.LogicalName starts with "EXTERNAL/":
+   d. Else if input.LogicalName starts with "EXTERNAL/":
       Let `h` = `HashFileContent(
       oslayer.CfsPath(input.Path))`.
       Call `recordPosition(inputLabel, h)`.
-   f. Else if input.LogicalName starts with "SPEC/":
+   e. Else if input.LogicalName starts with "SPEC/":
       Call `parsing.ParseNode(input.LogicalName)`.
       If it fails, raise ErrParseFailure.
       If `input.Qualifier` is nil:

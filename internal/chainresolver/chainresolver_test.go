@@ -30,8 +30,8 @@ func TestChainResolve_RootAsTarget(t *testing.T) {
 	if chain.Target.Qualifier != nil {
 		t.Errorf("expected nil qualifier, got %v", chain.Target.Qualifier)
 	}
-	if chain.Input != nil {
-		t.Errorf("expected no input, got %v", chain.Input)
+	if len(chain.Input) != 0 {
+		t.Errorf("expected empty input, got %d", len(chain.Input))
 	}
 }
 
@@ -103,8 +103,8 @@ func TestChainResolve_EmptyFrontmatter(t *testing.T) {
 	if len(chain.Imports) != 0 {
 		t.Errorf("expected no imports, got %d", len(chain.Imports))
 	}
-	if chain.Input != nil {
-		t.Errorf("expected no input, got %v", chain.Input)
+	if len(chain.Input) != 0 {
+		t.Errorf("expected empty input, got %d", len(chain.Input))
 	}
 }
 
@@ -466,7 +466,7 @@ func TestChainResolve_InputArtifactResolved(t *testing.T) {
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
-	a.SetInput("ARTIFACT/root/b")
+	a.SetInputScalar("ARTIFACT/root/b")
 	a.Write()
 	bNode := testutils.CreateSpecNode(t, "SPEC/root/b")
 	bNode.SetOutput("out/data.json")
@@ -476,14 +476,14 @@ func TestChainResolve_InputArtifactResolved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if chain.Input == nil {
-		t.Fatal("expected input, got nil")
+	if len(chain.Input) != 1 {
+		t.Fatalf("expected 1 input, got %d", len(chain.Input))
 	}
-	if chain.Input.LogicalName != "ARTIFACT/root/b" {
-		t.Errorf("expected ARTIFACT/root/b, got %q", chain.Input.LogicalName)
+	if chain.Input[0].LogicalName != "ARTIFACT/root/b" {
+		t.Errorf("expected ARTIFACT/root/b, got %q", chain.Input[0].LogicalName)
 	}
-	if chain.Input.Path != "out/data.json" {
-		t.Errorf("expected path out/data.json, got %q", chain.Input.Path)
+	if chain.Input[0].Path != "out/data.json" {
+		t.Errorf("expected path out/data.json, got %q", chain.Input[0].Path)
 	}
 }
 
@@ -492,21 +492,21 @@ func TestChainResolve_ExternalInputResolvedToPath(t *testing.T) {
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
-	a.SetInput("EXTERNAL/docs/vendor/spec.yaml")
+	a.SetInputScalar("EXTERNAL/docs/vendor/spec.yaml")
 	a.Write()
 
 	chain, err := chainresolver.ChainResolve("SPEC/root/a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if chain.Input == nil {
-		t.Fatal("expected input, got nil")
+	if len(chain.Input) != 1 {
+		t.Fatalf("expected 1 input, got %d", len(chain.Input))
 	}
-	if chain.Input.LogicalName != "EXTERNAL/docs/vendor/spec.yaml" {
-		t.Errorf("expected EXTERNAL/docs/vendor/spec.yaml, got %q", chain.Input.LogicalName)
+	if chain.Input[0].LogicalName != "EXTERNAL/docs/vendor/spec.yaml" {
+		t.Errorf("expected EXTERNAL/docs/vendor/spec.yaml, got %q", chain.Input[0].LogicalName)
 	}
-	if chain.Input.Path != "docs/vendor/spec.yaml" {
-		t.Errorf("expected path docs/vendor/spec.yaml, got %q", chain.Input.Path)
+	if chain.Input[0].Path != "docs/vendor/spec.yaml" {
+		t.Errorf("expected path docs/vendor/spec.yaml, got %q", chain.Input[0].Path)
 	}
 }
 
@@ -515,7 +515,7 @@ func TestChainResolve_SpecInputResolved(t *testing.T) {
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
-	a.SetInput("SPEC/root/b")
+	a.SetInputScalar("SPEC/root/b")
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
@@ -523,17 +523,17 @@ func TestChainResolve_SpecInputResolved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if chain.Input == nil {
-		t.Fatal("expected input, got nil")
+	if len(chain.Input) != 1 {
+		t.Fatalf("expected 1 input, got %d", len(chain.Input))
 	}
-	if chain.Input.LogicalName != "SPEC/root/b" {
-		t.Errorf("expected SPEC/root/b, got %q", chain.Input.LogicalName)
+	if chain.Input[0].LogicalName != "SPEC/root/b" {
+		t.Errorf("expected SPEC/root/b, got %q", chain.Input[0].LogicalName)
 	}
-	if chain.Input.Path != "code-from-spec/root/b/_node.md" {
-		t.Errorf("expected path code-from-spec/root/b/_node.md, got %q", chain.Input.Path)
+	if chain.Input[0].Path != "code-from-spec/root/b/_node.md" {
+		t.Errorf("expected path code-from-spec/root/b/_node.md, got %q", chain.Input[0].Path)
 	}
-	if chain.Input.Qualifier != nil {
-		t.Errorf("expected nil qualifier, got %v", chain.Input.Qualifier)
+	if chain.Input[0].Qualifier != nil {
+		t.Errorf("expected nil qualifier, got %v", chain.Input[0].Qualifier)
 	}
 }
 
@@ -542,7 +542,7 @@ func TestChainResolve_SpecInputWithQualifier(t *testing.T) {
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
-	a.SetInput("SPEC/root/b(acceptance-tests)")
+	a.SetInputScalar("SPEC/root/b(acceptance-tests)")
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
@@ -550,17 +550,60 @@ func TestChainResolve_SpecInputWithQualifier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if chain.Input == nil {
-		t.Fatal("expected input, got nil")
+	if len(chain.Input) != 1 {
+		t.Fatalf("expected 1 input, got %d", len(chain.Input))
 	}
-	if chain.Input.LogicalName != "SPEC/root/b" {
-		t.Errorf("expected SPEC/root/b, got %q", chain.Input.LogicalName)
+	if chain.Input[0].LogicalName != "SPEC/root/b" {
+		t.Errorf("expected SPEC/root/b, got %q", chain.Input[0].LogicalName)
 	}
-	if chain.Input.Path != "code-from-spec/root/b/_node.md" {
-		t.Errorf("expected path code-from-spec/root/b/_node.md, got %q", chain.Input.Path)
+	if chain.Input[0].Path != "code-from-spec/root/b/_node.md" {
+		t.Errorf("expected path code-from-spec/root/b/_node.md, got %q", chain.Input[0].Path)
 	}
-	if chain.Input.Qualifier == nil || *chain.Input.Qualifier != "acceptance-tests" {
-		t.Errorf("expected qualifier 'acceptance-tests', got %v", chain.Input.Qualifier)
+	if chain.Input[0].Qualifier == nil || *chain.Input[0].Qualifier != "acceptance-tests" {
+		t.Errorf("expected qualifier 'acceptance-tests', got %v", chain.Input[0].Qualifier)
+	}
+}
+
+func TestChainResolve_MultipleInputsSorted(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetInputList([]string{"SPEC/root/z", "SPEC/root/b"})
+	a.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/z").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Input) != 2 {
+		t.Fatalf("expected 2 inputs, got %d", len(chain.Input))
+	}
+	if chain.Input[0].LogicalName != "SPEC/root/b" {
+		t.Errorf("expected input[0] = SPEC/root/b, got %q", chain.Input[0].LogicalName)
+	}
+	if chain.Input[1].LogicalName != "SPEC/root/z" {
+		t.Errorf("expected input[1] = SPEC/root/z, got %q", chain.Input[1].LogicalName)
+	}
+}
+
+func TestChainResolve_DuplicateInput(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetInputList([]string{"SPEC/root/b", "SPEC/root/b"})
+	a.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Input) != 1 {
+		t.Errorf("expected 1 input (deduped), got %d", len(chain.Input))
 	}
 }
 
@@ -574,8 +617,8 @@ func TestChainResolve_NoInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if chain.Input != nil {
-		t.Errorf("expected no input, got %v", chain.Input)
+	if len(chain.Input) != 0 {
+		t.Errorf("expected empty input, got %d", len(chain.Input))
 	}
 }
 
@@ -613,7 +656,7 @@ func TestChainResolve_InputArtifactGeneratingNodeNotFound(t *testing.T) {
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
-	a.SetInput("ARTIFACT/root/missing")
+	a.SetInputScalar("ARTIFACT/root/missing")
 	a.Write()
 
 	_, err := chainresolver.ChainResolve("SPEC/root/a")

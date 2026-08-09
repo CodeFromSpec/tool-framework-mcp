@@ -87,7 +87,12 @@ types) must use the suffix `NP`.
   ignoring all other keys:
   - imports: list of strings. If absent or null,
     use nil.
-  - input: *string. If absent or null, use nil.
+  - input: a single scalar string or a list of strings.
+    If absent or null, use nil. If a scalar string,
+    normalize to a single-element list. If a list, use
+    it as-is. If present but neither a scalar string nor
+    a list of strings (e.g. a number or mapping), raise
+    ErrMalformedYAML.
   - output: *string. If absent or null, use nil.
 
 - Build a NodeFrontmatter record with the extracted
@@ -202,6 +207,13 @@ name_section, public, agent, private.
   Define an unexported struct with `yaml` tags to map
   YAML keys to Go fields, then convert to the exported
   NodeFrontmatter type.
+- The `input` field accepts either shape in YAML. Declare
+  its raw field as `any` (`interface{}`) in the
+  unexported struct, then normalize after unmarshalling:
+  nil stays nil; a `string` becomes a single-element
+  `[]string`; a `[]any` is converted element-by-element
+  to `[]string` (raise ErrMalformedYAML if any element is
+  not a string); any other type raises ErrMalformedYAML.
 - Use `goldmark.New()` and `md.Parser().Parse(
   text.NewReader(body))` for body parsing.
 - Use direct child iteration

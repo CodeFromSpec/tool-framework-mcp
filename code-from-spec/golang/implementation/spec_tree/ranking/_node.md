@@ -97,18 +97,20 @@ For each spec node entry in the entry map:
    - Else if reference starts with "EXTERNAL/": skip.
    - Else: raise ErrUnresolvableReference.
 
-4. **input dependency**: If node.Frontmatter is not nil and
-   node.Frontmatter.Input is not nil:
-   - If *node.Frontmatter.Input starts with "SPEC/":
-     - Extract the unqualified logical name: if the value contains "(",
-       take the portion before it; otherwise use as-is.
+4. **input dependencies**: If node.Frontmatter is not nil, for
+   each reference in node.Frontmatter.Input:
+   - If reference starts with "SPEC/":
+     - Extract the unqualified logical name: if the reference contains
+       "(", take the portion before it; otherwise use the reference
+       as-is.
      - If the unqualified name is not a key in the entry map, raise
        ErrUnresolvableReference.
      - Add the unqualified name to the entry's deps list.
-   - Else if starts with "ARTIFACT/":
-     - If not a key in the entry map, raise ErrUnresolvableReference.
-     - Add to the entry's deps list.
-   - Else if starts with "EXTERNAL/": skip.
+   - Else if reference starts with "ARTIFACT/":
+     - If reference is not a key in the entry map, raise
+       ErrUnresolvableReference.
+     - Add reference to the entry's deps list.
+   - Else if reference starts with "EXTERNAL/": skip.
 
 ### Step 3 — Initialize ranks
 

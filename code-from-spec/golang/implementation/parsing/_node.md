@@ -37,7 +37,7 @@ simple case folding.
 ```go
 type NodeFrontmatter struct {
     Imports []string
-    Input   *string
+    Input   []string
     Output  *string
 }
 
@@ -67,8 +67,10 @@ func ParseNode(logicalName string) (*Node, error)
 ```
 
 `NodeFrontmatter` fields are nil when absent from the
-YAML. `Imports` defaults to nil (not empty slice)
-when absent.
+YAML. `Imports` and `Input` default to nil (not empty
+slice) when absent. `Input` accepts either a single
+scalar string or a YAML list in the source file — both
+forms normalize to `Input []string`.
 
 `Heading` is the normalized form (after `NormalizeText`),
 used for comparisons and lookups. `RawHeading` is the

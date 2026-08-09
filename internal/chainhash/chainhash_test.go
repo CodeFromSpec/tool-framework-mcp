@@ -799,19 +799,19 @@ func TestInputHashesFullFileContent(t *testing.T) {
 	aB.SetPublic("## Interface\nsome interface")
 	aB.Write()
 
-	inputRef := parsing.CfsReference{
-		NodeType:    parsing.CfsNodeTypeArtifact,
-		LogicalName: "ARTIFACT/artifact/input",
-		Path:        "internal/artifact/input.go",
-	}
-
 	chain := chainresolver.Chain{
 		Target: parsing.CfsReference{
 			NodeType:    parsing.CfsNodeTypeSpec,
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Input: &inputRef,
+		Input: []parsing.CfsReference{
+			{
+				NodeType:    parsing.CfsNodeTypeArtifact,
+				LogicalName: "ARTIFACT/artifact/input",
+				Path:        "internal/artifact/input.go",
+			},
+		},
 	}
 
 	hashBefore, _, err := chainhash.ChainHashCompute(chain)
@@ -844,19 +844,19 @@ func TestSpecInputHashesPublicSubsections(t *testing.T) {
 	aB.SetPublic("## Interface\nsome interface")
 	aB.Write()
 
-	inputRef := parsing.CfsReference{
-		NodeType:    parsing.CfsNodeTypeSpec,
-		LogicalName: "SPEC/root/b",
-		Path:        "code-from-spec/root/b/_node.md",
-	}
-
 	chain := chainresolver.Chain{
 		Target: parsing.CfsReference{
 			NodeType:    parsing.CfsNodeTypeSpec,
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Input: &inputRef,
+		Input: []parsing.CfsReference{
+			{
+				NodeType:    parsing.CfsNodeTypeSpec,
+				LogicalName: "SPEC/root/b",
+				Path:        "code-from-spec/root/b/_node.md",
+			},
+		},
 	}
 
 	hashBefore, _, err := chainhash.ChainHashCompute(chain)
@@ -878,6 +878,80 @@ func TestSpecInputHashesPublicSubsections(t *testing.T) {
 	}
 }
 
+func TestMultipleInputsEachContributeIndependently(t *testing.T) {
+	testutils.Chdir(t)
+
+	if err := os.MkdirAll("internal/artifact", 0755); err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
+	if err := os.WriteFile("internal/artifact/one.go", []byte("content one"), 0644); err != nil {
+		t.Fatalf("failed to write first file: %v", err)
+	}
+	if err := os.WriteFile("internal/artifact/two.go", []byte("content two"), 0644); err != nil {
+		t.Fatalf("failed to write second file: %v", err)
+	}
+
+	aB := testutils.CreateSpecNode(t, "SPEC/root/a")
+	aB.SetPublic("## Interface\nsome interface")
+	aB.Write()
+
+	chain := chainresolver.Chain{
+		Target: parsing.CfsReference{
+			NodeType:    parsing.CfsNodeTypeSpec,
+			LogicalName: "SPEC/root/a",
+			Path:        "code-from-spec/root/a/_node.md",
+		},
+		Input: []parsing.CfsReference{
+			{
+				NodeType:    parsing.CfsNodeTypeArtifact,
+				LogicalName: "ARTIFACT/artifact/one",
+				Path:        "internal/artifact/one.go",
+			},
+			{
+				NodeType:    parsing.CfsNodeTypeArtifact,
+				LogicalName: "ARTIFACT/artifact/two",
+				Path:        "internal/artifact/two.go",
+			},
+		},
+	}
+
+	hashBefore, _, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("first call failed: %v", err)
+	}
+
+	if err := os.WriteFile("internal/artifact/one.go", []byte("modified content one"), 0644); err != nil {
+		t.Fatalf("failed to modify first file: %v", err)
+	}
+
+	hashAfter, _, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("second call failed: %v", err)
+	}
+
+	if err := os.WriteFile("internal/artifact/one.go", []byte("content one"), 0644); err != nil {
+		t.Fatalf("failed to restore first file: %v", err)
+	}
+	if err := os.WriteFile("internal/artifact/two.go", []byte("modified content two"), 0644); err != nil {
+		t.Fatalf("failed to modify second file: %v", err)
+	}
+
+	hashAfter2, _, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("third call failed: %v", err)
+	}
+
+	if hashBefore == hashAfter {
+		t.Error("expected hash to change after first input modification")
+	}
+	if hashBefore == hashAfter2 {
+		t.Error("expected hash to change after second input modification")
+	}
+	if hashAfter == hashAfter2 {
+		t.Error("expected different hashes after modifying different input files")
+	}
+}
+
 func TestNoInputSkipped(t *testing.T) {
 	testutils.Chdir(t)
 
@@ -891,6 +965,7 @@ func TestNoInputSkipped(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
+		Input: []parsing.CfsReference{},
 	}
 
 	hash, _, err := chainhash.ChainHashCompute(chain)

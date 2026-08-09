@@ -59,7 +59,7 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 					Detail: "imports is only permitted on leaf nodes",
 				})
 			}
-			if entry.Frontmatter != nil && entry.Frontmatter.Input != nil {
+			if entry.Frontmatter != nil && len(entry.Frontmatter.Input) > 0 {
 				errs = append(errs, FormatError{
 					Node:   entry.Reference.LogicalName,
 					Rule:   "leaf_only_fields",
@@ -153,17 +153,18 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 			}
 		}
 
-		if entry.Frontmatter != nil && entry.Frontmatter.Input != nil {
-			inp := *entry.Frontmatter.Input
-			if strings.HasPrefix(inp, "SPEC/") {
-				ref, err := parsing.CfsReferenceFromName(inp)
-				if err != nil {
-					errs = append(errs, FormatError{
-						Node:   entry.Reference.LogicalName,
-						Rule:   "input_target",
-						Detail: "input entry cannot be parsed: " + inp,
-					})
-				} else {
+		if entry.Frontmatter != nil {
+			for _, inp := range entry.Frontmatter.Input {
+				if strings.HasPrefix(inp, "SPEC/") {
+					ref, err := parsing.CfsReferenceFromName(inp)
+					if err != nil {
+						errs = append(errs, FormatError{
+							Node:   entry.Reference.LogicalName,
+							Rule:   "input_target",
+							Detail: "input entry cannot be parsed: " + inp,
+						})
+						continue
+					}
 					if !knownNames[ref.LogicalName] {
 						errs = append(errs, FormatError{
 							Node:   entry.Reference.LogicalName,
@@ -171,34 +172,34 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 							Detail: "input references unknown SPEC node: " + inp,
 						})
 					}
-				}
-			} else if strings.HasPrefix(inp, "ARTIFACT/") {
-				if !knownNames[inp] {
-					errs = append(errs, FormatError{
-						Node:   entry.Reference.LogicalName,
-						Rule:   "input_target",
-						Detail: "input references unknown ARTIFACT: " + inp,
-					})
-				}
-			} else if strings.HasPrefix(inp, "EXTERNAL/") {
-				relative := strings.TrimPrefix(inp, "EXTERNAL/")
-				cfsPath := oslayer.CfsPath(relative)
-				handle, err := oslayer.OpenFile(cfsPath, "read", 30000)
-				if err != nil {
-					errs = append(errs, FormatError{
-						Node:   entry.Reference.LogicalName,
-						Rule:   "input_target",
-						Detail: "input references unreadable EXTERNAL file: " + inp,
-					})
+				} else if strings.HasPrefix(inp, "ARTIFACT/") {
+					if !knownNames[inp] {
+						errs = append(errs, FormatError{
+							Node:   entry.Reference.LogicalName,
+							Rule:   "input_target",
+							Detail: "input references unknown ARTIFACT: " + inp,
+						})
+					}
+				} else if strings.HasPrefix(inp, "EXTERNAL/") {
+					relative := strings.TrimPrefix(inp, "EXTERNAL/")
+					cfsPath := oslayer.CfsPath(relative)
+					handle, err := oslayer.OpenFile(cfsPath, "read", 30000)
+					if err != nil {
+						errs = append(errs, FormatError{
+							Node:   entry.Reference.LogicalName,
+							Rule:   "input_target",
+							Detail: "input references unreadable EXTERNAL file: " + inp,
+						})
+					} else {
+						handle.Close()
+					}
 				} else {
-					handle.Close()
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "input_target",
+						Detail: "input entry has unrecognized prefix: " + inp,
+					})
 				}
-			} else {
-				errs = append(errs, FormatError{
-					Node:   entry.Reference.LogicalName,
-					Rule:   "input_target",
-					Detail: "input must start with SPEC/, ARTIFACT/, or EXTERNAL/",
-				})
 			}
 		}
 

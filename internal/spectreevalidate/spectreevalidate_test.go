@@ -217,7 +217,7 @@ func TestLeafOnlyFields_IntermediateWithOutput(t *testing.T) {
 func TestLeafOnlyFields_IntermediateWithInput(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("ARTIFACT/root/c"),
+		Input: []string{"ARTIFACT/root/c"},
 	})
 	nodeAB := makeNode("SPEC/root/a/b", testutils.Ptr("SPEC/root/a"))
 
@@ -550,7 +550,7 @@ func TestInputTarget_ValidARTIFACT(t *testing.T) {
 		Output: testutils.Ptr("a.go"),
 	})
 	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("ARTIFACT/root/a"),
+		Input: []string{"ARTIFACT/root/a"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA, nodeB}
@@ -579,7 +579,7 @@ func TestInputTarget_ValidEXTERNAL(t *testing.T) {
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("EXTERNAL/docs/spec.yaml"),
+		Input: []string{"EXTERNAL/docs/spec.yaml"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -599,7 +599,7 @@ func TestInputTarget_ValidSPEC(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNode("SPEC/root/a", testutils.Ptr("SPEC/root"))
 	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("SPEC/root/a"),
+		Input: []string{"SPEC/root/a"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA, nodeB}
@@ -620,7 +620,7 @@ func TestInputTarget_ValidSPECWithQualifier(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNode("SPEC/root/a", testutils.Ptr("SPEC/root"))
 	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("SPEC/root/a(acceptance-tests)"),
+		Input: []string{"SPEC/root/a(acceptance-tests)"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA, nodeB}
@@ -637,10 +637,44 @@ func TestInputTarget_ValidSPECWithQualifier(t *testing.T) {
 	}
 }
 
+func TestInputTarget_MultipleValidEntries(t *testing.T) {
+	testutils.Chdir(t)
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetOutput("a.go")
+	b.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/c").Write()
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Output: testutils.Ptr("a.go"),
+	})
+	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+	nodeC := makeNodeWithFrontmatter("SPEC/root/c", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Input: []string{"ARTIFACT/root/a", "SPEC/root/b"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB, nodeC}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+		"code-from-spec/root/c",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/c", "input_target") {
+		t.Errorf("expected no input_target error for multiple valid entries, got %v", errs)
+	}
+}
+
 func TestInputTarget_NonExistentSPEC(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("SPEC/root/missing"),
+		Input: []string{"SPEC/root/missing"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -659,7 +693,7 @@ func TestInputTarget_NonExistentSPEC(t *testing.T) {
 func TestInputTarget_UnsupportedPrefix(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("UNKNOWN/something"),
+		Input: []string{"UNKNOWN/something"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -683,7 +717,7 @@ func TestInputTarget_NonExistentARTIFACT(t *testing.T) {
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("ARTIFACT/root/missing"),
+		Input: []string{"ARTIFACT/root/missing"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -704,7 +738,7 @@ func TestInputTarget_NonExistentEXTERNAL(t *testing.T) {
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		Input: testutils.Ptr("EXTERNAL/nonexistent.txt"),
+		Input: []string{"EXTERNAL/nonexistent.txt"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -717,6 +751,31 @@ func TestInputTarget_NonExistentEXTERNAL(t *testing.T) {
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
 	if !hasError(errs, "SPEC/root/a", "input_target") {
 		t.Errorf("expected input_target error for non-existent EXTERNAL, got %v", errs)
+	}
+}
+
+func TestInputTarget_MultipleInvalidEntries(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
+
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Input: []string{"SPEC/root/missing", "ARTIFACT/root/also_missing"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	found := findErrors(errs, "SPEC/root/a", "input_target")
+	if len(found) != 2 {
+		t.Errorf("expected 2 input_target errors, got %d: %v", len(found), errs)
 	}
 }
 

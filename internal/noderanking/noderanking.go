@@ -89,8 +89,7 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 			}
 		}
 
-		if node.Frontmatter.Input != nil {
-			inp := *node.Frontmatter.Input
+		for _, inp := range node.Frontmatter.Input {
 			if strings.HasPrefix(inp, "SPEC/") {
 				unqualified := unqualifiedName(inp)
 				if _, ok := entryMap[unqualified]; !ok {

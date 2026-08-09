@@ -84,7 +84,7 @@ Implement the spec tree validation as a Go package.
        Append FormatError with rule "leaf_only_fields",
        detail "imports is only permitted on leaf
        nodes".
-     If entry.Frontmatter.Input is not nil:
+     If entry.Frontmatter.Input is non-empty:
        Append FormatError with rule "leaf_only_fields",
        detail "input is only permitted on leaf nodes".
      If entry.Frontmatter.Output is not nil:
@@ -143,17 +143,16 @@ Implement the spec tree validation as a Go package.
 
 ### Rule: input_target (per entry)
 
-   If entry.Frontmatter.Input is not nil:
-     Let inp = *entry.Frontmatter.Input.
+   For each inp in entry.Frontmatter.Input:
 
      If inp starts with "SPEC/":
        Call parsing.CfsReferenceFromName(inp). If it fails:
          error "input entry cannot be parsed: <inp>"
-       Else:
-         Let `ref` be the result.
-         If ref.LogicalName is not in `known_logical_names`:
-           error "input references unknown SPEC
-           node: <inp>"
+         Continue to next inp.
+       Let `ref` be the result.
+       If ref.LogicalName is not in `known_logical_names`:
+         error "input references unknown SPEC
+         node: <inp>"
 
      Else if inp starts with "ARTIFACT/":
        If inp is not in `known_logical_names`:
@@ -171,8 +170,7 @@ Implement the spec tree validation as a Go package.
        Else: Call handle.Close() on the returned handle.
 
      Else:
-       error "input must start with SPEC/, ARTIFACT/,
-       or EXTERNAL/"
+       error "input entry has unrecognized prefix: <inp>"
 
 ### Rule: output_paths (per entry)
 

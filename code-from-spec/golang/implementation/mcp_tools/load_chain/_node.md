@@ -56,10 +56,13 @@ sections in this order:
    content. Present only when cache is available, the
    existing artifact is present, and instructions
    changed or were removed.
-3. **`<previous_input>`** — previous input content.
-   Present only when cache is available, the existing
-   artifact is present, and input changed or was
-   removed.
+3. **`<previous_input>`** — old content for `input`
+   entries that changed or were removed. Contains an
+   `<entry>` element per affected entry, with a `name`
+   attribute and a `disposition` of `changed` or
+   `removed`. Present only when cache is available, the
+   existing artifact is present, and at least one
+   `input` entry changed or was removed.
 4. **`<existing_artifact>`** — current content of the
    artifact file on disk. Present only when the file
    exists.
@@ -76,9 +79,12 @@ sections in this order:
    the node has an `# Agent` section. May carry a
    `disposition` attribute.
 7. **`<input>`** — the content referenced by the target
-   node's `input` field. Present only when the node
-   declares `input`. May carry a `disposition`
-   attribute.
+   node's `input` field. Each position is an `<entry>`
+   element with a `name` attribute, one per `input`
+   reference. Present only when the node declares
+   `input`. When cache is available and the existing
+   artifact is present, each entry may carry a
+   `disposition` attribute.
 
 ### Errors
 
@@ -179,15 +185,19 @@ Implement the load chain tool as a Go package.
    whole block otherwise.
 
    **Previous input** (optional):
-   If cache is available, the existing artifact is
-   present, and the target's `input` content hash differs
-   from its cached hash (or `input` was removed): look up
-   the old input content in the cache. The element is
-   `<previous_input disposition="changed">` (or
-   `disposition="removed"`), with the old content as its
-   entire body. Append `<previous_input disposition="...">`,
-   the old content, then `</previous_input>`. Omit the
-   whole block otherwise.
+   If cache is available and the existing artifact is
+   present on disk: for each position among `chain.Input`
+   entries whose cached content hash differs from its
+   current hash, or which is no longer present in the
+   current chain (removed), look up its old content in the
+   cache by the cached hash. Emit one
+   `<entry name="..." disposition="changed">` (or
+   `disposition="removed"` if no longer present) per such
+   position, containing the old content, all wrapped
+   together in a single
+   `<previous_input>...</previous_input>` block. Entries
+   whose hash is unchanged are omitted entirely. Omit the
+   whole block if there is nothing to report.
 
    **Existing artifact** (optional):
    If the file at `*node.Frontmatter.Output` exists and is
@@ -285,20 +295,30 @@ Implement the load chain tool as a Go package.
      Append: "</instructions>\n"
 
    **Input** (optional):
-   If `chain.Input` is not nil:
+   If `chain.Input` is non-empty:
      Append: "<input>\n"
-     If chain.Input.LogicalName starts
-     with "ARTIFACT/":
-       Read full file. Append content.
-     Else if chain.Input.LogicalName
-     starts with "EXTERNAL/":
-       Read full file. Append content.
-     Else if chain.Input.LogicalName
-     starts with "SPEC/":
-       Call `parsing.ParseNode(chain.Input.LogicalName)`.
-       Extract content (with qualifier if present,
-       same rules as for SPEC imports).
-       Append content.
+     For each `inp` in `chain.Input` (in order):
+       Let entry_name = inp.LogicalName. If
+       inp.Qualifier is not nil, append
+       "(<*inp.Qualifier>)" to entry_name.
+       If inp.LogicalName starts with "ARTIFACT/":
+         Read the full file at oslayer.CfsPath(inp.Path).
+         Append: `<entry name="<entry_name>">\n`
+         Append the full content.
+         Append: `</entry>\n`
+       Else if inp.LogicalName starts with "EXTERNAL/":
+         Read the full file at oslayer.CfsPath(inp.Path).
+         Append: `<entry name="<entry_name>">\n`
+         Append the full content.
+         Append: `</entry>\n`
+       Else if inp.LogicalName starts with "SPEC/":
+         Call `parsing.ParseNode(inp.LogicalName)`.
+         Extract content (with qualifier if present,
+         same rules as for SPEC imports).
+         If content is non-empty:
+           Append: `<entry name="<entry_name>">\n`
+           Append the extracted content.
+           Append: `</entry>\n`
      Append: "</input>\n"
 
    Append: "</chain>\n"
@@ -320,8 +340,8 @@ Implement the load chain tool as a Go package.
    - Target node's `# Public`: the logical name.
    - Target node's `# Agent`:
      `"AGENT[" + logicalName + "]"`.
-   - Input: `"INPUT[" + referenceName + "]"` (with
-     qualifier if present).
+   - Input: `"INPUT[" + referenceName + "]"` per entry
+     (with qualifier if present).
 
 9. For each position in `positions` (from Step 2):
    Look up position.Label in the content map. If
