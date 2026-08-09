@@ -46,26 +46,29 @@ Load the complete spec chain for a given node.
   node, as returned by `create_token`. The node must declare `output`.
 
 **Returns:** an XML document as defined in CHAIN_ASSEMBLY.md. The
-document contains up to four core sections:
+document contains these core sections:
 
 - `<existing_artifact>` — present only when the output file exists on
   disk. If the file does not exist or cannot be read, the section is
   omitted silently.
-- `<constraints>` — the spec chain content. Each position is an
-  `<entry>` element with a `name` attribute.
+- `<constraints>` — the inheritance line: ancestors plus the target
+  node's own `# Public`. Each position is an `<entry>` element with a
+  `name` attribute.
+- `<references>` — the target node's `imports`, in alphabetical
+  order. Present only when the node declares `imports`.
 - `<instructions>` — the target node's `# Agent` section.
 - `<input>` — the content referenced by the target node's `input`
   field. Each position is an `<entry>` element with a `name`
   attribute, one per `input` reference (a single value or each item
   in a list).
 
-When cache is available, up to three additional sections may appear
-before the core sections: `<previous_constraints>`,
+When cache is available, additional sections may appear before the
+core sections: `<previous_constraints>`, `<previous_references>`,
 `<previous_instructions>`, `<previous_input>` (see CACHE.md).
 
-The content within `<constraints>` entries matches exactly what is
-hashed — hash and delivery never diverge (see FILE_FORMAT.md, "Block
-extraction").
+The content within `<constraints>` and `<references>` entries matches
+exactly what is hashed — hash and delivery never diverge (see
+FILE_FORMAT.md, "Block extraction").
 
 If the artifact is modified (checksum in the manifest does not match
 the file on disk), returns an error. The artifact must be accepted or
