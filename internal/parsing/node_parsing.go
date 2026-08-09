@@ -14,9 +14,9 @@ import (
 )
 
 type NodeFrontmatter struct {
-	DependsOn []string
-	Input     *string
-	Output    *string
+	Imports []string
+	Input   *string
+	Output  *string
 }
 
 type NodeSubsection struct {
@@ -42,9 +42,9 @@ type Node struct {
 }
 
 type rawFrontmatterNP struct {
-	DependsOn []string `yaml:"depends_on"`
-	Input     *string  `yaml:"input"`
-	Output    *string  `yaml:"output"`
+	Imports []string `yaml:"imports"`
+	Input   *string  `yaml:"input"`
+	Output  *string  `yaml:"output"`
 }
 
 type headingRecordNP struct {
@@ -132,9 +132,9 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 	}
 
 	fm := &NodeFrontmatter{
-		DependsOn: raw.DependsOn,
-		Input:     raw.Input,
-		Output:    raw.Output,
+		Imports: raw.Imports,
+		Input:   raw.Input,
+		Output:  raw.Output,
 	}
 
 	return fm, body, nil

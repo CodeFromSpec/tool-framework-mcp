@@ -161,7 +161,7 @@ func MCPLoadChain(token string) (string, error) {
 		sb.WriteString("</entry>\n")
 	}
 
-	for _, dep := range chain.Dependencies {
+	for _, dep := range chain.Imports {
 		switch {
 		case strings.HasPrefix(dep.LogicalName, "ARTIFACT/"):
 			fileContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(dep.Path))
@@ -352,7 +352,7 @@ func buildPreviousConstraintsEntries(chain chainresolver.Chain, cachedHashByLabe
 		entries = append(entries, buildPreviousEntry(label, disposition, content))
 	}
 
-	for _, dep := range chain.Dependencies {
+	for _, dep := range chain.Imports {
 		entryName := dep.LogicalName
 		if dep.Qualifier != nil {
 			entryName = entryName + "(" + *dep.Qualifier + ")"
@@ -409,7 +409,7 @@ func buildPreviousConstraintsEntries(chain chainresolver.Chain, cachedHashByLabe
 		if inAnchors {
 			continue
 		}
-		for _, dep := range chain.Dependencies {
+		for _, dep := range chain.Imports {
 			depLabel := dep.LogicalName
 			if dep.Qualifier != nil {
 				depLabel = depLabel + "(" + *dep.Qualifier + ")"

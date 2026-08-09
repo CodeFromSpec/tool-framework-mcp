@@ -254,7 +254,7 @@ func TestStalenessEntriesIncludeRank(t *testing.T) {
 
 	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
 	bb.SetOutput("out/b.go")
-	bb.AddDependsOn("SPEC/root/a")
+	bb.AddImport("SPEC/root/a")
 	bb.Write()
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
@@ -317,26 +317,26 @@ func TestStalenessOrderedByRankThenName(t *testing.T) {
 	}
 }
 
-func TestFormatErrorInvalidDependsOn(t *testing.T) {
+func TestFormatErrorInvalidImports(t *testing.T) {
 	testutils.Chdir(t)
 
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
-	b.AddDependsOn("SPEC/root/missing")
+	b.AddImport("SPEC/root/missing")
 	b.Write()
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
 	found := false
 	for _, fe := range report.FormatErrors {
-		if fe.Node == "SPEC/root/a" && fe.Rule == "dependency_targets" {
+		if fe.Node == "SPEC/root/a" && fe.Rule == "import_targets" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected format error for SPEC/root/a with rule 'dependency_targets', got %v", report.FormatErrors)
+		t.Errorf("expected format error for SPEC/root/a with rule 'import_targets', got %v", report.FormatErrors)
 	}
 }
 
@@ -403,11 +403,11 @@ func TestSimpleCycleDetected(t *testing.T) {
 	createRootNode(t)
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
-	ba.AddDependsOn("SPEC/root/b")
+	ba.AddImport("SPEC/root/b")
 	ba.Write()
 
 	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
-	bb.AddDependsOn("SPEC/root/a")
+	bb.AddImport("SPEC/root/a")
 	bb.Write()
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
@@ -434,7 +434,7 @@ func TestRankingSkippedWhenFormatErrorsExist(t *testing.T) {
 	createRootNode(t)
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
-	ba.AddDependsOn("SPEC/root/missing")
+	ba.AddImport("SPEC/root/missing")
 	ba.Write()
 
 	bb := testutils.CreateSpecNode(t, "SPEC/root/b")

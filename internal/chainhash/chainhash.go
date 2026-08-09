@@ -104,7 +104,7 @@ func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error) 
 		}
 	}
 
-	for _, dep := range chain.Dependencies {
+	for _, dep := range chain.Imports {
 		label := referenceLabel(dep)
 		if strings.HasPrefix(dep.LogicalName, "ARTIFACT/") {
 			h, err := hashFileContent(oslayer.CfsPath(dep.Path))
