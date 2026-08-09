@@ -119,7 +119,7 @@ func TestHashChangesWhenAncestorContentChanges(t *testing.T) {
 	}
 }
 
-func TestHashChangesWhenDependencyContentChanges(t *testing.T) {
+func TestHashChangesWhenImportContentChanges(t *testing.T) {
 	testutils.Chdir(t)
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
@@ -138,7 +138,7 @@ func TestHashChangesWhenDependencyContentChanges(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeSpec,
 				LogicalName: "SPEC/root/b",
@@ -162,7 +162,7 @@ func TestHashChangesWhenDependencyContentChanges(t *testing.T) {
 	}
 
 	if hashBefore == hashAfter {
-		t.Error("expected hash to change after dependency content change")
+		t.Error("expected hash to change after import content change")
 	}
 }
 
@@ -383,7 +383,7 @@ func TestMultipleAncestorsOrderMatters(t *testing.T) {
 	}
 }
 
-func TestSpecDependencyWithoutQualifierHashesPublicSubsections(t *testing.T) {
+func TestSpecImportWithoutQualifierHashesPublicSubsections(t *testing.T) {
 	testutils.Chdir(t)
 
 	bB := testutils.CreateSpecNode(t, "SPEC/root/b")
@@ -400,7 +400,7 @@ func TestSpecDependencyWithoutQualifierHashesPublicSubsections(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeSpec,
 				LogicalName: "SPEC/root/b",
@@ -424,11 +424,11 @@ func TestSpecDependencyWithoutQualifierHashesPublicSubsections(t *testing.T) {
 	}
 
 	if hashBefore == hashAfter {
-		t.Error("expected hash to change after dependency content change")
+		t.Error("expected hash to change after import content change")
 	}
 }
 
-func TestSpecDependencyWithQualifierHashesSubsection(t *testing.T) {
+func TestSpecImportWithQualifierHashesSubsection(t *testing.T) {
 	testutils.Chdir(t)
 
 	bB := testutils.CreateSpecNode(t, "SPEC/root/b")
@@ -445,7 +445,7 @@ func TestSpecDependencyWithQualifierHashesSubsection(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeSpec,
 				LogicalName: "SPEC/root/b",
@@ -470,7 +470,7 @@ func TestSpecDependencyWithQualifierHashesSubsection(t *testing.T) {
 	}
 
 	if hashBefore == hashAfter {
-		t.Error("expected hash to change after qualified dependency content change")
+		t.Error("expected hash to change after qualified import content change")
 	}
 }
 
@@ -491,7 +491,7 @@ func TestQualifierCaseNormalization(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeSpec,
 				LogicalName: "SPEC/root/b",
@@ -507,7 +507,7 @@ func TestQualifierCaseNormalization(t *testing.T) {
 	}
 }
 
-func TestArtifactDependencyHashesFullFileContent(t *testing.T) {
+func TestArtifactImportHashesFullFileContent(t *testing.T) {
 	testutils.Chdir(t)
 
 	if err := os.MkdirAll("internal/artifact", 0755); err != nil {
@@ -527,7 +527,7 @@ func TestArtifactDependencyHashesFullFileContent(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeArtifact,
 				LogicalName: "ARTIFACT/artifact/out",
@@ -555,7 +555,7 @@ func TestArtifactDependencyHashesFullFileContent(t *testing.T) {
 	}
 }
 
-func TestExternalDependencyHashesAllContent(t *testing.T) {
+func TestExternalImportHashesAllContent(t *testing.T) {
 	testutils.Chdir(t)
 
 	if err := os.WriteFile("external.txt", []byte("initial content"), 0644); err != nil {
@@ -572,7 +572,7 @@ func TestExternalDependencyHashesAllContent(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeExternal,
 				LogicalName: "EXTERNAL/external.txt",
@@ -919,7 +919,7 @@ func TestQualifierReferencesNonExistentSubsection(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeSpec,
 				LogicalName: "SPEC/root/b",
@@ -968,7 +968,7 @@ func TestUnreadableArtifactFile(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeArtifact,
 				LogicalName: "ARTIFACT/nonexistent/file",
@@ -999,7 +999,7 @@ func TestUnreadableExternalFile(t *testing.T) {
 			LogicalName: "SPEC/root/a",
 			Path:        "code-from-spec/root/a/_node.md",
 		},
-		Dependencies: []parsing.CfsReference{
+		Imports: []parsing.CfsReference{
 			{
 				NodeType:    parsing.CfsNodeTypeExternal,
 				LogicalName: "EXTERNAL/nonexistent/file.txt",

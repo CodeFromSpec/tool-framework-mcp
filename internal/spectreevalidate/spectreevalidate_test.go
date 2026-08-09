@@ -83,8 +83,8 @@ func hasErrorWithRule(errs []spectreevalidate.FormatError, rule string) bool {
 func TestHappyPath_ValidLeafNode(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/b"},
-		Output:    testutils.Ptr("internal/out.go"),
+		Imports: []string{"SPEC/root/b"},
+		Output:  testutils.Ptr("internal/out.go"),
 	})
 	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
 
@@ -172,10 +172,10 @@ func TestNameHeading_DoesNotMatch(t *testing.T) {
 	}
 }
 
-func TestLeafOnlyFields_IntermediateWithDependsOn(t *testing.T) {
+func TestLeafOnlyFields_IntermediateWithImports(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/b"},
+		Imports: []string{"SPEC/root/b"},
 	})
 	nodeAB := makeNode("SPEC/root/a/b", testutils.Ptr("SPEC/root/a"))
 
@@ -238,8 +238,8 @@ func TestLeafOnlyFields_IntermediateWithInput(t *testing.T) {
 func TestLeafOnlyFields_IntermediateWithMultipleFields(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/b"},
-		Output:    testutils.Ptr("x.go"),
+		Imports: []string{"SPEC/root/b"},
+		Output:  testutils.Ptr("x.go"),
 	})
 	nodeAB := makeNode("SPEC/root/a/b", testutils.Ptr("SPEC/root/a"))
 
@@ -294,10 +294,10 @@ func TestLeafOnlyAgent_LeafWithAgent_NoError(t *testing.T) {
 	}
 }
 
-func TestDependencyTargets_NonExistentSPEC(t *testing.T) {
+func TestImportTargets_NonExistentSPEC(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/missing"},
+		Imports: []string{"SPEC/root/missing"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -308,15 +308,15 @@ func TestDependencyTargets_NonExistentSPEC(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if !hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected dependency_targets error, got %v", errs)
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_TargetsAncestor(t *testing.T) {
+func TestImportTargets_TargetsAncestor(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root"},
+		Imports: []string{"SPEC/root"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -327,15 +327,15 @@ func TestDependencyTargets_TargetsAncestor(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if !hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected dependency_targets error for ancestor, got %v", errs)
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error for ancestor, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_TargetsDescendant(t *testing.T) {
+func TestImportTargets_TargetsDescendant(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/a/b"},
+		Imports: []string{"SPEC/root/a/b"},
 	})
 	nodeAB := makeNode("SPEC/root/a/b", testutils.Ptr("SPEC/root/a"))
 
@@ -348,15 +348,15 @@ func TestDependencyTargets_TargetsDescendant(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if !hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected dependency_targets error for descendant, got %v", errs)
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error for descendant, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_TargetsSelf(t *testing.T) {
+func TestImportTargets_TargetsSelf(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/a"},
+		Imports: []string{"SPEC/root/a"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -367,16 +367,16 @@ func TestDependencyTargets_TargetsSelf(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if !hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected dependency_targets error for self, got %v", errs)
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error for self, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_ValidSPECWithQualifier(t *testing.T) {
+func TestImportTargets_ValidSPECWithQualifier(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNode("SPEC/root/a", testutils.Ptr("SPEC/root"))
 	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/a(interface)"},
+		Imports: []string{"SPEC/root/a(interface)"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA, nodeB}
@@ -388,12 +388,12 @@ func TestDependencyTargets_ValidSPECWithQualifier(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if hasError(errs, "SPEC/root/b", "dependency_targets") {
-		t.Errorf("expected no dependency_targets error for valid qualified SPEC reference")
+	if hasError(errs, "SPEC/root/b", "import_targets") {
+		t.Errorf("expected no import_targets error for valid qualified SPEC reference")
 	}
 }
 
-func TestDependencyTargets_ValidARTIFACT(t *testing.T) {
+func TestImportTargets_ValidARTIFACT(t *testing.T) {
 	testutils.Chdir(t)
 
 	rootNode := makeNode("SPEC/root", nil)
@@ -401,7 +401,7 @@ func TestDependencyTargets_ValidARTIFACT(t *testing.T) {
 		Output: testutils.Ptr("lib.go"),
 	})
 	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"ARTIFACT/root/a"},
+		Imports: []string{"ARTIFACT/root/a"},
 	})
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
@@ -419,12 +419,12 @@ func TestDependencyTargets_ValidARTIFACT(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if hasError(errs, "SPEC/root/b", "dependency_targets") {
-		t.Errorf("expected no dependency_targets error for valid ARTIFACT reference, got %v", errs)
+	if hasError(errs, "SPEC/root/b", "import_targets") {
+		t.Errorf("expected no import_targets error for valid ARTIFACT reference, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_NonExistentARTIFACT(t *testing.T) {
+func TestImportTargets_NonExistentARTIFACT(t *testing.T) {
 	testutils.Chdir(t)
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
@@ -432,7 +432,7 @@ func TestDependencyTargets_NonExistentARTIFACT(t *testing.T) {
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"ARTIFACT/root/missing"},
+		Imports: []string{"ARTIFACT/root/missing"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -443,12 +443,12 @@ func TestDependencyTargets_NonExistentARTIFACT(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if !hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected dependency_targets error for non-existent ARTIFACT, got %v", errs)
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error for non-existent ARTIFACT, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_ValidEXTERNAL(t *testing.T) {
+func TestImportTargets_ValidEXTERNAL(t *testing.T) {
 	testutils.Chdir(t)
 
 	if err := os.MkdirAll("proto", 0755); err != nil {
@@ -460,7 +460,7 @@ func TestDependencyTargets_ValidEXTERNAL(t *testing.T) {
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"EXTERNAL/proto/api.proto"},
+		Imports: []string{"EXTERNAL/proto/api.proto"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -471,17 +471,17 @@ func TestDependencyTargets_ValidEXTERNAL(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected no dependency_targets error for valid EXTERNAL reference, got %v", errs)
+	if hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected no import_targets error for valid EXTERNAL reference, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_NonExistentEXTERNAL(t *testing.T) {
+func TestImportTargets_NonExistentEXTERNAL(t *testing.T) {
 	testutils.Chdir(t)
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"EXTERNAL/nonexistent.txt"},
+		Imports: []string{"EXTERNAL/nonexistent.txt"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -492,15 +492,15 @@ func TestDependencyTargets_NonExistentEXTERNAL(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if !hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected dependency_targets error for non-existent EXTERNAL, got %v", errs)
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error for non-existent EXTERNAL, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_UnrecognizedPrefix(t *testing.T) {
+func TestImportTargets_UnrecognizedPrefix(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"UNKNOWN/something"},
+		Imports: []string{"UNKNOWN/something"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -511,15 +511,15 @@ func TestDependencyTargets_UnrecognizedPrefix(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	if !hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected dependency_targets error for unrecognized prefix, got %v", errs)
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error for unrecognized prefix, got %v", errs)
 	}
 }
 
-func TestDependencyTargets_MultipleInvalidEntries(t *testing.T) {
+func TestImportTargets_MultipleInvalidEntries(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/missing", "SPEC/root/also_missing"},
+		Imports: []string{"SPEC/root/missing", "SPEC/root/also_missing"},
 	})
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -530,9 +530,9 @@ func TestDependencyTargets_MultipleInvalidEntries(t *testing.T) {
 	}
 
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
-	found := findErrors(errs, "SPEC/root/a", "dependency_targets")
+	found := findErrors(errs, "SPEC/root/a", "import_targets")
 	if len(found) != 2 {
-		t.Errorf("expected 2 dependency_targets errors, got %d: %v", len(found), errs)
+		t.Errorf("expected 2 import_targets errors, got %d: %v", len(found), errs)
 	}
 }
 
@@ -1073,7 +1073,7 @@ func TestCrossCutting_MultipleErrorsFromDifferentRules(t *testing.T) {
 		},
 	)
 	nodeA.Frontmatter = &parsing.NodeFrontmatter{
-		DependsOn: []string{"SPEC/root/missing"},
+		Imports: []string{"SPEC/root/missing"},
 	}
 
 	entries := []parsing.Node{rootNode, nodeA}
@@ -1088,8 +1088,8 @@ func TestCrossCutting_MultipleErrorsFromDifferentRules(t *testing.T) {
 	if !hasError(errs, "SPEC/root/a", "name_heading") {
 		t.Errorf("expected name_heading error")
 	}
-	if !hasError(errs, "SPEC/root/a", "dependency_targets") {
-		t.Errorf("expected dependency_targets error")
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error")
 	}
 	if !hasError(errs, "SPEC/root/a", "duplicate_subsections") {
 		t.Errorf("expected duplicate_subsections error")

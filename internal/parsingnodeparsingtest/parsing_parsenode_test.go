@@ -13,9 +13,9 @@ func TestParsesCompleteFrontmatter(t *testing.T) {
 	testutils.Chdir(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/a")
-	b.AddDependsOn("SPEC/other")
-	b.AddDependsOn("ARTIFACT/thing")
-	b.AddDependsOn("EXTERNAL/proto/api.proto")
+	b.AddImport("SPEC/other")
+	b.AddImport("ARTIFACT/thing")
+	b.AddImport("EXTERNAL/proto/api.proto")
 	b.SetInput("some/input.md")
 	b.SetOutput("internal/a/a.go")
 	b.Write()
@@ -27,8 +27,8 @@ func TestParsesCompleteFrontmatter(t *testing.T) {
 	if node.Frontmatter == nil {
 		t.Fatal("expected Frontmatter to be non-nil")
 	}
-	if len(node.Frontmatter.DependsOn) != 3 {
-		t.Fatalf("expected 3 DependsOn entries, got %d", len(node.Frontmatter.DependsOn))
+	if len(node.Frontmatter.Imports) != 3 {
+		t.Fatalf("expected 3 Imports entries, got %d", len(node.Frontmatter.Imports))
 	}
 	if node.Frontmatter.Input == nil {
 		t.Fatal("expected Input to be non-nil")
@@ -58,8 +58,8 @@ func TestParsesFrontmatterWithOnlyOutput(t *testing.T) {
 	if node.Frontmatter == nil {
 		t.Fatal("expected Frontmatter to be non-nil")
 	}
-	if node.Frontmatter.DependsOn != nil {
-		t.Errorf("expected DependsOn to be nil")
+	if node.Frontmatter.Imports != nil {
+		t.Errorf("expected Imports to be nil")
 	}
 	if node.Frontmatter.Input != nil {
 		t.Errorf("expected Input to be nil")
@@ -69,12 +69,12 @@ func TestParsesFrontmatterWithOnlyOutput(t *testing.T) {
 	}
 }
 
-func TestParsesFrontmatterWithOnlyDependsOn(t *testing.T) {
+func TestParsesFrontmatterWithOnlyImports(t *testing.T) {
 	testutils.Chdir(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/a")
-	b.AddDependsOn("SPEC/other")
-	b.AddDependsOn("SPEC/another")
+	b.AddImport("SPEC/other")
+	b.AddImport("SPEC/another")
 	b.Write()
 
 	node, err := parsing.ParseNode("SPEC/a")
@@ -84,8 +84,8 @@ func TestParsesFrontmatterWithOnlyDependsOn(t *testing.T) {
 	if node.Frontmatter == nil {
 		t.Fatal("expected Frontmatter to be non-nil")
 	}
-	if len(node.Frontmatter.DependsOn) != 2 {
-		t.Fatalf("expected 2 DependsOn entries, got %d", len(node.Frontmatter.DependsOn))
+	if len(node.Frontmatter.Imports) != 2 {
+		t.Fatalf("expected 2 Imports entries, got %d", len(node.Frontmatter.Imports))
 	}
 	if node.Frontmatter.Input != nil {
 		t.Errorf("expected Input to be nil")
@@ -95,11 +95,11 @@ func TestParsesFrontmatterWithOnlyDependsOn(t *testing.T) {
 	}
 }
 
-func TestParsesFrontmatterWithExternalDependsOn(t *testing.T) {
+func TestParsesFrontmatterWithExternalImports(t *testing.T) {
 	testutils.Chdir(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/a")
-	b.AddDependsOn("EXTERNAL/proto/api.proto")
+	b.AddImport("EXTERNAL/proto/api.proto")
 	b.Write()
 
 	node, err := parsing.ParseNode("SPEC/a")
@@ -109,11 +109,11 @@ func TestParsesFrontmatterWithExternalDependsOn(t *testing.T) {
 	if node.Frontmatter == nil {
 		t.Fatal("expected Frontmatter to be non-nil")
 	}
-	if len(node.Frontmatter.DependsOn) != 1 {
-		t.Fatalf("expected 1 DependsOn entry, got %d", len(node.Frontmatter.DependsOn))
+	if len(node.Frontmatter.Imports) != 1 {
+		t.Fatalf("expected 1 Imports entry, got %d", len(node.Frontmatter.Imports))
 	}
-	if node.Frontmatter.DependsOn[0] != "EXTERNAL/proto/api.proto" {
-		t.Errorf("unexpected DependsOn value: %q", node.Frontmatter.DependsOn[0])
+	if node.Frontmatter.Imports[0] != "EXTERNAL/proto/api.proto" {
+		t.Errorf("unexpected Imports value: %q", node.Frontmatter.Imports[0])
 	}
 }
 
@@ -134,8 +134,8 @@ func TestParsesFrontmatterWithOnlyInput(t *testing.T) {
 	if node.Frontmatter.Input == nil {
 		t.Fatal("expected Input to be non-nil")
 	}
-	if node.Frontmatter.DependsOn != nil {
-		t.Errorf("expected DependsOn to be nil")
+	if node.Frontmatter.Imports != nil {
+		t.Errorf("expected Imports to be nil")
 	}
 	if node.Frontmatter.Output != nil {
 		t.Errorf("expected Output to be nil")

@@ -52,11 +52,11 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 		}
 
 		if hasChildren[entry.Reference.LogicalName] {
-			if entry.Frontmatter != nil && len(entry.Frontmatter.DependsOn) > 0 {
+			if entry.Frontmatter != nil && len(entry.Frontmatter.Imports) > 0 {
 				errs = append(errs, FormatError{
 					Node:   entry.Reference.LogicalName,
 					Rule:   "leaf_only_fields",
-					Detail: "depends_on is only permitted on leaf nodes",
+					Detail: "imports is only permitted on leaf nodes",
 				})
 			}
 			if entry.Frontmatter != nil && entry.Frontmatter.Input != nil {
@@ -86,48 +86,48 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 		}
 
 		if entry.Frontmatter != nil {
-			for _, dep := range entry.Frontmatter.DependsOn {
+			for _, dep := range entry.Frontmatter.Imports {
 				if strings.HasPrefix(dep, "SPEC/") {
 					ref, err := parsing.CfsReferenceFromName(dep)
 					if err != nil {
 						errs = append(errs, FormatError{
 							Node:   entry.Reference.LogicalName,
-							Rule:   "dependency_targets",
-							Detail: "depends_on entry cannot be parsed: " + dep,
+							Rule:   "import_targets",
+							Detail: "imports entry cannot be parsed: " + dep,
 						})
 						continue
 					}
 					if !knownNames[ref.LogicalName] {
 						errs = append(errs, FormatError{
 							Node:   entry.Reference.LogicalName,
-							Rule:   "dependency_targets",
-							Detail: "depends_on references unknown SPEC node: " + dep,
+							Rule:   "import_targets",
+							Detail: "imports references unknown SPEC node: " + dep,
 						})
 					} else if ref.LogicalName == entry.Reference.LogicalName {
 						errs = append(errs, FormatError{
 							Node:   entry.Reference.LogicalName,
-							Rule:   "dependency_targets",
-							Detail: "depends_on must not reference the node itself: " + dep,
+							Rule:   "import_targets",
+							Detail: "imports must not reference the node itself: " + dep,
 						})
 					} else if strings.HasPrefix(entry.Reference.LogicalName, ref.LogicalName+"/") {
 						errs = append(errs, FormatError{
 							Node:   entry.Reference.LogicalName,
-							Rule:   "dependency_targets",
-							Detail: "depends_on must not reference an ancestor: " + dep,
+							Rule:   "import_targets",
+							Detail: "imports must not reference an ancestor: " + dep,
 						})
 					} else if strings.HasPrefix(ref.LogicalName, entry.Reference.LogicalName+"/") {
 						errs = append(errs, FormatError{
 							Node:   entry.Reference.LogicalName,
-							Rule:   "dependency_targets",
-							Detail: "depends_on must not reference a descendant: " + dep,
+							Rule:   "import_targets",
+							Detail: "imports must not reference a descendant: " + dep,
 						})
 					}
 				} else if strings.HasPrefix(dep, "ARTIFACT/") {
 					if !knownNames[dep] {
 						errs = append(errs, FormatError{
 							Node:   entry.Reference.LogicalName,
-							Rule:   "dependency_targets",
-							Detail: "depends_on references unknown ARTIFACT: " + dep,
+							Rule:   "import_targets",
+							Detail: "imports references unknown ARTIFACT: " + dep,
 						})
 					}
 				} else if strings.HasPrefix(dep, "EXTERNAL/") {
@@ -137,8 +137,8 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 					if err != nil {
 						errs = append(errs, FormatError{
 							Node:   entry.Reference.LogicalName,
-							Rule:   "dependency_targets",
-							Detail: "depends_on references unreadable EXTERNAL file: " + dep,
+							Rule:   "import_targets",
+							Detail: "imports references unreadable EXTERNAL file: " + dep,
 						})
 					} else {
 						handle.Close()
@@ -146,8 +146,8 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 				} else {
 					errs = append(errs, FormatError{
 						Node:   entry.Reference.LogicalName,
-						Rule:   "dependency_targets",
-						Detail: "depends_on entry has unrecognized prefix: " + dep,
+						Rule:   "import_targets",
+						Detail: "imports entry has unrecognized prefix: " + dep,
 					})
 				}
 			}
