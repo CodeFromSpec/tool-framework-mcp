@@ -16,7 +16,7 @@ func TestParsesCompleteFrontmatter(t *testing.T) {
 	b.AddImport("SPEC/other")
 	b.AddImport("ARTIFACT/thing")
 	b.AddImport("EXTERNAL/proto/api.proto")
-	b.SetInput("some/input.md")
+	b.SetInputScalar("some/input.md")
 	b.SetOutput("internal/a/a.go")
 	b.Write()
 
@@ -30,11 +30,11 @@ func TestParsesCompleteFrontmatter(t *testing.T) {
 	if len(node.Frontmatter.Imports) != 3 {
 		t.Fatalf("expected 3 Imports entries, got %d", len(node.Frontmatter.Imports))
 	}
-	if node.Frontmatter.Input == nil {
-		t.Fatal("expected Input to be non-nil")
+	if len(node.Frontmatter.Input) != 1 {
+		t.Fatalf("expected Input to have 1 element, got %d", len(node.Frontmatter.Input))
 	}
-	if *node.Frontmatter.Input != "some/input.md" {
-		t.Errorf("expected Input = %q, got %q", "some/input.md", *node.Frontmatter.Input)
+	if node.Frontmatter.Input[0] != "some/input.md" {
+		t.Errorf("expected Input[0] = %q, got %q", "some/input.md", node.Frontmatter.Input[0])
 	}
 	if node.Frontmatter.Output == nil {
 		t.Fatal("expected Output to be non-nil")
@@ -117,11 +117,11 @@ func TestParsesFrontmatterWithExternalImports(t *testing.T) {
 	}
 }
 
-func TestParsesFrontmatterWithOnlyInput(t *testing.T) {
+func TestParsesFrontmatterScalarInputField(t *testing.T) {
 	testutils.Chdir(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/a")
-	b.SetInput("some/input.md")
+	b.SetInputScalar("ARTIFACT/x")
 	b.Write()
 
 	node, err := parsing.ParseNode("SPEC/a")
@@ -131,14 +131,59 @@ func TestParsesFrontmatterWithOnlyInput(t *testing.T) {
 	if node.Frontmatter == nil {
 		t.Fatal("expected Frontmatter to be non-nil")
 	}
-	if node.Frontmatter.Input == nil {
-		t.Fatal("expected Input to be non-nil")
+	if len(node.Frontmatter.Input) != 1 {
+		t.Fatalf("expected Input to have 1 element, got %d", len(node.Frontmatter.Input))
+	}
+	if node.Frontmatter.Input[0] != "ARTIFACT/x" {
+		t.Errorf("unexpected Input[0]: %q", node.Frontmatter.Input[0])
 	}
 	if node.Frontmatter.Imports != nil {
 		t.Errorf("expected Imports to be nil")
 	}
 	if node.Frontmatter.Output != nil {
 		t.Errorf("expected Output to be nil")
+	}
+}
+
+func TestParsesFrontmatterInputAsList(t *testing.T) {
+	testutils.Chdir(t)
+
+	b := testutils.CreateSpecNode(t, "SPEC/a")
+	b.SetInputList([]string{"ARTIFACT/x", "SPEC/y"})
+	b.Write()
+
+	node, err := parsing.ParseNode("SPEC/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if node.Frontmatter == nil {
+		t.Fatal("expected Frontmatter to be non-nil")
+	}
+	if len(node.Frontmatter.Input) != 2 {
+		t.Fatalf("expected Input to have 2 elements, got %d", len(node.Frontmatter.Input))
+	}
+	if node.Frontmatter.Input[0] != "ARTIFACT/x" {
+		t.Errorf("unexpected Input[0]: %q", node.Frontmatter.Input[0])
+	}
+	if node.Frontmatter.Input[1] != "SPEC/y" {
+		t.Errorf("unexpected Input[1]: %q", node.Frontmatter.Input[1])
+	}
+	if node.Frontmatter.Imports != nil {
+		t.Errorf("expected Imports to be nil")
+	}
+	if node.Frontmatter.Output != nil {
+		t.Errorf("expected Output to be nil")
+	}
+}
+
+func TestInputWithInvalidYAMLShape(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\ninput:\n  key: value\n---\n# SPEC/a\n")
+
+	_, err := parsing.ParseNode("SPEC/a")
+	if !errors.Is(err, parsing.ErrMalformedYAML) {
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
 	}
 }
 

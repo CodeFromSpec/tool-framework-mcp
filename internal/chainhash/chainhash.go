@@ -72,15 +72,15 @@ func referenceLabel(ref parsing.CfsReference) string {
 	return label
 }
 
-func processSpecDep(ref parsing.CfsReference) ([]byte, error) {
+func processSpecDep(ref parsing.CfsReference) (*parsing.Node, []byte, error) {
 	node, err := parsing.ParseNode(ref.LogicalName)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %s", ErrParseFailure, ref.LogicalName, err)
+		return nil, nil, fmt.Errorf("%w: %s: %s", ErrParseFailure, ref.LogicalName, err)
 	}
 	if ref.Qualifier == nil {
-		return hashPublicSubsections(node), nil
+		return node, hashPublicSubsections(node), nil
 	}
-	return hashQualifiedSubsection(node, *ref.Qualifier), nil
+	return node, hashQualifiedSubsection(node, *ref.Qualifier), nil
 }
 
 func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error) {
@@ -119,7 +119,7 @@ func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error) 
 			}
 			recordPosition(label, h)
 		} else if strings.HasPrefix(dep.LogicalName, "SPEC/") {
-			h, err := processSpecDep(dep)
+			_, h, err := processSpecDep(dep)
 			if err != nil {
 				return "", nil, err
 			}
@@ -144,10 +144,9 @@ func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error) 
 		recordPosition("AGENT["+chain.Target.LogicalName+"]", agentHash)
 	}
 
-	if chain.Input != nil {
+	for _, input := range chain.Input {
 		hashes = append(hashes, []byte{0x49})
-		input := chain.Input
-		inputLabel := "INPUT[" + referenceLabel(*input) + "]"
+		inputLabel := "INPUT[" + referenceLabel(input) + "]"
 		if strings.HasPrefix(input.LogicalName, "ARTIFACT/") {
 			h, err := hashFileContent(oslayer.CfsPath(input.Path))
 			if err != nil {
@@ -161,7 +160,7 @@ func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error) 
 			}
 			recordPosition(inputLabel, h)
 		} else if strings.HasPrefix(input.LogicalName, "SPEC/") {
-			h, err := processSpecDep(*input)
+			_, h, err := processSpecDep(input)
 			if err != nil {
 				return "", nil, err
 			}
@@ -172,8 +171,8 @@ func ChainHashCompute(chain chainresolver.Chain) (string, []ContentHash, error) 
 	}
 
 	var concatenated []byte
-	for _, h := range hashes {
-		concatenated = append(concatenated, h...)
+	for _, entry := range hashes {
+		concatenated = append(concatenated, entry...)
 	}
 
 	finalSum := sha1.Sum(concatenated)

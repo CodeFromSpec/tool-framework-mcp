@@ -405,7 +405,7 @@ func TestMCPLoadChain_InputPresentARTIFACT(t *testing.T) {
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetOutput("out/a.txt")
-	a.SetInput("ARTIFACT/root/b")
+	a.SetInputScalar("ARTIFACT/root/b")
 	a.Write()
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
@@ -420,6 +420,9 @@ func TestMCPLoadChain_InputPresentARTIFACT(t *testing.T) {
 
 	if !strings.Contains(result, "<input>") {
 		t.Error("expected <input> element")
+	}
+	if !strings.Contains(result, `<entry name="ARTIFACT/root/b"`) {
+		t.Error("expected entry for ARTIFACT/root/b in input")
 	}
 	if !strings.Contains(result, `{"key":"value"}`) {
 		t.Error("expected artifact file content in input")
@@ -449,7 +452,7 @@ func TestMCPLoadChain_EXTERNALInput(t *testing.T) {
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetOutput("out/a.txt")
-	a.SetInput("EXTERNAL/docs/vendor/spec.yaml")
+	a.SetInputScalar("EXTERNAL/docs/vendor/spec.yaml")
 	a.Write()
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
@@ -464,6 +467,9 @@ func TestMCPLoadChain_EXTERNALInput(t *testing.T) {
 
 	if !strings.Contains(result, "<input>") {
 		t.Error("expected <input> element")
+	}
+	if !strings.Contains(result, `<entry name="EXTERNAL/docs/vendor/spec.yaml"`) {
+		t.Error("expected entry for EXTERNAL/docs/vendor/spec.yaml in input")
 	}
 	if !strings.Contains(result, "spec: content") {
 		t.Error("expected external file content in input")
@@ -482,7 +488,7 @@ func TestMCPLoadChain_SPECInput(t *testing.T) {
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetOutput("out/a.txt")
-	a.SetInput("SPEC/root/b")
+	a.SetInputScalar("SPEC/root/b")
 	a.Write()
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
@@ -498,8 +504,64 @@ func TestMCPLoadChain_SPECInput(t *testing.T) {
 	if !strings.Contains(result, "<input>") {
 		t.Error("expected <input> element")
 	}
+	if !strings.Contains(result, `<entry name="SPEC/root/b"`) {
+		t.Error("expected entry for SPEC/root/b in input")
+	}
 	if !strings.Contains(result, "## Acceptance tests") {
 		t.Error("expected ## Acceptance tests content in input")
+	}
+}
+
+func TestMCPLoadChain_MultipleInputs(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetOutput("out/b.json")
+	b.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	if err := os.WriteFile("out/b.json", []byte(`{"data":"from-b"}`), 0644); err != nil {
+		t.Fatalf("failed to write out/b.json: %v", err)
+	}
+
+	c := testutils.CreateSpecNode(t, "SPEC/root/c")
+	c.SetPublic("## Acceptance tests\nacceptance test content from c")
+	c.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetOutput("out/a.txt")
+	a.SetInputList([]string{"ARTIFACT/root/b", "SPEC/root/c"})
+	a.Write()
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(result, "<input>") {
+		t.Error("expected <input> element")
+	}
+	if !strings.Contains(result, `<entry name="ARTIFACT/root/b"`) {
+		t.Error("expected entry for ARTIFACT/root/b in input")
+	}
+	if !strings.Contains(result, `{"data":"from-b"}`) {
+		t.Error("expected content of out/b.json in input")
+	}
+	if !strings.Contains(result, `<entry name="SPEC/root/c"`) {
+		t.Error("expected entry for SPEC/root/c in input")
+	}
+	if !strings.Contains(result, "## Acceptance tests") {
+		t.Error("expected ## Acceptance tests content from SPEC/root/c in input")
 	}
 }
 

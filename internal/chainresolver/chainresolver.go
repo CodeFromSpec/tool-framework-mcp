@@ -16,7 +16,7 @@ type Chain struct {
 	Ancestors []parsing.CfsReference
 	Imports   []parsing.CfsReference
 	Target    parsing.CfsReference
-	Input     *parsing.CfsReference
+	Input     []parsing.CfsReference
 }
 
 func ChainResolve(targetLogicalName string) (Chain, error) {
@@ -40,14 +40,12 @@ func ChainResolve(targetLogicalName string) (Chain, error) {
 		fm = node.Frontmatter
 	}
 
-	imports, err := resolveImports(fm)
+	imports, err := resolveAndDeduplicateRefs(getImports(fm))
 	if err != nil {
 		return Chain{}, err
 	}
 
-	imports = deduplicateImports(imports)
-
-	input, err := resolveInput(fm)
+	input, err := resolveAndDeduplicateRefs(getInput(fm))
 	if err != nil {
 		return Chain{}, err
 	}
@@ -58,6 +56,20 @@ func ChainResolve(targetLogicalName string) (Chain, error) {
 		Target:    target,
 		Input:     input,
 	}, nil
+}
+
+func getImports(fm *parsing.NodeFrontmatter) []string {
+	if fm == nil {
+		return nil
+	}
+	return fm.Imports
+}
+
+func getInput(fm *parsing.NodeFrontmatter) []string {
+	if fm == nil {
+		return nil
+	}
+	return fm.Input
 }
 
 func resolveAncestorsAndTarget(targetRef *parsing.CfsReference) ([]parsing.CfsReference, parsing.CfsReference, error) {
@@ -89,54 +101,50 @@ func resolveAncestorsAndTarget(targetRef *parsing.CfsReference) ([]parsing.CfsRe
 	return ancestors, target, nil
 }
 
-func resolveImports(fm *parsing.NodeFrontmatter) ([]parsing.CfsReference, error) {
-	if fm == nil {
-		return []parsing.CfsReference{}, nil
-	}
+func resolveAndDeduplicateRefs(entries []string) ([]parsing.CfsReference, error) {
+	refs := make([]parsing.CfsReference, 0, len(entries))
 
-	imports := make([]parsing.CfsReference, 0, len(fm.Imports))
-
-	for _, entry := range fm.Imports {
+	for _, entry := range entries {
 		ref, err := parsing.CfsReferenceFromName(entry)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrUnresolvableArtifact, err)
 		}
-		imports = append(imports, *ref)
+		refs = append(refs, *ref)
 	}
 
-	sort.Slice(imports, func(i, j int) bool {
-		if imports[i].LogicalName != imports[j].LogicalName {
-			return imports[i].LogicalName < imports[j].LogicalName
+	sort.Slice(refs, func(i, j int) bool {
+		if refs[i].LogicalName != refs[j].LogicalName {
+			return refs[i].LogicalName < refs[j].LogicalName
 		}
-		if imports[i].Qualifier == nil && imports[j].Qualifier != nil {
+		if refs[i].Qualifier == nil && refs[j].Qualifier != nil {
 			return true
 		}
-		if imports[i].Qualifier != nil && imports[j].Qualifier == nil {
+		if refs[i].Qualifier != nil && refs[j].Qualifier == nil {
 			return false
 		}
-		if imports[i].Qualifier != nil && imports[j].Qualifier != nil {
-			return *imports[i].Qualifier < *imports[j].Qualifier
+		if refs[i].Qualifier != nil && refs[j].Qualifier != nil {
+			return *refs[i].Qualifier < *refs[j].Qualifier
 		}
 		return false
 	})
 
-	return imports, nil
+	return deduplicateRefs(refs), nil
 }
 
-func deduplicateImports(imports []parsing.CfsReference) []parsing.CfsReference {
-	result := make([]parsing.CfsReference, 0, len(imports))
+func deduplicateRefs(refs []parsing.CfsReference) []parsing.CfsReference {
+	result := make([]parsing.CfsReference, 0, len(refs))
 
-	for _, imp := range imports {
-		if strings.HasPrefix(imp.LogicalName, "SPEC/") {
-			if isSpecDuplicate(result, imp) {
+	for _, ref := range refs {
+		if strings.HasPrefix(ref.LogicalName, "SPEC/") {
+			if isSpecDuplicate(result, ref) {
 				continue
 			}
 		} else {
-			if isNameDuplicate(result, imp.LogicalName) {
+			if isNameDuplicate(result, ref.LogicalName) {
 				continue
 			}
 		}
-		result = append(result, imp)
+		result = append(result, ref)
 	}
 
 	return result
@@ -164,17 +172,4 @@ func isNameDuplicate(existing []parsing.CfsReference, name string) bool {
 		}
 	}
 	return false
-}
-
-func resolveInput(fm *parsing.NodeFrontmatter) (*parsing.CfsReference, error) {
-	if fm == nil || fm.Input == nil {
-		return nil, nil
-	}
-
-	ref, err := parsing.CfsReferenceFromName(*fm.Input)
-	if err != nil {
-		return nil, err
-	}
-
-	return ref, nil
 }

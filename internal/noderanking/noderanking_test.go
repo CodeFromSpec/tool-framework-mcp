@@ -240,7 +240,7 @@ func TestNodeRankCompute_InputArtifactAddsDependencyEdge(t *testing.T) {
 			Output: testutils.Ptr("out.go"),
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			Input: testutils.Ptr("ARTIFACT/root/a"),
+			Input: []string{"ARTIFACT/root/a"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -275,7 +275,7 @@ func TestNodeRankCompute_SpecInputAddsDependencyEdge(t *testing.T) {
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), nil),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			Input: testutils.Ptr("SPEC/root/a"),
+			Input: []string{"SPEC/root/a"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -302,7 +302,7 @@ func TestNodeRankCompute_ExternalInputSkipped(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			Input: testutils.Ptr("EXTERNAL/docs/spec.yaml"),
+			Input: []string{"EXTERNAL/docs/spec.yaml"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -318,6 +318,46 @@ func TestNodeRankCompute_ExternalInputSkipped(t *testing.T) {
 	}
 	if ra != 1 {
 		t.Fatalf("expected rank 1, got %d", ra)
+	}
+}
+
+func TestNodeRankCompute_MultipleInputEntriesRankUsesMax(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Output: testutils.Ptr("a.go"),
+		}),
+		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Output: testutils.Ptr("b.go"),
+		}),
+		specNode("SPEC/root/c", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Input: []string{"ARTIFACT/root/a", "ARTIFACT/root/b"},
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	rarta, ok := findRank(ranked, "ARTIFACT/root/a")
+	if !ok {
+		t.Fatal("ARTIFACT/root/a not found")
+	}
+	rartb, ok := findRank(ranked, "ARTIFACT/root/b")
+	if !ok {
+		t.Fatal("ARTIFACT/root/b not found")
+	}
+	rc, ok := findRank(ranked, "SPEC/root/c")
+	if !ok {
+		t.Fatal("SPEC/root/c not found")
+	}
+	if rc <= rarta {
+		t.Fatalf("expected rank of SPEC/root/c > rank of ARTIFACT/root/a, got c=%d arta=%d", rc, rarta)
+	}
+	if rc <= rartb {
+		t.Fatalf("expected rank of SPEC/root/c > rank of ARTIFACT/root/b, got c=%d artb=%d", rc, rartb)
 	}
 }
 
@@ -605,7 +645,7 @@ func TestNodeRankCompute_BothImportsAndInput(t *testing.T) {
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), nil),
 		specNode("SPEC/root/c", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
 			Imports: []string{"SPEC/root/b"},
-			Input:   testutils.Ptr("ARTIFACT/root/a"),
+			Input:   []string{"ARTIFACT/root/a"},
 		}),
 	}
 	ranked, cycles, err := noderanking.NodeRankCompute(entries)
@@ -789,7 +829,7 @@ func TestNodeRankCompute_UnresolvableArtifactInputReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			Input: testutils.Ptr("ARTIFACT/root/missing"),
+			Input: []string{"ARTIFACT/root/missing"},
 		}),
 	}
 	_, _, err := noderanking.NodeRankCompute(entries)
@@ -805,7 +845,7 @@ func TestNodeRankCompute_UnresolvableSpecInputReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
-			Input: testutils.Ptr("SPEC/root/missing"),
+			Input: []string{"SPEC/root/missing"},
 		}),
 	}
 	_, _, err := noderanking.NodeRankCompute(entries)

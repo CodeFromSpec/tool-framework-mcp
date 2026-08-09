@@ -271,30 +271,78 @@ func MCPLoadChain(token string) (string, error) {
 		sb.WriteString("</instructions>\n")
 	}
 
-	if chain.Input != nil {
-		inputContent, inputErr := resolveInputContent(chain.Input)
-		if inputErr != nil {
-			return "", fmt.Errorf("resolving input: %w", inputErr)
-		}
-		inputEntryName := chain.Input.LogicalName
-		if chain.Input.Qualifier != nil {
-			inputEntryName = inputEntryName + "(" + *chain.Input.Qualifier + ")"
-		}
-		inputLabel := "INPUT[" + inputEntryName + "]"
-		contentByLabel[inputLabel] = inputContent
-		disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+	if len(chain.Input) > 0 {
 		sb.WriteString("<input>\n")
-		sb.WriteString("<entry name=\"")
-		sb.WriteString(inputEntryName)
-		sb.WriteString("\"")
-		if disposition != "" {
-			sb.WriteString(" disposition=\"")
-			sb.WriteString(disposition)
-			sb.WriteString("\"")
+		for _, inp := range chain.Input {
+			entryName := inp.LogicalName
+			if inp.Qualifier != nil {
+				entryName = entryName + "(" + *inp.Qualifier + ")"
+			}
+			inputLabel := "INPUT[" + entryName + "]"
+
+			switch {
+			case strings.HasPrefix(inp.LogicalName, "ARTIFACT/"):
+				fileContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(inp.Path))
+				if readErr != nil {
+					return "", fmt.Errorf("reading input %s: %w", inp.LogicalName, readErr)
+				}
+				contentByLabel[inputLabel] = fileContent
+				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				sb.WriteString("<entry name=\"")
+				sb.WriteString(entryName)
+				sb.WriteString("\"")
+				if disposition != "" {
+					sb.WriteString(" disposition=\"")
+					sb.WriteString(disposition)
+					sb.WriteString("\"")
+				}
+				sb.WriteString(">\n")
+				sb.WriteString(fileContent)
+				sb.WriteString("</entry>\n")
+
+			case strings.HasPrefix(inp.LogicalName, "EXTERNAL/"):
+				fileContent, readErr := parsing.ReadFileContent(oslayer.CfsPath(inp.Path))
+				if readErr != nil {
+					return "", fmt.Errorf("reading input %s: %w", inp.LogicalName, readErr)
+				}
+				contentByLabel[inputLabel] = fileContent
+				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				sb.WriteString("<entry name=\"")
+				sb.WriteString(entryName)
+				sb.WriteString("\"")
+				if disposition != "" {
+					sb.WriteString(" disposition=\"")
+					sb.WriteString(disposition)
+					sb.WriteString("\"")
+				}
+				sb.WriteString(">\n")
+				sb.WriteString(fileContent)
+				sb.WriteString("</entry>\n")
+
+			case strings.HasPrefix(inp.LogicalName, "SPEC/"):
+				inputNode, parseErr := parsing.ParseNode(inp.LogicalName)
+				if parseErr != nil {
+					return "", fmt.Errorf("parsing input node %s: %w", inp.LogicalName, parseErr)
+				}
+				content := extractPublicContent(inputNode, inp.Qualifier)
+				if content == "" {
+					continue
+				}
+				contentByLabel[inputLabel] = content
+				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				sb.WriteString("<entry name=\"")
+				sb.WriteString(entryName)
+				sb.WriteString("\"")
+				if disposition != "" {
+					sb.WriteString(" disposition=\"")
+					sb.WriteString(disposition)
+					sb.WriteString("\"")
+				}
+				sb.WriteString(">\n")
+				sb.WriteString(content)
+				sb.WriteString("</entry>\n")
+			}
 		}
-		sb.WriteString(">\n")
-		sb.WriteString(inputContent)
-		sb.WriteString("</entry>\n")
 		sb.WriteString("</input>\n")
 	}
 
@@ -475,63 +523,37 @@ func buildPreviousInstructions(logicalName string, cachedHashByLabel, currentHas
 }
 
 func buildPreviousInput(chain chainresolver.Chain, cachedHashByLabel, currentHashByLabel map[string]string) string {
-	if chain.Input == nil {
-		for label, cachedHash := range cachedHashByLabel {
-			if !strings.HasPrefix(label, "INPUT[") {
-				continue
-			}
-			if _, inCurrent := currentHashByLabel[label]; inCurrent {
-				continue
-			}
-			content, readErr := cache.ReadContent(cachedHash)
-			if readErr != nil {
-				continue
-			}
-			entryName := label[len("INPUT[") : len(label)-1]
-			var sb strings.Builder
-			sb.WriteString("<previous_input>\n")
-			sb.WriteString("<entry name=\"")
-			sb.WriteString(entryName)
-			sb.WriteString("\" disposition=\"removed\">\n")
-			sb.WriteString(content)
-			sb.WriteString("</entry>\n")
-			sb.WriteString("</previous_input>\n")
-			return sb.String()
+	var entries []string
+
+	for label, cachedHash := range cachedHashByLabel {
+		if !strings.HasPrefix(label, "INPUT[") {
+			continue
 		}
+		currentHash, inCurrent := currentHashByLabel[label]
+		if inCurrent && currentHash == cachedHash {
+			continue
+		}
+		content, readErr := cache.ReadContent(cachedHash)
+		if readErr != nil {
+			continue
+		}
+		disposition := "changed"
+		if !inCurrent {
+			disposition = "removed"
+		}
+		entryName := label[len("INPUT[") : len(label)-1]
+		entries = append(entries, buildPreviousEntry(entryName, disposition, content))
+	}
+
+	if len(entries) == 0 {
 		return ""
 	}
 
-	inputEntryName := chain.Input.LogicalName
-	if chain.Input.Qualifier != nil {
-		inputEntryName = inputEntryName + "(" + *chain.Input.Qualifier + ")"
-	}
-	inputLabel := "INPUT[" + inputEntryName + "]"
-
-	cachedHash, inCached := cachedHashByLabel[inputLabel]
-	if !inCached {
-		return ""
-	}
-	currentHash, inCurrent := currentHashByLabel[inputLabel]
-	if inCurrent && currentHash == cachedHash {
-		return ""
-	}
-	content, readErr := cache.ReadContent(cachedHash)
-	if readErr != nil {
-		return ""
-	}
-	disposition := "changed"
-	if !inCurrent {
-		disposition = "removed"
-	}
 	var sb strings.Builder
 	sb.WriteString("<previous_input>\n")
-	sb.WriteString("<entry name=\"")
-	sb.WriteString(inputEntryName)
-	sb.WriteString("\" disposition=\"")
-	sb.WriteString(disposition)
-	sb.WriteString("\">\n")
-	sb.WriteString(content)
-	sb.WriteString("</entry>\n")
+	for _, e := range entries {
+		sb.WriteString(e)
+	}
 	sb.WriteString("</previous_input>\n")
 	return sb.String()
 }
@@ -563,20 +585,4 @@ func extractPublicContent(node *parsing.Node, qualifier *string) string {
 	}
 
 	return parsing.ConcatenateSubsections(node.Public.Subsections)
-}
-
-func resolveInputContent(ref *parsing.CfsReference) (string, error) {
-	switch {
-	case strings.HasPrefix(ref.LogicalName, "ARTIFACT/"):
-		return parsing.ReadFileContent(oslayer.CfsPath(ref.Path))
-	case strings.HasPrefix(ref.LogicalName, "EXTERNAL/"):
-		return parsing.ReadFileContent(oslayer.CfsPath(ref.Path))
-	case strings.HasPrefix(ref.LogicalName, "SPEC/"):
-		inputNode, err := parsing.ParseNode(ref.LogicalName)
-		if err != nil {
-			return "", fmt.Errorf("parsing input node %s: %w", ref.LogicalName, err)
-		}
-		return extractPublicContent(inputNode, ref.Qualifier), nil
-	}
-	return "", nil
 }
