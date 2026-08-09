@@ -77,7 +77,7 @@ Expected:
 - node.Frontmatter is not nil.
 - node.Frontmatter.Imports contains all listed
   entries.
-- *node.Frontmatter.Input matches.
+- node.Frontmatter.Input matches.
 - *node.Frontmatter.Output matches. No error.
 
 #### Parses frontmatter with only output
@@ -105,12 +105,31 @@ Setup:
 
 Expected: Imports contains the EXTERNAL entry.
 
-#### Parses frontmatter with input field
+#### Parses frontmatter with scalar input field
 
 Setup:
-- `_node.md` with only `input` field.
+- `_node.md` with only `input` field as a scalar
+  string (e.g. `input: ARTIFACT/x`).
 
-Expected: Input not nil, Imports nil, Output nil.
+Expected: Input is a single-element slice containing
+the value. Imports nil, Output nil.
+
+#### Parses frontmatter with input as a list
+
+Setup:
+- `_node.md` with `input` as a YAML list of two
+  entries (e.g. `input:\n  - ARTIFACT/x\n  - SPEC/y`).
+
+Expected: Input is a two-element slice containing both
+values, in file order. Imports nil, Output nil.
+
+#### Input with invalid YAML shape
+
+Setup:
+- `_node.md` with `input` set to a YAML mapping (e.g.
+  `input:\n  key: value`).
+
+Expected: Error `ErrMalformedYAML`.
 
 #### Ignores unknown frontmatter fields
 

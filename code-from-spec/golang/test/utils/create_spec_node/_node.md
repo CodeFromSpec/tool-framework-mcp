@@ -26,7 +26,8 @@ type NodeBuilder struct { /* unexported fields */ }
 
 func CreateSpecNode(t *testing.T, logicalName string) *NodeBuilder
 func (b *NodeBuilder) SetOutput(value string)
-func (b *NodeBuilder) SetInput(value string)
+func (b *NodeBuilder) SetInputScalar(value string)
+func (b *NodeBuilder) SetInputList(values []string)
 func (b *NodeBuilder) AddImport(value string)
 func (b *NodeBuilder) SetPublic(content string)
 func (b *NodeBuilder) SetAgent(content string)
@@ -40,9 +41,26 @@ Creates a `NodeBuilder` for the given logical name
 (e.g. `SPEC/a/b`). The builder stores `t` and the
 logical name for later use by `Write`.
 
-#### SetOutput, SetInput
+#### SetOutput
 
-Set the `output` or `input` frontmatter field.
+Set the `output` frontmatter field.
+
+#### SetInputScalar
+
+Set the `input` frontmatter field as a single scalar
+string (`input: value`). Mutually exclusive with
+`SetInputList` — calling both on the same builder before
+`Write` is a test-authoring error; `Write` calls
+`t.Fatalf`.
+
+#### SetInputList
+
+Set the `input` frontmatter field as a YAML list
+(`input:` followed by one `- value` line per entry),
+even when given a single value. Use this to exercise the
+list-shaped form of `input` explicitly, including the
+single-element case. Mutually exclusive with
+`SetInputScalar`.
 
 #### AddImport
 
@@ -109,7 +127,8 @@ type NodeBuilder struct {
 	t           *testing.T
 	logicalName string
 	output      *string
-	input       *string
+	inputScalar *string
+	inputList   []string
 	imports     []string
 	public      *string
 	agent       *string
@@ -121,18 +140,24 @@ func CreateSpecNode(t *testing.T, logicalName string) *NodeBuilder {
 	return &NodeBuilder{t: t, logicalName: logicalName}
 }
 
-func (b *NodeBuilder) SetOutput(value string)   { b.output = &value }
-func (b *NodeBuilder) SetInput(value string)    { b.input = &value }
-func (b *NodeBuilder) AddImport(value string)   { b.imports = append(b.imports, value) }
-func (b *NodeBuilder) SetPublic(content string) { b.public = &content }
-func (b *NodeBuilder) SetAgent(content string)  { b.agent = &content }
-func (b *NodeBuilder) SetPrivate(content string) { b.private = &content }
+func (b *NodeBuilder) SetOutput(value string)        { b.output = &value }
+func (b *NodeBuilder) SetInputScalar(value string)   { b.inputScalar = &value }
+func (b *NodeBuilder) SetInputList(values []string)  { b.inputList = values }
+func (b *NodeBuilder) AddImport(value string)        { b.imports = append(b.imports, value) }
+func (b *NodeBuilder) SetPublic(content string)      { b.public = &content }
+func (b *NodeBuilder) SetAgent(content string)       { b.agent = &content }
+func (b *NodeBuilder) SetPrivate(content string)     { b.private = &content }
 
 func (b *NodeBuilder) Write() {
 	b.t.Helper()
+
+	if b.inputScalar != nil && len(b.inputList) > 0 {
+		b.t.Fatalf("CreateSpecNode.Write: SetInputScalar and SetInputList are mutually exclusive")
+	}
+
 	var buf strings.Builder
 
-	if b.output != nil || b.input != nil || len(b.imports) > 0 {
+	if b.output != nil || b.inputScalar != nil || len(b.inputList) > 0 || len(b.imports) > 0 {
 		buf.WriteString("---\n")
 		if len(b.imports) > 0 {
 			buf.WriteString("imports:\n")
@@ -140,8 +165,13 @@ func (b *NodeBuilder) Write() {
 				buf.WriteString("  - " + dep + "\n")
 			}
 		}
-		if b.input != nil {
-			buf.WriteString("input: " + *b.input + "\n")
+		if b.inputScalar != nil {
+			buf.WriteString("input: " + *b.inputScalar + "\n")
+		} else if len(b.inputList) > 0 {
+			buf.WriteString("input:\n")
+			for _, v := range b.inputList {
+				buf.WriteString("  - " + v + "\n")
+			}
 		}
 		if b.output != nil {
 			buf.WriteString("output: " + *b.output + "\n")

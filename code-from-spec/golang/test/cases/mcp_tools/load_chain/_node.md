@@ -264,15 +264,15 @@ Setup:
 - Create `out/data.json` with known content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.txt`,
-  `input: ARTIFACT/root/b`.
+  `input: ARTIFACT/root/b` (scalar form).
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
 2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
-- `<input>` contains the full content of
-  `out/data.json`.
+- `<input>` contains `<entry name="ARTIFACT/root/b">`
+  with the full content of `out/data.json`.
 - Input content does not appear in `<constraints>`.
 
 #### EXTERNAL input — full content
@@ -283,15 +283,16 @@ Setup:
 - Create `docs/vendor/spec.yaml` with known content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.txt`,
-  `input: EXTERNAL/docs/vendor/spec.yaml`.
+  `input: EXTERNAL/docs/vendor/spec.yaml` (scalar form).
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
 2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
-- `<input>` contains the full content of
-  `docs/vendor/spec.yaml`.
+- `<input>` contains
+  `<entry name="EXTERNAL/docs/vendor/spec.yaml">` with
+  the full content of `docs/vendor/spec.yaml`.
 
 #### SPEC input — public content extracted
 
@@ -303,15 +304,41 @@ Setup:
   with content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `output: out/a.txt`,
-  `input: SPEC/root/b`.
+  `input: SPEC/root/b` (scalar form).
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
 2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
-- `<input>` contains `## Acceptance tests` content
-  from SPEC/root/b.
+- `<input>` contains `<entry name="SPEC/root/b">` with
+  `## Acceptance tests` content from SPEC/root/b.
+
+#### Multiple inputs — each own entry
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `output: out/b.json`.
+- Create `out/b.json` with known content.
+- Create `code-from-spec/root/c/_node.md` with
+  `# SPEC/root/c`, `# Public` → `## Acceptance tests`
+  with content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `input:\n    - ARTIFACT/root/b\n    - SPEC/root/c`
+  (list form).
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- A single `<input>` block contains two entries:
+  `<entry name="ARTIFACT/root/b">` with the content of
+  `out/b.json`, and `<entry name="SPEC/root/c">` with
+  the `## Acceptance tests` content.
 
 #### No input — section absent
 

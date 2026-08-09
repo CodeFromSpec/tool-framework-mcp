@@ -149,7 +149,7 @@ Rule: "leaf_only_fields" }.
 
 Setup:
 - SPEC/root, SPEC/root/a (intermediate, has child
-  SPEC/root/a/b, input = "ARTIFACT/root/c"),
+  SPEC/root/a/b, input = ["ARTIFACT/root/c"]),
   SPEC/root/a/b (leaf).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
@@ -297,7 +297,7 @@ Rule = "import_targets" for SPEC/root/a.
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf, output = "a.go"),
-  SPEC/root/b (leaf, input = "ARTIFACT/root/a").
+  SPEC/root/b (leaf, input = ["ARTIFACT/root/a"]).
 
 Expected: No input_target error.
 
@@ -305,7 +305,7 @@ Expected: No input_target error.
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  input = "EXTERNAL/docs/spec.yaml").
+  input = ["EXTERNAL/docs/spec.yaml"]).
 - Create "docs/spec.yaml" on disk.
 
 Expected: No input_target error.
@@ -314,7 +314,7 @@ Expected: No input_target error.
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf), SPEC/root/b (leaf,
-  input = "SPEC/root/a").
+  input = ["SPEC/root/a"]).
 
 Expected: No input_target error.
 
@@ -322,7 +322,16 @@ Expected: No input_target error.
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf), SPEC/root/b (leaf,
-  input = "SPEC/root/a(acceptance-tests)").
+  input = ["SPEC/root/a(acceptance-tests)"]).
+
+Expected: No input_target error.
+
+#### Multiple valid input entries — no error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, output = "a.go"),
+  SPEC/root/b (leaf), SPEC/root/c (leaf,
+  input = ["ARTIFACT/root/a", "SPEC/root/b"]).
 
 Expected: No input_target error.
 
@@ -330,7 +339,7 @@ Expected: No input_target error.
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  input = "SPEC/root/missing").
+  input = ["SPEC/root/missing"]).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "input_target" }.
@@ -339,7 +348,7 @@ Rule: "input_target" }.
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  input = "UNKNOWN/something").
+  input = ["UNKNOWN/something"]).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "input_target" }.
@@ -348,7 +357,7 @@ Rule: "input_target" }.
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  input = "ARTIFACT/root/missing").
+  input = ["ARTIFACT/root/missing"]).
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "input_target" }.
@@ -357,11 +366,21 @@ Rule: "input_target" }.
 
 Setup:
 - SPEC/root, SPEC/root/a (leaf,
-  input = "EXTERNAL/nonexistent.txt").
+  input = ["EXTERNAL/nonexistent.txt"]).
 - Do not create the file.
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "input_target" }.
+
+#### Multiple invalid input entries — one error per entry
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf,
+  input = ["SPEC/root/missing",
+  "ARTIFACT/root/also_missing"]).
+
+Expected: Two spectreevalidate.FormatError entries with
+Rule = "input_target" for SPEC/root/a.
 
 ### missing_node_md
 

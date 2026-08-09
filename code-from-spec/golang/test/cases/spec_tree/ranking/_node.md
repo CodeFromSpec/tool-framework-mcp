@@ -92,7 +92,7 @@ Expected: No error. SPEC/root/a rank = 1. cycles = [].
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
   output = "out.go", SPEC/root/b with
-  input = "ARTIFACT/root/a"].
+  input = ["ARTIFACT/root/a"]].
 
 Expected: rank of SPEC/root/b > rank of
 ARTIFACT/root/a > rank of SPEC/root/a. cycles = [].
@@ -101,7 +101,7 @@ ARTIFACT/root/a > rank of SPEC/root/a. cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a, SPEC/root/b with
-  input = "SPEC/root/a"].
+  input = ["SPEC/root/a"]].
 
 Expected: rank of SPEC/root/b > rank of SPEC/root/a.
 cycles = [].
@@ -110,9 +110,21 @@ cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  input = "EXTERNAL/docs/spec.yaml"].
+  input = ["EXTERNAL/docs/spec.yaml"]].
 
 Expected: No error. SPEC/root/a rank = 1. cycles = [].
+
+#### Multiple input entries — rank uses max
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  output = "a.go", SPEC/root/b with output = "b.go",
+  SPEC/root/c with
+  input = ["ARTIFACT/root/a", "ARTIFACT/root/b"]].
+
+Expected: rank of SPEC/root/c is strictly greater than
+the rank of both ARTIFACT/root/a and ARTIFACT/root/b.
+cycles = [].
 
 #### Artifacts get rank one above their node
 
@@ -202,7 +214,7 @@ Setup:
 - entries = [SPEC/root, SPEC/root/a with
   output = "a.go", SPEC/root/b, SPEC/root/c with
   imports = ["SPEC/root/b"] and
-  input = "ARTIFACT/root/a"].
+  input = ["ARTIFACT/root/a"]].
 
 Expected: rank of SPEC/root/c = 1 + max(rank of
 SPEC/root, rank of SPEC/root/b,
@@ -280,7 +292,7 @@ Expected: Error noderanking.ErrUnresolvableReference.
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  input = "ARTIFACT/root/missing"].
+  input = ["ARTIFACT/root/missing"]].
 
 Expected: Error noderanking.ErrUnresolvableReference.
 
@@ -288,7 +300,7 @@ Expected: Error noderanking.ErrUnresolvableReference.
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  input = "SPEC/root/missing"].
+  input = ["SPEC/root/missing"]].
 
 Expected: Error noderanking.ErrUnresolvableReference.
 

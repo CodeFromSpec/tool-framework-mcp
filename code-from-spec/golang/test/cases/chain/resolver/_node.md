@@ -39,9 +39,9 @@ Actions:
 
 Expected:
 - ancestors = empty list.
-- dependencies = empty list.
+- imports = empty list.
 - target = parsing.CfsReference("SPEC/root", Qualifier=nil).
-- input = absent.
+- input = empty list.
 
 #### Linear chain — ancestors in root-first order
 
@@ -78,7 +78,7 @@ Actions:
 
 Expected:
 - ancestors = [SPEC/root], target = SPEC/root/a,
-  dependencies = empty, input = absent.
+  imports = empty, input = empty list.
 
 ### Imports — SPEC/ references
 
@@ -300,56 +300,82 @@ Expected: dependencies contains one EXTERNAL entry.
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (input = "ARTIFACT/root/b"),
+  (input = ["ARTIFACT/root/b"]),
   SPEC/root/b (output = "out/data.json").
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input = parsing.CfsReference("ARTIFACT/root/b",
-Path = "out/data.json").
+Expected: input = [parsing.CfsReference("ARTIFACT/root/b",
+Path = "out/data.json")].
 
 #### EXTERNAL input resolved to path
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (input = "EXTERNAL/docs/vendor/spec.yaml").
+  (input = ["EXTERNAL/docs/vendor/spec.yaml"]).
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input = parsing.CfsReference(
+Expected: input = [parsing.CfsReference(
 "EXTERNAL/docs/vendor/spec.yaml",
-Path = "docs/vendor/spec.yaml").
+Path = "docs/vendor/spec.yaml")].
 
 #### SPEC input resolved
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (input = "SPEC/root/b"), SPEC/root/b.
+  (input = ["SPEC/root/b"]), SPEC/root/b.
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input = parsing.CfsReference("SPEC/root/b",
+Expected: input = [parsing.CfsReference("SPEC/root/b",
 Path = "code-from-spec/root/b/_node.md",
-Qualifier = nil).
+Qualifier = nil)].
 
 #### SPEC input with qualifier
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (input = "SPEC/root/b(acceptance-tests)"),
+  (input = ["SPEC/root/b(acceptance-tests)"]),
   SPEC/root/b.
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input = parsing.CfsReference("SPEC/root/b",
+Expected: input = [parsing.CfsReference("SPEC/root/b",
 Path = "code-from-spec/root/b/_node.md",
-Qualifier = "acceptance-tests").
+Qualifier = "acceptance-tests")].
 
-#### No input — absent
+#### Multiple inputs sorted by logical name
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (input = ["SPEC/root/z", "SPEC/root/b"]),
+  SPEC/root/z, SPEC/root/b.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a").
+
+Expected: input = [SPEC/root/b, SPEC/root/z] in that
+order — sorted independently of any `imports` entries
+on the same node.
+
+#### Duplicate input — same file, same qualifier
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (input = ["SPEC/root/b", "SPEC/root/b"]),
+  SPEC/root/b.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a").
+
+Expected: input contains one entry for SPEC/root/b.
+
+#### No input — empty list
 
 Setup:
 - Create SPEC/root, SPEC/root/a (no input).
@@ -357,7 +383,7 @@ Setup:
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
 
-Expected: input is absent (nil).
+Expected: input is an empty list.
 
 ### Error cases
 
@@ -384,7 +410,7 @@ parsing.CfsReferenceFromName.
 
 Setup:
 - Create SPEC/root, SPEC/root/a
-  (input = "ARTIFACT/root/missing").
+  (input = ["ARTIFACT/root/missing"]).
 - Do not create SPEC/root/missing.
 
 Actions:

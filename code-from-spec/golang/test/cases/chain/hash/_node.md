@@ -340,7 +340,7 @@ Setup:
 - Create an artifact file with content.
 - Create SPEC/root/a with `# Public` → `## Interface`.
 - Build chainresolver.Chain with target = SPEC/root/a, input =
-  parsing.CfsReference(ARTIFACT/input, Path=<path>).
+  [parsing.CfsReference(ARTIFACT/input, Path=<path>)].
 
 Actions:
 1. Call chainhash.ChainHashCompute → hash_before.
@@ -356,8 +356,8 @@ Setup:
   with initial content.
 - Create SPEC/root/a with `# Public` → `## Interface`.
 - Build chainresolver.Chain with target = SPEC/root/a,
-  input = parsing.CfsReference(SPEC/root/b,
-  Qualifier=nil).
+  input = [parsing.CfsReference(SPEC/root/b,
+  Qualifier=nil)].
 
 Actions:
 1. Call chainhash.ChainHashCompute → hash_before.
@@ -366,11 +366,33 @@ Actions:
 
 Expected: hash_before differs from hash_after.
 
+#### Multiple inputs each contribute independently
+
+Setup:
+- Create two artifact files, each with distinct known
+  content.
+- Create SPEC/root/a with `# Public` → `## Interface`.
+- Build chainresolver.Chain with target = SPEC/root/a,
+  input = [parsing.CfsReference(ARTIFACT/one, Path=<path1>),
+  parsing.CfsReference(ARTIFACT/two, Path=<path2>)].
+
+Actions:
+1. Call chainhash.ChainHashCompute → hash_before.
+2. Modify only the first artifact file.
+3. Call chainhash.ChainHashCompute → hash_after.
+4. Modify only the second artifact file (restoring the
+   first).
+5. Call chainhash.ChainHashCompute → hash_after_2.
+
+Expected: hash_before, hash_after, and hash_after_2 are
+all different from one another — each input entry
+contributes independently to the chain hash.
+
 #### No input — skipped
 
 Setup:
 - Create SPEC/root/a with `# Public` → `## Interface`.
-- Build chainresolver.Chain with target = SPEC/root/a, input absent.
+- Build chainresolver.Chain with target = SPEC/root/a, input = [] (empty list).
 
 Actions:
 1. Call chainhash.ChainHashCompute.
