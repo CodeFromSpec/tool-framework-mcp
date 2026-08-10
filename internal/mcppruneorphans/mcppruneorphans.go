@@ -41,7 +41,7 @@ func MCPPruneOrphans() (string, error) {
 			orphanKeys = append(orphanKeys, key)
 			continue
 		}
-		if node.Frontmatter == nil || node.Frontmatter.Output == nil || *node.Frontmatter.Output == "" {
+		if node.Frontmatter == nil || node.Frontmatter.Type == nil {
 			orphanKeys = append(orphanKeys, key)
 		}
 	}

@@ -17,6 +17,7 @@ func TestMCPPruneOrphans(t *testing.T) {
 		testutils.Chdir(t)
 
 		b := testutils.CreateSpecNode(t, "SPEC/alpha")
+		b.SetType("artifact")
 		b.SetOutput("out/alpha.go")
 		b.SetPublic("## Alpha\ncontent")
 		b.Write()
@@ -71,6 +72,7 @@ func TestMCPPruneOrphans(t *testing.T) {
 		testutils.Chdir(t)
 
 		b := testutils.CreateSpecNode(t, "SPEC/alpha")
+		b.SetType("artifact")
 		b.SetOutput("out/alpha.go")
 		b.Write()
 
@@ -110,6 +112,7 @@ func TestMCPPruneOrphans(t *testing.T) {
 		testutils.Chdir(t)
 
 		b := testutils.CreateSpecNode(t, "SPEC/alpha")
+		b.SetType("artifact")
 		b.SetOutput("out/alpha.go")
 		b.Write()
 
@@ -133,10 +136,11 @@ func TestMCPPruneOrphans(t *testing.T) {
 		}
 	})
 
-	t.Run("orphan because node has no output", func(t *testing.T) {
+	t.Run("orphan because node has no type", func(t *testing.T) {
 		testutils.Chdir(t)
 
 		b := testutils.CreateSpecNode(t, "SPEC/alpha")
+		b.SetType("artifact")
 		b.SetOutput("out/alpha.go")
 		b.Write()
 
@@ -182,6 +186,7 @@ func TestMCPPruneOrphans(t *testing.T) {
 		testutils.Chdir(t)
 
 		b := testutils.CreateSpecNode(t, "SPEC/alpha")
+		b.SetType("artifact")
 		b.SetOutput("out/alpha.go")
 		b.Write()
 

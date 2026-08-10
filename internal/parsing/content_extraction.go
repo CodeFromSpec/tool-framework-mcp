@@ -92,3 +92,15 @@ func ReadFileContent(cfsPath oslayer.CfsPath) (string, error) {
 	text := strings.Join(lines, "\n") + "\n"
 	return text, nil
 }
+
+func ResolvedOutput(node *Node) *string {
+	if node.Frontmatter == nil || node.Frontmatter.Type == nil {
+		return nil
+	}
+	if node.Frontmatter.Output != nil {
+		return node.Frontmatter.Output
+	}
+	relative := strings.TrimPrefix(node.Reference.LogicalName, "SPEC/")
+	defaultPath := "code-from-spec/" + relative + "/artifact.md"
+	return &defaultPath
+}

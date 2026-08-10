@@ -21,6 +21,7 @@ func TestMCPLoadChain_SimpleLeafNode(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetPublic("## Interface\ninterface content")
 	a.SetAgent("agent instructions here")
@@ -83,6 +84,7 @@ func TestMCPLoadChain_AncestorPublicContentIncluded(t *testing.T) {
 	a.Write()
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a/b")
+	b.SetType("artifact")
 	b.SetOutput("out/b.txt")
 	b.SetPublic("## Contract\nb contract")
 	b.Write()
@@ -124,6 +126,7 @@ func TestMCPLoadChain_AncestorWithoutPublicSkipped(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetPublic("## Interface\ninterface content")
 	a.Write()
@@ -157,6 +160,7 @@ func TestMCPLoadChain_AncestorWithEmptyPublicSkipped(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetPublic("## Interface\ninterface content")
 	a.Write()
@@ -187,6 +191,7 @@ func TestMCPLoadChain_DependencyWithoutQualifier(t *testing.T) {
 	b.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.AddImport("SPEC/root/b")
 	a.Write()
@@ -226,6 +231,7 @@ func TestMCPLoadChain_DependencyWithQualifier(t *testing.T) {
 	b.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.AddImport("SPEC/root/b(interface)")
 	a.Write()
@@ -261,6 +267,7 @@ func TestMCPLoadChain_ARTIFACTDependency(t *testing.T) {
 	root.Write()
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetType("artifact")
 	b.SetOutput("out/b.go")
 	b.Write()
 
@@ -272,6 +279,7 @@ func TestMCPLoadChain_ARTIFACTDependency(t *testing.T) {
 	}
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.AddImport("ARTIFACT/root/b")
 	a.Write()
@@ -311,6 +319,7 @@ func TestMCPLoadChain_EXTERNALDependency(t *testing.T) {
 	}
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.AddImport("EXTERNAL/data/config.yaml")
 	a.Write()
@@ -343,6 +352,7 @@ func TestMCPLoadChain_TargetAgentSectionInInstructions(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetPublic("## Interface\nsome interface")
 	a.SetAgent("do this specific thing")
@@ -379,6 +389,7 @@ func TestMCPLoadChain_TargetWithoutAgentSection(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetPublic("## Interface\nsome interface")
 	a.Write()
@@ -405,6 +416,7 @@ func TestMCPLoadChain_InputPresentARTIFACT(t *testing.T) {
 	root.Write()
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetType("artifact")
 	b.SetOutput("out/data.json")
 	b.Write()
 
@@ -416,6 +428,7 @@ func TestMCPLoadChain_InputPresentARTIFACT(t *testing.T) {
 	}
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetInputScalar("ARTIFACT/root/b")
 	a.Write()
@@ -463,6 +476,7 @@ func TestMCPLoadChain_EXTERNALInput(t *testing.T) {
 	}
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetInputScalar("EXTERNAL/docs/vendor/spec.yaml")
 	a.Write()
@@ -499,6 +513,7 @@ func TestMCPLoadChain_SPECInput(t *testing.T) {
 	b.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetInputScalar("SPEC/root/b")
 	a.Write()
@@ -531,6 +546,7 @@ func TestMCPLoadChain_MultipleInputs(t *testing.T) {
 	root.Write()
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetType("artifact")
 	b.SetOutput("out/b.json")
 	b.Write()
 
@@ -546,6 +562,7 @@ func TestMCPLoadChain_MultipleInputs(t *testing.T) {
 	c.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.SetInputList([]string{"ARTIFACT/root/b", "SPEC/root/c"})
 	a.Write()
@@ -584,6 +601,7 @@ func TestMCPLoadChain_NoInput(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.Write()
 
@@ -609,6 +627,7 @@ func TestMCPLoadChain_ExistingArtifactPresent(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.Write()
 
@@ -644,6 +663,7 @@ func TestMCPLoadChain_ExistingArtifactAbsent(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.Write()
 
@@ -670,6 +690,7 @@ func TestMCPLoadChain_HashIsDeterministic(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.Write()
 
@@ -739,7 +760,7 @@ func TestMCPLoadChain_NonexistentNodeFile(t *testing.T) {
 	}
 }
 
-func TestMCPLoadChain_NoOutputDeclared(t *testing.T) {
+func TestMCPLoadChain_NoTypeDeclared(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -755,7 +776,7 @@ func TestMCPLoadChain_NoOutputDeclared(t *testing.T) {
 
 	_, err = mcploadchain.MCPLoadChain(token)
 	if err == nil {
-		t.Fatal("expected error when no output declared")
+		t.Fatal("expected error when no type declared")
 	}
 	if !errors.Is(err, mcploadchain.ErrNoOutput) {
 		t.Errorf("expected ErrNoOutput, got: %v", err)
@@ -769,6 +790,7 @@ func TestMCPLoadChain_InvalidOutputPathTraversal(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("../../etc/passwd")
 	a.Write()
 
@@ -793,6 +815,7 @@ func TestMCPLoadChain_ModifiedArtifactBlocked(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.Write()
 
@@ -837,6 +860,7 @@ func TestMCPLoadChain_NoManifestModifiedCheckSkipped(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.Write()
 
@@ -865,6 +889,7 @@ func TestMCPLoadChain_UnresolvableDependency(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.txt")
 	a.AddImport("SPEC/root/missing")
 	a.Write()

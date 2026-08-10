@@ -592,7 +592,7 @@ func TestNodeRankCompute_ImportsOutranksParent(t *testing.T) {
 	if !ok {
 		t.Fatal("SPEC/root/c not found")
 	}
-	wantRab := 1 + max(ra, rc)
+	wantRab := 1 + maxInt(ra, rc)
 	if rab != wantRab {
 		t.Fatalf("expected SPEC/root/a/b rank = 1 + max(%d, %d) = %d, got %d", ra, rc, wantRab, rab)
 	}
@@ -671,7 +671,7 @@ func TestNodeRankCompute_BothImportsAndInput(t *testing.T) {
 	if !ok {
 		t.Fatal("SPEC/root/c not found")
 	}
-	want := 1 + max(rroot, rb, rart)
+	want := 1 + maxInt(rroot, rb, rart)
 	if rc != want {
 		t.Fatalf("expected SPEC/root/c rank = %d, got %d", want, rc)
 	}
@@ -857,7 +857,7 @@ func TestNodeRankCompute_UnresolvableSpecInputReference(t *testing.T) {
 	}
 }
 
-func max(vals ...int) int {
+func maxInt(vals ...int) int {
 	m := vals[0]
 	for _, v := range vals[1:] {
 		if v > m {

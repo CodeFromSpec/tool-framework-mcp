@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	ErrNoOutput          = errors.New("target node has no output field")
+	ErrNoOutput          = errors.New("target node has no type field")
 	ErrInvalidOutputPath = errors.New("output path is invalid")
 	ErrArtifactModified  = errors.New("artifact file was modified outside the framework")
 )
@@ -33,11 +33,12 @@ func MCPLoadChain(token string) (string, error) {
 		return "", fmt.Errorf("parsing target node: %w", err)
 	}
 
-	if node.Frontmatter == nil || node.Frontmatter.Output == nil {
+	resolvedOutput := parsing.ResolvedOutput(node)
+	if resolvedOutput == nil {
 		return "", ErrNoOutput
 	}
 
-	outputPath := *node.Frontmatter.Output
+	outputPath := *resolvedOutput
 
 	if err := oslayer.ValidateStringIsCfsPath(outputPath); err != nil {
 		return "", ErrInvalidOutputPath

@@ -207,3 +207,89 @@ func TestReadFileContent(t *testing.T) {
 		}
 	})
 }
+
+func TestResolvedOutput(t *testing.T) {
+	t.Run("returns nil when Type is nil", func(t *testing.T) {
+		node := &parsing.Node{
+			Reference: parsing.CfsReference{LogicalName: "SPEC/root/a"},
+			Frontmatter: &parsing.NodeFrontmatter{
+				Type:   nil,
+				Output: nil,
+			},
+		}
+
+		got := parsing.ResolvedOutput(node)
+		if got != nil {
+			t.Errorf("expected nil, got %q", *got)
+		}
+	})
+
+	t.Run("returns nil when Frontmatter is nil", func(t *testing.T) {
+		node := &parsing.Node{
+			Reference:   parsing.CfsReference{LogicalName: "SPEC/root/a"},
+			Frontmatter: nil,
+		}
+
+		got := parsing.ResolvedOutput(node)
+		if got != nil {
+			t.Errorf("expected nil, got %q", *got)
+		}
+	})
+
+	t.Run("returns explicit Output when set", func(t *testing.T) {
+		node := &parsing.Node{
+			Reference: parsing.CfsReference{LogicalName: "SPEC/root/a"},
+			Frontmatter: &parsing.NodeFrontmatter{
+				Type:   testutils.Ptr("artifact"),
+				Output: testutils.Ptr("internal/out.go"),
+			},
+		}
+
+		got := parsing.ResolvedOutput(node)
+		if got == nil {
+			t.Fatal("expected non-nil result")
+		}
+		want := "internal/out.go"
+		if *got != want {
+			t.Errorf("got %q, want %q", *got, want)
+		}
+	})
+
+	t.Run("returns default path when Output is nil but Type is set", func(t *testing.T) {
+		node := &parsing.Node{
+			Reference: parsing.CfsReference{LogicalName: "SPEC/root/a"},
+			Frontmatter: &parsing.NodeFrontmatter{
+				Type:   testutils.Ptr("artifact"),
+				Output: nil,
+			},
+		}
+
+		got := parsing.ResolvedOutput(node)
+		if got == nil {
+			t.Fatal("expected non-nil result")
+		}
+		want := "code-from-spec/root/a/artifact.md"
+		if *got != want {
+			t.Errorf("got %q, want %q", *got, want)
+		}
+	})
+
+	t.Run("default path for nested node", func(t *testing.T) {
+		node := &parsing.Node{
+			Reference: parsing.CfsReference{LogicalName: "SPEC/payments/fees/calculation"},
+			Frontmatter: &parsing.NodeFrontmatter{
+				Type:   testutils.Ptr("artifact"),
+				Output: nil,
+			},
+		}
+
+		got := parsing.ResolvedOutput(node)
+		if got == nil {
+			t.Fatal("expected non-nil result")
+		}
+		want := "code-from-spec/payments/fees/calculation/artifact.md"
+		if *got != want {
+			t.Errorf("got %q, want %q", *got, want)
+		}
+	})
+}

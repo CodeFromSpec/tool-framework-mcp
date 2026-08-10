@@ -18,7 +18,7 @@ import (
 
 var (
 	ErrUnreadableFrontmatter = errors.New("node frontmatter cannot be parsed")
-	ErrNoOutput              = errors.New("node has no output field")
+	ErrNoOutput              = errors.New("node has no type field")
 )
 
 func MCPWriteFile(token, content string) (string, error) {
@@ -32,11 +32,12 @@ func MCPWriteFile(token, content string) (string, error) {
 		return "", fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
 	}
 
-	if node.Frontmatter == nil || node.Frontmatter.Output == nil {
+	resolvedOutput := parsing.ResolvedOutput(node)
+	if resolvedOutput == nil {
 		return "", ErrNoOutput
 	}
 
-	path := *node.Frontmatter.Output
+	path := *resolvedOutput
 
 	if err := oslayer.ValidateStringIsCfsPath(path); err != nil {
 		return "", err
