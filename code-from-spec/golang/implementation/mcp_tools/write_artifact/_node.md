@@ -7,10 +7,10 @@ depends_on:
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/subagent_token(interface)
-output: internal/mcpwritefile/mcpwritefile.go
+output: internal/mcpwriteartifact/mcpwriteartifact.go
 ---
 
-# SPEC/golang/implementation/mcp_tools/write_file
+# SPEC/golang/implementation/mcp_tools/write_artifact
 
 Writes a generated source file to disk. The output path
 is derived from the node's frontmatter — the caller only
@@ -21,16 +21,16 @@ provides an opaque token identifying the node (see
 
 ## Package
 
-`package mcpwritefile`
+`package mcpwriteartifact`
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwritefile"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwriteartifact"`
 
 ## Interface
 
 ```go
-func MCPWriteFile(token, content string) (string, error)
+func MCPWriteArtifact(token, content string) (string, error)
 ```
 
 ### Input
@@ -57,7 +57,7 @@ the output path read from the node's frontmatter.
 
 # Agent
 
-Implement the write file tool as a Go package.
+Implement the write artifact tool as a Go package.
 
 ## Logic
 
@@ -142,6 +142,6 @@ Implement the write file tool as a Go package.
 - The CRLF→LF normalization and trailing LF for
   checksum must match the normalization used by
   `ChainHashCompute` for whole-file content.
-- The package name should be `mcpwritefile`.
+- The package name should be `mcpwriteartifact`.
 - The function receives plain strings from the MCP
   transport layer. Construct `CfsPath` internally.

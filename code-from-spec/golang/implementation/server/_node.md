@@ -9,7 +9,7 @@ depends_on:
   - SPEC/golang/implementation/mcp_tools/prune_orphans
   - SPEC/golang/implementation/mcp_tools/reconstruct_cache
   - SPEC/golang/implementation/mcp_tools/validate_specs
-  - SPEC/golang/implementation/mcp_tools/write_file
+  - SPEC/golang/implementation/mcp_tools/write_artifact
   - SPEC/golang/implementation/mcp_tools/write_verdict
   - SPEC/golang/implementation/spec_tree/validate(interface)
 output: cmd/framework-mcp/main.go
@@ -51,8 +51,8 @@ the server.
      mcp.Meta{"anthropic/maxResultSizeChars": 500000}`
      so that `tools/list` advertises the maximum result
      size to the client.
-   - `mcpwritefile.MCPWriteFile` — tool name
-     `write_file`.
+   - `mcpwriteartifact.MCPWriteArtifact` — tool name
+     `write_artifact`.
    - `mcpwriteverdict.MCPWriteVerdict` — tool name
      `write_verdict`.
    - `mcpvalidatespecs.MCPValidateSpecs` — tool name
@@ -91,7 +91,7 @@ projects.
 
 Tools:
   load_chain          Load the spec chain for a node.
-  write_file          Write a generated artifact to disk.
+  write_artifact      Write a generated artifact to disk.
   write_verdict       Write a verdict document to disk.
   validate_specs      Validate specs and check staleness.
   accept              Accept a modified artifact.
@@ -125,7 +125,7 @@ MCP configuration example:
 ## Go-specific guidance
 
 - Import the ten MCP tool packages:
-  `mcploadchain`, `mcpwritefile`, `mcpwriteverdict`,
+  `mcploadchain`, `mcpwriteartifact`, `mcpwriteverdict`,
   `mcpvalidatespecs`, `mcpaccept`, `mcpcreatetoken`,
   `mcpdumpchain`, `mcpreconstructcache`,
   `mcpprunecache`, `mcppruneorphans`.
@@ -133,7 +133,7 @@ MCP configuration example:
   calls the corresponding package function.
 - The handler wraps the function result into an MCP
   tool response (text content).
-- For `MCPLoadChain`, `MCPWriteFile`, `MCPWriteVerdict`,
+- For `MCPLoadChain`, `MCPWriteArtifact`, `MCPWriteVerdict`,
   `MCPAccept`, `MCPCreateToken`, and `MCPDumpChain`,
   the result is a string — return directly as text
   content.

@@ -92,7 +92,7 @@ handshake, then send a `tools/list` request. Parse
 the JSON-RPC response from stdout.
 
 Expect: the response contains tools named `load_chain`,
-`write_file`, `write_verdict`, `validate_specs`,
+`write_artifact`, `write_verdict`, `validate_specs`,
 `accept`, `create_token`, `dump_chain`,
 `reconstruct_cache`, `prune_cache`, `prune_orphans`,
 and `version`.
