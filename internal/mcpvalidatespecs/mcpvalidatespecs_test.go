@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainhash"
@@ -333,6 +334,335 @@ func TestStalenessOrderedByRankThenName(t *testing.T) {
 	}
 	if idxA >= idxZ {
 		t.Errorf("expected SPEC/root/a (idx %d) before SPEC/root/z (idx %d)", idxA, idxZ)
+	}
+}
+
+func TestBlockedByUnsatisfiedWaitOnArtifact(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
+	ba.SetOutput("out/a.go")
+	ba.Write()
+
+	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("verdict")
+	bb.AddWaitOn("ARTIFACT/root/a")
+	bb.Write()
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	found := false
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/b" {
+			if !s.Blocked {
+				t.Errorf("expected SPEC/root/b to be blocked, got Blocked=false")
+			}
+			if !strings.Contains(s.BlockedBy, "ARTIFACT/root/a") {
+				t.Errorf("expected BlockedBy to contain ARTIFACT/root/a, got %q", s.BlockedBy)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected staleness entry for SPEC/root/b, got %v", report.Staleness)
+	}
+}
+
+func TestBlockedByUnsatisfiedWaitOnVerdictNotPassed(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	bv := testutils.CreateSpecNode(t, "SPEC/root/v")
+	bv.SetType("verdict")
+	bv.SetOutput("code-from-spec/root/v/verdict.md")
+	bv.Write()
+
+	verdictContent := "verdict content\n"
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("mkdir code-from-spec/root/v: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte(verdictContent), 0644); err != nil {
+		t.Fatalf("write verdict.md: %v", err)
+	}
+
+	chainHash := computeChainHash(t, "SPEC/root/v")
+	checksum := fileChecksum(verdictContent)
+
+	writeManifestEntry(t, "VERDICT/root/v", "code-from-spec/root/v/verdict.md", checksum, chainHash, "fail")
+
+	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("verdict")
+	bb.AddWaitOn("VERDICT/root/v")
+	bb.Write()
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	found := false
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/b" {
+			if !s.Blocked {
+				t.Errorf("expected SPEC/root/b to be blocked, got Blocked=false")
+			}
+			if !strings.Contains(s.BlockedBy, "VERDICT/root/v") {
+				t.Errorf("expected BlockedBy to contain VERDICT/root/v, got %q", s.BlockedBy)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected staleness entry for SPEC/root/b, got %v", report.Staleness)
+	}
+}
+
+func TestNotBlockedWhenWaitOnVerdictPassed(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	bv := testutils.CreateSpecNode(t, "SPEC/root/v")
+	bv.SetType("verdict")
+	bv.SetOutput("code-from-spec/root/v/verdict.md")
+	bv.Write()
+
+	verdictContent := "verdict content\n"
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("mkdir code-from-spec/root/v: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte(verdictContent), 0644); err != nil {
+		t.Fatalf("write verdict.md: %v", err)
+	}
+
+	chainHash := computeChainHash(t, "SPEC/root/v")
+	checksum := fileChecksum(verdictContent)
+
+	writeManifestEntry(t, "VERDICT/root/v", "code-from-spec/root/v/verdict.md", checksum, chainHash, "pass")
+
+	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("verdict")
+	bb.AddWaitOn("VERDICT/root/v")
+	bb.Write()
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/b" {
+			if s.Blocked {
+				t.Errorf("expected SPEC/root/b to not be blocked, got Blocked=true (BlockedBy=%q)", s.BlockedBy)
+			}
+			return
+		}
+	}
+}
+
+func TestNotBlockedWhenWaitOnVerdictAccepted(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	bv := testutils.CreateSpecNode(t, "SPEC/root/v")
+	bv.SetType("verdict")
+	bv.SetOutput("code-from-spec/root/v/verdict.md")
+	bv.Write()
+
+	verdictContent := "verdict content\n"
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("mkdir code-from-spec/root/v: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte(verdictContent), 0644); err != nil {
+		t.Fatalf("write verdict.md: %v", err)
+	}
+
+	chainHash := computeChainHash(t, "SPEC/root/v")
+	checksum := fileChecksum(verdictContent)
+
+	writeManifestEntry(t, "VERDICT/root/v", "code-from-spec/root/v/verdict.md", checksum, chainHash, "accepted")
+
+	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("verdict")
+	bb.AddWaitOn("VERDICT/root/v")
+	bb.Write()
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/b" {
+			if s.Blocked {
+				t.Errorf("expected SPEC/root/b to not be blocked, got Blocked=true (BlockedBy=%q)", s.BlockedBy)
+			}
+			return
+		}
+	}
+}
+
+func TestBlockedByModifiedArtifactDependency(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
+	ba.SetOutput("out/a.go")
+	ba.Write()
+
+	originalContent := "package a // original\n"
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+	if err := os.WriteFile("out/a.go", []byte(originalContent), 0644); err != nil {
+		t.Fatalf("write out/a.go: %v", err)
+	}
+
+	chainHashA := computeChainHash(t, "SPEC/root/a")
+	originalChecksum := fileChecksum(originalContent)
+
+	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", originalChecksum, chainHashA, "")
+
+	if err := os.WriteFile("out/a.go", []byte("package a // modified\n"), 0644); err != nil {
+		t.Fatalf("overwrite out/a.go: %v", err)
+	}
+
+	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("artifact")
+	bb.SetOutput("out/b.go")
+	bb.AddImport("ARTIFACT/root/a")
+	bb.Write()
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	foundModified := false
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/a" && s.Status == "modified" {
+			foundModified = true
+			break
+		}
+	}
+	if !foundModified {
+		t.Errorf("expected staleness entry for SPEC/root/a with status 'modified', got %v", report.Staleness)
+	}
+
+	foundBlocked := false
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/b" {
+			if !s.Blocked {
+				t.Errorf("expected SPEC/root/b to be blocked, got Blocked=false")
+			}
+			if !strings.Contains(s.BlockedBy, "ARTIFACT/root/a") {
+				t.Errorf("expected BlockedBy to contain ARTIFACT/root/a, got %q", s.BlockedBy)
+			}
+			foundBlocked = true
+			break
+		}
+	}
+	if !foundBlocked {
+		t.Errorf("expected staleness entry for SPEC/root/b, got %v", report.Staleness)
+	}
+}
+
+func TestTransitiveBlocking(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
+	ba.SetOutput("out/a.go")
+	ba.Write()
+
+	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("verdict")
+	bb.AddWaitOn("ARTIFACT/root/a")
+	bb.Write()
+
+	bc := testutils.CreateSpecNode(t, "SPEC/root/c")
+	bc.SetType("verdict")
+	bc.AddWaitOn("VERDICT/root/b")
+	bc.Write()
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	foundB := false
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/b" {
+			if !s.Blocked {
+				t.Errorf("expected SPEC/root/b to be blocked, got Blocked=false")
+			}
+			foundB = true
+			break
+		}
+	}
+	if !foundB {
+		t.Errorf("expected staleness entry for SPEC/root/b, got %v", report.Staleness)
+	}
+
+	foundC := false
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/c" {
+			if !s.Blocked {
+				t.Errorf("expected SPEC/root/c to be blocked, got Blocked=false")
+			}
+			if !strings.Contains(s.BlockedBy, "VERDICT/root/b") {
+				t.Errorf("expected BlockedBy to contain VERDICT/root/b, got %q", s.BlockedBy)
+			}
+			foundC = true
+			break
+		}
+	}
+	if !foundC {
+		t.Errorf("expected staleness entry for SPEC/root/c, got %v", report.Staleness)
+	}
+}
+
+func TestBlockedEntryRetainsUnderlyingStatus(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
+	ba.SetOutput("out/a.go")
+	ba.Write()
+
+	fileContent := "package a\n"
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+	if err := os.WriteFile("out/a.go", []byte(fileContent), 0644); err != nil {
+		t.Fatalf("write out/a.go: %v", err)
+	}
+
+	checksum := fileChecksum(fileContent)
+	staleHash := "AAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", checksum, staleHash, "")
+
+	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("verdict")
+	bb.AddWaitOn("ARTIFACT/root/a")
+	bb.Write()
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	found := false
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/b" {
+			if s.Status != "missing" {
+				t.Errorf("expected SPEC/root/b status 'missing', got %q", s.Status)
+			}
+			if !s.Blocked {
+				t.Errorf("expected SPEC/root/b to be blocked, got Blocked=false")
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected staleness entry for SPEC/root/b, got %v", report.Staleness)
 	}
 }
 

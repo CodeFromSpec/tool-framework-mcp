@@ -111,6 +111,9 @@ Implement the spec tree validation as a Go package.
      If entry.Frontmatter.Output is not nil:
        Append FormatError with rule "requires_type",
        detail "output requires type".
+     If entry.Frontmatter.WaitOn is non-empty:
+       Append FormatError with rule "requires_type",
+       detail "wait_on requires type".
      If entry.agent is present:
        Append FormatError with rule "requires_type",
        detail "# Agent section requires type".
@@ -128,6 +131,9 @@ Implement the spec tree validation as a Go package.
      If entry.Frontmatter.Output is not nil:
        Append FormatError with rule "leaf_only_fields",
        detail "output is only permitted on leaf nodes".
+     If entry.Frontmatter.WaitOn is non-empty:
+       Append FormatError with rule "leaf_only_fields",
+       detail "wait_on is only permitted on leaf nodes".
 
 ### Rule: leaf_only_agent (per entry)
 
@@ -245,6 +251,38 @@ Implement the spec tree validation as a Go package.
 
      Else:
        error "input entry has unrecognized prefix: <inp>"
+
+### Rule: wait_on_targets (per entry)
+
+   First, expand globs: initialize `expandedWaitOn`
+   as an empty list. For each wo in
+   entry.Frontmatter.WaitOn:
+     If wo ends with `/*`:
+       Call parsing.ExpandGlob(wo,
+       known_spec_nodes, &entry.Reference.LogicalName).
+       If it fails:
+         error "wait_on has invalid glob: <wo>:
+         <error message>"
+         Continue to next wo.
+       Append all results to `expandedWaitOn`.
+     Else:
+       Append wo to `expandedWaitOn`.
+
+   Then, for each wo in `expandedWaitOn`:
+
+     If wo starts with "ARTIFACT/":
+       If wo is not in `known_logical_names`:
+         error "wait_on references unknown
+         ARTIFACT: <wo>"
+
+     Else if wo starts with "VERDICT/":
+       If wo is not in `known_logical_names`:
+         error "wait_on references unknown
+         VERDICT: <wo>"
+
+     Else:
+       error "wait_on entry has unrecognized
+       prefix: <wo>"
 
 ### Rule: output_paths (per entry)
 

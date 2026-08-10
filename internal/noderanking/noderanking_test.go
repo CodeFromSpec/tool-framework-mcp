@@ -237,6 +237,7 @@ func TestNodeRankCompute_InputArtifactAddsDependencyEdge(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("out.go"),
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -325,9 +326,11 @@ func TestNodeRankCompute_MultipleInputEntriesRankUsesMax(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("a.go"),
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("b.go"),
 		}),
 		specNode("SPEC/root/c", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -365,6 +368,7 @@ func TestNodeRankCompute_ArtifactsGetRankOneAboveNode(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("foo.go"),
 		}),
 	}
@@ -392,6 +396,7 @@ func TestNodeRankCompute_SingleOutputArtifactRanked(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("x.go"),
 		}),
 	}
@@ -419,6 +424,7 @@ func TestNodeRankCompute_ImportsArtifactReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("lib.go"),
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -640,6 +646,7 @@ func TestNodeRankCompute_BothImportsAndInput(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("a.go"),
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), nil),
@@ -690,6 +697,203 @@ func TestNodeRankCompute_EmptyInput(t *testing.T) {
 	}
 }
 
+func TestNodeRankCompute_VerdictNodeProducesVirtualEntry(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type: testutils.Ptr("verdict"),
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	ra, ok := findRank(ranked, "SPEC/root/a")
+	if !ok {
+		t.Fatal("SPEC/root/a not found")
+	}
+	rv, ok := findRank(ranked, "VERDICT/root/a")
+	if !ok {
+		t.Fatal("VERDICT/root/a not found in ranked")
+	}
+	if rv != ra+1 {
+		t.Fatalf("expected VERDICT/root/a rank = SPEC/root/a rank + 1, got verdict=%d a=%d", rv, ra)
+	}
+}
+
+func TestNodeRankCompute_VerdictNodeWithDefaultOutputProducesVirtualEntry(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type: testutils.Ptr("verdict"),
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	_, ok := findRank(ranked, "VERDICT/root/a")
+	if !ok {
+		t.Fatal("VERDICT/root/a not found in ranked")
+	}
+}
+
+func TestNodeRankCompute_ArtifactNodeWithDefaultOutputProducesVirtualEntry(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type: testutils.Ptr("artifact"),
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	_, ok := findRank(ranked, "ARTIFACT/root/a")
+	if !ok {
+		t.Fatal("ARTIFACT/root/a not found in ranked")
+	}
+}
+
+func TestNodeRankCompute_WaitOnArtifactRaisesRank(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
+			Output: testutils.Ptr("a.go"),
+		}),
+		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("verdict"),
+			WaitOn: []string{"ARTIFACT/root/a"},
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	rart, ok := findRank(ranked, "ARTIFACT/root/a")
+	if !ok {
+		t.Fatal("ARTIFACT/root/a not found")
+	}
+	rb, ok := findRank(ranked, "SPEC/root/b")
+	if !ok {
+		t.Fatal("SPEC/root/b not found")
+	}
+	if rb <= rart {
+		t.Fatalf("expected rank of SPEC/root/b > rank of ARTIFACT/root/a, got b=%d art=%d", rb, rart)
+	}
+}
+
+func TestNodeRankCompute_WaitOnVerdictRaisesRank(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type: testutils.Ptr("verdict"),
+		}),
+		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("verdict"),
+			WaitOn: []string{"VERDICT/root/a"},
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	rv, ok := findRank(ranked, "VERDICT/root/a")
+	if !ok {
+		t.Fatal("VERDICT/root/a not found")
+	}
+	rb, ok := findRank(ranked, "SPEC/root/b")
+	if !ok {
+		t.Fatal("SPEC/root/b not found")
+	}
+	if rb <= rv {
+		t.Fatalf("expected rank of SPEC/root/b > rank of VERDICT/root/a, got b=%d v=%d", rb, rv)
+	}
+}
+
+func TestNodeRankCompute_WaitOnWithArtifactGlob(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("verdict"),
+			WaitOn: []string{"ARTIFACT/root/b/*"},
+		}),
+		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), nil),
+		specNode("SPEC/root/b/x", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
+			Output: testutils.Ptr("x.go"),
+		}),
+		specNode("SPEC/root/b/y", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
+			Output: testutils.Ptr("y.go"),
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	ra, ok := findRank(ranked, "SPEC/root/a")
+	if !ok {
+		t.Fatal("SPEC/root/a not found")
+	}
+	rartbx, ok := findRank(ranked, "ARTIFACT/root/b/x")
+	if !ok {
+		t.Fatal("ARTIFACT/root/b/x not found")
+	}
+	rartby, ok := findRank(ranked, "ARTIFACT/root/b/y")
+	if !ok {
+		t.Fatal("ARTIFACT/root/b/y not found")
+	}
+	if ra <= rartbx {
+		t.Fatalf("expected rank of SPEC/root/a > rank of ARTIFACT/root/b/x, got a=%d bx=%d", ra, rartbx)
+	}
+	if ra <= rartby {
+		t.Fatalf("expected rank of SPEC/root/a > rank of ARTIFACT/root/b/y, got a=%d by=%d", ra, rartby)
+	}
+}
+
+func TestNodeRankCompute_WaitOnCycleDetected(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
+			Output: testutils.Ptr("a.go"),
+			WaitOn: []string{"ARTIFACT/root/b"},
+		}),
+		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
+			Output: testutils.Ptr("b.go"),
+			WaitOn: []string{"ARTIFACT/root/a"},
+		}),
+	}
+	_, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) == 0 {
+		t.Fatal("expected cycles, got none")
+	}
+}
+
 func TestNodeRankCompute_SelfReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
@@ -734,10 +938,12 @@ func TestNodeRankCompute_CycleThroughArtifacts(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:    testutils.Ptr("artifact"),
 			Output:  testutils.Ptr("a.go"),
 			Imports: []string{"ARTIFACT/root/b"},
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:    testutils.Ptr("artifact"),
 			Output:  testutils.Ptr("b.go"),
 			Imports: []string{"ARTIFACT/root/a"},
 		}),
@@ -838,9 +1044,11 @@ func TestNodeRankCompute_ArtifactGlobCreatesDependencyEdges(t *testing.T) {
 		}),
 		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), nil),
 		specNode("SPEC/root/b/x", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("x.go"),
 		}),
 		specNode("SPEC/root/b/y", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("artifact"),
 			Output: testutils.Ptr("y.go"),
 		}),
 	}
@@ -974,6 +1182,40 @@ func TestNodeRankCompute_UnresolvableSpecInputReference(t *testing.T) {
 		specNode("SPEC/root", nil, nil),
 		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
 			Input: []string{"SPEC/root/missing"},
+		}),
+	}
+	_, _, err := noderanking.NodeRankCompute(entries)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, noderanking.ErrUnresolvableReference) {
+		t.Fatalf("expected ErrUnresolvableReference, got %v", err)
+	}
+}
+
+func TestNodeRankCompute_UnresolvableWaitOnArtifactReference(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("verdict"),
+			WaitOn: []string{"ARTIFACT/root/missing"},
+		}),
+	}
+	_, _, err := noderanking.NodeRankCompute(entries)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, noderanking.ErrUnresolvableReference) {
+		t.Fatalf("expected ErrUnresolvableReference, got %v", err)
+	}
+}
+
+func TestNodeRankCompute_UnresolvableWaitOnVerdictReference(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:   testutils.Ptr("verdict"),
+			WaitOn: []string{"VERDICT/root/missing"},
 		}),
 	}
 	_, _, err := noderanking.NodeRankCompute(entries)

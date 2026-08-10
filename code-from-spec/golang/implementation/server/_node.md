@@ -139,6 +139,17 @@ MCP configuration example:
   content.
 - For `MCPValidateSpecs`, the result is
   `ValidationReport` — format as human-readable text.
+  Format each StalenessEntry as:
+  `  [<status>] <node> (<artifact_path>) rank=<rank>: <detail>`
+  When `Blocked` is true, append the `blocked` tag
+  to the status bracket and append the `BlockedBy`
+  value to the detail:
+  `  [<status>, blocked] <node> (<path>) rank=<rank>: <detail> (blocked by: <blocked_by>)`
+  When `Status` is empty (up-to-date but blocked),
+  use `blocked` alone as the status:
+  `  [blocked] <node> (<path>) rank=<rank>: <blocked_by>`
+  When `Result` is non-empty (verdict entries),
+  append `result=<result>` after the rank.
 - For `version`, return `Version` directly as text
   content. No external package needed — the handler
   is inline.

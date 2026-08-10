@@ -180,13 +180,17 @@ Actions:
 
 Expected: Error parsing.ErrInvalidGlob.
 
-#### VERDICT glob — error
+#### VERDICT glob — converts prefix
+
+Setup:
+- knownNodes = ["SPEC/a", "SPEC/a/b", "SPEC/a/c"].
 
 Actions:
 1. Call parsing.ExpandGlob("VERDICT/a/*", knownNodes,
    nil).
 
-Expected: Error parsing.ErrInvalidGlob.
+Expected:
+- Result = ["VERDICT/a/b", "VERDICT/a/c"].
 
 #### Partial wildcard — error
 

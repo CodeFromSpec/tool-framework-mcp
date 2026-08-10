@@ -36,6 +36,8 @@ type StalenessEntry struct {
 	Detail       string
 	Rank         int
 	Result       string
+	Blocked      bool
+	BlockedBy    string
 }
 
 type ValidationReport struct {
@@ -62,6 +64,12 @@ returns an error. Problems are collected in the report.
   corresponding node in the spec tree.
 
 `StalenessEntry.Rank` is the rank from `NodeRankCompute`.
+
+`StalenessEntry.Blocked` is true when the entry has a
+dependency the session cannot satisfy. `BlockedBy` is
+a single string identifying the first blocker found.
+Blocked is orthogonal to Status — a node can be stale
+and blocked at the same time.
 
 # Agent
 
@@ -122,9 +130,13 @@ Implement the validate specs tool as a Go package.
    treat as empty manifest (no entries). Store the
    result as `m`.
 
-### Step 6 — Staleness detection
+### Step 6 — Staleness and blocking detection
 
-7. Determine processing order for staleness checks:
+7. Initialize `blockedSet` as an empty map from string
+   to string (manifestKey → reason). This propagates
+   blocking transitively.
+
+   Determine processing order for staleness checks:
    If ranked_entries is non-empty:
      Order nodes by rank ascending, then by
      logical_name ascending within equal rank.
@@ -196,6 +208,56 @@ Implement the validate specs tool as a Go package.
         Set artifact_path from *resolved_output.
         Set rank from the node's rank (from Step 4,
         or 0 if no ranking available).
+
+     e. **Blocking check** — after computing the node's
+        own status (stale/missing/modified/up-to-date),
+        check whether the entry is blocked. Check these
+        conditions in order; stop at the first match:
+
+        1. **wait_on targets**: expand globs in
+           node.Frontmatter.WaitOn using
+           parsing.ExpandGlob. For each target:
+           - Derive its manifest key (the target name
+             itself — it is already ARTIFACT/ or
+             VERDICT/).
+           - Look up in manifest. If no entry exists,
+             or chain hash does not match the current
+             computed hash, or checksum does not match
+             the file on disk: not satisfied.
+           - For VERDICT/ targets: additionally check
+             that entry.Result is "pass" or "accepted".
+           - If not satisfied: blocked. Set
+             reason = "wait_on target not satisfied:
+             <target>".
+
+        2. **Modified ARTIFACT/ dependencies**: expand
+           globs in node.Frontmatter.Imports and
+           node.Frontmatter.Input. For each entry that
+           starts with "ARTIFACT/":
+           - Look up its manifest key. If entry exists
+             and its checksum does not match the file
+             on disk: blocked. Set
+             reason = "dependency artifact modified:
+             <ref>".
+
+        3. **Transitive blocking**: for each dependency
+           checked above (wait_on targets and ARTIFACT/
+           imports/input), if its manifest key is in
+           `blockedSet`: blocked. Set
+           reason = "dependency blocked: <key>".
+
+        If any condition matched: set Blocked = true,
+        BlockedBy = reason on the StalenessEntry. Add
+        the current node's manifest key to
+        `blockedSet` with the same reason.
+
+        Blocking applies even to up-to-date entries
+        that were skipped in the status check — an
+        up-to-date node whose wait_on target is not
+        satisfied is still blocked and must appear in
+        the staleness list. In this case, add a
+        StalenessEntry with Status = "" (empty),
+        Blocked = true, BlockedBy = reason.
 
 ### Step 7 — Orphan detection
 

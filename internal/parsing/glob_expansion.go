@@ -33,6 +33,9 @@ func ExpandGlob(pattern string, knownNodes []string, declaringNode *string) ([]s
 	} else if strings.HasPrefix(basePath, "ARTIFACT/") {
 		prefix = "ARTIFACT/"
 		relative = strings.TrimPrefix(basePath, "ARTIFACT/")
+	} else if strings.HasPrefix(basePath, "VERDICT/") {
+		prefix = "VERDICT/"
+		relative = strings.TrimPrefix(basePath, "VERDICT/")
 	} else {
 		return nil, ErrInvalidGlob
 	}
@@ -55,7 +58,7 @@ func ExpandGlob(pattern string, knownNodes []string, declaringNode *string) ([]s
 				results = append(results, name)
 			} else {
 				specRelative := strings.TrimPrefix(name, "SPEC/")
-				results = append(results, "ARTIFACT/"+specRelative)
+				results = append(results, prefix+specRelative)
 			}
 		}
 	}

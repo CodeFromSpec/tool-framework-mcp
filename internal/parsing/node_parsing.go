@@ -18,6 +18,7 @@ type NodeFrontmatter struct {
 	Imports []string
 	Input   []string
 	Output  *string
+	WaitOn  []string
 }
 
 type NodeSubsection struct {
@@ -106,10 +107,11 @@ var recognizedFrontmatterKeysNP = map[string]struct{}{
 	"imports": {},
 	"input":   {},
 	"output":  {},
+	"wait_on": {},
 	"custom":  {},
 }
 
-func normalizeInputFieldNP(raw any) ([]string, error) {
+func normalizeStringListFieldNP(raw any) ([]string, error) {
 	if raw == nil {
 		return nil, nil
 	}
@@ -121,13 +123,13 @@ func normalizeInputFieldNP(raw any) ([]string, error) {
 		for i, elem := range v {
 			s, ok := elem.(string)
 			if !ok {
-				return nil, fmt.Errorf("%w: input list element is not a string", ErrMalformedYAML)
+				return nil, fmt.Errorf("%w: list element is not a string", ErrMalformedYAML)
 			}
 			result[i] = s
 		}
 		return result, nil
 	default:
-		return nil, fmt.Errorf("%w: input field must be a string or list of strings", ErrMalformedYAML)
+		return nil, fmt.Errorf("%w: field must be a string or list of strings", ErrMalformedYAML)
 	}
 }
 
@@ -194,7 +196,7 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 		}
 	}
 
-	inputSlice, err := normalizeInputFieldNP(rawMap["input"])
+	inputSlice, err := normalizeStringListFieldNP(rawMap["input"])
 	if err != nil {
 		return nil, nil, err
 	}
@@ -208,11 +210,17 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 		output = &s
 	}
 
+	waitOnSlice, err := normalizeStringListFieldNP(rawMap["wait_on"])
+	if err != nil {
+		return nil, nil, err
+	}
+
 	fm := &NodeFrontmatter{
 		Type:    nodeType,
 		Imports: imports,
 		Input:   inputSlice,
 		Output:  output,
+		WaitOn:  waitOnSlice,
 	}
 
 	return fm, body, nil

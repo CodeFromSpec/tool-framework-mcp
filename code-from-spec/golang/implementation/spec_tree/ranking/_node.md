@@ -6,8 +6,8 @@ output: internal/noderanking/noderanking.go
 
 # SPEC/golang/implementation/spec_tree/ranking
 
-Iterative ranking of spec tree nodes and artifacts, with cycle detection
-as a side effect.
+Iterative ranking of spec tree nodes, artifacts, and
+verdicts, with cycle detection as a side effect.
 
 # Public
 
@@ -30,13 +30,13 @@ type NodeRankEntry struct {
 func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error)
 ```
 
-Returns ranked entries (nodes and artifacts), cycle participant logical
-names, and error.
+Returns ranked entries (nodes, artifacts, and verdicts),
+cycle participant logical names, and error.
 
 ### Errors
 
-- `ErrUnresolvableReference`: an `imports` or `input` target cannot
-  be resolved.
+- `ErrUnresolvableReference`: an `imports`, `input`, or
+  `wait_on` target cannot be resolved.
 
 # Agent
 
@@ -56,20 +56,36 @@ For each node in entries:
    - deps: empty list (to be filled in step 2)
    - rank: 0
 
-2. If node.Frontmatter is not nil and node.Frontmatter.Output is not
-   nil:
-   - Construct artifact logical name: strip "SPEC/" prefix from
-     node.Reference.LogicalName and prepend "ARTIFACT/".
-   - Construct a CfsReference directly:
-     - NodeType: parsing.CfsNodeTypeArtifact
-     - LogicalName: the artifact logical name
-     - Qualifier: nil
-     - Path: *node.Frontmatter.Output
-     - ParentName: pointer to node.Reference.LogicalName
-   - Add an artifact entry keyed by that artifact logical name with:
-     - ref: the constructed CfsReference
-     - deps: list containing the generating node's logical name
-     - rank: 0
+2. Let `resolvedOutput` = `parsing.ResolvedOutput(&node)`.
+   If `resolvedOutput` is not nil:
+   - Let `bare` = node.Reference.LogicalName with
+     "SPEC/" prefix stripped.
+   - If node.Frontmatter.Type is not nil and
+     *node.Frontmatter.Type is "artifact":
+     - Let `artifactName` = "ARTIFACT/" + bare.
+     - Construct a CfsReference directly:
+       - NodeType: parsing.CfsNodeTypeArtifact
+       - LogicalName: artifactName
+       - Qualifier: nil
+       - Path: *resolvedOutput
+       - ParentName: pointer to node.Reference.LogicalName
+     - Add an artifact entry keyed by artifactName with:
+       - ref: the constructed CfsReference
+       - deps: list containing the generating node's logical name
+       - rank: 0
+   - If node.Frontmatter.Type is not nil and
+     *node.Frontmatter.Type is "verdict":
+     - Let `verdictName` = "VERDICT/" + bare.
+     - Construct a CfsReference directly:
+       - NodeType: parsing.CfsNodeTypeVerdict
+       - LogicalName: verdictName
+       - Qualifier: nil
+       - Path: *resolvedOutput
+       - ParentName: pointer to node.Reference.LogicalName
+     - Add a verdict entry keyed by verdictName with:
+       - ref: the constructed CfsReference
+       - deps: list containing the generating node's logical name
+       - rank: 0
 
 ### Step 2 — Build known spec nodes list
 
@@ -143,6 +159,30 @@ For each spec node entry in the entry map:
      - Add reference to the entry's deps list.
    - Else if reference starts with "EXTERNAL/": skip.
 
+5. **wait_on dependencies**: If node.Frontmatter is not nil:
+
+   First, expand globs: initialize `expandedWaitOn`
+   as an empty list. For each reference in
+   node.Frontmatter.WaitOn:
+     If reference ends with `/*`:
+       Call parsing.ExpandGlob(reference,
+       knownSpecNodes,
+       &node.Reference.LogicalName).
+       If it fails, raise ErrUnresolvableReference.
+       Append all results to `expandedWaitOn`.
+     Else:
+       Append reference to `expandedWaitOn`.
+
+   Then, for each reference in `expandedWaitOn`:
+   - If reference starts with "ARTIFACT/":
+     - If reference is not a key in the entry map, raise
+       ErrUnresolvableReference.
+     - Add reference to the entry's deps list.
+   - Else if reference starts with "VERDICT/":
+     - If reference is not a key in the entry map, raise
+       ErrUnresolvableReference.
+     - Add reference to the entry's deps list.
+
 ### Step 4 — Initialize ranks
 
 All entries start with rank 0.
@@ -177,10 +217,12 @@ All entries start with rank 0.
 ## Go-specific guidance
 
 - Use the `parsing` package for `Node`, `CfsReference`,
-  `CfsNodeTypeArtifact`. Do not call `CfsReferenceFromName` — construct
-  CfsReference values directly. Use `strings.HasPrefix` for SPEC/,
-  ARTIFACT/, and EXTERNAL/ classification. Use `strings.Index` to find
-  "(" for qualifier extraction.
+  `CfsNodeTypeArtifact`, `CfsNodeTypeVerdict`, and
+  `ResolvedOutput`. Do not call `CfsReferenceFromName`
+  — construct CfsReference values directly. Use
+  `strings.HasPrefix` for SPEC/, ARTIFACT/, VERDICT/,
+  and EXTERNAL/ classification. Use `strings.Index` to
+  find "(" for qualifier extraction.
 - The package name should be `noderanking`.
 - `NodeRankEntry` is the only exported struct in this package.
 - Return `([]NodeRankEntry, []string, error)` — ranked entries, cycle

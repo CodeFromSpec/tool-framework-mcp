@@ -110,6 +110,9 @@ attributes.
   modified outside the framework (checksum in manifest
   does not match file on disk). It must be accepted
   or deleted before regeneration.
+- `ErrBlocked`: a `wait_on` target is not satisfied,
+  or an ARTIFACT/ dependency in the chain is not up
+  to date. Generation cannot proceed.
 - Propagated errors from `subagenttoken`, `parsing`,
   `chainresolver`, `chainhash`, `oslayer`, `manifest`
   packages.
@@ -160,7 +163,36 @@ Implement the load chain tool as a Go package.
    the error. Build `knownSpecNodes` as a `[]string`:
    for each ref, append ref.LogicalName.
 
-   Call `chainresolver.ChainResolve(logical_name, knownSpecNodes)` to get the
+6. **Check wait_on targets**: If node.Frontmatter.WaitOn
+   is non-empty:
+   Expand globs in WaitOn using parsing.ExpandGlob
+   with knownSpecNodes and the declaring node. For
+   each target:
+   - Derive its manifest key (the target name itself).
+   - Look up in manifest. If no entry exists: return
+     ErrBlocked.
+   - Compute the target's current chain hash: call
+     chainresolver.ChainResolve for the corresponding
+     SPEC/ node, then chainhash.ChainHashCompute. If
+     entry.ChainHash does not match: return ErrBlocked.
+   - Compute the file checksum. If entry.Checksum does
+     not match: return ErrBlocked.
+   - For VERDICT/ targets: additionally check that
+     entry.Result is "pass" or "accepted". If not:
+     return ErrBlocked.
+
+7. **Check ARTIFACT/ dependencies**: Expand globs in
+   node.Frontmatter.Imports and node.Frontmatter.Input.
+   For each entry that starts with "ARTIFACT/":
+   - Look up its manifest key. If no entry exists:
+     return ErrBlocked.
+   - Compute the target's current chain hash (same
+     method as step 6). If entry.ChainHash does not
+     match: return ErrBlocked (stale dependency).
+   - Compute the file checksum. If entry.Checksum does
+     not match: return ErrBlocked (modified dependency).
+
+8. Call `chainresolver.ChainResolve(logical_name, knownSpecNodes)` to get the
    resolved `Chain`. If it fails, propagate the error.
 
 ### Step 2 — Compute content hashes

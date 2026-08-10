@@ -8,12 +8,67 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainhash"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcploadchain"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
+
+func computeChainHash(t *testing.T, logicalName string) string {
+	t.Helper()
+
+	files, err := oslayer.ListAllFiles(oslayer.CfsPath("code-from-spec"))
+	if err != nil {
+		t.Fatalf("failed to list files: %v", err)
+	}
+
+	var knownNodes []string
+	for _, f := range files {
+		ref, refErr := parsing.CfsReferenceFromPath(f)
+		if refErr != nil {
+			continue
+		}
+		if ref.NodeType == parsing.CfsNodeTypeSpec {
+			knownNodes = append(knownNodes, ref.LogicalName)
+		}
+	}
+
+	chain, err := chainresolver.ChainResolve(logicalName, knownNodes)
+	if err != nil {
+		t.Fatalf("failed to resolve chain for %s: %v", logicalName, err)
+	}
+
+	hash, _, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		t.Fatalf("failed to compute chain hash for %s: %v", logicalName, err)
+	}
+
+	return hash
+}
+
+func computeFileChecksum(content []byte) string {
+	normalized := strings.ReplaceAll(string(content), "\r\n", "\n")
+	if !strings.HasSuffix(normalized, "\n") {
+		normalized += "\n"
+	}
+	sum := sha1.Sum([]byte(normalized))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+func writeManifestEntry(t *testing.T, logicalName, path, checksum, chainHash string) {
+	t.Helper()
+	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
+		t.Fatalf("failed to create code-from-spec dir: %v", err)
+	}
+	manifestContent := "code-from-spec: v6\n" +
+		logicalName + ";path:" + path + ";checksum:" + checksum + ";chain:" + chainHash + "\n"
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+}
 
 func TestMCPLoadChain_SimpleLeafNode(t *testing.T) {
 	testutils.Chdir(t)
@@ -273,12 +328,17 @@ func TestMCPLoadChain_ARTIFACTDependency(t *testing.T) {
 	b.SetOutput("out/b.go")
 	b.Write()
 
+	fileContent := []byte("package b\n// artifact content")
 	if err := os.MkdirAll("out", 0755); err != nil {
 		t.Fatalf("failed to create out dir: %v", err)
 	}
-	if err := os.WriteFile("out/b.go", []byte("package b\n// artifact content"), 0644); err != nil {
+	if err := os.WriteFile("out/b.go", fileContent, 0644); err != nil {
 		t.Fatalf("failed to write out/b.go: %v", err)
 	}
+
+	chainHash := computeChainHash(t, "SPEC/root/b")
+	checksum := computeFileChecksum(fileContent)
+	writeManifestEntry(t, "ARTIFACT/root/b", "out/b.go", checksum, chainHash)
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetType("artifact")
@@ -422,12 +482,17 @@ func TestMCPLoadChain_InputPresentARTIFACT(t *testing.T) {
 	b.SetOutput("out/data.json")
 	b.Write()
 
+	fileContent := []byte(`{"key":"value"}`)
 	if err := os.MkdirAll("out", 0755); err != nil {
 		t.Fatalf("failed to create out dir: %v", err)
 	}
-	if err := os.WriteFile("out/data.json", []byte(`{"key":"value"}`), 0644); err != nil {
+	if err := os.WriteFile("out/data.json", fileContent, 0644); err != nil {
 		t.Fatalf("failed to write out/data.json: %v", err)
 	}
+
+	chainHash := computeChainHash(t, "SPEC/root/b")
+	checksum := computeFileChecksum(fileContent)
+	writeManifestEntry(t, "ARTIFACT/root/b", "out/data.json", checksum, chainHash)
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
 	a.SetType("artifact")
@@ -552,12 +617,17 @@ func TestMCPLoadChain_MultipleInputs(t *testing.T) {
 	b.SetOutput("out/b.json")
 	b.Write()
 
+	fileContent := []byte(`{"data":"from-b"}`)
 	if err := os.MkdirAll("out", 0755); err != nil {
 		t.Fatalf("failed to create out dir: %v", err)
 	}
-	if err := os.WriteFile("out/b.json", []byte(`{"data":"from-b"}`), 0644); err != nil {
+	if err := os.WriteFile("out/b.json", fileContent, 0644); err != nil {
 		t.Fatalf("failed to write out/b.json: %v", err)
 	}
+
+	chainHash := computeChainHash(t, "SPEC/root/b")
+	checksum := computeFileChecksum(fileContent)
+	writeManifestEntry(t, "ARTIFACT/root/b", "out/b.json", checksum, chainHash)
 
 	c := testutils.CreateSpecNode(t, "SPEC/root/c")
 	c.SetPublic("## Acceptance tests\nacceptance test content from c")
@@ -907,6 +977,319 @@ func TestMCPLoadChain_UnresolvableDependency(t *testing.T) {
 	}
 }
 
+func TestMCPLoadChain_BlockedByWaitOnMissingArtifact(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nroot context")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetType("verdict")
+	b.AddWaitOn("ARTIFACT/root/a")
+	b.Write()
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/b")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
+	if err == nil {
+		t.Fatal("expected error for blocked wait_on with missing artifact")
+	}
+	if !errors.Is(err, mcploadchain.ErrBlocked) {
+		t.Errorf("expected ErrBlocked, got: %v", err)
+	}
+}
+
+func TestMCPLoadChain_BlockedByWaitOnStaleArtifact(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nroot context")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetType("verdict")
+	b.AddWaitOn("ARTIFACT/root/a")
+	b.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	fileContent := "package a\n"
+	if err := os.WriteFile("out/a.go", []byte(fileContent), 0644); err != nil {
+		t.Fatalf("failed to write out/a.go: %v", err)
+	}
+
+	checksum := computeFileChecksum([]byte(fileContent))
+	manifestContent := "code-from-spec: v6\n" +
+		"ARTIFACT/root/a;path:out/a.go;checksum:" + checksum + ";chain:AAAAAAAAAAAAAAAAAAAAAAAAAAA\n"
+	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
+		t.Fatalf("failed to create code-from-spec dir: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/b")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
+	if err == nil {
+		t.Fatal("expected error for blocked wait_on with stale artifact")
+	}
+	if !errors.Is(err, mcploadchain.ErrBlocked) {
+		t.Errorf("expected ErrBlocked, got: %v", err)
+	}
+}
+
+func TestMCPLoadChain_BlockedByWaitOnVerdictFailed(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nroot context")
+	root.Write()
+
+	v := testutils.CreateSpecNode(t, "SPEC/root/v")
+	v.SetType("verdict")
+	v.SetOutput("code-from-spec/root/v/verdict.md")
+	v.Write()
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetType("verdict")
+	b.AddWaitOn("VERDICT/root/v")
+	b.Write()
+
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("failed to create verdict dir: %v", err)
+	}
+	verdictContent := "verdict content\n"
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte(verdictContent), 0644); err != nil {
+		t.Fatalf("failed to write verdict.md: %v", err)
+	}
+
+	checksum := computeFileChecksum([]byte(verdictContent))
+	chainHash := computeChainHash(t, "SPEC/root/v")
+
+	manifestContent := "code-from-spec: v6\n" +
+		"VERDICT/root/v;path:code-from-spec/root/v/verdict.md;checksum:" + checksum + ";chain:" + chainHash + ";result:fail\n"
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/b")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
+	if err == nil {
+		t.Fatal("expected error for blocked wait_on with failed verdict")
+	}
+	if !errors.Is(err, mcploadchain.ErrBlocked) {
+		t.Errorf("expected ErrBlocked, got: %v", err)
+	}
+}
+
+func TestMCPLoadChain_SatisfiedWaitOnArtifactCurrent(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
+	a.SetOutput("out/a.go")
+	a.Write()
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetType("verdict")
+	b.AddWaitOn("ARTIFACT/root/a")
+	b.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	fileContent := "package a\n"
+	if err := os.WriteFile("out/a.go", []byte(fileContent), 0644); err != nil {
+		t.Fatalf("failed to write out/a.go: %v", err)
+	}
+
+	checksum := computeFileChecksum([]byte(fileContent))
+	chainHash := computeChainHash(t, "SPEC/root/a")
+
+	manifestContent := "code-from-spec: v6\n" +
+		"ARTIFACT/root/a;path:out/a.go;checksum:" + checksum + ";chain:" + chainHash + "\n"
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/b")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
+	if err != nil {
+		t.Fatalf("unexpected error for satisfied wait_on with current artifact: %v", err)
+	}
+}
+
+func TestMCPLoadChain_SatisfiedWaitOnVerdictPassed(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	v := testutils.CreateSpecNode(t, "SPEC/root/v")
+	v.SetType("verdict")
+	v.SetOutput("code-from-spec/root/v/verdict.md")
+	v.Write()
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/b")
+	b.SetType("verdict")
+	b.AddWaitOn("VERDICT/root/v")
+	b.Write()
+
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("failed to create verdict dir: %v", err)
+	}
+	verdictContent := "verdict content\n"
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte(verdictContent), 0644); err != nil {
+		t.Fatalf("failed to write verdict.md: %v", err)
+	}
+
+	checksum := computeFileChecksum([]byte(verdictContent))
+	chainHash := computeChainHash(t, "SPEC/root/v")
+
+	manifestContent := "code-from-spec: v6\n" +
+		"VERDICT/root/v;path:code-from-spec/root/v/verdict.md;checksum:" + checksum + ";chain:" + chainHash + ";result:pass\n"
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/b")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
+	if err != nil {
+		t.Fatalf("unexpected error for satisfied wait_on with passed verdict: %v", err)
+	}
+}
+
+func TestMCPLoadChain_BlockedByStaleDependencyInImports(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nroot context")
+	root.Write()
+
+	dep := testutils.CreateSpecNode(t, "SPEC/root/dep")
+	dep.SetType("artifact")
+	dep.SetOutput("out/dep.go")
+	dep.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	depContent := "package dep\n"
+	if err := os.WriteFile("out/dep.go", []byte(depContent), 0644); err != nil {
+		t.Fatalf("failed to write out/dep.go: %v", err)
+	}
+
+	checksum := computeFileChecksum([]byte(depContent))
+	manifestContent := "code-from-spec: v6\n" +
+		"ARTIFACT/root/dep;path:out/dep.go;checksum:" + checksum + ";chain:AAAAAAAAAAAAAAAAAAAAAAAAAAA\n"
+	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
+		t.Fatalf("failed to create code-from-spec dir: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
+	a.SetOutput("out/a.go")
+	a.AddImport("ARTIFACT/root/dep")
+	a.Write()
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
+	if err == nil {
+		t.Fatal("expected error for stale ARTIFACT dependency in imports")
+	}
+	if !errors.Is(err, mcploadchain.ErrBlocked) {
+		t.Errorf("expected ErrBlocked, got: %v", err)
+	}
+}
+
+func TestMCPLoadChain_BlockedByModifiedDependencyInInput(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	dep := testutils.CreateSpecNode(t, "SPEC/root/dep")
+	dep.SetType("artifact")
+	dep.SetOutput("out/dep.go")
+	dep.Write()
+
+	if err := os.MkdirAll("out", 0755); err != nil {
+		t.Fatalf("failed to create out dir: %v", err)
+	}
+	if err := os.WriteFile("out/dep.go", []byte("modified content"), 0644); err != nil {
+		t.Fatalf("failed to write out/dep.go: %v", err)
+	}
+
+	manifestContent := "code-from-spec: v6\n" +
+		"ARTIFACT/root/dep;path:out/dep.go;checksum:Kx9mP2vB7wY2tHsJ8dFak4Xz9pQ;chain:Jz3qR7nL5cW1gT4yK8mDfAx0vBe\n"
+	if err := os.MkdirAll("code-from-spec", 0755); err != nil {
+		t.Fatalf("failed to create code-from-spec dir: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
+	a.SetOutput("out/a.go")
+	a.SetInputScalar("ARTIFACT/root/dep")
+	a.Write()
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
+	if err == nil {
+		t.Fatal("expected error for modified ARTIFACT dependency in input")
+	}
+	if !errors.Is(err, mcploadchain.ErrBlocked) {
+		t.Errorf("expected ErrBlocked, got: %v", err)
+	}
+}
+
 func TestMCPLoadChain_VerdictChainNoExistingArtifact(t *testing.T) {
 	testutils.Chdir(t)
 
@@ -990,9 +1373,7 @@ func TestMCPLoadChain_VerdictChainNoDispositionsEvenWithManifest(t *testing.T) {
 		t.Fatalf("failed to write verdict.md: %v", err)
 	}
 
-	sum := sha1.Sum([]byte(verdictContent))
-	checksum := base64.RawURLEncoding.EncodeToString(sum[:])
-
+	checksum := computeFileChecksum([]byte(verdictContent))
 	manifestContent := "code-from-spec: v6\n" +
 		"VERDICT/root/v;path:code-from-spec/root/v/verdict.md;checksum:" + checksum + ";chain:AAAAAAAAAAAAAAAAAAAAAAAAAAA;result:pass\n"
 	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {

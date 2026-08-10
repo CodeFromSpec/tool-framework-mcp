@@ -132,6 +132,34 @@ Setup:
 
 Expected: Error `ErrMalformedYAML`.
 
+#### Parses frontmatter with scalar wait_on field
+
+Setup:
+- `_node.md` with only `wait_on` field as a scalar
+  string (e.g. `wait_on: ARTIFACT/x`).
+
+Expected: WaitOn is a single-element slice containing
+the value. Imports nil, Input nil, Output nil.
+
+#### Parses frontmatter with wait_on as a list
+
+Setup:
+- `_node.md` with `wait_on` as a YAML list of two
+  entries (e.g.
+  `wait_on:\n  - ARTIFACT/x\n  - VERDICT/y`).
+
+Expected: WaitOn is a two-element slice containing both
+values, in file order. Imports nil, Input nil, Output
+nil.
+
+#### wait_on with invalid YAML shape
+
+Setup:
+- `_node.md` with `wait_on` set to a YAML mapping (e.g.
+  `wait_on:\n  key: value`).
+
+Expected: Error `ErrMalformedYAML`.
+
 #### Rejects unknown frontmatter fields
 
 Setup:

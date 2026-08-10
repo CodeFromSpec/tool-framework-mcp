@@ -4,9 +4,10 @@ output: internal/parsing/glob_expansion.go
 
 # SPEC/golang/implementation/parsing/glob_expansion
 
-Expands glob references (`SPEC/x/*`, `ARTIFACT/x/*`) in
-`imports` and `input` fields to the sorted list of
-concrete logical names matching the pattern.
+Expands glob references (`SPEC/x/*`, `ARTIFACT/x/*`,
+`VERDICT/x/*`) in `imports`, `input`, and `wait_on`
+fields to the sorted list of concrete logical names
+matching the pattern.
 
 # Agent
 
@@ -56,9 +57,12 @@ types) must use the suffix `GE`.
    - Else if it starts with `ARTIFACT/`: let
      `prefix` = `ARTIFACT/`,
      `relative` = basePath with `ARTIFACT/` removed.
+   - Else if it starts with `VERDICT/`: let
+     `prefix` = `VERDICT/`,
+     `relative` = basePath with `VERDICT/` removed.
    - Else: return ErrInvalidGlob.
-     This rejects `EXTERNAL/` globs, `VERDICT/` globs,
-     and unrecognized prefixes.
+     This rejects `EXTERNAL/` globs and unrecognized
+     prefixes.
 
    If `relative` is empty, return ErrInvalidGlob.
 
@@ -70,10 +74,10 @@ types) must use the suffix `GE`.
 
    Let `matchPrefix` = `SPEC/` + `relative` + `/`.
 
-   Both `SPEC/` and `ARTIFACT/` globs match against
-   `SPEC/` logical names — `ARTIFACT/` globs match the
-   same underlying nodes and produce `ARTIFACT/` names
-   in the output.
+   All glob prefixes match against `SPEC/` logical
+   names. `ARTIFACT/` globs produce `ARTIFACT/` names
+   and `VERDICT/` globs produce `VERDICT/` names in
+   the output. `SPEC/` globs produce `SPEC/` names.
 
 4. **Expand.**
 
@@ -83,9 +87,9 @@ types) must use the suffix `GE`.
      If name starts with `matchPrefix`:
        If prefix is `SPEC/`:
          Add name to results.
-       If prefix is `ARTIFACT/`:
+       Else (prefix is `ARTIFACT/` or `VERDICT/`):
          Let `specRelative` = name with `SPEC/` removed.
-         Add `ARTIFACT/` + `specRelative` to results.
+         Add `prefix` + `specRelative` to results.
 
 5. **Exclude declaring node and ancestors.**
 

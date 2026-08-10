@@ -201,6 +201,156 @@ Expected:
 - Staleness entries ordered: SPEC/root/a before
   SPEC/root/z (same rank, alphabetical).
 
+### Blocking
+
+#### Blocked by unsatisfied wait_on ARTIFACT
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `type: artifact`,
+  `output: out/a.go`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `type: verdict`,
+  `wait_on: ["ARTIFACT/root/a"]`.
+- No manifest entries. No files on disk.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- StalenessEntry for `"SPEC/root/b"` has
+  `Blocked` = true and `BlockedBy` containing
+  "ARTIFACT/root/a".
+
+#### Blocked by unsatisfied wait_on VERDICT — not passed
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/v/_node.md` with
+  `# SPEC/root/v`, frontmatter `type: verdict`,
+  `output: code-from-spec/root/v/verdict.md`.
+- Create `code-from-spec/root/v/verdict.md` on disk.
+- Create `.manifest` with `VERDICT/root/v` entry with
+  matching chain hash and checksum, `result: fail`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `type: verdict`,
+  `wait_on: ["VERDICT/root/v"]`.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- StalenessEntry for `"SPEC/root/b"` has
+  `Blocked` = true and `BlockedBy` containing
+  "VERDICT/root/v".
+
+#### Not blocked when wait_on VERDICT passed
+
+Setup:
+- Same as above but `VERDICT/root/v` has
+  `result: pass` with matching chain hash and checksum.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `type: verdict`,
+  `wait_on: ["VERDICT/root/v"]`.
+- No manifest entry for VERDICT/root/b.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- StalenessEntry for `"SPEC/root/b"` has
+  `Blocked` = false.
+
+#### Not blocked when wait_on VERDICT accepted
+
+Setup:
+- Same structure but `VERDICT/root/v` has
+  `result: accepted` with matching chain hash and
+  checksum.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- StalenessEntry for `"SPEC/root/b"` has
+  `Blocked` = false.
+
+#### Blocked by modified ARTIFACT dependency
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `type: artifact`,
+  `output: out/a.go`.
+- Create `out/a.go` with content "original".
+- Create `.manifest` with ARTIFACT/root/a entry with
+  matching chain hash and checksum for "original".
+- Overwrite `out/a.go` with "modified".
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `type: artifact`,
+  `output: out/b.go`,
+  `imports: ["ARTIFACT/root/a"]`.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- StalenessEntry for `"SPEC/root/b"` has
+  `Blocked` = true and `BlockedBy` containing
+  "ARTIFACT/root/a".
+- StalenessEntry for `"SPEC/root/a"` has
+  `Status` = "modified".
+
+#### Transitive blocking
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `type: artifact`,
+  `output: out/a.go`.
+- No manifest entry for ARTIFACT/root/a. No file.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `type: verdict`,
+  `wait_on: ["ARTIFACT/root/a"]`.
+- Create `code-from-spec/root/c/_node.md` with
+  `# SPEC/root/c`, frontmatter `type: verdict`,
+  `wait_on: ["VERDICT/root/b"]`.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- StalenessEntry for `"SPEC/root/b"` has
+  `Blocked` = true.
+- StalenessEntry for `"SPEC/root/c"` has
+  `Blocked` = true and `BlockedBy` containing
+  "VERDICT/root/b" (transitive).
+
+#### Blocked entry retains underlying status
+
+Setup:
+- Create a stale artifact SPEC/root/a (chain hash
+  mismatch in manifest).
+- Create SPEC/root/b with `wait_on: ["ARTIFACT/root/a"]`
+  where ARTIFACT/root/a is not satisfied.
+- SPEC/root/b is also stale (no manifest entry).
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- StalenessEntry for `"SPEC/root/b"` has
+  `Status` = "missing", `Blocked` = true.
+
 ### Format errors
 
 #### Format error from invalid imports
