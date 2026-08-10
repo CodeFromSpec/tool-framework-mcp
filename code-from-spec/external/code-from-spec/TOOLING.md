@@ -21,17 +21,22 @@ collected in the report.
 
 1. Walk the spec tree and check every node for format errors (see
    FILE_FORMAT.md and CODE_FROM_SPEC.md).
-2. Detect circular references across `imports`, `input`, and
-   inheritance, after glob expansion. Report cycle participants.
+2. Detect circular references across `imports`, `input`, `wait_on`,
+   and inheritance, after glob expansion. Report cycle participants.
 3. For each node that declares `type`, determine the artifact or
    verdict status by comparing the manifest against the current spec
    tree and file system (see MANIFEST.md, "Artifact and verdict
    status"). Each entry includes the
-   node's rank — entries with equal rank have no dependency between
+   node's rank — computed over chain dependencies and `wait_on`
+   edges — entries with equal rank have no dependency between
    them and can be processed in parallel.
 4. Report all findings: format errors, cycles, and artifact and
    verdict status (stale, modified, missing, orphan). Verdict
-   entries include their `result`.
+   entries include their `result`. Entries with a dependency
+   the session cannot satisfy are flagged as blocked: a
+   `wait_on` target that is not satisfied, a chain `ARTIFACT/`
+   reference that is modified, or — directly or transitively —
+   a dependency on a blocked entry.
 
 Nodes without `type` are not checked for staleness — they generate
 nothing.
@@ -80,6 +85,13 @@ FILE_FORMAT.md, "Block extraction").
 If the artifact or verdict is modified (checksum in the manifest does
 not match the file on disk), returns an error. It must be accepted or
 deleted before regeneration.
+
+If any `ARTIFACT/` referenced in the chain (via `imports` or `input`)
+is not up to date — stale, modified, or missing — returns an error.
+Generating from outdated content would bake it into the output.
+
+If any `wait_on` target of the node is not satisfied (see
+CODE_FROM_SPEC.md, "wait_on"), returns an error.
 
 If any file in the chain (other than the existing artifact) is
 unreadable, returns an error.
