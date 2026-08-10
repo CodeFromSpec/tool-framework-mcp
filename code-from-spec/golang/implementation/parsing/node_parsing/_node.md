@@ -83,8 +83,12 @@ types) must use the suffix `NP`.
 - Parse `yaml_text` as YAML. If parsing fails, raise
   ErrMalformedYAML.
 
-- From the parsed YAML, extract the following fields,
-  ignoring all other keys:
+- From the parsed YAML, check all top-level keys.
+  Recognized keys are: `imports`, `input`, `output`,
+  `custom`. If any other top-level key is present,
+  raise ErrUnknownFrontmatterField.
+
+- Extract the following fields:
   - imports: list of strings. If absent or null,
     use nil.
   - input: a single scalar string or a list of strings.
@@ -94,9 +98,14 @@ types) must use the suffix `NP`.
     a list of strings (e.g. a number or mapping), raise
     ErrMalformedYAML.
   - output: *string. If absent or null, use nil.
+  - custom: if present, validate that the value is a
+    YAML mapping. If it is any other type (scalar, list,
+    null), raise ErrMalformedYAML. The content is
+    discarded — it does not appear in NodeFrontmatter.
 
 - Build a NodeFrontmatter record with the extracted
-  fields. Set frontmatter to a pointer to this record.
+  fields (imports, input, output). Set frontmatter to
+  a pointer to this record.
 
 ### Step 4 — Parse body with goldmark
 
@@ -204,16 +213,23 @@ name_section, public, agent, private.
 ## Go-specific guidance
 
 - Use `github.com/goccy/go-yaml` for YAML unmarshalling.
-  Define an unexported struct with `yaml` tags to map
-  YAML keys to Go fields, then convert to the exported
-  NodeFrontmatter type.
-- The `input` field accepts either shape in YAML. Declare
-  its raw field as `any` (`interface{}`) in the
-  unexported struct, then normalize after unmarshalling:
+  Unmarshal `yaml_text` into `map[string]any`. Check
+  all top-level keys against the recognized set
+  (`imports`, `input`, `output`, `custom`). If any
+  unrecognized key exists, raise
+  ErrUnknownFrontmatterField. Then extract the
+  recognized fields from the map and convert to the
+  exported NodeFrontmatter type.
+- The `input` field accepts either shape in YAML.
+  Normalize after extraction from the map:
   nil stays nil; a `string` becomes a single-element
   `[]string`; a `[]any` is converted element-by-element
   to `[]string` (raise ErrMalformedYAML if any element is
   not a string); any other type raises ErrMalformedYAML.
+- The `custom` field, if present, must be a
+  `map[string]any` (YAML mapping). Any other type
+  raises ErrMalformedYAML. The value is discarded after
+  validation.
 - Use `goldmark.New()` and `md.Parser().Parse(
   text.NewReader(body))` for body parsing.
 - Use direct child iteration

@@ -131,14 +131,49 @@ Setup:
 
 Expected: Error `ErrMalformedYAML`.
 
-#### Ignores unknown frontmatter fields
+#### Rejects unknown frontmatter fields
 
 Setup:
 - `_node.md` with known fields plus
   `custom_field: value`.
 
-Expected: No error. Known fields correct. Unknown
-ignored.
+Expected: Error `ErrUnknownFrontmatterField`.
+
+#### Custom field with valid mapping
+
+Setup:
+- `_node.md` with `output: out.go` and
+  `custom:\n  owner: team-x\n  jira: PAY-123` in
+  frontmatter, followed by valid body.
+
+Expected: No error. node.Frontmatter.Output is set.
+Custom content is not stored in NodeFrontmatter.
+
+#### Custom field with scalar value is rejected
+
+Setup:
+- `_node.md` with `custom: some-value` in frontmatter,
+  followed by valid body.
+
+Expected: Error `ErrMalformedYAML`.
+
+#### Custom field with list value is rejected
+
+Setup:
+- `_node.md` with `custom:\n  - item1\n  - item2` in
+  frontmatter, followed by valid body.
+
+Expected: Error `ErrMalformedYAML`.
+
+#### Custom field alone without leaf-only fields
+
+Setup:
+- `_node.md` with only `custom:\n  owner: team-x` in
+  frontmatter, followed by valid body.
+
+Expected: No error. node.Frontmatter is not nil (a
+frontmatter block was present and parsed). Imports nil,
+Input nil, Output nil.
 
 #### File with no frontmatter — Frontmatter is nil
 
@@ -192,14 +227,13 @@ Setup:
 
 Expected: Error `ErrMalformedYAML`.
 
-#### Unknown field 'external' is silently ignored
+#### Unknown field 'external' is rejected
 
 Setup:
 - `_node.md` with `external: "some/ref"` plus
   `output` in frontmatter, followed by valid body.
 
-Expected: No error. `external` ignored.
-*node.Frontmatter.Output is set.
+Expected: Error `ErrUnknownFrontmatterField`.
 
 ### Body parsing — happy path
 

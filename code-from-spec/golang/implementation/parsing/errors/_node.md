@@ -26,7 +26,8 @@ sentinels. This file has no unexported helpers.
 var (
 	// Frontmatter errors
 	ErrFileUnreadable = errors.New("file unreadable")
-	ErrMalformedYAML  = errors.New("malformed YAML")
+	ErrMalformedYAML           = errors.New("malformed YAML")
+	ErrUnknownFrontmatterField = errors.New("unknown frontmatter field")
 
 	// Node parsing errors
 	ErrNotASpecReference                  = errors.New("not a SPEC/ reference")
