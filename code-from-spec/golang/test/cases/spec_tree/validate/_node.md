@@ -160,6 +160,13 @@ Setup:
 
 Expected: No type_value error.
 
+#### Type verdict is valid — no error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict").
+
+Expected: No type_value error.
+
 ### requires_type
 
 #### Imports without type
@@ -396,6 +403,16 @@ Setup:
 Expected: Two spectreevalidate.FormatError entries with
 Rule = "import_targets" for SPEC/root/a.
 
+#### VERDICT reference in imports — rejected
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict"),
+  SPEC/root/b (leaf,
+  imports = ["VERDICT/root/a"]).
+
+Expected: spectreevalidate.FormatError { Node:
+"SPEC/root/b", Rule: "import_targets" }.
+
 ### input_target
 
 #### Valid ARTIFACT input reference
@@ -488,6 +505,16 @@ Setup:
 
 Expected: Two spectreevalidate.FormatError entries with
 Rule = "input_target" for SPEC/root/a.
+
+#### VERDICT reference in input — rejected
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict"),
+  SPEC/root/b (leaf,
+  input = ["VERDICT/root/a"]).
+
+Expected: spectreevalidate.FormatError { Node:
+"SPEC/root/b", Rule: "input_target" }.
 
 ### missing_node_md
 

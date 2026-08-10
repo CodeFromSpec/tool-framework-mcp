@@ -18,6 +18,7 @@ type ManifestEntry struct {
 	Path      string
 	Checksum  string
 	ChainHash string
+	Result    string
 }
 
 type Manifest struct {
@@ -47,7 +48,7 @@ func parseManifest(f *oslayer.File) (map[string]ManifestEntry, error) {
 			return nil, fmt.Errorf("reading manifest line: %w", err)
 		}
 
-		fields := strings.SplitN(line, ";", 4)
+		fields := strings.SplitN(line, ";", 5)
 		if len(fields) < 4 {
 			continue
 		}
@@ -57,10 +58,16 @@ func parseManifest(f *oslayer.File) (map[string]ManifestEntry, error) {
 		checksum := strings.TrimPrefix(fields[2], "checksum:")
 		chain := strings.TrimPrefix(fields[3], "chain:")
 
+		result := ""
+		if len(fields) >= 5 && strings.HasPrefix(fields[4], "result:") {
+			result = strings.TrimPrefix(fields[4], "result:")
+		}
+
 		entries[name] = ManifestEntry{
 			Path:      pathVal,
 			Checksum:  checksum,
 			ChainHash: chain,
+			Result:    result,
 		}
 	}
 
@@ -184,7 +191,11 @@ func (m *Manifest) Save() error {
 
 	for _, key := range keys {
 		entry := m.Entries[key]
-		line := fmt.Sprintf("%s;path:%s;checksum:%s;chain:%s\n", key, entry.Path, entry.Checksum, entry.ChainHash)
+		line := fmt.Sprintf("%s;path:%s;checksum:%s;chain:%s", key, entry.Path, entry.Checksum, entry.ChainHash)
+		if strings.HasPrefix(key, "VERDICT/") {
+			line += ";result:" + entry.Result
+		}
+		line += "\n"
 		if err := fh.Write(line); err != nil {
 			fh.Close()
 			return fmt.Errorf("writing manifest entry: %w", err)

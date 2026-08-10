@@ -292,4 +292,42 @@ func TestResolvedOutput(t *testing.T) {
 			t.Errorf("got %q, want %q", *got, want)
 		}
 	})
+
+	t.Run("default path for verdict type", func(t *testing.T) {
+		node := &parsing.Node{
+			Reference: parsing.CfsReference{LogicalName: "SPEC/review/fees"},
+			Frontmatter: &parsing.NodeFrontmatter{
+				Type:   testutils.Ptr("verdict"),
+				Output: nil,
+			},
+		}
+
+		got := parsing.ResolvedOutput(node)
+		if got == nil {
+			t.Fatal("expected non-nil result")
+		}
+		want := "code-from-spec/review/fees/verdict.md"
+		if *got != want {
+			t.Errorf("got %q, want %q", *got, want)
+		}
+	})
+
+	t.Run("explicit output for verdict type", func(t *testing.T) {
+		node := &parsing.Node{
+			Reference: parsing.CfsReference{LogicalName: "SPEC/review/fees"},
+			Frontmatter: &parsing.NodeFrontmatter{
+				Type:   testutils.Ptr("verdict"),
+				Output: testutils.Ptr("reports/fees-verdict.md"),
+			},
+		}
+
+		got := parsing.ResolvedOutput(node)
+		if got == nil {
+			t.Fatal("expected non-nil result")
+		}
+		want := "reports/fees-verdict.md"
+		if *got != want {
+			t.Errorf("got %q, want %q", *got, want)
+		}
+	})
 }

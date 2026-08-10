@@ -6,7 +6,7 @@ output: code-from-spec/external/code-from-spec/manifest-format/output.md
 # SPEC/external/code-from-spec/manifest-format
 
 Extracts manifest file format information from the
-Code from Spec v5 MANIFEST.md specification document.
+Code from Spec v6 MANIFEST.md specification document.
 
 # Agent
 
@@ -14,7 +14,8 @@ Extract exactly the following from the input:
 
 1. The header line format (with example).
 2. The entry line format — fields, separators, ordering
-   (with example).
+   (with example). Include the verdict entry format with
+   the `result` field.
 
 Nothing else.
 

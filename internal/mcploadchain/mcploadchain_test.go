@@ -1,6 +1,8 @@
 package mcploadchain_test
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"errors"
 	"os"
 	"strings"
@@ -848,8 +850,8 @@ func TestMCPLoadChain_ModifiedArtifactBlocked(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for modified artifact")
 	}
-	if !errors.Is(err, mcploadchain.ErrArtifactModified) {
-		t.Errorf("expected ErrArtifactModified, got: %v", err)
+	if !errors.Is(err, mcploadchain.ErrModified) {
+		t.Errorf("expected ErrModified, got: %v", err)
 	}
 }
 
@@ -902,5 +904,165 @@ func TestMCPLoadChain_UnresolvableDependency(t *testing.T) {
 	_, err = mcploadchain.MCPLoadChain(token)
 	if err == nil {
 		t.Fatal("expected error for unresolvable dependency")
+	}
+}
+
+func TestMCPLoadChain_VerdictChainNoExistingArtifact(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nroot context content")
+	root.Write()
+
+	v := testutils.CreateSpecNode(t, "SPEC/root/v")
+	v.SetType("verdict")
+	v.SetOutput("code-from-spec/root/v/verdict.md")
+	v.SetAgent("verdict agent instructions")
+	v.Write()
+
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("failed to create verdict dir: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte("previous verdict content"), 0644); err != nil {
+		t.Fatalf("failed to write verdict.md: %v", err)
+	}
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/v")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.Contains(result, "<existing_artifact>") {
+		t.Error("verdict chain must not contain <existing_artifact>")
+	}
+	if strings.Contains(result, "<previous_constraints>") {
+		t.Error("verdict chain must not contain <previous_constraints>")
+	}
+	if strings.Contains(result, "<previous_references>") {
+		t.Error("verdict chain must not contain <previous_references>")
+	}
+	if strings.Contains(result, "<previous_instructions>") {
+		t.Error("verdict chain must not contain <previous_instructions>")
+	}
+	if strings.Contains(result, "<previous_input>") {
+		t.Error("verdict chain must not contain <previous_input>")
+	}
+	if strings.Contains(result, `disposition="`) {
+		t.Error("verdict chain must not contain disposition attributes")
+	}
+	if !strings.Contains(result, "<constraints>") {
+		t.Error("expected <constraints> element")
+	}
+	if !strings.Contains(result, `<entry name="SPEC/root"`) {
+		t.Error("expected entry for SPEC/root in constraints")
+	}
+	if !strings.Contains(result, "<instructions>") {
+		t.Error("expected <instructions> element")
+	}
+	if !strings.Contains(result, "verdict agent instructions") {
+		t.Error("expected agent content in instructions")
+	}
+}
+
+func TestMCPLoadChain_VerdictChainNoDispositionsEvenWithManifest(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\nroot context content")
+	root.Write()
+
+	v := testutils.CreateSpecNode(t, "SPEC/root/v")
+	v.SetType("verdict")
+	v.SetOutput("code-from-spec/root/v/verdict.md")
+	v.SetAgent("verdict agent instructions")
+	v.Write()
+
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("failed to create verdict dir: %v", err)
+	}
+	verdictContent := "previous verdict content\n"
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte(verdictContent), 0644); err != nil {
+		t.Fatalf("failed to write verdict.md: %v", err)
+	}
+
+	sum := sha1.Sum([]byte(verdictContent))
+	checksum := base64.RawURLEncoding.EncodeToString(sum[:])
+
+	manifestContent := "code-from-spec: v6\n" +
+		"VERDICT/root/v;path:code-from-spec/root/v/verdict.md;checksum:" + checksum + ";chain:AAAAAAAAAAAAAAAAAAAAAAAAAAA;result:pass\n"
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/v")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	result, err := mcploadchain.MCPLoadChain(token)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.Contains(result, `disposition="`) {
+		t.Error("verdict chain must not contain disposition attributes")
+	}
+	if strings.Contains(result, "<existing_artifact>") {
+		t.Error("verdict chain must not contain <existing_artifact>")
+	}
+	if strings.Contains(result, "<previous_constraints>") {
+		t.Error("verdict chain must not contain <previous_constraints>")
+	}
+	if strings.Contains(result, "<previous_references>") {
+		t.Error("verdict chain must not contain <previous_references>")
+	}
+	if strings.Contains(result, "<previous_instructions>") {
+		t.Error("verdict chain must not contain <previous_instructions>")
+	}
+	if strings.Contains(result, "<previous_input>") {
+		t.Error("verdict chain must not contain <previous_input>")
+	}
+}
+
+func TestMCPLoadChain_ModifiedVerdictBlocked(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	v := testutils.CreateSpecNode(t, "SPEC/root/v")
+	v.SetType("verdict")
+	v.SetOutput("code-from-spec/root/v/verdict.md")
+	v.Write()
+
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("failed to create verdict dir: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte("verdict content"), 0644); err != nil {
+		t.Fatalf("failed to write verdict.md: %v", err)
+	}
+
+	manifestContent := "code-from-spec: v6\n" +
+		"VERDICT/root/v;path:code-from-spec/root/v/verdict.md;checksum:Kx9mP2vB7wY2tHsJ8dFak4Xz9pQ;chain:Jz3qR7nL5cW1gT4yK8mDfAx0vBe;result:pass\n"
+	if err := os.WriteFile("code-from-spec/.manifest", []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/v")
+	if err != nil {
+		t.Fatalf("unexpected error generating token: %v", err)
+	}
+
+	_, err = mcploadchain.MCPLoadChain(token)
+	if err == nil {
+		t.Fatal("expected error for modified verdict")
+	}
+	if !errors.Is(err, mcploadchain.ErrModified) {
+		t.Errorf("expected ErrModified, got: %v", err)
 	}
 }

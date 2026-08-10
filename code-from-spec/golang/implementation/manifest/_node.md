@@ -27,6 +27,7 @@ type ManifestEntry struct {
     Path      string
     Checksum  string
     ChainHash string
+    Result    string
 }
 
 type Manifest struct {
@@ -97,10 +98,13 @@ Errors: `ErrReadOnly`, `ErrManifestClosed`.
 
 ## Constraints
 
-- The entries map uses the artifact logical name as key
-  (e.g., `ARTIFACT/payments/fees/calculation`).
+- The entries map uses the artifact or verdict logical
+  name as key (e.g., `ARTIFACT/payments/fees/calculation`
+  or `VERDICT/review/fees`).
 - Callers operate on `m.Entries` directly — read,
   add, modify, or remove entries.
+- `Result` is only meaningful for `VERDICT/` entries.
+  For `ARTIFACT/` entries it is always empty.
 
 # Agent
 
@@ -187,8 +191,13 @@ Parsing steps (shared by read and write paths):
          "checksum:" prefix removed.
        Let chain    be field[3] with the leading "chain:"
          prefix removed.
+       Let result   be empty string.
+       If there are 5 or more fields and field[4] starts
+       with "result:", let result be field[4] with the
+       leading "result:" prefix removed.
        Store ManifestEntry(Path: path_val,
-         Checksum: checksum, ChainHash: chain)
+         Checksum: checksum, ChainHash: chain,
+         Result: result)
        in entries map under key name.
 
 ### Save
@@ -204,8 +213,11 @@ Parsing steps (shared by read and write paths):
 5. Sort the keys of m.Entries alphabetically.
 6. For each key in sorted order:
      Let entry be m.Entries[key].
-     Write the following line with file.Write():
-       "<key>;path:<entry.Path>;checksum:<entry.Checksum>;chain:<entry.ChainHash>\n"
+     Let line be
+       "<key>;path:<entry.Path>;checksum:<entry.Checksum>;chain:<entry.ChainHash>".
+     If key starts with "VERDICT/", append
+       ";result:<entry.Result>" to line.
+     Write the line followed by "\n" with file.Write().
 7. file.Close().
 8. m.lockFile.Close() (releases exclusive lock).
    Set m.closed = true.

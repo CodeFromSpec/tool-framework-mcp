@@ -1,36 +1,36 @@
 ---
 depends_on:
-  - SPEC/golang/implementation/cache
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/subagent_token(interface)
-output: internal/mcpwritefile/mcpwritefile.go
+output: internal/mcpwriteverdict/mcpwriteverdict.go
 ---
 
-# SPEC/golang/implementation/mcp_tools/write_file
+# SPEC/golang/implementation/mcp_tools/write_verdict
 
-Writes a generated source file to disk. The output path
-is derived from the node's frontmatter — the caller only
-provides an opaque token identifying the node (see
-`mcp_tools/create_token`) and the content.
+Writes a verdict document to disk and updates the
+manifest. The output path is derived from the node's
+frontmatter — the caller provides an opaque token
+identifying the node (see `mcp_tools/create_token`),
+the pass/fail result, and the document content.
 
 # Public
 
 ## Package
 
-`package mcpwritefile`
+`package mcpwriteverdict`
 
 ## Import
 
-`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwritefile"`
+`import "github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwriteverdict"`
 
 ## Interface
 
 ```go
-func MCPWriteFile(token, content string) (string, error)
+func MCPWriteVerdict(token string, passed bool, content string) (string, error)
 ```
 
 ### Input
@@ -38,7 +38,8 @@ func MCPWriteFile(token, content string) (string, error)
 | Parameter | Required | Description |
 |---|---|---|
 | `token` | yes | Opaque token identifying the node whose output declares the target path, as returned by `create_token`. |
-| `content` | yes | Complete file content (UTF-8 text). |
+| `passed` | yes | The verdict: true for pass, false for fail. |
+| `content` | yes | Complete verdict document content (UTF-8 text). |
 
 ### Output
 
@@ -50,14 +51,14 @@ the output path read from the node's frontmatter.
 - `ErrUnreadableFrontmatter`: the node's frontmatter
   cannot be parsed.
 - `ErrNoOutput`: target node has no type field.
-- `ErrNotAnArtifact`: target node's type is not
-  `"artifact"`.
+- `ErrNotAVerdict`: target node's type is not
+  `"verdict"`.
 - Propagated errors from `subagenttoken`, `parsing`,
   `oslayer` packages.
 
 # Agent
 
-Implement the write file tool as a Go package.
+Implement the write verdict tool as a Go package.
 
 ## Logic
 
@@ -66,15 +67,15 @@ Implement the write file tool as a Go package.
    propagate the error. Store the result as
    `logical_name`.
 
-3. Call `parsing.ParseNode(logical_name)`.
+2. Call `parsing.ParseNode(logical_name)`.
    If it fails, return ErrUnreadableFrontmatter.
    Store the result as node.
 
-4. If `node.Frontmatter.Type` is nil, return ErrNoOutput.
-   If `*node.Frontmatter.Type` is not `"artifact"`,
-   return ErrNotAnArtifact.
+3. If `node.Frontmatter.Type` is nil, return ErrNoOutput.
+   If `*node.Frontmatter.Type` is not `"verdict"`,
+   return ErrNotAVerdict.
 
-5. Let `resolved_output` =
+4. Let `resolved_output` =
    `parsing.ResolvedOutput(node)`. If `resolved_output`
    is nil, return error ErrNoOutput.
 
@@ -84,43 +85,42 @@ Implement the write file tool as a Go package.
    If it fails, propagate the error.
 
 7. Construct an `oslayer.CfsPath` record with value set to
-   path. Call `oslayer.OpenFile` with that CfsPath, mode "overwrite",
-   and timeout 30000. If it fails, propagate the error.
-   Store the result as handle.
+   path. Call `oslayer.OpenFile` with that CfsPath, mode
+   "overwrite", and timeout 30000. If it fails,
+   propagate the error. Store the result as handle.
 
-9. Call `handle.Write(content)`. If it fails, call
+8. Call `handle.Write(content)`. If it fails, call
    `handle.Close()`, then propagate the error.
 
-10. Call `handle.Close()`.
+9. Call `handle.Close()`.
 
-11. Compute the checksum of `content`: SHA-1 of the
+10. Compute the checksum of `content`: SHA-1 of the
     content bytes (after CRLF→LF normalization and
     ensuring a trailing LF), encoded as base64url
     (27 characters).
 
-12. Call `chainresolver.ChainResolve(logical_name)`. If it fails,
-    propagate the error.
+11. Call `chainresolver.ChainResolve(logical_name)`. If
+    it fails, propagate the error.
 
-13. Call `chainhash.ChainHashCompute(chain)`. It returns
+12. Call `chainhash.ChainHashCompute(chain)`. It returns
     `(chain_hash, positions, err)`. If it fails,
     propagate the error.
 
-14. Call `manifest.OpenManifest(false)`. If it fails,
+13. Call `manifest.OpenManifest(false)`. If it fails,
     propagate the error.
 
-15. Derive the artifact logical name: strip "SPEC/"
-    prefix from logical_name and prepend "ARTIFACT/".
-    Set m.Entries[artifact_name] =
+14. Derive the verdict logical name: strip "SPEC/"
+    prefix from logical_name and prepend "VERDICT/".
+    Let result_value = "pass" if passed is true,
+    "fail" otherwise.
+    Set m.Entries[verdict_name] =
     ManifestEntry{Path: path, Checksum: checksum,
-    ChainHash: chain_hash}.
+    ChainHash: chain_hash, Result: result_value}.
 
-16. Call `m.Save()`. If it fails,
+15. Call `m.Save()`. If it fails,
     propagate the error.
 
-17. Call `cache.WriteChain(chain_hash, positions)`.
-    Ignore errors — cache is best-effort.
-
-18. Return "wrote <path>" where <path> is the path
+16. Return "wrote <path>" where <path> is the path
     string.
 
 ## Go-specific guidance
@@ -132,9 +132,7 @@ Implement the write file tool as a Go package.
 - Use the `oslayer` package for `ValidateStringIsCfsPath`,
   `CfsPath`, `OpenFile`, `.Write()`, and `.Close()`.
 - Use the `chainresolver` package for `ChainResolve`.
-- Use the `chainhash` package for `ChainHashCompute`
-  and `ContentHash`.
-- Use the `cache` package for `WriteChain`.
+- Use the `chainhash` package for `ChainHashCompute`.
 - Use the `manifest` package for `OpenManifest`,
   `Manifest`, `ManifestEntry`.
 - Use `crypto/sha1` and `encoding/base64`
@@ -142,6 +140,8 @@ Implement the write file tool as a Go package.
 - The CRLF→LF normalization and trailing LF for
   checksum must match the normalization used by
   `ChainHashCompute` for whole-file content.
-- The package name should be `mcpwritefile`.
+- The package name should be `mcpwriteverdict`.
 - The function receives plain strings from the MCP
   transport layer. Construct `CfsPath` internally.
+- Do NOT write to cache — verdict chains are never
+  cached.

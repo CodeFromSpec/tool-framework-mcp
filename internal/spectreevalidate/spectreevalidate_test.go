@@ -251,6 +251,25 @@ func TestTypeValue_ArtifactIsValid_NoError(t *testing.T) {
 	}
 }
 
+func TestTypeValue_VerdictIsValid_NoError(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("verdict"),
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "type_value") {
+		t.Errorf("expected no type_value error for verdict type")
+	}
+}
+
 func TestRequiresType_ImportsWithoutType(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -765,6 +784,29 @@ func TestImportTargets_MultipleInvalidEntries(t *testing.T) {
 	}
 }
 
+func TestImportTargets_VERDICTReferenceRejected(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("verdict"),
+	})
+	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Imports: []string{"VERDICT/root/a"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/b", "import_targets") {
+		t.Errorf("expected import_targets error for VERDICT reference in imports, got %v", errs)
+	}
+}
+
 func TestInputTarget_ValidARTIFACT(t *testing.T) {
 	testutils.Chdir(t)
 
@@ -1007,6 +1049,29 @@ func TestInputTarget_MultipleInvalidEntries(t *testing.T) {
 	found := findErrors(errs, "SPEC/root/a", "input_target")
 	if len(found) != 2 {
 		t.Errorf("expected 2 input_target errors, got %d: %v", len(found), errs)
+	}
+}
+
+func TestInputTarget_VERDICTReferenceRejected(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("verdict"),
+	})
+	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Input: []string{"VERDICT/root/a"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/b", "input_target") {
+		t.Errorf("expected input_target error for VERDICT reference in input, got %v", errs)
 	}
 }
 

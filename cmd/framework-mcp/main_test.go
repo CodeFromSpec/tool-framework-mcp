@@ -295,7 +295,7 @@ func TestToolsListAdvertisesAllTools(t *testing.T) {
 		t.Fatalf("expected tools array, got: %v", result)
 	}
 
-	expected := []string{"load_chain", "write_file", "validate_specs", "accept", "create_token", "dump_chain", "reconstruct_cache", "prune_cache", "prune_orphans", "version"}
+	expected := []string{"load_chain", "write_file", "write_verdict", "validate_specs", "accept", "create_token", "dump_chain", "reconstruct_cache", "prune_cache", "prune_orphans", "version"}
 	found := make(map[string]bool)
 	for _, tool := range tools {
 		toolMap, ok := tool.(map[string]any)

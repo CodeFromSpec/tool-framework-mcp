@@ -1,5 +1,7 @@
 # Cache storage
 
+The cache serves artifact generation only. Verdict chains are never cached — the judging subagent performs a cold read, and no `<previous_*>` sections or dispositions exist for verdicts.
+
 ## Directory layout
 
 ```

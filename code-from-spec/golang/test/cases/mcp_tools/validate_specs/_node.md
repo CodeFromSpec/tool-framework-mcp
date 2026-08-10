@@ -352,6 +352,58 @@ Actions:
 Expected:
 - No mcpvalidatespecs.StalenessEntry for `"SPEC/root/a"`.
 
+#### Verdict node — staleness detected with result
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/v/_node.md` with
+  `# SPEC/root/v`, frontmatter `type: verdict`,
+  `output: code-from-spec/root/v/verdict.md`.
+- Create `code-from-spec/root/v/verdict.md` on disk.
+- Compute the current chain hash for SPEC/root/v and
+  the file checksum.
+- Create `.manifest` with entry
+  `VERDICT/root/v` with a stale chain hash and
+  `Result` = `"pass"`.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- `staleness` contains one StalenessEntry for
+  `"SPEC/root/v"` with `Status` = `"stale"` and
+  `Result` = `"pass"`.
+
+#### Verdict node — up to date
+
+Setup:
+- Same as above but with matching chain hash and
+  checksum in the manifest.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- No StalenessEntry for `"SPEC/root/v"` (up to date).
+
+#### Orphan VERDICT entry
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- No `code-from-spec/root/deleted/` node exists.
+- Create `.manifest` with
+  `VERDICT/root/deleted` entry.
+
+Actions:
+1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
+
+Expected:
+- `staleness` contains one StalenessEntry with
+  `Status` = `"orphan"` for the VERDICT/ entry.
+
 #### No manifest file — all artifacts with output are missing
 
 Setup:
@@ -391,4 +443,5 @@ Expected:
   ```
   code-from-spec: v6
   ARTIFACT/root/a;path:out/a.go;checksum:<hash>;chain:<hash>
+  VERDICT/root/v;path:code-from-spec/root/v/verdict.md;checksum:<hash>;chain:<hash>;result:pass
   ```

@@ -23,16 +23,18 @@ collected in the report.
    FILE_FORMAT.md and CODE_FROM_SPEC.md).
 2. Detect circular references across `imports`, `input`, and
    inheritance. Report cycle participants.
-3. For each node that declares `type: artifact`, determine the artifact status
-   by comparing the manifest against the current spec tree and file
-   system (see MANIFEST.md, "Artifact status"). Each entry includes the
+3. For each node that declares `type`, determine the artifact or
+   verdict status by comparing the manifest against the current spec
+   tree and file system (see MANIFEST.md, "Artifact and verdict
+   status"). Each entry includes the
    node's rank — entries with equal rank have no dependency between
    them and can be processed in parallel.
-4. Report all findings: format errors, cycles, and artifact status
-   (stale, modified, missing, orphan).
+4. Report all findings: format errors, cycles, and artifact and
+   verdict status (stale, modified, missing, orphan). Verdict
+   entries include their `result`.
 
-Nodes without `type` are not checked for staleness — they do not
-generate artifacts.
+Nodes without `type` are not checked for staleness — they generate
+nothing.
 
 ---
 
@@ -66,12 +68,17 @@ When cache is available, additional sections may appear before the
 core sections: `<previous_constraints>`, `<previous_references>`,
 `<previous_instructions>`, `<previous_input>` (see CACHE.md).
 
+For nodes with `type: verdict`, the document contains only
+`<constraints>`, `<references>`, `<instructions>`, and `<input>` —
+never `<existing_artifact>` or `<previous_*>` sections (see
+CHAIN_ASSEMBLY.md, "Verdict chains").
+
 The content within `<constraints>` and `<references>` entries matches
 exactly what is hashed — hash and delivery never diverge (see
 FILE_FORMAT.md, "Block extraction").
 
-If the artifact is modified (checksum in the manifest does not match
-the file on disk), returns an error. The artifact must be accepted or
+If the artifact or verdict is modified (checksum in the manifest does
+not match the file on disk), returns an error. It must be accepted or
 deleted before regeneration.
 
 If any file in the chain (other than the existing artifact) is
@@ -104,8 +111,40 @@ Write a generated artifact to disk and update the manifest.
 4. Update the manifest entry for this node with the new checksum and
    chain hash.
 
-If `token` is malformed or was not produced by `create_token`, returns
-an error.
+If `token` is malformed, was not produced by `create_token`, or the
+node's `type` is not `artifact`, returns an error.
+
+The manifest must be updated atomically. See MANIFEST.md
+("Concurrency") for locking requirements.
+
+---
+
+## write_verdict
+
+Write a verdict document to disk and update the manifest.
+
+**Parameters:**
+
+- `token` (string, required) — an opaque token identifying the target
+  node, as returned by `create_token`. The node must declare
+  `type: verdict`.
+- `passed` (boolean, required) — the verdict: `true` for pass, `false`
+  for fail.
+- `content` (string, required) — complete verdict document content.
+
+**Behavior:**
+
+1. Resolve `token` to the target node's logical name. Read the node's
+   frontmatter and derive the output path from its `output` field,
+   applying the default when the field is absent.
+2. Write the document to disk at the derived path.
+3. Compute the checksum (hash of the written content) and the current
+   chain hash.
+4. Update the `VERDICT/` manifest entry for this node with the new
+   checksum, chain hash, and `result:pass` or `result:fail`.
+
+If `token` is malformed, was not produced by `create_token`, or the
+node's `type` is not `verdict`, returns an error.
 
 The manifest must be updated atomically. See MANIFEST.md
 ("Concurrency") for locking requirements.
@@ -151,9 +190,10 @@ Populate the cache from the current state of the repository.
 
 **Behavior:**
 
-For each entry in the manifest, resolve the chain and populate
-`.cache/.content/` with the processed content of each position, and
-`.cache/.chains/` with the chain structure. Idempotent — skips files
+For each `ARTIFACT/` entry in the manifest, resolve the chain and
+populate `.cache/.content/` with the processed content of each
+position, and `.cache/.chains/` with the chain structure. Verdict
+chains are not cached (see CACHE.md). Idempotent — skips files
 that already exist in the cache.
 
 See CACHE.md for details on the cache structure.
@@ -179,31 +219,38 @@ See CACHE.md for details on the cache structure.
 
 ## accept
 
-Accept an artifact without regenerating it. Updates the
-manifest entry to match the current state: checksum from
-the file on disk, chain hash from the current spec tree.
+Accept an artifact or verdict without regenerating it.
+Updates the manifest entry to match the current state:
+checksum from the file on disk, chain hash from the
+current spec tree.
 
 **Parameters:**
 
 - `logical_name` (string, required) — the logical name
-  of the node whose artifact should be accepted.
+  of the artifact or verdict to accept:
+  `ARTIFACT/<name>` or `VERDICT/<name>`.
 
 **Behavior:**
 
 1. Compute the hash of the file on disk and the current
    chain hash from the spec tree.
 2. Compare both against the manifest entry. If the
-   manifest entry exists and both already match, the
-   artifact is up to date — return an error.
+   manifest entry exists, both already match, and — for
+   `VERDICT/` entries — `result` is already `accepted`,
+   the entry is up to date: return an error.
 3. Update the manifest entry's checksum and chain hash
-   to match the current values.
+   to match the current values. For `VERDICT/` entries,
+   set `result:accepted`.
 
-This handles three cases:
+This handles four cases:
 - **Modified** (checksum mismatch): the file was edited
   outside the framework.
 - **Stale** (chain hash mismatch): the spec changed but
-  the artifact content is still correct.
+  the content is still correct.
 - **Modified and stale**: both changed.
+- **Failed verdict** (`VERDICT/` entries): the human
+  overrides the verdict — `result` becomes `accepted`
+  even when the hashes are current.
 
 ---
 
@@ -238,17 +285,17 @@ Remove orphan manifest entries and their artifact files.
 
 1. Scan the spec tree and identify manifest entries whose corresponding
    spec node no longer exists or no longer declares `type`.
-2. For each orphan entry, delete the artifact file from disk first, then
-   remove the entry from the manifest. This order ensures that if the
-   file deletion fails, the manifest entry is preserved — the orphan
-   remains trackable.
-3. If the artifact file does not exist on disk, remove the manifest entry
+2. For each orphan entry, delete the artifact or verdict file from disk
+   first, then remove the entry from the manifest. This order ensures
+   that if the file deletion fails, the manifest entry is preserved —
+   the orphan remains trackable.
+3. If the file does not exist on disk, remove the manifest entry
    directly.
-4. If the artifact file exists but cannot be deleted, skip that entry —
+4. If the file exists but cannot be deleted, skip that entry —
    do not remove it from the manifest.
 
-Returns a report of every entry pruned. See MANIFEST.md ("Artifact
-status") for the orphan status reported by `validate_specs`.
+Returns a report of every entry pruned. See MANIFEST.md ("Artifact and
+verdict status") for the orphan status reported by `validate_specs`.
 
 ---
 

@@ -259,4 +259,56 @@ func TestMCPPruneOrphans(t *testing.T) {
 			t.Errorf("summary missing count line: %q", summary)
 		}
 	})
+
+	t.Run("verdict orphan pruned", func(t *testing.T) {
+		testutils.Chdir(t)
+
+		if err := os.MkdirAll("code-from-spec", 0755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+
+		m, err := manifest.OpenManifest(false)
+		if err != nil {
+			t.Fatalf("OpenManifest: %v", err)
+		}
+		defer func() { _ = m.Discard() }()
+		m.Entries["VERDICT/review/old"] = manifest.ManifestEntry{
+			Path:   "code-from-spec/review/old/verdict.md",
+			Result: "pass",
+		}
+		if err := m.Save(); err != nil {
+			t.Fatalf("Save: %v", err)
+		}
+
+		f, err := oslayer.OpenFile("code-from-spec/review/old/verdict.md", "overwrite", 0)
+		if err != nil {
+			t.Fatalf("OpenFile: %v", err)
+		}
+		f.Close()
+
+		summary, err := mcppruneorphans.MCPPruneOrphans()
+		if err != nil {
+			t.Fatalf("MCPPruneOrphans: %v", err)
+		}
+
+		if !strings.Contains(summary, "pruned VERDICT/review/old") {
+			t.Errorf("summary missing pruned line: %q", summary)
+		}
+		if !strings.Contains(summary, "pruned orphans: 1 entries removed") {
+			t.Errorf("summary missing count line: %q", summary)
+		}
+
+		m2, err := manifest.OpenManifest(true)
+		if err != nil {
+			t.Fatalf("OpenManifest read-only: %v", err)
+		}
+		if _, ok := m2.Entries["VERDICT/review/old"]; ok {
+			t.Error("VERDICT/review/old should not exist in manifest")
+		}
+
+		_, err = oslayer.OpenFile("code-from-spec/review/old/verdict.md", "read", 0)
+		if !errors.Is(err, oslayer.ErrFileUnreadable) {
+			t.Errorf("expected ErrFileUnreadable, got %v", err)
+		}
+	})
 }

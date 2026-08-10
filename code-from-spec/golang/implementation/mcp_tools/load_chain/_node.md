@@ -94,14 +94,20 @@ this order:
    artifact is present, each entry may carry a
    `disposition` attribute.
 
+For nodes with `type: verdict`, the document contains
+only `<constraints>`, `<references>`, `<instructions>`,
+and `<input>` — never `<existing_artifact>` or
+`<previous_*>` sections. Entries carry no `disposition`
+attributes.
+
 ### Errors
 
 - `ErrNoOutput`: target node has no type field.
 - `ErrInvalidOutputPath`: the output path fails path
   validation.
-- `ErrArtifactModified`: the artifact file was modified
-  outside the framework (checksum in manifest does not
-  match file on disk). The artifact must be accepted
+- `ErrModified`: the artifact or verdict file was
+  modified outside the framework (checksum in manifest
+  does not match file on disk). It must be accepted
   or deleted before regeneration.
 - Propagated errors from `subagenttoken`, `parsing`,
   `chainresolver`, `chainhash`, `oslayer`, `manifest`
@@ -130,33 +136,38 @@ Implement the load chain tool as a Go package.
    `oslayer.ValidateStringIsCfsPath(*resolved_output)`.
    If it fails, return ErrInvalidOutputPath.
 
-3. Check if the artifact is modified:
+3. Determine whether this is a verdict node:
+   Let `is_verdict` = (*node.Frontmatter.Type == "verdict").
+
+4. Check if the artifact or verdict is modified:
+   Derive the manifest key: strip "SPEC/" from
+   logical_name, prepend "VERDICT/" if is_verdict,
+   otherwise "ARTIFACT/".
    Call `manifest.OpenManifest(true)`. If it succeeds,
-   look up the artifact logical name (strip "SPEC/"
-   from logical_name, prepend "ARTIFACT/") in
-   m.Entries. If an entry exists:
+   look up the manifest key in m.Entries. If an entry
+   exists:
      Construct oslayer.CfsPath from `*resolved_output`. Try
      to read the file on disk and compute its SHA-1
      hash (base64url, 27 chars) using the same
      normalization as validate_specs. If the file
      exists and its hash does not match
-     entry.Checksum, return ErrArtifactModified.
+     entry.Checksum, return ErrModified.
    If OpenManifest fails or the entry does not exist
    or the file does not exist, skip this check.
 
-4. Call `chainresolver.ChainResolve(logical_name)` to get the
+5. Call `chainresolver.ChainResolve(logical_name)` to get the
    resolved `Chain`. If it fails, propagate the error.
 
 ### Step 2 — Compute content hashes
 
-5. Call `chainhash.ChainHashCompute(chain)` with the resolved
+6. Call `chainhash.ChainHashCompute(chain)` with the resolved
    chain. It returns `(chain_hash, positions, err)`.
    If it fails, propagate the error. Store
    `chain_hash` and `positions`.
 
 ### Step 3 — Build XML document
 
-6. Build the XML document. Use a string builder.
+7. Build the XML document. Use a string builder.
 
    Append: "<chain>\n"
 
@@ -164,9 +175,16 @@ Implement the load chain tool as a Go package.
    for the exact XML section order, presence conditions,
    and a worked example. Follow it precisely.
 
-   **Previous constraints** (optional):
-   If cache is available and the existing artifact is
-   present on disk: for each position among ancestors
+   The following four `<previous_*>` sections and the
+   `<existing_artifact>` section are skipped entirely
+   when `is_verdict` is true. Disposition attributes on
+   `<constraints>`, `<references>`, `<instructions>`,
+   and `<input>` entries are also omitted for verdict
+   nodes.
+
+   **Previous constraints** (optional, artifact only):
+   If not is_verdict, and cache is available and the
+   existing artifact is present on disk: for each position among ancestors
    and the target's `# Public` whose cached content
    hash differs from its current hash, or which is no
    longer present in the current chain (removed), look
@@ -180,9 +198,9 @@ Implement the load chain tool as a Go package.
    entirely. Omit the whole block if there is nothing to
    report.
 
-   **Previous references** (optional):
-   If cache is available and the existing artifact is
-   present on disk: for each position among imports
+   **Previous references** (optional, artifact only):
+   If not is_verdict, and cache is available and the
+   existing artifact is present on disk: for each position among imports
    whose cached content hash differs from its current
    hash, or which is no longer present in the current
    chain (removed), look up its old content in the
@@ -196,9 +214,9 @@ Implement the load chain tool as a Go package.
    entirely. Omit the whole block if there is nothing
    to report.
 
-   **Previous instructions** (optional):
-   If cache is available, the existing artifact is
-   present, and the target's `# Agent` content hash
+   **Previous instructions** (optional, artifact only):
+   If not is_verdict, and cache is available, the
+   existing artifact is present, and the target's `# Agent` content hash
    differs from its cached hash (or the node no longer
    has an `# Agent` section): look up the old `# Agent`
    content in the cache. The element is
@@ -209,9 +227,9 @@ Implement the load chain tool as a Go package.
    content, then `</previous_instructions>`. Omit the
    whole block otherwise.
 
-   **Previous input** (optional):
-   If cache is available and the existing artifact is
-   present on disk: for each position among `chain.Input`
+   **Previous input** (optional, artifact only):
+   If not is_verdict, and cache is available and the
+   existing artifact is present on disk: for each position among `chain.Input`
    entries whose cached content hash differs from its
    current hash, or which is no longer present in the
    current chain (removed), look up its old content in the
@@ -224,9 +242,9 @@ Implement the load chain tool as a Go package.
    whose hash is unchanged are omitted entirely. Omit the
    whole block if there is nothing to report.
 
-   **Existing artifact** (optional):
-   If the file at `*resolved_output` exists and is
-   readable:
+   **Existing artifact** (optional, artifact only):
+   If not is_verdict, and the file at
+   `*resolved_output` exists and is readable:
      Call `oslayer.OpenFile` with the `oslayer.CfsPath` of
      `*resolved_output` in "read" mode with
      timeout 30000. Read all lines with
@@ -352,11 +370,13 @@ Implement the load chain tool as a Go package.
 
    Append: "</chain>\n"
 
-7. Return the assembled string.
+8. Return the assembled string.
 
-### Step 4 — Write to cache
+### Step 4 — Write to cache (artifact only)
 
-8. Build a map from position label to extracted content:
+   Skip this entire step if `is_verdict` is true.
+
+9. Build a map from position label to extracted content:
    during Step 3, each time content is extracted for a
    constraints entry, references entry, instructions,
    or input, store the extracted content string in a
@@ -373,12 +393,12 @@ Implement the load chain tool as a Go package.
    - Input: `"INPUT[" + referenceName + "]"` per entry
      (with qualifier if present).
 
-9. For each position in `positions` (from Step 2):
-   Look up position.Label in the content map. If
-   found, call `cache.WriteContent(position.Hash,
-   content)`. Ignore errors — cache is best-effort.
+10. For each position in `positions` (from Step 2):
+    Look up position.Label in the content map. If
+    found, call `cache.WriteContent(position.Hash,
+    content)`. Ignore errors — cache is best-effort.
 
-10. Call `cache.WriteChain(chain_hash, positions)`.
+11. Call `cache.WriteChain(chain_hash, positions)`.
     Ignore errors.
 
 ## Go-specific guidance

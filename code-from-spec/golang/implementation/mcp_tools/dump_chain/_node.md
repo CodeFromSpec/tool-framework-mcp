@@ -47,7 +47,7 @@ is the dump file path derived from the logical name
 
 - Propagated errors from `subagenttoken`,
   `MCPLoadChain` (including `ErrNoOutput`,
-  `ErrInvalidOutputPath`, `ErrArtifactModified`).
+  `ErrInvalidOutputPath`, `ErrModified`).
 - Propagated errors from `oslayer` package.
 
 # Agent

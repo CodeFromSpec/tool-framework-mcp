@@ -172,6 +172,72 @@ Expected outcome:
 - The file contains only the header line
   `"code-from-spec: v6"`, no entry lines.
 
+### Verdict entries
+
+#### Read manifest with verdict entry
+
+Setup:
+- Create a `.manifest` file with a header line and one
+  verdict entry:
+  `VERDICT/review/fees;path:code-from-spec/review/fees/verdict.md;checksum:abc123;chain:def456;result:pass`
+
+Actions:
+1. Call `manifest.OpenManifest(true)`.
+
+Expected outcome:
+- Entries map contains key `"VERDICT/review/fees"`.
+- Entry has Path = `"code-from-spec/review/fees/verdict.md"`,
+  Checksum = `"abc123"`, ChainHash = `"def456"`,
+  Result = `"pass"`.
+
+#### Read manifest with mixed artifact and verdict entries
+
+Setup:
+- Create a `.manifest` file with an artifact entry and
+  a verdict entry.
+
+Actions:
+1. Call `manifest.OpenManifest(true)`.
+
+Expected outcome:
+- Both entries parsed correctly. The artifact entry has
+  Result = `""` (empty). The verdict entry has a
+  non-empty Result.
+
+#### Save verdict entry writes result field
+
+Setup:
+- No `.manifest` file exists on disk.
+
+Actions:
+1. Call `manifest.OpenManifest(false)`.
+2. Add one artifact entry with key `"ARTIFACT/alpha"`
+   and one verdict entry with key `"VERDICT/review/a"`,
+   Result = `"fail"`.
+3. Call `m.Save()`.
+4. Read the `.manifest` file from disk.
+
+Expected outcome:
+- The artifact line has 4 semicolon-separated fields
+  (no `result:` field).
+- The verdict line has 5 semicolon-separated fields,
+  the 5th being `"result:fail"`.
+
+#### Save verdict entry with accepted result
+
+Setup:
+- No `.manifest` file exists on disk.
+
+Actions:
+1. Call `manifest.OpenManifest(false)`.
+2. Add a verdict entry with key `"VERDICT/review/b"`,
+   Result = `"accepted"`.
+3. Call `m.Save()`.
+4. Read the `.manifest` file from disk.
+
+Expected outcome:
+- The verdict line ends with `;result:accepted`.
+
 ### Discard — happy path
 
 #### Discard does not modify file

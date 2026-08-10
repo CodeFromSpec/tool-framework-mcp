@@ -14,28 +14,36 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
 )
 
-var ErrNotASpecReference = errors.New("not a SPEC/ reference")
+var ErrInvalidPrefix = errors.New("logical name must start with ARTIFACT/ or VERDICT/")
 var ErrUnreadableFrontmatter = errors.New("unreadable frontmatter")
-var ErrNoOutput = errors.New("node has no output field")
-var ErrAlreadyUpToDate = errors.New("artifact is already up to date")
+var ErrNoOutput = errors.New("node has no type field")
+var ErrAlreadyUpToDate = errors.New("entry is already up to date")
 
 func MCPAccept(logicalName string) (string, error) {
-	if !strings.HasPrefix(logicalName, "SPEC/") {
-		return "", ErrNotASpecReference
+	var specName string
+	var isVerdict bool
+
+	if strings.HasPrefix(logicalName, "ARTIFACT/") {
+		specName = "SPEC/" + strings.TrimPrefix(logicalName, "ARTIFACT/")
+		isVerdict = false
+	} else if strings.HasPrefix(logicalName, "VERDICT/") {
+		specName = "SPEC/" + strings.TrimPrefix(logicalName, "VERDICT/")
+		isVerdict = true
+	} else {
+		return "", ErrInvalidPrefix
 	}
 
-	node, err := parsing.ParseNode(logicalName)
+	node, err := parsing.ParseNode(specName)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrUnreadableFrontmatter, err)
 	}
 
-	if node.Frontmatter == nil || node.Frontmatter.Output == nil {
+	resolvedOutput := parsing.ResolvedOutput(node)
+	if resolvedOutput == nil {
 		return "", ErrNoOutput
 	}
 
-	artifactLogicalName := "ARTIFACT/" + strings.TrimPrefix(logicalName, "SPEC/")
-
-	artifactPath := oslayer.CfsPath(*node.Frontmatter.Output)
+	artifactPath := oslayer.CfsPath(*resolvedOutput)
 	handle, err := oslayer.OpenFile(artifactPath, "read", 30000)
 	if err != nil {
 		return "", fmt.Errorf("opening artifact file: %w", err)
@@ -63,7 +71,7 @@ func MCPAccept(logicalName string) (string, error) {
 	sum := hasher.Sum(nil)
 	checksum := base64.RawURLEncoding.EncodeToString(sum)[:27]
 
-	chain, err := chainresolver.ChainResolve(logicalName)
+	chain, err := chainresolver.ChainResolve(specName)
 	if err != nil {
 		return "", fmt.Errorf("resolving chain: %w", err)
 	}
@@ -79,32 +87,49 @@ func MCPAccept(logicalName string) (string, error) {
 	}
 	defer func() { _ = m.Discard() }()
 
-	entry, exists := m.Entries[artifactLogicalName]
+	entry, exists := m.Entries[logicalName]
 	if !exists {
-		m.Entries[artifactLogicalName] = manifest.ManifestEntry{
-			Path:      *node.Frontmatter.Output,
+		newEntry := manifest.ManifestEntry{
+			Path:      *resolvedOutput,
 			Checksum:  checksum,
 			ChainHash: chainHash,
 		}
+		if isVerdict {
+			newEntry.Result = "accepted"
+		}
+		m.Entries[logicalName] = newEntry
 
 		if err := m.Save(); err != nil {
 			return "", fmt.Errorf("saving manifest: %w", err)
 		}
 
-		return "accepted " + *node.Frontmatter.Output, nil
+		return "accepted " + *resolvedOutput, nil
 	}
 
 	if entry.Checksum == checksum && entry.ChainHash == chainHash {
+		if isVerdict && entry.Result != "accepted" {
+			entry.Result = "accepted"
+			m.Entries[logicalName] = entry
+
+			if err := m.Save(); err != nil {
+				return "", fmt.Errorf("saving manifest: %w", err)
+			}
+
+			return "accepted " + *resolvedOutput, nil
+		}
 		return "", ErrAlreadyUpToDate
 	}
 
 	entry.Checksum = checksum
 	entry.ChainHash = chainHash
-	m.Entries[artifactLogicalName] = entry
+	if isVerdict {
+		entry.Result = "accepted"
+	}
+	m.Entries[logicalName] = entry
 
 	if err := m.Save(); err != nil {
 		return "", fmt.Errorf("saving manifest: %w", err)
 	}
 
-	return "accepted " + *node.Frontmatter.Output, nil
+	return "accepted " + *resolvedOutput, nil
 }

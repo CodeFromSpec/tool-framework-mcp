@@ -6,21 +6,23 @@ output: code-from-spec/external/code-from-spec/cache-details/output.md
 # SPEC/external/code-from-spec/cache-details
 
 Extracts cache storage details from the Code from Spec
-v5 CACHE.md specification document.
+v6 CACHE.md specification document.
 
 # Agent
 
 Extract exactly the following from the input:
 
-1. The directory layout (content store and chain store
+1. The scope statement — the cache serves artifact
+   generation only; verdict chains are never cached.
+2. The directory layout (content store and chain store
    paths).
-2. File naming convention (dot prefix, hash length,
+3. File naming convention (dot prefix, hash length,
    encoding, no extension).
-3. Content file format — what is stored.
-4. Chain file format — line format with label and
+4. Content file format — what is stored.
+5. Chain file format — line format with label and
    content hash (with example).
-5. Write-once semantics and atomic write requirement.
-6. Concurrency rules.
+6. Write-once semantics and atomic write requirement.
+7. Concurrency rules.
 
 Nothing else.
 

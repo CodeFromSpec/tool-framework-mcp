@@ -128,9 +128,13 @@ func ResolvedOutput(node *Node) *string
    `node.Frontmatter.Output`.
 3. Let `relative` = `node.Reference.LogicalName` with
    `"SPEC/"` prefix removed.
-4. Let `defaultPath` = `"code-from-spec/" + relative +
-   "/artifact.md"`.
-5. Return pointer to `defaultPath`.
+4. Let `filename` = `"artifact.md"` if
+   `*node.Frontmatter.Type` is `"artifact"`, or
+   `"verdict.md"` if `*node.Frontmatter.Type` is
+   `"verdict"`.
+5. Let `defaultPath` = `"code-from-spec/" + relative +
+   "/" + filename`.
+6. Return pointer to `defaultPath`.
 
 ## Go-specific guidance
 

@@ -20,7 +20,7 @@ Ownership section as a Go file in package `parsing`.
 This file declares and implements:
 - Types: `CfsNodeType`, `CfsReference`
 - Constants: `CfsNodeTypeSpec`, `CfsNodeTypeArtifact`,
-  `CfsNodeTypeExternal`
+  `CfsNodeTypeVerdict`, `CfsNodeTypeExternal`
 - Functions: `CfsReferenceFromName`,
   `CfsReferenceFromPath`
 
@@ -82,7 +82,21 @@ types) must use the suffix `LN`.
       Path = *resolvedOutput,
       ParentName = pointer to generatorName.
 
-   c. If `stripped` starts with `"EXTERNAL/"`:
+   c. If `stripped` starts with `"VERDICT/"`:
+      Let `relative` = stripped with "VERDICT/" removed.
+      If `relative` is empty, raise ErrInvalidName.
+      Let generatorName = "SPEC/" + relative.
+      Call ParseNode(generatorName).
+      If it fails, propagate the error.
+      Let resolvedOutput = ResolvedOutput(node).
+      If resolvedOutput is nil, raise ErrNoOutput.
+      Return CfsReference with
+      NodeType = CfsNodeTypeVerdict,
+      LogicalName = stripped, Qualifier = nil,
+      Path = *resolvedOutput,
+      ParentName = pointer to generatorName.
+
+   d. If `stripped` starts with `"EXTERNAL/"`:
       Let `relative` = stripped with "EXTERNAL/" removed.
       If `relative` is empty, raise ErrInvalidName.
       Return CfsReference with
@@ -90,7 +104,7 @@ types) must use the suffix `LN`.
       LogicalName = stripped, Qualifier = nil,
       Path = relative, ParentName = nil.
 
-   d. Otherwise: raise ErrUnrecognizedPrefix.
+   e. Otherwise: raise ErrUnrecognizedPrefix.
 
 ### CfsReferenceFromPath(cfsPath: oslayer.CfsPath) -> *CfsReference
 
@@ -120,8 +134,8 @@ types) must use the suffix `LN`.
 ## Go-specific guidance
 
 - Use the `oslayer` package for `CfsPath`.
-- Use `ParseNode` from this package for ARTIFACT/
-  path resolution.
+- Use `ParseNode` from this package for ARTIFACT/ and
+  VERDICT/ path resolution.
 - Wrap propagated errors with `fmt.Errorf` + `%w`.
 - For the qualifier pointer, use a helper like
   `func stringPtrLN(s string) *string { return &s }`.
@@ -144,17 +158,18 @@ and simplifies consumer code (one call instead of 3-4).
 `CfsReferenceFromPath` kept as a separate constructor
 for reverse resolution.
 
-### ARTIFACT Path resolves via ParseNode I/O
+### ARTIFACT/VERDICT Path resolves via ParseNode I/O
 
-`CfsReferenceFromName("ARTIFACT/x")` reads the
-generator node via `ParseNode` to populate `Path` with
-the actual output file path. This means the call does
-I/O for ARTIFACT types (not for SPEC or EXTERNAL). The
-trade-off is that consumers no longer need to manually
-resolve artifact paths — `ref.Path` is always usable.
+`CfsReferenceFromName("ARTIFACT/x")` and
+`CfsReferenceFromName("VERDICT/x")` read the generator
+node via `ParseNode` to populate `Path` with the actual
+output file path. This means the call does I/O for
+ARTIFACT and VERDICT types (not for SPEC or EXTERNAL).
+The trade-off is that consumers no longer need to
+manually resolve paths — `ref.Path` is always usable.
 Consequence: callers that only need type classification
 (node_ranking, validate) should use string prefix
-checks for ARTIFACT/EXTERNAL instead of
+checks for ARTIFACT/VERDICT/EXTERNAL instead of
 CfsReferenceFromName to avoid unnecessary I/O.
 
 ### Bare SPEC no longer valid (v5 multi-root)

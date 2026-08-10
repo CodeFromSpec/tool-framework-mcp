@@ -51,11 +51,14 @@ Implement the spec tree validation as a Go package.
    For each entry in entries:
      Add entry.Reference.LogicalName to `known_logical_names`.
      If entry.Frontmatter.Type is not nil:
-       Derive the artifact logical name by stripping
-       the `SPEC/` prefix from entry.Reference.LogicalName and
-       prepending `ARTIFACT/`.
-       Add the artifact logical name to
-       `known_logical_names`.
+       Let `relative` = entry.Reference.LogicalName with
+       "SPEC/" prefix stripped.
+       If *entry.Frontmatter.Type is "artifact":
+         Add "ARTIFACT/" + relative to
+         `known_logical_names`.
+       If *entry.Frontmatter.Type is "verdict":
+         Add "VERDICT/" + relative to
+         `known_logical_names`.
 
 3. For each entry in entries, determine `has_children`:
    `has_children` is true if any other entry in entries
@@ -87,7 +90,8 @@ Implement the spec tree validation as a Go package.
 ### Rule: type_value (per entry)
 
    If entry.Frontmatter.Type is not nil and
-   *entry.Frontmatter.Type is not "artifact":
+   *entry.Frontmatter.Type is not "artifact" and
+   *entry.Frontmatter.Type is not "verdict":
      Append FormatError with rule "type_value",
      detail "unrecognized type value:
      <*entry.Frontmatter.Type>".
@@ -159,6 +163,10 @@ Implement the spec tree validation as a Go package.
          error "imports references unknown
          ARTIFACT: <dep>"
 
+     Else if dep starts with "VERDICT/":
+       error "imports must not reference a
+       VERDICT: <dep>"
+
      Else if dep starts with "EXTERNAL/":
        Let relative = dep with "EXTERNAL/" prefix
        removed.
@@ -190,6 +198,10 @@ Implement the spec tree validation as a Go package.
        If inp is not in `known_logical_names`:
          error "input references unknown ARTIFACT:
          <inp>"
+
+     Else if inp starts with "VERDICT/":
+       error "input must not reference a VERDICT:
+       <inp>"
 
      Else if inp starts with "EXTERNAL/":
        Let relative = inp with "EXTERNAL/" prefix

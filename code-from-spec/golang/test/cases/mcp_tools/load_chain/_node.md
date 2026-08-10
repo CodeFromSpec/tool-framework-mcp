@@ -490,7 +490,7 @@ Actions:
 2. Call `mcploadchain.MCPLoadChain(token)`.
 
 Expected:
-- Returns error `mcploadchain.ErrArtifactModified`.
+- Returns error `mcploadchain.ErrModified`.
 
 #### No manifest — modified check skipped
 
@@ -527,6 +527,71 @@ Actions:
 Expected:
 - Returns an error — the missing node is detected
   during chain processing.
+
+### Verdict chains
+
+#### Verdict chain — no existing artifact section
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with content.
+- Create `code-from-spec/root/v/_node.md` with
+  `# SPEC/root/v`, frontmatter `type: verdict`,
+  `output: code-from-spec/root/v/verdict.md`.
+  `# Agent` section with instructions.
+- Create the output file
+  `code-from-spec/root/v/verdict.md` on disk with
+  previous content.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/v")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- No error.
+- Output does NOT contain `<existing_artifact>`.
+- Output does NOT contain `<previous_constraints>`.
+- Output does NOT contain `<previous_references>`.
+- Output does NOT contain `<previous_instructions>`.
+- Output does NOT contain `<previous_input>`.
+- Output does NOT contain `disposition=`.
+- Output DOES contain `<constraints>` with the ancestor
+  and target public content.
+- Output DOES contain `<instructions>` with the agent
+  content.
+
+#### Verdict chain — no dispositions even with manifest
+
+Setup:
+- Same as above, plus create `.manifest` with a
+  `VERDICT/root/v` entry whose checksum matches the
+  SHA-1 hash of the verdict file content on disk
+  (computed with CRLF→LF normalization and trailing
+  LF, encoded as base64url 27 chars). Use any value
+  for chain hash. Set `Result` = `"pass"`.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/v")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- No error.
+- Output does NOT contain `disposition=`.
+- No `<previous_*>` or `<existing_artifact>` sections.
+
+#### Modified verdict — blocked
+
+Setup:
+- Create spec tree and verdict file.
+- Create `.manifest` with `VERDICT/root/v` entry where
+  checksum does NOT match the file on disk.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/v")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- Error `mcploadchain.ErrModified`.
 
 ## Go-specific guidance
 

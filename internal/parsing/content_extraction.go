@@ -101,6 +101,10 @@ func ResolvedOutput(node *Node) *string {
 		return node.Frontmatter.Output
 	}
 	relative := strings.TrimPrefix(node.Reference.LogicalName, "SPEC/")
-	defaultPath := "code-from-spec/" + relative + "/artifact.md"
+	filename := "artifact.md"
+	if *node.Frontmatter.Type == "verdict" {
+		filename = "verdict.md"
+	}
+	defaultPath := "code-from-spec/" + relative + "/" + filename
 	return &defaultPath
 }

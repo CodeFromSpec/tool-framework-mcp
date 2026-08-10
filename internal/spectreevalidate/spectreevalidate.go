@@ -20,9 +20,13 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 	for _, entry := range entries {
 		knownNames[entry.Reference.LogicalName] = true
 		if entry.Frontmatter != nil && entry.Frontmatter.Type != nil {
-			suffix := strings.TrimPrefix(entry.Reference.LogicalName, "SPEC/")
-			artifactName := "ARTIFACT/" + suffix
-			knownNames[artifactName] = true
+			relative := strings.TrimPrefix(entry.Reference.LogicalName, "SPEC/")
+			if *entry.Frontmatter.Type == "artifact" {
+				knownNames["ARTIFACT/"+relative] = true
+			}
+			if *entry.Frontmatter.Type == "verdict" {
+				knownNames["VERDICT/"+relative] = true
+			}
 		}
 	}
 
@@ -62,7 +66,7 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 		}
 
 		if entry.Frontmatter != nil && entry.Frontmatter.Type != nil {
-			if *entry.Frontmatter.Type != "artifact" {
+			if *entry.Frontmatter.Type != "artifact" && *entry.Frontmatter.Type != "verdict" {
 				errs = append(errs, FormatError{
 					Node:   entry.Reference.LogicalName,
 					Rule:   "type_value",
@@ -183,6 +187,12 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 							Detail: "imports references unknown ARTIFACT: " + dep,
 						})
 					}
+				} else if strings.HasPrefix(dep, "VERDICT/") {
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "import_targets",
+						Detail: "imports must not reference a VERDICT: " + dep,
+					})
 				} else if strings.HasPrefix(dep, "EXTERNAL/") {
 					relative := strings.TrimPrefix(dep, "EXTERNAL/")
 					cfsPath := oslayer.CfsPath(relative)
@@ -233,6 +243,12 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 							Detail: "input references unknown ARTIFACT: " + inp,
 						})
 					}
+				} else if strings.HasPrefix(inp, "VERDICT/") {
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "input_target",
+						Detail: "input must not reference a VERDICT: " + inp,
+					})
 				} else if strings.HasPrefix(inp, "EXTERNAL/") {
 					relative := strings.TrimPrefix(inp, "EXTERNAL/")
 					cfsPath := oslayer.CfsPath(relative)

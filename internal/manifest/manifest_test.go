@@ -343,6 +343,148 @@ func TestSave_EmptyEntries(t *testing.T) {
 	}
 }
 
+func TestVerdictEntries_ReadVerdictEntry(t *testing.T) {
+	testutils.Chdir(t)
+
+	writeManifestFile(t, []string{
+		"code-from-spec: v6",
+		"VERDICT/review/fees;path:code-from-spec/review/fees/verdict.md;checksum:abc123;chain:def456;result:pass",
+	})
+
+	m, err := manifest.OpenManifest(true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(m.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(m.Entries))
+	}
+
+	e, ok := m.Entries["VERDICT/review/fees"]
+	if !ok {
+		t.Fatal("missing entry VERDICT/review/fees")
+	}
+	if e.Path != "code-from-spec/review/fees/verdict.md" {
+		t.Errorf("unexpected path: %q", e.Path)
+	}
+	if e.Checksum != "abc123" {
+		t.Errorf("unexpected checksum: %q", e.Checksum)
+	}
+	if e.ChainHash != "def456" {
+		t.Errorf("unexpected chain hash: %q", e.ChainHash)
+	}
+	if e.Result != "pass" {
+		t.Errorf("unexpected result: %q", e.Result)
+	}
+}
+
+func TestVerdictEntries_ReadMixedEntries(t *testing.T) {
+	testutils.Chdir(t)
+
+	writeManifestFile(t, []string{
+		"code-from-spec: v6",
+		"ARTIFACT/alpha;path:internal/alpha.go;checksum:alphaChecksum11111111111111;chain:alphaChain111111111111111111",
+		"VERDICT/review/fees;path:code-from-spec/review/fees/verdict.md;checksum:abc123;chain:def456;result:pass",
+	})
+
+	m, err := manifest.OpenManifest(true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(m.Entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(m.Entries))
+	}
+
+	artifact, ok := m.Entries["ARTIFACT/alpha"]
+	if !ok {
+		t.Fatal("missing entry ARTIFACT/alpha")
+	}
+	if artifact.Result != "" {
+		t.Errorf("expected empty Result for artifact entry, got %q", artifact.Result)
+	}
+
+	verdict, ok := m.Entries["VERDICT/review/fees"]
+	if !ok {
+		t.Fatal("missing entry VERDICT/review/fees")
+	}
+	if verdict.Result == "" {
+		t.Error("expected non-empty Result for verdict entry")
+	}
+}
+
+func TestVerdictEntries_SaveWritesResultField(t *testing.T) {
+	testutils.Chdir(t)
+
+	m, err := manifest.OpenManifest(false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer func() { _ = m.Discard() }()
+
+	m.Entries["ARTIFACT/alpha"] = manifest.ManifestEntry{
+		Path:      "internal/alpha.go",
+		Checksum:  "alphaChecksum11111111111111",
+		ChainHash: "alphaChain111111111111111111",
+	}
+	m.Entries["VERDICT/review/a"] = manifest.ManifestEntry{
+		Path:      "code-from-spec/review/a/verdict.md",
+		Checksum:  "verdictChecksum1111111111111",
+		ChainHash: "verdictChain11111111111111111",
+		Result:    "fail",
+	}
+
+	if err := m.Save(); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	lines := readManifestFile(t)
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d: %v", len(lines), lines)
+	}
+
+	artifactLine := "ARTIFACT/alpha;path:internal/alpha.go;checksum:alphaChecksum11111111111111;chain:alphaChain111111111111111111"
+	verdictLine := "VERDICT/review/a;path:code-from-spec/review/a/verdict.md;checksum:verdictChecksum1111111111111;chain:verdictChain11111111111111111;result:fail"
+
+	if lines[1] != artifactLine {
+		t.Errorf("unexpected artifact line: %q", lines[1])
+	}
+	if lines[2] != verdictLine {
+		t.Errorf("unexpected verdict line: %q", lines[2])
+	}
+}
+
+func TestVerdictEntries_SaveAcceptedResult(t *testing.T) {
+	testutils.Chdir(t)
+
+	m, err := manifest.OpenManifest(false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer func() { _ = m.Discard() }()
+
+	m.Entries["VERDICT/review/b"] = manifest.ManifestEntry{
+		Path:      "code-from-spec/review/b/verdict.md",
+		Checksum:  "verdictChecksum1111111111111",
+		ChainHash: "verdictChain11111111111111111",
+		Result:    "accepted",
+	}
+
+	if err := m.Save(); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	lines := readManifestFile(t)
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d: %v", len(lines), lines)
+	}
+
+	verdictLine := "VERDICT/review/b;path:code-from-spec/review/b/verdict.md;checksum:verdictChecksum1111111111111;chain:verdictChain11111111111111111;result:accepted"
+	if lines[1] != verdictLine {
+		t.Errorf("unexpected verdict line: %q", lines[1])
+	}
+}
+
 func TestDiscard_DoesNotModifyFile(t *testing.T) {
 	testutils.Chdir(t)
 

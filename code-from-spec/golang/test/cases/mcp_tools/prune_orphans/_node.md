@@ -146,6 +146,26 @@ Expected:
 - The second pruned line is for `ARTIFACT/zebra`.
 - Summary contains `"pruned orphans: 2 entries removed"`.
 
+#### VERDICT orphan pruned
+
+Setup:
+- Create no spec nodes (empty spec tree — create
+  the `code-from-spec/` directory only).
+- Create a manifest with entry:
+  - `VERDICT/review/old` with path
+    `code-from-spec/review/old/verdict.md` and
+    `Result` = `"pass"`.
+- Create the verdict file on disk.
+
+Actions:
+1. Call `mcppruneorphans.MCPPruneOrphans()`.
+
+Expected:
+- No error.
+- Output contains `"pruned VERDICT/review/old"`.
+- The verdict file is deleted from disk.
+- Summary contains `"pruned orphans: 1 entries removed"`.
+
 ## Go-specific guidance
 
 - The package name is `mcppruneorphans_test` (external
