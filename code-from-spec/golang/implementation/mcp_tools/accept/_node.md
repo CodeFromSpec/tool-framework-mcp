@@ -5,6 +5,7 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/spec_tree/scan
 output: internal/mcpaccept/mcpaccept.go
 ---
 
@@ -89,7 +90,11 @@ Implement the accept tool as a Go package.
    normalization as write_artifact (CRLF→LF, trailing
    LF). Call `handle.Close()`. Store as `checksum`.
 
-6. Call `chainresolver.ChainResolve(spec_name)`.
+6. Call `spectree.SpecTreeScan()`. If it fails, propagate
+   the error. Build `knownSpecNodes` as a `[]string`:
+   for each ref, append ref.LogicalName.
+
+   Call `chainresolver.ChainResolve(spec_name, knownSpecNodes)`.
    If it fails, propagate the error.
 
 7. Call `chainhash.ChainHashCompute(chain)`. It returns
@@ -127,6 +132,7 @@ Implement the accept tool as a Go package.
 ## Go-specific guidance
 
 - Use the `parsing` package for `ParseNode`.
+- Use the `spectree` package for `SpecTreeScan`.
 - Use the `chainresolver` package for `ChainResolve`.
 - Use the `chainhash` package for `ChainHashCompute`.
 - Use the `manifest` package for `OpenManifest`,

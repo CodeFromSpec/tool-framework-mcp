@@ -95,6 +95,8 @@ Implement the validate specs tool as a Go package.
 ### Step 3 — Format validation
 
 4. Collect successfully parsed nodes into a list.
+   Build `knownSpecNodes` as a `[]string`: for each
+   node, append node.Reference.LogicalName.
    Call `spectreevalidate.SpecTreeValidate(nodes, all_dirs)`. Append
    all returned FormatError entries to format_errors.
 
@@ -140,7 +142,8 @@ Implement the validate specs tool as a Go package.
         `parsing.ResolvedOutput(node)` (explicit output
         or default path).
 
-     b. Call `chainresolver.ChainResolve(node.logical_name)`. If it
+     b. Call `chainresolver.ChainResolve(node.logical_name, knownSpecNodes)`.
+        If it
         fails: Append StalenessEntry(
           node=node.logical_name,
           artifact_path=*resolved_output,
