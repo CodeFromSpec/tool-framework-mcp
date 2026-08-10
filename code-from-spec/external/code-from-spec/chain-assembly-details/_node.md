@@ -6,7 +6,7 @@ output: code-from-spec/external/code-from-spec/chain-assembly-details/output.md
 # SPEC/external/code-from-spec/chain-assembly-details
 
 Extracts spec chain XML assembly details from the Code
-from Spec v5 CHAIN_ASSEMBLY.md specification document.
+from Spec v6 CHAIN_ASSEMBLY.md specification document.
 
 # Agent
 
