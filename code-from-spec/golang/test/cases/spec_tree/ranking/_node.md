@@ -270,6 +270,51 @@ Expected: SPEC/root rank 0, SPEC/root/c rank 1.
 cycles is not empty, contains entries related to
 SPEC/root/a and/or SPEC/root/b but not SPEC/root/c.
 
+### Glob expansion
+
+#### SPEC glob creates dependency edges
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  imports = ["SPEC/root/b/*"],
+  SPEC/root/b, SPEC/root/b/x, SPEC/root/b/y].
+
+Expected: SPEC/root/a rank > SPEC/root/b/x rank
+and > SPEC/root/b/y rank.
+
+#### ARTIFACT glob creates dependency edges
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  imports = ["ARTIFACT/root/b/*"],
+  SPEC/root/b,
+  SPEC/root/b/x with output = "x.go",
+  SPEC/root/b/y with output = "y.go"].
+
+Expected: SPEC/root/a rank > ARTIFACT/root/b/x rank
+and > ARTIFACT/root/b/y rank.
+
+#### Glob with empty match — no error
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  imports = ["SPEC/root/empty/*"],
+  SPEC/root/empty].
+
+Expected: No error. SPEC/root/a rank = 1
+(parent dep only).
+
+#### Cycle through glob
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  imports = ["SPEC/root/b/*"],
+  SPEC/root/b with imports = ["SPEC/root/a"]].
+  Note: SPEC/root/b has no descendants, so glob
+  expands to nothing. No cycle.
+
+Expected: No cycle. SPEC/root/a rank = 1.
+
 ### Error cases
 
 #### Unresolvable SPEC reference

@@ -674,6 +674,57 @@ Setup:
 
 Expected: No duplicate_subsections error.
 
+### import_targets — globs
+
+#### Valid SPEC glob in imports — no error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf,
+  imports = ["SPEC/root/b/*"]),
+  SPEC/root/b (intermediate), SPEC/root/b/x (leaf),
+  SPEC/root/b/y (leaf).
+
+Expected: No import_targets error.
+
+#### Invalid glob syntax in imports — error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf,
+  imports = ["EXTERNAL/docs/*"]).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "import_targets" }.
+
+#### Glob with empty match — no error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf,
+  imports = ["SPEC/root/empty/*"]),
+  SPEC/root/empty (leaf, no children).
+
+Expected: No import_targets error.
+
+### input_target — globs
+
+#### Valid SPEC glob in input — no error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf,
+  input = ["SPEC/root/b/*"]),
+  SPEC/root/b (intermediate), SPEC/root/b/x (leaf),
+  SPEC/root/b/y (leaf).
+
+Expected: No input_target error.
+
+#### Invalid glob syntax in input — error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf,
+  input = ["EXTERNAL/docs/*"]).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "input_target" }.
+
 ### Cross-cutting
 
 #### Collects multiple errors from different rules

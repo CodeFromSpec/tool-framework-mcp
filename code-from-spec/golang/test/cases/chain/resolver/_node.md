@@ -24,6 +24,12 @@ In v5, there is no bare "SPEC" root node. Root nodes
 are direct children of code-from-spec/. Tests use
 "SPEC/root" as a root node where needed.
 
+`ChainResolve` takes two parameters:
+`(targetLogicalName string, knownSpecNodes []string)`.
+For each test, build `knownSpecNodes` as the list of
+all `SPEC/` logical names created in the setup. Pass
+this list to every `ChainResolve` call.
+
 ## Test cases
 
 ### Ancestors and target
@@ -429,6 +435,117 @@ Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
 
 Expected: Error chainresolver.ErrUnreadableFrontmatter.
+
+### Imports — glob expansion
+
+#### SPEC glob expands to descendants
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (imports = ["SPEC/root/b/*"]),
+  SPEC/root/b, SPEC/root/b/x, SPEC/root/b/y.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a",
+   knownSpecNodes).
+
+Expected:
+- dependencies contains SPEC/root/b/x and
+  SPEC/root/b/y (sorted), but NOT SPEC/root/b.
+
+#### SPEC glob expands to deep descendants
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (imports = ["SPEC/root/b/*"]),
+  SPEC/root/b, SPEC/root/b/x, SPEC/root/b/x/deep.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a",
+   knownSpecNodes).
+
+Expected:
+- dependencies contains SPEC/root/b/x and
+  SPEC/root/b/x/deep (sorted).
+
+#### ARTIFACT glob expands with prefix conversion
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (imports = ["ARTIFACT/root/b/*"]),
+  SPEC/root/b,
+  SPEC/root/b/x (type = "artifact", output = "out/x.go"),
+  SPEC/root/b/y (type = "artifact", output = "out/y.go").
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a",
+   knownSpecNodes).
+
+Expected:
+- dependencies contains ARTIFACT/root/b/x and
+  ARTIFACT/root/b/y (sorted), with correct paths.
+
+#### Glob excludes declaring node and ancestors
+
+Setup:
+- Create SPEC/root, SPEC/root/a, SPEC/root/a/b
+  (imports = ["SPEC/root/*"]),
+  SPEC/root/c.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a/b",
+   knownSpecNodes).
+
+Expected:
+- dependencies contains SPEC/root/c only.
+  SPEC/root/a (ancestor) and SPEC/root/a/b (self)
+  are excluded.
+
+#### Glob with empty match — no error
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (imports = ["SPEC/root/empty/*"]),
+  SPEC/root/empty.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a",
+   knownSpecNodes).
+
+Expected:
+- No error. dependencies = empty list.
+
+#### Glob deduplicates with explicit entries
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (imports = ["SPEC/root/b/x", "SPEC/root/b/*"]),
+  SPEC/root/b, SPEC/root/b/x, SPEC/root/b/y.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a",
+   knownSpecNodes).
+
+Expected:
+- dependencies contains SPEC/root/b/x and
+  SPEC/root/b/y. No duplicates.
+
+### Input — glob expansion
+
+#### SPEC glob in input
+
+Setup:
+- Create SPEC/root, SPEC/root/a
+  (input = ["SPEC/root/b/*"]),
+  SPEC/root/b, SPEC/root/b/x, SPEC/root/b/y.
+
+Actions:
+1. Call chainresolver.ChainResolve("SPEC/root/a",
+   knownSpecNodes).
+
+Expected:
+- input contains SPEC/root/b/x and SPEC/root/b/y
+  (sorted).
 
 ## Go-specific guidance
 
