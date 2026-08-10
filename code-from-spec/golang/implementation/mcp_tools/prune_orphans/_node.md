@@ -11,7 +11,7 @@ output: internal/mcppruneorphans/mcppruneorphans.go
 
 Removes orphan entries from the manifest — entries
 whose corresponding spec node no longer exists or no
-longer declares an output.
+longer declares a type.
 
 # Public
 
@@ -83,7 +83,7 @@ Implement the prune orphans tool as a Go package.
    "ARTIFACT/" prefix and prepend "SPEC/".
    An entry is orphan if:
    - No parsed node has that logical name, OR
-   - The node's frontmatter output is empty.
+   - The node's frontmatter Type is nil.
 
 ### Step 4 — Delete artifact files from disk
 

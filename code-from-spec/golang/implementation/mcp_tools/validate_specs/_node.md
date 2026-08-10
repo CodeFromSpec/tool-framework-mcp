@@ -128,17 +128,19 @@ Implement the validate specs tool as a Go package.
    Else:
      Order nodes alphabetically by logical_name.
 
-   For each node that has a non-empty output in its
-   frontmatter, in the above order:
+   For each node whose frontmatter Type is not nil,
+   in the above order:
 
      a. Derive the artifact logical name: strip "SPEC/"
         prefix from node.logical_name and prepend
-        "ARTIFACT/".
+        "ARTIFACT/". Let `resolved_output` =
+        `parsing.ResolvedOutput(node)` (explicit output
+        or default path).
 
      b. Call `chainresolver.ChainResolve(node.logical_name)`. If it
         fails: Append StalenessEntry(
           node=node.logical_name,
-          artifact_path=frontmatter.output,
+          artifact_path=*resolved_output,
           status="missing", detail=<error message>,
           rank=<node rank or 0 if unavailable>)
         to staleness. Continue to next node.
@@ -149,7 +151,7 @@ Implement the validate specs tool as a Go package.
         `positions`. If it fails: Append
         StalenessEntry(
           node=node.logical_name,
-          artifact_path=frontmatter.output,
+          artifact_path=*resolved_output,
           status="missing", detail=<error message>,
           rank=<node rank or 0 if unavailable>)
         to staleness. Continue to next node.
@@ -169,7 +171,7 @@ Implement the validate specs tool as a Go package.
 
           If chain hashes match: check the file on
           disk. Construct oslayer.CfsPath from
-          frontmatter.output. Call
+          *resolved_output. Call
           `oslayer.OpenFile(path, "read", 30000)`. If it
           fails (file does not exist): Append
           StalenessEntry with status="missing".
@@ -184,7 +186,7 @@ Implement the validate specs tool as a Go package.
         If chain hash matches and checksum matches:
         skip (artifact is up to date).
 
-        Set artifact_path from frontmatter.output.
+        Set artifact_path from *resolved_output.
         Set rank from the node's rank (from Step 4,
         or 0 if no ranking available).
 
@@ -194,8 +196,7 @@ Implement the validate specs tool as a Go package.
      Derive the generating node's logical name: strip
      "ARTIFACT/" prefix and prepend "SPEC/".
      If no successfully parsed node has that logical
-     name, or if the node's frontmatter.output is
-     empty: Append StalenessEntry(
+     name, or if the node's frontmatter Type is nil: Append StalenessEntry(
        node=entry key (artifact logical name),
        artifact_path=entry.Path,
        status="orphan",

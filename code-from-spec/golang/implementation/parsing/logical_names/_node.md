@@ -74,13 +74,12 @@ types) must use the suffix `LN`.
       Let generatorName = "SPEC/" + relative.
       Call ParseNode(generatorName).
       If it fails, propagate the error.
-      If node.Frontmatter is nil or
-      node.Frontmatter.Output is nil, raise
-      ErrNoOutput.
+      Let resolvedOutput = ResolvedOutput(node).
+      If resolvedOutput is nil, raise ErrNoOutput.
       Return CfsReference with
       NodeType = CfsNodeTypeArtifact,
       LogicalName = stripped, Qualifier = nil,
-      Path = *node.Frontmatter.Output,
+      Path = *resolvedOutput,
       ParentName = pointer to generatorName.
 
    c. If `stripped` starts with `"EXTERNAL/"`:

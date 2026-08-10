@@ -35,7 +35,7 @@ func MCPDumpChain(logicalName string) (string, error)
 
 | Parameter | Required | Description |
 |---|---|---|
-| `logicalName` | yes | Logical name of the target node. The node must declare `output`. |
+| `logicalName` | yes | Logical name of the target node. The node must declare `type`. |
 
 ### Output
 

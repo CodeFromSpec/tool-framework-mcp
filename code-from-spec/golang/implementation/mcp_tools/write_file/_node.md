@@ -49,7 +49,7 @@ the output path read from the node's frontmatter.
 
 - `ErrUnreadableFrontmatter`: the node's frontmatter
   cannot be parsed.
-- `ErrNoOutput`: target node has no output field.
+- `ErrNoOutput`: target node has no type field.
 - Propagated errors from `subagenttoken`, `parsing`,
   `oslayer` packages.
 
@@ -68,10 +68,11 @@ Implement the write file tool as a Go package.
    If it fails, return ErrUnreadableFrontmatter.
    Store the result as node.
 
-4. If `node.Frontmatter.Output` is nil, return error
-   ErrNoOutput.
+4. Let `resolved_output` =
+   `parsing.ResolvedOutput(node)`. If `resolved_output`
+   is nil, return error ErrNoOutput.
 
-5. Store `*node.Frontmatter.Output` as path.
+5. Store `*resolved_output` as path.
 
 6. Call `oslayer.ValidateStringIsCfsPath` with path.
    If it fails, propagate the error.
@@ -120,8 +121,8 @@ Implement the write file tool as a Go package.
 
 - Use the `subagenttoken` package for
   `SubagentTokenValidate`.
-- Use the `parsing` package for `ParseNode` and
-  `Node`.
+- Use the `parsing` package for `ParseNode`,
+  `ResolvedOutput`, and `Node`.
 - Use the `oslayer` package for `ValidateStringIsCfsPath`,
   `CfsPath`, `OpenFile`, `.Write()`, and `.Close()`.
 - Use the `chainresolver` package for `ChainResolve`.

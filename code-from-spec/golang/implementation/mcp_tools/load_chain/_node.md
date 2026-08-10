@@ -96,7 +96,7 @@ this order:
 
 ### Errors
 
-- `ErrNoOutput`: target node has no output field.
+- `ErrNoOutput`: target node has no type field.
 - `ErrInvalidOutputPath`: the output path fails path
   validation.
 - `ErrArtifactModified`: the artifact file was modified
@@ -124,9 +124,10 @@ Implement the load chain tool as a Go package.
 
 2. Call `parsing.ParseNode(logical_name)` to read and
    parse the target node. If it fails, propagate the
-   error. If `node.Frontmatter.Output` is nil,
-   return error ErrNoOutput. Call
-   `oslayer.ValidateStringIsCfsPath(*node.Frontmatter.Output)`.
+   error. Let `resolved_output` =
+   `parsing.ResolvedOutput(node)`. If `resolved_output`
+   is nil, return error ErrNoOutput. Call
+   `oslayer.ValidateStringIsCfsPath(*resolved_output)`.
    If it fails, return ErrInvalidOutputPath.
 
 3. Check if the artifact is modified:
@@ -134,7 +135,7 @@ Implement the load chain tool as a Go package.
    look up the artifact logical name (strip "SPEC/"
    from logical_name, prepend "ARTIFACT/") in
    m.Entries. If an entry exists:
-     Construct oslayer.CfsPath from `*node.Frontmatter.Output`. Try
+     Construct oslayer.CfsPath from `*resolved_output`. Try
      to read the file on disk and compute its SHA-1
      hash (base64url, 27 chars) using the same
      normalization as validate_specs. If the file
@@ -224,10 +225,10 @@ Implement the load chain tool as a Go package.
    whole block if there is nothing to report.
 
    **Existing artifact** (optional):
-   If the file at `*node.Frontmatter.Output` exists and is
+   If the file at `*resolved_output` exists and is
    readable:
      Call `oslayer.OpenFile` with the `oslayer.CfsPath` of
-     `*node.Frontmatter.Output` in "read" mode with
+     `*resolved_output` in "read" mode with
      timeout 30000. Read all lines with
      `handle.ReadLine()` until `oslayer.ErrEndOfFile`. Call
      `handle.Close()`.
@@ -396,8 +397,8 @@ Implement the load chain tool as a Go package.
   (base64.RawURLEncoding) for file checksum
   computation in the modified check.
 - Use the `parsing` package for `ParseNode`,
-  `NormalizeText`, `Node`, `NodeSection`,
-  `NodeSubsection`, and
+  `ResolvedOutput`, `NormalizeText`, `Node`,
+  `NodeSection`, `NodeSubsection`, and
   `NodeFrontmatter`.
 - Use the `oslayer` package for `OpenFile`,
   `.ReadLine()`, `.Close()`, `ValidateStringIsCfsPath`, and

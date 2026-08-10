@@ -36,6 +36,7 @@ simple case folding.
 
 ```go
 type NodeFrontmatter struct {
+    Type    *string
     Imports []string
     Input   []string
     Output  *string
@@ -67,10 +68,11 @@ func ParseNode(logicalName string) (*Node, error)
 ```
 
 `NodeFrontmatter` fields are nil when absent from the
-YAML. `Imports` and `Input` default to nil (not empty
-slice) when absent. `Input` accepts either a single
-scalar string or a YAML list in the source file — both
-forms normalize to `Input []string`.
+YAML. `Type` is nil when absent. `Imports` and `Input`
+default to nil (not empty slice) when absent. `Input`
+accepts either a single scalar string or a YAML list
+in the source file — both forms normalize to
+`Input []string`.
 
 `Heading` is the normalized form (after `NormalizeText`),
 used for comparisons and lookups. `RawHeading` is the
@@ -110,6 +112,7 @@ func FormatSection(rawHeading string, content []string) string
 func ConcatenateSubsections(subsections []*NodeSubsection) string
 func ExtractAgentContent(node *Node) string
 func ReadFileContent(cfsPath oslayer.CfsPath) (string, error)
+func ResolvedOutput(node *Node) *string
 ```
 
 #### ExtractBlock
@@ -168,6 +171,16 @@ with `ReadLine` until `ErrEndOfFile`, joins lines with
 
 Propagates `oslayer.ErrFileUnreadable` if the file
 does not exist.
+
+#### ResolvedOutput
+
+Returns the resolved output path for a node. If the
+node has no `Type`, returns nil. If `Output` is set,
+returns it. If `Output` is nil but `Type` is set,
+returns the default: `code-from-spec/<relative>/artifact.md`
+where `<relative>` is the node's path under
+`code-from-spec/` (derived by stripping the `SPEC/`
+prefix from `node.Reference.LogicalName`).
 
 ### CFS references
 
