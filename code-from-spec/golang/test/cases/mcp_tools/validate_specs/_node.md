@@ -211,7 +211,7 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `imports: ["SPEC/root/missing"]`.
+  frontmatter `type: artifact`, `imports: ["SPEC/root/missing"]`.
 
 Actions:
 1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
@@ -288,10 +288,10 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `imports: ["SPEC/root/b"]`.
+  frontmatter `type: artifact`, `imports: ["SPEC/root/b"]`.
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`,
-  frontmatter `imports: ["SPEC/root/a"]`.
+  frontmatter `type: artifact`, `imports: ["SPEC/root/a"]`.
 
 Actions:
 1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
@@ -308,7 +308,7 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `imports: ["SPEC/root/missing"]`.
+  frontmatter `type: artifact`, `imports: ["SPEC/root/missing"]`.
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/b.go`.
 - No manifest entry for ARTIFACT/root/b.

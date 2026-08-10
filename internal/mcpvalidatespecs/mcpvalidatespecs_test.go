@@ -332,6 +332,7 @@ func TestFormatErrorInvalidImports(t *testing.T) {
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetType("artifact")
 	b.AddImport("SPEC/root/missing")
 	b.Write()
 
@@ -413,10 +414,12 @@ func TestSimpleCycleDetected(t *testing.T) {
 	createRootNode(t)
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.AddImport("SPEC/root/b")
 	ba.Write()
 
 	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("artifact")
 	bb.AddImport("SPEC/root/a")
 	bb.Write()
 
@@ -444,6 +447,7 @@ func TestRankingSkippedWhenFormatErrorsExist(t *testing.T) {
 	createRootNode(t)
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.AddImport("SPEC/root/missing")
 	ba.Write()
 
