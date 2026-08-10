@@ -177,10 +177,13 @@ does not exist.
 Returns the resolved output path for a node. If the
 node has no `Type`, returns nil. If `Output` is set,
 returns it. If `Output` is nil but `Type` is set,
-returns the default: `code-from-spec/<relative>/artifact.md`
-where `<relative>` is the node's path under
-`code-from-spec/` (derived by stripping the `SPEC/`
-prefix from `node.Reference.LogicalName`).
+returns the default:
+`code-from-spec/<relative>/artifact.md` when `Type` is
+`"artifact"`, or `code-from-spec/<relative>/verdict.md`
+when `Type` is `"verdict"`, where `<relative>` is the
+node's path under `code-from-spec/` (derived by
+stripping the `SPEC/` prefix from
+`node.Reference.LogicalName`).
 
 ### CFS references
 
@@ -190,6 +193,7 @@ type CfsNodeType int
 const (
     CfsNodeTypeSpec     CfsNodeType = iota
     CfsNodeTypeArtifact
+    CfsNodeTypeVerdict
     CfsNodeTypeExternal
 )
 
@@ -208,7 +212,7 @@ func CfsReferenceFromPath(cfsPath oslayer.CfsPath) (*CfsReference, error)
 #### CfsReference fields
 
 - **NodeType** — `CfsNodeTypeSpec`, `CfsNodeTypeArtifact`,
-  or `CfsNodeTypeExternal`.
+  `CfsNodeTypeVerdict`, or `CfsNodeTypeExternal`.
 - **LogicalName** — the unqualified logical name
   including the prefix. For `SPEC/x/y(z)`, LogicalName
   is `SPEC/x/y`. For `ARTIFACT/x`, LogicalName is
@@ -221,15 +225,16 @@ func CfsReferenceFromPath(cfsPath oslayer.CfsPath) (*CfsReference, error)
     (e.g. `code-from-spec/x/y/_node.md`).
   - EXTERNAL: the file path relative to project root
     (e.g. `README.md`).
-  - ARTIFACT: the value of `output` from the generator
-    node's frontmatter (e.g. `internal/foo/foo.go`).
+  - ARTIFACT / VERDICT: the value of `output` from the
+    generator node's frontmatter
+    (e.g. `internal/foo/foo.go`), or the default path.
 - **ParentName** — nil for root SPEC nodes (direct
   children of `code-from-spec/`, e.g. `SPEC/golang`)
   and EXTERNAL references. For non-root SPEC nodes,
   the parent's logical name (e.g. `SPEC/x` for
-  `SPEC/x/y`). For ARTIFACT references, the generator
-  node's logical name (e.g. `SPEC/x/y` for
-  `ARTIFACT/x/y`).
+  `SPEC/x/y`). For ARTIFACT and VERDICT references,
+  the generator node's logical name (e.g. `SPEC/x/y`
+  for `ARTIFACT/x/y` or `VERDICT/x/y`).
 
 #### CfsReferenceFromName
 
@@ -240,8 +245,8 @@ resolve the output path.
 
 Errors:
 - `ErrUnrecognizedPrefix`: the string does not start
-  with `SPEC/`, `ARTIFACT/`, or `EXTERNAL/`. Bare
-  `SPEC` (without a trailing slash) is not valid.
+  with `SPEC/`, `ARTIFACT/`, `VERDICT/`, or `EXTERNAL/`.
+  Bare `SPEC` (without a trailing slash) is not valid.
 - `ErrInvalidName`: the path portion is empty or
   invalid after stripping the prefix.
 - `ErrNoOutput`: an ARTIFACT reference's generator node
