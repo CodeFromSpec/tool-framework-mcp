@@ -22,7 +22,7 @@ collected in the report.
 1. Walk the spec tree and check every node for format errors (see
    FILE_FORMAT.md and CODE_FROM_SPEC.md).
 2. Detect circular references across `imports`, `input`, and
-   inheritance. Report cycle participants.
+   inheritance, after glob expansion. Report cycle participants.
 3. For each node that declares `type`, determine the artifact or
    verdict status by comparing the manifest against the current spec
    tree and file system (see MANIFEST.md, "Artifact and verdict

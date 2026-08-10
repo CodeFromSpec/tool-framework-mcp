@@ -59,6 +59,11 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 		}
 	}
 
+	knownSpecNodes := make([]string, 0, len(entries))
+	for _, node := range entries {
+		knownSpecNodes = append(knownSpecNodes, node.Reference.LogicalName)
+	}
+
 	for _, node := range entries {
 		entry := entryMap[node.Reference.LogicalName]
 
@@ -70,7 +75,20 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 			continue
 		}
 
+		expandedImports := []string{}
 		for _, ref := range node.Frontmatter.Imports {
+			if strings.HasSuffix(ref, "/*") {
+				results, err := parsing.ExpandGlob(ref, knownSpecNodes, &node.Reference.LogicalName)
+				if err != nil {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
+				}
+				expandedImports = append(expandedImports, results...)
+			} else {
+				expandedImports = append(expandedImports, ref)
+			}
+		}
+
+		for _, ref := range expandedImports {
 			if strings.HasPrefix(ref, "SPEC/") {
 				unqualified := unqualifiedName(ref)
 				if _, ok := entryMap[unqualified]; !ok {
@@ -89,7 +107,20 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 			}
 		}
 
+		expandedInput := []string{}
 		for _, inp := range node.Frontmatter.Input {
+			if strings.HasSuffix(inp, "/*") {
+				results, err := parsing.ExpandGlob(inp, knownSpecNodes, &node.Reference.LogicalName)
+				if err != nil {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, inp)
+				}
+				expandedInput = append(expandedInput, results...)
+			} else {
+				expandedInput = append(expandedInput, inp)
+			}
+		}
+
+		for _, inp := range expandedInput {
 			if strings.HasPrefix(inp, "SPEC/") {
 				unqualified := unqualifiedName(inp)
 				if _, ok := entryMap[unqualified]; !ok {

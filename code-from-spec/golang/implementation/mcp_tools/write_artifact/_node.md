@@ -6,6 +6,7 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/spec_tree/scan
   - SPEC/golang/implementation/subagent_token(interface)
 output: internal/mcpwriteartifact/mcpwriteartifact.go
 ---
@@ -98,7 +99,11 @@ Implement the write artifact tool as a Go package.
     ensuring a trailing LF), encoded as base64url
     (27 characters).
 
-12. Call `chainresolver.ChainResolve(logical_name)`. If it fails,
+12. Call `spectree.SpecTreeScan()`. If it fails, propagate
+    the error. Build `knownSpecNodes` as a `[]string`:
+    for each ref, append ref.LogicalName.
+
+    Call `chainresolver.ChainResolve(logical_name, knownSpecNodes)`. If it fails,
     propagate the error.
 
 13. Call `chainhash.ChainHashCompute(chain)`. It returns
@@ -131,6 +136,7 @@ Implement the write artifact tool as a Go package.
   `ResolvedOutput`, and `Node`.
 - Use the `oslayer` package for `ValidateStringIsCfsPath`,
   `CfsPath`, `OpenFile`, `.Write()`, and `.Close()`.
+- Use the `spectree` package for `SpecTreeScan`.
 - Use the `chainresolver` package for `ChainResolve`.
 - Use the `chainhash` package for `ChainHashCompute`
   and `ContentHash`.

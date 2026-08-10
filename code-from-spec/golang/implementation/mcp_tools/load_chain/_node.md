@@ -7,6 +7,7 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/spec_tree/scan
   - SPEC/golang/implementation/subagent_token(interface)
 output: internal/mcploadchain/mcploadchain.go
 ---
@@ -155,7 +156,11 @@ Implement the load chain tool as a Go package.
    If OpenManifest fails or the entry does not exist
    or the file does not exist, skip this check.
 
-5. Call `chainresolver.ChainResolve(logical_name)` to get the
+5. Call `spectree.SpecTreeScan()`. If it fails, propagate
+   the error. Build `knownSpecNodes` as a `[]string`:
+   for each ref, append ref.LogicalName.
+
+   Call `chainresolver.ChainResolve(logical_name, knownSpecNodes)` to get the
    resolved `Chain`. If it fails, propagate the error.
 
 ### Step 2 — Compute content hashes
@@ -405,6 +410,7 @@ Implement the load chain tool as a Go package.
 
 - Use the `subagenttoken` package for
   `SubagentTokenValidate`.
+- Use the `spectree` package for `SpecTreeScan`.
 - Use the `chainresolver` package for `ChainResolve`
   and `Chain`.
 - Use the `chainhash` package for `ChainHashCompute`

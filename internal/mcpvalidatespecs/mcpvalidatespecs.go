@@ -74,6 +74,11 @@ func MCPValidateSpecs() ValidationReport {
 		return successfulNodes[i].Reference.LogicalName < successfulNodes[j].Reference.LogicalName
 	})
 
+	var knownSpecNodes []string
+	for _, n := range successfulNodes {
+		knownSpecNodes = append(knownSpecNodes, n.Reference.LogicalName)
+	}
+
 	validateErrors := spectreevalidate.SpecTreeValidate(successfulNodes, allDirs)
 	formatErrors = append(formatErrors, validateErrors...)
 
@@ -155,7 +160,7 @@ func MCPValidateSpecs() ValidationReport {
 			manifestKey = "ARTIFACT/" + suffix
 		}
 
-		chain, chainErr := chainresolver.ChainResolve(n.Reference.LogicalName)
+		chain, chainErr := chainresolver.ChainResolve(n.Reference.LogicalName, knownSpecNodes)
 		if chainErr != nil {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,

@@ -47,9 +47,11 @@ Implement the spec tree validation as a Go package.
 
 1. Initialize `errors` as an empty list of FormatError.
 
-2. Build `known_logical_names` as an empty set of strings.
+2. Build `known_logical_names` as an empty set of strings,
+   and `known_spec_nodes` as an empty list of strings.
    For each entry in entries:
      Add entry.Reference.LogicalName to `known_logical_names`.
+     Append entry.Reference.LogicalName to `known_spec_nodes`.
      If entry.Frontmatter.Type is not nil:
        Let `relative` = entry.Reference.LogicalName with
        "SPEC/" prefix stripped.
@@ -136,7 +138,21 @@ Implement the spec tree validation as a Go package.
 
 ### Rule: import_targets (per entry)
 
-   For each dep in entry.Frontmatter.Imports:
+   First, expand globs: initialize `expandedImports`
+   as an empty list. For each dep in
+   entry.Frontmatter.Imports:
+     If dep ends with `/*`:
+       Call parsing.ExpandGlob(dep,
+       known_spec_nodes, &entry.Reference.LogicalName).
+       If it fails:
+         error "imports has invalid glob: <dep>:
+         <error message>"
+         Continue to next dep.
+       Append all results to `expandedImports`.
+     Else:
+       Append dep to `expandedImports`.
+
+   Then, for each dep in `expandedImports`:
 
      If dep starts with "SPEC/":
        Call parsing.CfsReferenceFromName(dep). If it fails:
@@ -183,7 +199,21 @@ Implement the spec tree validation as a Go package.
 
 ### Rule: input_target (per entry)
 
-   For each inp in entry.Frontmatter.Input:
+   First, expand globs: initialize `expandedInput`
+   as an empty list. For each inp in
+   entry.Frontmatter.Input:
+     If inp ends with `/*`:
+       Call parsing.ExpandGlob(inp,
+       known_spec_nodes, &entry.Reference.LogicalName).
+       If it fails:
+         error "input has invalid glob: <inp>:
+         <error message>"
+         Continue to next inp.
+       Append all results to `expandedInput`.
+     Else:
+       Append inp to `expandedInput`.
+
+   Then, for each inp in `expandedInput`:
 
      If inp starts with "SPEC/":
        Call parsing.CfsReferenceFromName(inp). If it fails:

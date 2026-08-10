@@ -13,6 +13,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectree"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
 )
 
@@ -65,7 +66,16 @@ func MCPLoadChain(token string) (string, error) {
 		}
 	}
 
-	chain, err := chainresolver.ChainResolve(logicalName)
+	specRefs, err := spectree.SpecTreeScan()
+	if err != nil {
+		return "", fmt.Errorf("scanning spec tree: %w", err)
+	}
+	knownSpecNodes := make([]string, 0, len(specRefs))
+	for _, ref := range specRefs {
+		knownSpecNodes = append(knownSpecNodes, ref.LogicalName)
+	}
+
+	chain, err := chainresolver.ChainResolve(logicalName, knownSpecNodes)
 	if err != nil {
 		return "", fmt.Errorf("resolving chain: %w", err)
 	}

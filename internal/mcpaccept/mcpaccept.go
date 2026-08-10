@@ -12,6 +12,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectree"
 )
 
 var ErrInvalidPrefix = errors.New("logical name must start with ARTIFACT/ or VERDICT/")
@@ -71,7 +72,17 @@ func MCPAccept(logicalName string) (string, error) {
 	sum := hasher.Sum(nil)
 	checksum := base64.RawURLEncoding.EncodeToString(sum)[:27]
 
-	chain, err := chainresolver.ChainResolve(specName)
+	refs, err := spectree.SpecTreeScan()
+	if err != nil {
+		return "", fmt.Errorf("scanning spec tree: %w", err)
+	}
+
+	knownSpecNodes := make([]string, len(refs))
+	for i, ref := range refs {
+		knownSpecNodes[i] = ref.LogicalName
+	}
+
+	chain, err := chainresolver.ChainResolve(specName, knownSpecNodes)
 	if err != nil {
 		return "", fmt.Errorf("resolving chain: %w", err)
 	}

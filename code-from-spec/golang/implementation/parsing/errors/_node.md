@@ -45,5 +45,9 @@ var (
 	ErrInvalidName        = errors.New("invalid name")
 	ErrNoOutput           = errors.New("no output declared")
 	ErrInvalidPath        = errors.New("invalid path")
+
+	// Glob expansion errors
+	ErrInvalidGlob    = errors.New("invalid glob pattern")
+	ErrEmptyNodeList  = errors.New("knownNodes is nil or empty")
 )
 ```

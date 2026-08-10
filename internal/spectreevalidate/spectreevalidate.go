@@ -17,8 +17,10 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 	var errs []FormatError
 
 	knownNames := make(map[string]bool)
+	var knownSpecNodes []string
 	for _, entry := range entries {
 		knownNames[entry.Reference.LogicalName] = true
+		knownSpecNodes = append(knownSpecNodes, entry.Reference.LogicalName)
 		if entry.Frontmatter != nil && entry.Frontmatter.Type != nil {
 			relative := strings.TrimPrefix(entry.Reference.LogicalName, "SPEC/")
 			if *entry.Frontmatter.Type == "artifact" {
@@ -143,7 +145,26 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 		}
 
 		if entry.Frontmatter != nil {
+			declaringNode := entry.Reference.LogicalName
+			var expandedImports []string
 			for _, dep := range entry.Frontmatter.Imports {
+				if strings.HasSuffix(dep, "/*") {
+					results, err := parsing.ExpandGlob(dep, knownSpecNodes, &declaringNode)
+					if err != nil {
+						errs = append(errs, FormatError{
+							Node:   entry.Reference.LogicalName,
+							Rule:   "import_targets",
+							Detail: "imports has invalid glob: " + dep + ": " + err.Error(),
+						})
+						continue
+					}
+					expandedImports = append(expandedImports, results...)
+				} else {
+					expandedImports = append(expandedImports, dep)
+				}
+			}
+
+			for _, dep := range expandedImports {
 				if strings.HasPrefix(dep, "SPEC/") {
 					ref, err := parsing.CfsReferenceFromName(dep)
 					if err != nil {
@@ -217,7 +238,26 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 		}
 
 		if entry.Frontmatter != nil {
+			declaringNode := entry.Reference.LogicalName
+			var expandedInput []string
 			for _, inp := range entry.Frontmatter.Input {
+				if strings.HasSuffix(inp, "/*") {
+					results, err := parsing.ExpandGlob(inp, knownSpecNodes, &declaringNode)
+					if err != nil {
+						errs = append(errs, FormatError{
+							Node:   entry.Reference.LogicalName,
+							Rule:   "input_target",
+							Detail: "input has invalid glob: " + inp + ": " + err.Error(),
+						})
+						continue
+					}
+					expandedInput = append(expandedInput, results...)
+				} else {
+					expandedInput = append(expandedInput, inp)
+				}
+			}
+
+			for _, inp := range expandedInput {
 				if strings.HasPrefix(inp, "SPEC/") {
 					ref, err := parsing.CfsReferenceFromName(inp)
 					if err != nil {

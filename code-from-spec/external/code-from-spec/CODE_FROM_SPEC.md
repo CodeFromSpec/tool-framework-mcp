@@ -126,6 +126,25 @@ establishes a dependency in the generation graph.
 Without it, a consuming node may be generated before
 the artifact it consumes is up to date.
 
+#### Glob references
+
+A reference ending in `/*` expands, at chain resolution,
+to the full subtree under the given path: every
+descendant node, at any depth. The `*` must be the
+entire last segment — `SPEC/x/foo*`, `SPEC/*/y`, more
+than one `*`, or a qualifier on a glob entry are format
+errors. `EXTERNAL/` references do not accept globs.
+
+Expansion is deterministic: matches are sorted
+alphabetically by full logical name and deduplicated
+against explicit entries. Expansion automatically
+excludes the declaring node and its ancestors — a glob
+that matches them is not an error; they are simply not
+included, as they would be redundant. An empty match is
+legal — the glob then contributes nothing until matching
+nodes exist. Globs are permitted in `imports` and
+`input`.
+
 ### Frontmatter
 
 Frontmatter is optional YAML metadata in spec nodes.
@@ -167,6 +186,8 @@ of the tree. Pointing to an ancestor would be redundant — its
 content is already available via inheritance. Pointing to a
 descendant would create a circular dependency.
 
+Entries may be glob references (see Glob references).
+
 ```yaml
 ---
 type: artifact
@@ -185,7 +206,8 @@ Accepts a single `SPEC/`, `ARTIFACT/`, or `EXTERNAL/` name,
 or a list of names. While `imports` brings in context that
 informs generation, `input` brings in content that the
 generation subagent transforms. For `type: verdict`,
-`input` is the material under judgment. When absent, the
+`input` is the material under judgment. Entries may be
+glob references (see Glob references). When absent, the
 subagent works directly from the specification without
 source material.
 
@@ -422,7 +444,8 @@ FILE_FORMAT.md (under Resources) for detailed parsing rules.
 ## Circular References
 
 Circular references across `imports`, `input`, and
-inheritance are prohibited.
+inheritance are prohibited. Detection runs after glob
+expansion.
 
 ---
 

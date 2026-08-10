@@ -6,6 +6,7 @@ depends_on:
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/parsing(interface)
+  - SPEC/golang/implementation/spec_tree/scan
 output: internal/mcpreconstructcache/mcpreconstructcache.go
 ---
 
@@ -53,7 +54,11 @@ Implement the reconstruct cache tool as a Go package.
    `contentWritten` = 0,
    `chainWritten` = 0.
 
-3. For each entry in `m.Entries` (iterate in any order):
+3. Call `spectree.SpecTreeScan()`. If it fails, use an
+   empty list. Build `knownSpecNodes` as a `[]string`:
+   for each ref, append ref.LogicalName.
+
+4. For each entry in `m.Entries` (iterate in any order):
 
    a. If the entry key does not start with "ARTIFACT/",
       skip this entry (verdict chains are not cached).
@@ -65,7 +70,7 @@ Implement the reconstruct cache tool as a Go package.
 
    c. If `node.Frontmatter.Output` is nil, skip.
 
-   d. Call `chainresolver.ChainResolve(specName)`. If
+   d. Call `chainresolver.ChainResolve(specName, knownSpecNodes)`. If
       it fails, skip this entry.
 
    e. Call `chainhash.ChainHashCompute(chain)`. It
@@ -112,7 +117,7 @@ Implement the reconstruct cache tool as a Go package.
 
    h. Increment `entriesProcessed`.
 
-4. Return the summary message with the counts.
+5. Return the summary message with the counts.
 
 ## Content extraction
 
@@ -127,6 +132,7 @@ Use the extraction helpers from the `parsing` package:
 
 - The package name is `mcpreconstructcache`.
 - Use the `manifest` package for `OpenManifest`.
+- Use the `spectree` package for `SpecTreeScan`.
 - Use the `chainresolver` package for `ChainResolve`.
 - Use the `chainhash` package for `ChainHashCompute`
   and `ContentHash`.

@@ -26,7 +26,7 @@ func checksumOf(content string) string {
 
 func currentChainHash(t *testing.T, logicalName string) string {
 	t.Helper()
-	chain, err := chainresolver.ChainResolve(logicalName)
+	chain, err := chainresolver.ChainResolve(logicalName, nil)
 	if err != nil {
 		t.Fatalf("ChainResolve: %v", err)
 	}
