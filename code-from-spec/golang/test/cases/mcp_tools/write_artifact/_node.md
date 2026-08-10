@@ -4,24 +4,24 @@ depends_on:
   - SPEC/golang/test/utils/create_spec_node
   - SPEC/golang/implementation/manifest
   - SPEC/golang/implementation/oslayer(interface)
-  - SPEC/golang/implementation/mcp_tools/write_file
+  - SPEC/golang/implementation/mcp_tools/write_artifact
   - SPEC/golang/implementation/parsing(interface)
   - SPEC/golang/implementation/subagent_token(interface)
-output: internal/mcpwritefile/mcpwritefile_test.go
+output: internal/mcpwriteartifact/mcpwriteartifact_test.go
 ---
 
-# SPEC/golang/test/cases/mcp_tools/write_file
+# SPEC/golang/test/cases/mcp_tools/write_artifact
 
 # Agent
 
 ## Test setup guidance
 
-`MCPWriteFile` takes an opaque token, not a raw logical
+`MCPWriteArtifact` takes an opaque token, not a raw logical
 name. Tests must first call
 `subagenttoken.SubagentTokenGenerate(logicalName)` to
-obtain a token, then pass that token to `MCPWriteFile`.
+obtain a token, then pass that token to `MCPWriteArtifact`.
 
-`MCPWriteFile` reads the node's frontmatter from disk
+`MCPWriteArtifact` reads the node's frontmatter from disk
 to derive the output path. Tests must create `_node.md`
 files with frontmatter containing an output declaration.
 Use `testutils.Chdir` and create the spec tree structure
@@ -41,7 +41,7 @@ Setup:
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
    → `token`.
-2. Call `mcpwritefile.MCPWriteFile(token, "package main")`.
+2. Call `mcpwriteartifact.MCPWriteArtifact(token, "package main")`.
 
 Expected:
 - Return value = `"wrote output/file.go"`.
@@ -58,7 +58,7 @@ Setup:
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
    → `token`.
-2. Call `mcpwritefile.MCPWriteFile(token, "package main")`.
+2. Call `mcpwriteartifact.MCPWriteArtifact(token, "package main")`.
 3. Call `manifest.OpenManifest(true)`.
 
 Expected:
@@ -77,7 +77,7 @@ Setup:
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
    → `token`.
-2. Call `mcpwritefile.MCPWriteFile(token, "package main")`.
+2. Call `mcpwriteartifact.MCPWriteArtifact(token, "package main")`.
 
 Expected:
 - Success. All intermediate directories created.
@@ -94,7 +94,7 @@ Setup:
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
    → `token`.
-2. Call `mcpwritefile.MCPWriteFile(token, "new")`.
+2. Call `mcpwriteartifact.MCPWriteArtifact(token, "new")`.
 
 Expected:
 - Success. File content is `"new"`.
@@ -104,7 +104,7 @@ Expected:
 #### Invalid token — malformed
 
 Actions:
-1. Call `mcpwritefile.MCPWriteFile("not-a-valid-token", "")`.
+1. Call `mcpwriteartifact.MCPWriteArtifact("not-a-valid-token", "")`.
 
 Expected:
 - Error `subagenttoken.ErrInvalidToken`.
@@ -117,10 +117,10 @@ Setup:
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/missing")`
    → `token`.
-2. Call `mcpwritefile.MCPWriteFile(token, "")`.
+2. Call `mcpwriteartifact.MCPWriteArtifact(token, "")`.
 
 Expected:
-- Error `mcpwritefile.ErrUnreadableFrontmatter`.
+- Error `mcpwriteartifact.ErrUnreadableFrontmatter`.
 
 #### No type declared
 
@@ -132,10 +132,10 @@ Setup:
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
    → `token`.
-2. Call `mcpwritefile.MCPWriteFile(token, "")`.
+2. Call `mcpwriteartifact.MCPWriteArtifact(token, "")`.
 
 Expected:
-- Error `mcpwritefile.ErrNoOutput`.
+- Error `mcpwriteartifact.ErrNoOutput`.
 
 #### Verdict node — ErrNotAnArtifact
 
@@ -147,10 +147,10 @@ Setup:
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
    → `token`.
-2. Call `mcpwritefile.MCPWriteFile(token, "content")`.
+2. Call `mcpwriteartifact.MCPWriteArtifact(token, "content")`.
 
 Expected:
-- Error `mcpwritefile.ErrNotAnArtifact`.
+- Error `mcpwriteartifact.ErrNotAnArtifact`.
 
 #### Default output path when output absent
 
@@ -162,7 +162,7 @@ Setup:
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
    → `token`.
-2. Call `mcpwritefile.MCPWriteFile(token, "# content")`.
+2. Call `mcpwriteartifact.MCPWriteArtifact(token, "# content")`.
 
 Expected:
 - Return value = `"wrote code-from-spec/root/a/artifact.md"`.
@@ -172,9 +172,9 @@ Expected:
 
 ## Go-specific guidance
 
-- The package name is `mcpwritefile_test` (external
+- The package name is `mcpwriteartifact_test` (external
   test package).
 - Use `testutils.Chdir(t)` to create a temp dir and
   set the working directory.
 - Import the `subagenttoken` package to mint tokens for
-  `MCPWriteFile` calls.
+  `MCPWriteArtifact` calls.

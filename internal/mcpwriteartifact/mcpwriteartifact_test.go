@@ -1,4 +1,4 @@
-package mcpwritefile_test
+package mcpwriteartifact_test
 
 import (
 	"errors"
@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
-	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwriteartifact"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
 var base64urlPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{27}$`)
 
-func TestMCPWriteFile_WritesFileSuccessfully(t *testing.T) {
+func TestMCPWriteArtifact_WritesFileSuccessfully(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -30,7 +30,7 @@ func TestMCPWriteFile_WritesFileSuccessfully(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	result, err := mcpwritefile.MCPWriteFile(token, "package main")
+	result, err := mcpwriteartifact.MCPWriteArtifact(token, "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestMCPWriteFile_WritesFileSuccessfully(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_ManifestUpdatedAfterWrite(t *testing.T) {
+func TestMCPWriteArtifact_ManifestUpdatedAfterWrite(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -63,7 +63,7 @@ func TestMCPWriteFile_ManifestUpdatedAfterWrite(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	_, err = mcpwritefile.MCPWriteFile(token, "package main")
+	_, err = mcpwriteartifact.MCPWriteArtifact(token, "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestMCPWriteFile_ManifestUpdatedAfterWrite(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_CreatesIntermediateDirectories(t *testing.T) {
+func TestMCPWriteArtifact_CreatesIntermediateDirectories(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -104,7 +104,7 @@ func TestMCPWriteFile_CreatesIntermediateDirectories(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	_, err = mcpwritefile.MCPWriteFile(token, "package main")
+	_, err = mcpwriteartifact.MCPWriteArtifact(token, "package main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestMCPWriteFile_CreatesIntermediateDirectories(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
+func TestMCPWriteArtifact_OverwritesExistingFile(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -137,7 +137,7 @@ func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	_, err = mcpwritefile.MCPWriteFile(token, "new")
+	_, err = mcpwriteartifact.MCPWriteArtifact(token, "new")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -151,16 +151,16 @@ func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_MalformedToken(t *testing.T) {
+func TestMCPWriteArtifact_MalformedToken(t *testing.T) {
 	testutils.Chdir(t)
 
-	_, err := mcpwritefile.MCPWriteFile("not-a-valid-token", "")
+	_, err := mcpwriteartifact.MCPWriteArtifact("not-a-valid-token", "")
 	if !errors.Is(err, subagenttoken.ErrInvalidToken) {
 		t.Errorf("expected ErrInvalidToken, got %v", err)
 	}
 }
 
-func TestMCPWriteFile_NonexistentNode(t *testing.T) {
+func TestMCPWriteArtifact_NonexistentNode(t *testing.T) {
 	testutils.Chdir(t)
 
 	token, err := subagenttoken.SubagentTokenGenerate("SPEC/missing")
@@ -168,13 +168,13 @@ func TestMCPWriteFile_NonexistentNode(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	_, err = mcpwritefile.MCPWriteFile(token, "")
-	if !errors.Is(err, mcpwritefile.ErrUnreadableFrontmatter) {
+	_, err = mcpwriteartifact.MCPWriteArtifact(token, "")
+	if !errors.Is(err, mcpwriteartifact.ErrUnreadableFrontmatter) {
 		t.Errorf("expected ErrUnreadableFrontmatter, got %v", err)
 	}
 }
 
-func TestMCPWriteFile_NoTypeDeclared(t *testing.T) {
+func TestMCPWriteArtifact_NoTypeDeclared(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -188,13 +188,13 @@ func TestMCPWriteFile_NoTypeDeclared(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	_, err = mcpwritefile.MCPWriteFile(token, "")
-	if !errors.Is(err, mcpwritefile.ErrNoOutput) {
+	_, err = mcpwriteartifact.MCPWriteArtifact(token, "")
+	if !errors.Is(err, mcpwriteartifact.ErrNoOutput) {
 		t.Errorf("expected ErrNoOutput, got %v", err)
 	}
 }
 
-func TestMCPWriteFile_VerdictNodeErrNotAnArtifact(t *testing.T) {
+func TestMCPWriteArtifact_VerdictNodeErrNotAnArtifact(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -209,13 +209,13 @@ func TestMCPWriteFile_VerdictNodeErrNotAnArtifact(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	_, err = mcpwritefile.MCPWriteFile(token, "content")
-	if !errors.Is(err, mcpwritefile.ErrNotAnArtifact) {
+	_, err = mcpwriteartifact.MCPWriteArtifact(token, "content")
+	if !errors.Is(err, mcpwriteartifact.ErrNotAnArtifact) {
 		t.Errorf("expected ErrNotAnArtifact, got %v", err)
 	}
 }
 
-func TestMCPWriteFile_DefaultOutputPathWhenOutputAbsent(t *testing.T) {
+func TestMCPWriteArtifact_DefaultOutputPathWhenOutputAbsent(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -230,7 +230,7 @@ func TestMCPWriteFile_DefaultOutputPathWhenOutputAbsent(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	result, err := mcpwritefile.MCPWriteFile(token, "# content")
+	result, err := mcpwriteartifact.MCPWriteArtifact(token, "# content")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

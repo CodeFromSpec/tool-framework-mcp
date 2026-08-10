@@ -10,7 +10,7 @@ Mints an opaque token for a logical name. The
 orchestrator calls this tool and hands the returned
 token — never the raw logical name — to a generation
 subagent, which passes it back to `load_chain` and
-`write_file`. This tool is not exposed to subagents, so
+`write_artifact`. This tool is not exposed to subagents, so
 a subagent can never mint a token for a node other than
 the one it was dispatched for.
 

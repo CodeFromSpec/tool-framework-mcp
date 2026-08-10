@@ -1,4 +1,4 @@
-package mcpwritefile
+package mcpwriteartifact
 
 import (
 	"crypto/sha1"
@@ -22,7 +22,7 @@ var (
 	ErrNotAnArtifact         = errors.New("node type is not artifact")
 )
 
-func MCPWriteFile(token, content string) (string, error) {
+func MCPWriteArtifact(token, content string) (string, error) {
 	logicalName, err := subagenttoken.SubagentTokenValidate(token)
 	if err != nil {
 		return "", err

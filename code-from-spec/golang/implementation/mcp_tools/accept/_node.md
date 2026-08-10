@@ -86,7 +86,7 @@ Implement the accept tool as a Go package.
 
 5. Read the full file content. Compute its SHA-1
    hash (base64url, 27 chars) using the same
-   normalization as write_file (CRLF→LF, trailing
+   normalization as write_artifact (CRLF→LF, trailing
    LF). Call `handle.Close()`. Store as `checksum`.
 
 6. Call `chainresolver.ChainResolve(spec_name)`.

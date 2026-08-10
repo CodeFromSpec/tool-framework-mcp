@@ -8,7 +8,7 @@ Generates and validates opaque tokens that stand in for
 a logical name when handed to a generation subagent. A
 subagent cannot construct a valid token on its own, so
 passing tokens instead of raw logical names to
-`load_chain` and `write_file` confines the subagent to
+`load_chain` and `write_artifact` confines the subagent to
 the node it was dispatched for.
 
 # Public
