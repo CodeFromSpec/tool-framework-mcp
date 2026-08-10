@@ -24,6 +24,10 @@ func MCPReconstructCache() (string, error) {
 	chainWritten := 0
 
 	for key := range m.Entries {
+		if !strings.HasPrefix(key, "ARTIFACT/") {
+			continue
+		}
+
 		specName := "SPEC/" + strings.TrimPrefix(key, "ARTIFACT/")
 
 		node, err := parsing.ParseNode(specName)

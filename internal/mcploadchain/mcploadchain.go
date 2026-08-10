@@ -19,7 +19,7 @@ import (
 var (
 	ErrNoOutput          = errors.New("target node has no type field")
 	ErrInvalidOutputPath = errors.New("output path is invalid")
-	ErrArtifactModified  = errors.New("artifact file was modified outside the framework")
+	ErrModified          = errors.New("artifact file was modified outside the framework")
 )
 
 func MCPLoadChain(token string) (string, error) {
@@ -44,15 +44,22 @@ func MCPLoadChain(token string) (string, error) {
 		return "", ErrInvalidOutputPath
 	}
 
-	artifactLogicalName := "ARTIFACT/" + strings.TrimPrefix(logicalName, "SPEC/")
+	isVerdict := node.Frontmatter != nil && node.Frontmatter.Type != nil && *node.Frontmatter.Type == "verdict"
+
+	var manifestKey string
+	if isVerdict {
+		manifestKey = "VERDICT/" + strings.TrimPrefix(logicalName, "SPEC/")
+	} else {
+		manifestKey = "ARTIFACT/" + strings.TrimPrefix(logicalName, "SPEC/")
+	}
 
 	m, err := manifest.OpenManifest(true)
 	if err == nil {
-		if entry, ok := m.Entries[artifactLogicalName]; ok {
+		if entry, ok := m.Entries[manifestKey]; ok {
 			fileChecksum, readErr := computeFileChecksum(oslayer.CfsPath(outputPath))
 			if readErr == nil {
 				if fileChecksum != entry.Checksum {
-					return "", ErrArtifactModified
+					return "", ErrModified
 				}
 			}
 		}
@@ -68,21 +75,26 @@ func MCPLoadChain(token string) (string, error) {
 		return "", fmt.Errorf("computing chain hash: %w", err)
 	}
 
-	existingContent, existingReadErr := parsing.ReadFileContent(oslayer.CfsPath(outputPath))
-	artifactExists := existingReadErr == nil
-
+	var existingContent string
+	var artifactExists bool
 	var cachedPositions []chainhash.ContentHash
 	var cachedChainHash string
-	cacheAvailable := false
+	var cacheAvailable bool
 
-	if artifactExists && m != nil {
-		if entry, ok := m.Entries[artifactLogicalName]; ok {
-			cachedChainHash = entry.ChainHash
-			if cachedChainHash != "" {
-				var readErr error
-				cachedPositions, readErr = cache.ReadChain(cachedChainHash)
-				if readErr == nil {
-					cacheAvailable = true
+	if !isVerdict {
+		var readErr error
+		existingContent, readErr = parsing.ReadFileContent(oslayer.CfsPath(outputPath))
+		artifactExists = readErr == nil
+
+		if artifactExists && m != nil {
+			if entry, ok := m.Entries[manifestKey]; ok {
+				cachedChainHash = entry.ChainHash
+				if cachedChainHash != "" {
+					var chainReadErr error
+					cachedPositions, chainReadErr = cache.ReadChain(cachedChainHash)
+					if chainReadErr == nil {
+						cacheAvailable = true
+					}
 				}
 			}
 		}
@@ -102,11 +114,13 @@ func MCPLoadChain(token string) (string, error) {
 
 	contentByLabel := make(map[string]string)
 
+	diffEnabled := artifactExists && cacheAvailable
+
 	var sb strings.Builder
 
 	sb.WriteString("<chain>\n")
 
-	if artifactExists && cacheAvailable {
+	if diffEnabled {
 		prevConstraintsEntries := buildPreviousConstraintsEntries(chain, cachedHashByLabel, currentHashByLabel)
 		if len(prevConstraintsEntries) > 0 {
 			sb.WriteString("<previous_constraints>\n")
@@ -157,7 +171,7 @@ func MCPLoadChain(token string) (string, error) {
 			continue
 		}
 		contentByLabel[ancestor.LogicalName] = content
-		disposition := computeDisposition(ancestor.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+		disposition := computeDisposition(ancestor.LogicalName, currentHashByLabel, cachedHashByLabel, diffEnabled)
 		sb.WriteString("<entry name=\"")
 		sb.WriteString(ancestor.LogicalName)
 		sb.WriteString("\"")
@@ -179,7 +193,7 @@ func MCPLoadChain(token string) (string, error) {
 		content := extractPublicContent(targetNode, nil)
 		if content != "" {
 			contentByLabel[chain.Target.LogicalName] = content
-			disposition := computeDisposition(chain.Target.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+			disposition := computeDisposition(chain.Target.LogicalName, currentHashByLabel, cachedHashByLabel, diffEnabled)
 			sb.WriteString("<entry name=\"")
 			sb.WriteString(chain.Target.LogicalName)
 			sb.WriteString("\"")
@@ -206,7 +220,7 @@ func MCPLoadChain(token string) (string, error) {
 					return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
 				}
 				contentByLabel[dep.LogicalName] = fileContent
-				disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, diffEnabled)
 				sb.WriteString("<entry name=\"")
 				sb.WriteString(dep.LogicalName)
 				sb.WriteString("\"")
@@ -225,7 +239,7 @@ func MCPLoadChain(token string) (string, error) {
 					return "", fmt.Errorf("reading dependency %s: %w", dep.LogicalName, readErr)
 				}
 				contentByLabel[dep.LogicalName] = fileContent
-				disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				disposition := computeDisposition(dep.LogicalName, currentHashByLabel, cachedHashByLabel, diffEnabled)
 				sb.WriteString("<entry name=\"")
 				sb.WriteString(dep.LogicalName)
 				sb.WriteString("\"")
@@ -252,7 +266,7 @@ func MCPLoadChain(token string) (string, error) {
 					entryName = entryName + "(" + *dep.Qualifier + ")"
 				}
 				contentByLabel[entryName] = content
-				disposition := computeDisposition(entryName, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				disposition := computeDisposition(entryName, currentHashByLabel, cachedHashByLabel, diffEnabled)
 				sb.WriteString("<entry name=\"")
 				sb.WriteString(entryName)
 				sb.WriteString("\"")
@@ -273,7 +287,7 @@ func MCPLoadChain(token string) (string, error) {
 		agentContent := parsing.ExtractAgentContent(targetNode)
 		agentLabel := "AGENT[" + chain.Target.LogicalName + "]"
 		contentByLabel[agentLabel] = agentContent
-		disposition := computeDisposition(agentLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+		disposition := computeDisposition(agentLabel, currentHashByLabel, cachedHashByLabel, diffEnabled)
 		sb.WriteString("<instructions")
 		if disposition != "" {
 			sb.WriteString(" disposition=\"")
@@ -301,7 +315,7 @@ func MCPLoadChain(token string) (string, error) {
 					return "", fmt.Errorf("reading input %s: %w", inp.LogicalName, readErr)
 				}
 				contentByLabel[inputLabel] = fileContent
-				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, diffEnabled)
 				sb.WriteString("<entry name=\"")
 				sb.WriteString(entryName)
 				sb.WriteString("\"")
@@ -320,7 +334,7 @@ func MCPLoadChain(token string) (string, error) {
 					return "", fmt.Errorf("reading input %s: %w", inp.LogicalName, readErr)
 				}
 				contentByLabel[inputLabel] = fileContent
-				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, diffEnabled)
 				sb.WriteString("<entry name=\"")
 				sb.WriteString(entryName)
 				sb.WriteString("\"")
@@ -343,7 +357,7 @@ func MCPLoadChain(token string) (string, error) {
 					continue
 				}
 				contentByLabel[inputLabel] = content
-				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, artifactExists && cacheAvailable)
+				disposition := computeDisposition(inputLabel, currentHashByLabel, cachedHashByLabel, diffEnabled)
 				sb.WriteString("<entry name=\"")
 				sb.WriteString(entryName)
 				sb.WriteString("\"")
@@ -362,12 +376,14 @@ func MCPLoadChain(token string) (string, error) {
 
 	sb.WriteString("</chain>\n")
 
-	for _, position := range positions {
-		if content, ok := contentByLabel[position.Label]; ok {
-			_ = cache.WriteContent(position.Hash, content)
+	if !isVerdict {
+		for _, position := range positions {
+			if content, ok := contentByLabel[position.Label]; ok {
+				_ = cache.WriteContent(position.Hash, content)
+			}
 		}
+		_ = cache.WriteChain(chainHash, positions)
 	}
-	_ = cache.WriteChain(chainHash, positions)
 
 	return sb.String(), nil
 }

@@ -12,6 +12,7 @@ type CfsNodeType int
 const (
 	CfsNodeTypeSpec     CfsNodeType = iota
 	CfsNodeTypeArtifact CfsNodeType = iota
+	CfsNodeTypeVerdict  CfsNodeType = iota
 	CfsNodeTypeExternal CfsNodeType = iota
 )
 
@@ -80,6 +81,28 @@ func CfsReferenceFromName(logicalName string) (*CfsReference, error) {
 		}
 		return &CfsReference{
 			NodeType:    CfsNodeTypeArtifact,
+			LogicalName: stripped,
+			Qualifier:   nil,
+			Path:        *resolvedOutput,
+			ParentName:  stringPtrLN(generatorName),
+		}, nil
+
+	case strings.HasPrefix(stripped, "VERDICT/"):
+		relative := strings.TrimPrefix(stripped, "VERDICT/")
+		if relative == "" {
+			return nil, fmt.Errorf("%w: %q", ErrInvalidName, logicalName)
+		}
+		generatorName := "SPEC/" + relative
+		node, err := ParseNode(generatorName)
+		if err != nil {
+			return nil, fmt.Errorf("resolving verdict %q: %w", logicalName, err)
+		}
+		resolvedOutput := ResolvedOutput(node)
+		if resolvedOutput == nil {
+			return nil, fmt.Errorf("%w: %q", ErrNoOutput, logicalName)
+		}
+		return &CfsReference{
+			NodeType:    CfsNodeTypeVerdict,
 			LogicalName: stripped,
 			Qualifier:   nil,
 			Path:        *resolvedOutput,

@@ -34,7 +34,7 @@ func computeChainHash(t *testing.T, logicalName string) string {
 	return hash
 }
 
-func writeManifestEntry(t *testing.T, artifactLogicalName, path, checksum, chainHash string) {
+func writeManifestEntry(t *testing.T, artifactLogicalName, path, checksum, chainHash, result string) {
 	t.Helper()
 	m, err := manifest.OpenManifest(false)
 	if err != nil {
@@ -45,6 +45,7 @@ func writeManifestEntry(t *testing.T, artifactLogicalName, path, checksum, chain
 		Path:      path,
 		Checksum:  checksum,
 		ChainHash: chainHash,
+		Result:    result,
 	}
 	if err := m.Save(); err != nil {
 		t.Fatalf("manifest.Save: %v", err)
@@ -79,7 +80,7 @@ func TestCleanTree(t *testing.T) {
 	chainHash := computeChainHash(t, "SPEC/root/a")
 	checksum := fileChecksum(fileContent)
 
-	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", checksum, chainHash)
+	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", checksum, chainHash, "")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
@@ -115,7 +116,7 @@ func TestStaleArtifact(t *testing.T) {
 	checksum := fileChecksum(fileContent)
 	staleHash := "AAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
-	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", checksum, staleHash)
+	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", checksum, staleHash, "")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
@@ -168,7 +169,7 @@ func TestMissingArtifactFileDoesNotExist(t *testing.T) {
 	chainHash := computeChainHash(t, "SPEC/root/a")
 	placeholderChecksum := "AAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
-	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", placeholderChecksum, chainHash)
+	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", placeholderChecksum, chainHash, "")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
@@ -205,7 +206,7 @@ func TestModifiedArtifact(t *testing.T) {
 	chainHash := computeChainHash(t, "SPEC/root/a")
 	originalChecksum := fileChecksum(originalContent)
 
-	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", originalChecksum, chainHash)
+	writeManifestEntry(t, "ARTIFACT/root/a", "out/a.go", originalChecksum, chainHash, "")
 
 	modifiedContent := "package a // modified\n"
 	if err := os.WriteFile("out/a.go", []byte(modifiedContent), 0644); err != nil {
@@ -232,7 +233,7 @@ func TestOrphanManifestEntry(t *testing.T) {
 	b := testutils.CreateSpecNode(t, "SPEC/root")
 	b.Write()
 
-	writeManifestEntry(t, "ARTIFACT/root/deleted", "out/deleted.go", "AAAAAAAAAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAAAAAAAAA")
+	writeManifestEntry(t, "ARTIFACT/root/deleted", "out/deleted.go", "AAAAAAAAAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
 
 	report := mcpvalidatespecs.MCPValidateSpecs()
 
@@ -508,6 +509,97 @@ func TestNodeWithNoTypeNotInStaleness(t *testing.T) {
 		if s.Node == "SPEC/root/a" {
 			t.Errorf("expected no staleness entry for SPEC/root/a (no type), got %v", s)
 		}
+	}
+}
+
+func TestVerdictNodeStalenessDetectedWithResult(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	bv := testutils.CreateSpecNode(t, "SPEC/root/v")
+	bv.SetType("verdict")
+	bv.SetOutput("code-from-spec/root/v/verdict.md")
+	bv.Write()
+
+	verdictContent := "verdict content\n"
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("mkdir code-from-spec/root/v: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte(verdictContent), 0644); err != nil {
+		t.Fatalf("write verdict.md: %v", err)
+	}
+
+	checksum := fileChecksum(verdictContent)
+	staleHash := "AAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+	writeManifestEntry(t, "VERDICT/root/v", "code-from-spec/root/v/verdict.md", checksum, staleHash, "pass")
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	found := false
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/v" && s.Status == "stale" && s.Result == "pass" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected staleness entry for SPEC/root/v with status 'stale' and result 'pass', got %v", report.Staleness)
+	}
+}
+
+func TestVerdictNodeUpToDate(t *testing.T) {
+	testutils.Chdir(t)
+
+	createRootNode(t)
+
+	bv := testutils.CreateSpecNode(t, "SPEC/root/v")
+	bv.SetType("verdict")
+	bv.SetOutput("code-from-spec/root/v/verdict.md")
+	bv.Write()
+
+	verdictContent := "verdict content\n"
+	if err := os.MkdirAll("code-from-spec/root/v", 0755); err != nil {
+		t.Fatalf("mkdir code-from-spec/root/v: %v", err)
+	}
+	if err := os.WriteFile("code-from-spec/root/v/verdict.md", []byte(verdictContent), 0644); err != nil {
+		t.Fatalf("write verdict.md: %v", err)
+	}
+
+	chainHash := computeChainHash(t, "SPEC/root/v")
+	checksum := fileChecksum(verdictContent)
+
+	writeManifestEntry(t, "VERDICT/root/v", "code-from-spec/root/v/verdict.md", checksum, chainHash, "pass")
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	for _, s := range report.Staleness {
+		if s.Node == "SPEC/root/v" {
+			t.Errorf("expected no staleness entry for SPEC/root/v (up to date), got %v", s)
+		}
+	}
+}
+
+func TestOrphanVerdictEntry(t *testing.T) {
+	testutils.Chdir(t)
+
+	b := testutils.CreateSpecNode(t, "SPEC/root")
+	b.Write()
+
+	writeManifestEntry(t, "VERDICT/root/deleted", "code-from-spec/root/deleted/verdict.md", "AAAAAAAAAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+
+	report := mcpvalidatespecs.MCPValidateSpecs()
+
+	found := false
+	for _, s := range report.Staleness {
+		if s.Status == "orphan" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected staleness entry with status 'orphan' for VERDICT entry, got %v", report.Staleness)
 	}
 }
 

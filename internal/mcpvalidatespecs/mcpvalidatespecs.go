@@ -24,6 +24,7 @@ type StalenessEntry struct {
 	Status       string
 	Detail       string
 	Rank         int
+	Result       string
 }
 
 type ValidationReport struct {
@@ -145,7 +146,14 @@ func MCPValidateSpecs() ValidationReport {
 		if resolvedOutput != nil {
 			artifactPath = *resolvedOutput
 		}
-		artifactLogicalName := "ARTIFACT/" + strings.TrimPrefix(n.Reference.LogicalName, "SPEC/")
+
+		suffix := strings.TrimPrefix(n.Reference.LogicalName, "SPEC/")
+		manifestKey := ""
+		if n.Frontmatter != nil && n.Frontmatter.Type != nil && *n.Frontmatter.Type == "verdict" {
+			manifestKey = "VERDICT/" + suffix
+		} else {
+			manifestKey = "ARTIFACT/" + suffix
+		}
 
 		chain, chainErr := chainresolver.ChainResolve(n.Reference.LogicalName)
 		if chainErr != nil {
@@ -171,7 +179,7 @@ func MCPValidateSpecs() ValidationReport {
 			continue
 		}
 
-		entry, entryExists := manifestEntries[artifactLogicalName]
+		entry, entryExists := manifestEntries[manifestKey]
 		if !entryExists {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
@@ -190,6 +198,7 @@ func MCPValidateSpecs() ValidationReport {
 				Status:       "stale",
 				Detail:       "manifest chain hash " + entry.ChainHash + " does not match expected hash " + computedHash,
 				Rank:         rank,
+				Result:       entry.Result,
 			})
 			continue
 		}
@@ -227,15 +236,20 @@ func MCPValidateSpecs() ValidationReport {
 				Status:       "modified",
 				Detail:       "file checksum does not match manifest checksum",
 				Rank:         rank,
+				Result:       entry.Result,
 			})
 		}
 	}
 
 	for artifactKey, entry := range manifestEntries {
-		if !strings.HasPrefix(artifactKey, "ARTIFACT/") {
+		var specLogicalName string
+		if strings.HasPrefix(artifactKey, "ARTIFACT/") {
+			specLogicalName = "SPEC/" + strings.TrimPrefix(artifactKey, "ARTIFACT/")
+		} else if strings.HasPrefix(artifactKey, "VERDICT/") {
+			specLogicalName = "SPEC/" + strings.TrimPrefix(artifactKey, "VERDICT/")
+		} else {
 			continue
 		}
-		specLogicalName := "SPEC/" + strings.TrimPrefix(artifactKey, "ARTIFACT/")
 		node, nodeExists := parsedNodes[specLogicalName]
 		if !nodeExists || node.Frontmatter == nil || node.Frontmatter.Type == nil {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{

@@ -35,7 +35,14 @@ func MCPPruneOrphans() (string, error) {
 
 	var orphanKeys []string
 	for key := range m.Entries {
-		generatingNode := "SPEC/" + strings.TrimPrefix(key, "ARTIFACT/")
+		var generatingNode string
+		if strings.HasPrefix(key, "ARTIFACT/") {
+			generatingNode = "SPEC/" + strings.TrimPrefix(key, "ARTIFACT/")
+		} else if strings.HasPrefix(key, "VERDICT/") {
+			generatingNode = "SPEC/" + strings.TrimPrefix(key, "VERDICT/")
+		} else {
+			continue
+		}
 		node, found := parsedNodes[generatingNode]
 		if !found {
 			orphanKeys = append(orphanKeys, key)

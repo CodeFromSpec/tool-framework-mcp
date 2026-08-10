@@ -320,6 +320,94 @@ func TestCfsReferenceFromName_ArtifactType(t *testing.T) {
 	})
 }
 
+func TestCfsReferenceFromName_VerdictType(t *testing.T) {
+	t.Run("bare VERDICT is invalid", func(t *testing.T) {
+		_, err := parsing.CfsReferenceFromName("VERDICT")
+		if !errors.Is(err, parsing.ErrUnrecognizedPrefix) {
+			t.Fatalf("expected ErrUnrecognizedPrefix, got %v", err)
+		}
+	})
+
+	t.Run("VERDICT/ with empty relative path", func(t *testing.T) {
+		_, err := parsing.CfsReferenceFromName("VERDICT/")
+		if !errors.Is(err, parsing.ErrInvalidName) {
+			t.Fatalf("expected ErrInvalidName, got %v", err)
+		}
+	})
+
+	t.Run("simple verdict", func(t *testing.T) {
+		testutils.Chdir(t)
+
+		b := testutils.CreateSpecNode(t, "SPEC/review/fees")
+		b.SetType("verdict")
+		b.SetOutput("code-from-spec/review/fees/verdict.md")
+		b.Write()
+
+		ref, err := parsing.CfsReferenceFromName("VERDICT/review/fees")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ref.NodeType != parsing.CfsNodeTypeVerdict {
+			t.Errorf("NodeType = %v, want CfsNodeTypeVerdict", ref.NodeType)
+		}
+		if ref.LogicalName != "VERDICT/review/fees" {
+			t.Errorf("LogicalName = %q, want %q", ref.LogicalName, "VERDICT/review/fees")
+		}
+		if ref.Qualifier != nil {
+			t.Errorf("Qualifier = %v, want nil", ref.Qualifier)
+		}
+		if ref.Path != "code-from-spec/review/fees/verdict.md" {
+			t.Errorf("Path = %q, want %q", ref.Path, "code-from-spec/review/fees/verdict.md")
+		}
+		if ref.ParentName == nil {
+			t.Errorf("ParentName = nil, want pointer to %q", "SPEC/review/fees")
+		} else if *ref.ParentName != "SPEC/review/fees" {
+			t.Errorf("ParentName = %q, want %q", *ref.ParentName, "SPEC/review/fees")
+		}
+	})
+
+	t.Run("verdict with default output no output field", func(t *testing.T) {
+		testutils.Chdir(t)
+
+		b := testutils.CreateSpecNode(t, "SPEC/review/api")
+		b.SetType("verdict")
+		b.Write()
+
+		ref, err := parsing.CfsReferenceFromName("VERDICT/review/api")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ref.NodeType != parsing.CfsNodeTypeVerdict {
+			t.Errorf("NodeType = %v, want CfsNodeTypeVerdict", ref.NodeType)
+		}
+		if ref.LogicalName != "VERDICT/review/api" {
+			t.Errorf("LogicalName = %q, want %q", ref.LogicalName, "VERDICT/review/api")
+		}
+		if ref.Qualifier != nil {
+			t.Errorf("Qualifier = %v, want nil", ref.Qualifier)
+		}
+		if ref.Path != "code-from-spec/review/api/verdict.md" {
+			t.Errorf("Path = %q, want %q", ref.Path, "code-from-spec/review/api/verdict.md")
+		}
+		if ref.ParentName == nil {
+			t.Errorf("ParentName = nil, want pointer to %q", "SPEC/review/api")
+		} else if *ref.ParentName != "SPEC/review/api" {
+			t.Errorf("ParentName = %q, want %q", *ref.ParentName, "SPEC/review/api")
+		}
+	})
+
+	t.Run("verdict generator has no type", func(t *testing.T) {
+		testutils.Chdir(t)
+
+		testutils.WriteRawNode(t, "SPEC/review/api", "---\n---\n# SPEC/review/api\n")
+
+		_, err := parsing.CfsReferenceFromName("VERDICT/review/api")
+		if !errors.Is(err, parsing.ErrNoOutput) {
+			t.Fatalf("expected ErrNoOutput, got %v", err)
+		}
+	})
+}
+
 func TestCfsReferenceFromName_Errors(t *testing.T) {
 	cases := []struct {
 		name      string

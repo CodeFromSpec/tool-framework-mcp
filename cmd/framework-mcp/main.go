@@ -15,6 +15,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpreconstructcache"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpvalidatespecs"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwriteverdict"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -27,8 +28,9 @@ projects.
 
 Tools:
   load_chain          Load the spec chain for a node.
-  write_file          Write a generated file to disk.
-  validate_specs      Validate specs and check artifact staleness.
+  write_file          Write a generated artifact to disk.
+  write_verdict       Write a verdict document to disk.
+  validate_specs      Validate specs and check staleness.
   accept              Accept a modified artifact.
   create_token        Mint an opaque token for a logical name.
   dump_chain          Dump the spec chain to a file.
@@ -89,7 +91,7 @@ func main() {
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "write_file",
-		Description: "Write a generated file to disk.",
+		Description: "Write a generated artifact to disk.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteFileArgs) (*mcp.CallToolResult, any, error) {
 		result, err := mcpwritefile.MCPWriteFile(args.Token, args.Content)
 		if err != nil {
@@ -103,9 +105,30 @@ func main() {
 		}, nil, nil
 	})
 
+	type WriteVerdictArgs struct {
+		Token   string `json:"token" jsonschema:"Opaque token identifying the node whose output declares the target path, as returned by create_token."`
+		Passed  bool   `json:"passed" jsonschema:"The verdict: true for pass, false for fail."`
+		Content string `json:"content" jsonschema:"Complete verdict document content (UTF-8 text)."`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "write_verdict",
+		Description: "Write a verdict document to disk.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteVerdictArgs) (*mcp.CallToolResult, any, error) {
+		result, err := mcpwriteverdict.MCPWriteVerdict(args.Token, args.Passed, args.Content)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
+				IsError: true,
+			}, nil, nil
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
+		}, nil, nil
+	})
+
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "validate_specs",
-		Description: "Validate specs and check artifact staleness.",
+		Description: "Validate specs and check staleness.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		report := mcpvalidatespecs.MCPValidateSpecs()
 		text := formatValidationReport(report)
@@ -115,7 +138,7 @@ func main() {
 	})
 
 	type AcceptArgs struct {
-		LogicalName string `json:"logical_name" jsonschema:"Logical name of the node whose artifact was modified."`
+		LogicalName string `json:"logical_name" jsonschema:"Logical name of the artifact or verdict to accept: ARTIFACT/<name> or VERDICT/<name>."`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "accept",

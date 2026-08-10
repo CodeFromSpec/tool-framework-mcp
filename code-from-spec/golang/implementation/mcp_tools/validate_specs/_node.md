@@ -14,7 +14,7 @@ output: internal/mcpvalidatespecs/mcpvalidatespecs.go
 # SPEC/golang/implementation/mcp_tools/validate_specs
 
 Validates the spec tree for format errors, circular
-references, and artifact staleness.
+references, and artifact and verdict staleness.
 
 # Public
 
@@ -35,6 +35,7 @@ type StalenessEntry struct {
 	Status       string
 	Detail       string
 	Rank         int
+	Result       string
 }
 
 type ValidationReport struct {
@@ -131,9 +132,11 @@ Implement the validate specs tool as a Go package.
    For each node whose frontmatter Type is not nil,
    in the above order:
 
-     a. Derive the artifact logical name: strip "SPEC/"
-        prefix from node.logical_name and prepend
-        "ARTIFACT/". Let `resolved_output` =
+     a. Derive the manifest key: strip "SPEC/" prefix
+        from node.logical_name. If
+        *node.Frontmatter.Type is "verdict", prepend
+        "VERDICT/"; otherwise prepend "ARTIFACT/".
+        Let `resolved_output` =
         `parsing.ResolvedOutput(node)` (explicit output
         or default path).
 
@@ -156,8 +159,7 @@ Implement the validate specs tool as a Go package.
           rank=<node rank or 0 if unavailable>)
         to staleness. Continue to next node.
 
-     d. Look up the artifact logical name in
-        m.Entries.
+     d. Look up the manifest key in m.Entries.
 
         If no entry exists: Append StalenessEntry with
         status="missing", detail="no manifest entry".
@@ -167,7 +169,8 @@ Implement the validate specs tool as a Go package.
           hash. If they differ: Append StalenessEntry
           with status="stale", detail="manifest chain
           hash <entry.ChainHash> does not match
-          expected hash <chain hash>".
+          expected hash <chain hash>",
+          result=entry.Result.
 
           If chain hashes match: check the file on
           disk. Construct oslayer.CfsPath from
@@ -181,10 +184,11 @@ Implement the validate specs tool as a Go package.
           entry.Checksum. If they differ: Append
           StalenessEntry with status="modified",
           detail="file checksum does not match
-          manifest checksum".
+          manifest checksum",
+          result=entry.Result.
 
         If chain hash matches and checksum matches:
-        skip (artifact is up to date).
+        skip (up to date).
 
         Set artifact_path from *resolved_output.
         Set rank from the node's rank (from Step 4,
@@ -193,11 +197,14 @@ Implement the validate specs tool as a Go package.
 ### Step 7 — Orphan detection
 
 8. For each entry in m.Entries:
-     Derive the generating node's logical name: strip
-     "ARTIFACT/" prefix and prepend "SPEC/".
+     Derive the generating node's logical name: if the
+     key starts with "ARTIFACT/", strip "ARTIFACT/"
+     prefix and prepend "SPEC/". If the key starts with
+     "VERDICT/", strip "VERDICT/" prefix and prepend
+     "SPEC/". Otherwise skip (unknown prefix).
      If no successfully parsed node has that logical
      name, or if the node's frontmatter Type is nil: Append StalenessEntry(
-       node=entry key (artifact logical name),
+       node=entry key,
        artifact_path=entry.Path,
        status="orphan",
        detail="manifest entry has no corresponding

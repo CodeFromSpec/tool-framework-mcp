@@ -194,6 +194,27 @@ func TestMCPWriteFile_NoTypeDeclared(t *testing.T) {
 	}
 }
 
+func TestMCPWriteFile_VerdictNodeErrNotAnArtifact(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	node := testutils.CreateSpecNode(t, "SPEC/root/a")
+	node.SetType("verdict")
+	node.Write()
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	_, err = mcpwritefile.MCPWriteFile(token, "content")
+	if !errors.Is(err, mcpwritefile.ErrNotAnArtifact) {
+		t.Errorf("expected ErrNotAnArtifact, got %v", err)
+	}
+}
+
 func TestMCPWriteFile_DefaultOutputPathWhenOutputAbsent(t *testing.T) {
 	testutils.Chdir(t)
 

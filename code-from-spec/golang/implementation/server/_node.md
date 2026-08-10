@@ -10,6 +10,7 @@ depends_on:
   - SPEC/golang/implementation/mcp_tools/reconstruct_cache
   - SPEC/golang/implementation/mcp_tools/validate_specs
   - SPEC/golang/implementation/mcp_tools/write_file
+  - SPEC/golang/implementation/mcp_tools/write_verdict
   - SPEC/golang/implementation/spec_tree/validate(interface)
 output: cmd/framework-mcp/main.go
 ---
@@ -52,6 +53,8 @@ the server.
      size to the client.
    - `mcpwritefile.MCPWriteFile` — tool name
      `write_file`.
+   - `mcpwriteverdict.MCPWriteVerdict` — tool name
+     `write_verdict`.
    - `mcpvalidatespecs.MCPValidateSpecs` — tool name
      `validate_specs`.
    - `mcpaccept.MCPAccept` — tool name `accept`.
@@ -88,8 +91,9 @@ projects.
 
 Tools:
   load_chain          Load the spec chain for a node.
-  write_file          Write a generated file to disk.
-  validate_specs      Validate specs and check artifact staleness.
+  write_file          Write a generated artifact to disk.
+  write_verdict       Write a verdict document to disk.
+  validate_specs      Validate specs and check staleness.
   accept              Accept a modified artifact.
   create_token        Mint an opaque token for a logical name.
   dump_chain          Dump the spec chain to a file.
@@ -120,18 +124,19 @@ MCP configuration example:
 
 ## Go-specific guidance
 
-- Import the nine MCP tool packages:
-  `mcploadchain`, `mcpwritefile`, `mcpvalidatespecs`,
-  `mcpaccept`, `mcpcreatetoken`, `mcpdumpchain`,
-  `mcpreconstructcache`, `mcpprunecache`,
-  `mcppruneorphans`.
+- Import the ten MCP tool packages:
+  `mcploadchain`, `mcpwritefile`, `mcpwriteverdict`,
+  `mcpvalidatespecs`, `mcpaccept`, `mcpcreatetoken`,
+  `mcpdumpchain`, `mcpreconstructcache`,
+  `mcpprunecache`, `mcppruneorphans`.
 - Each tool handler receives MCP request parameters and
   calls the corresponding package function.
 - The handler wraps the function result into an MCP
   tool response (text content).
-- For `MCPLoadChain`, `MCPWriteFile`, `MCPAccept`,
-  `MCPCreateToken`, and `MCPDumpChain`, the result is a
-  string — return directly as text content.
+- For `MCPLoadChain`, `MCPWriteFile`, `MCPWriteVerdict`,
+  `MCPAccept`, `MCPCreateToken`, and `MCPDumpChain`,
+  the result is a string — return directly as text
+  content.
 - For `MCPValidateSpecs`, the result is
   `ValidationReport` — format as human-readable text.
 - For `version`, return `Version` directly as text

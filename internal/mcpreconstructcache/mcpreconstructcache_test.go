@@ -146,6 +146,91 @@ func TestMCPReconstructCache_NoManifestSucceedsWithNoWork(t *testing.T) {
 	}
 }
 
+func TestMCPReconstructCache_SkipsVERDICTEntriesInManifest(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.SetPublic("## Context\ncontext content")
+	root.Write()
+
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
+	a.SetOutput("out/a.go")
+	a.SetPublic("## Interface\ninterface content")
+	a.Write()
+
+	v := testutils.CreateSpecNode(t, "SPEC/root/v")
+	v.SetType("verdict")
+	v.SetOutput("out/v.md")
+	v.SetPublic("## Verdict\nverdict content")
+	v.Write()
+
+	artifactContent := "package out\n"
+	verdictContent := "verdict result\n"
+	if err := os.MkdirAll("out", 0o755); err != nil {
+		t.Fatalf("failed to create out directory: %v", err)
+	}
+	if err := os.WriteFile("out/a.go", []byte(artifactContent), 0o644); err != nil {
+		t.Fatalf("failed to write artifact file: %v", err)
+	}
+	if err := os.WriteFile("out/v.md", []byte(verdictContent), 0o644); err != nil {
+		t.Fatalf("failed to write verdict file: %v", err)
+	}
+
+	artifactChain, err := chainresolver.ChainResolve("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("ChainResolve for artifact failed: %v", err)
+	}
+	artifactChainHash, _, err := chainhash.ChainHashCompute(artifactChain)
+	if err != nil {
+		t.Fatalf("ChainHashCompute for artifact failed: %v", err)
+	}
+
+	verdictChain, err := chainresolver.ChainResolve("SPEC/root/v")
+	if err != nil {
+		t.Fatalf("ChainResolve for verdict failed: %v", err)
+	}
+	verdictChainHash, _, err := chainhash.ChainHashCompute(verdictChain)
+	if err != nil {
+		t.Fatalf("ChainHashCompute for verdict failed: %v", err)
+	}
+
+	m, err := manifest.OpenManifest(false)
+	if err != nil {
+		t.Fatalf("OpenManifest failed: %v", err)
+	}
+	defer func() { _ = m.Discard() }()
+	m.Entries["ARTIFACT/root/a"] = manifest.ManifestEntry{
+		Path:      "out/a.go",
+		Checksum:  computeChecksum(artifactContent),
+		ChainHash: artifactChainHash,
+	}
+	m.Entries["VERDICT/root/v"] = manifest.ManifestEntry{
+		Path:      "out/v.md",
+		Checksum:  computeChecksum(verdictContent),
+		ChainHash: verdictChainHash,
+		Result:    "pass",
+	}
+	if err := m.Save(); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	summary, err := mcpreconstructcache.MCPReconstructCache()
+	if err != nil {
+		t.Fatalf("MCPReconstructCache failed: %v", err)
+	}
+	if !strings.Contains(summary, "1 entries processed") {
+		t.Fatalf("expected summary to contain '1 entries processed', got %q", summary)
+	}
+
+	if _, err := cache.ReadChain(artifactChainHash); err != nil {
+		t.Fatalf("ReadChain for artifact failed: %v", err)
+	}
+	if _, err := cache.ReadChain(verdictChainHash); err == nil {
+		t.Fatalf("expected ReadChain for verdict to fail, but succeeded")
+	}
+}
+
 func TestMCPReconstructCache_EmptyManifestZeroEntriesProcessed(t *testing.T) {
 	testutils.Chdir(t)
 
