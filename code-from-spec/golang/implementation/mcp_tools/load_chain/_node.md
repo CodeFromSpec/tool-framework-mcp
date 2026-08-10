@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ARTIFACT/domain/code-from-spec/chain-assembly-details
+  - ARTIFACT/external/code-from-spec/chain-assembly-details
   - SPEC/golang/implementation/cache
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/chain/resolver
@@ -159,7 +159,7 @@ Implement the load chain tool as a Go package.
 
    Append: "<chain>\n"
 
-   See `ARTIFACT/domain/code-from-spec/chain-assembly-details`
+   See `ARTIFACT/external/code-from-spec/chain-assembly-details`
    for the exact XML section order, presence conditions,
    and a worked example. Follow it precisely.
 

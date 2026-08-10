@@ -1,7 +1,7 @@
 code-from-spec: v5
-ARTIFACT/domain/code-from-spec/cache-details;path:code-from-spec/domain/code-from-spec/cache-details/output.md;checksum:VNknhiNZlhg0JfHbW3ZQ9y3Z44I;chain:ORPdNH9fjdda5kI_ASDqKT_aEj0
-ARTIFACT/domain/code-from-spec/chain-assembly-details;path:code-from-spec/domain/code-from-spec/chain-assembly-details/output.md;checksum:WduxbrRpvqY67ho9r7YzhB_pJ_I;chain:pK4l3v3OsC76yuj_I19QWsiRVpw
-ARTIFACT/domain/code-from-spec/manifest-format;path:code-from-spec/domain/code-from-spec/manifest-format/output.md;checksum:bWUSHs-3s0lgoV86rpxRR1t_H7g;chain:GMcAic98XVqd9Dwt4r-k836u3H4
+ARTIFACT/external/code-from-spec/cache-details;path:code-from-spec/external/code-from-spec/cache-details/output.md;checksum:VNknhiNZlhg0JfHbW3ZQ9y3Z44I;chain:ORPdNH9fjdda5kI_ASDqKT_aEj0
+ARTIFACT/external/code-from-spec/chain-assembly-details;path:code-from-spec/external/code-from-spec/chain-assembly-details/output.md;checksum:WduxbrRpvqY67ho9r7YzhB_pJ_I;chain:pK4l3v3OsC76yuj_I19QWsiRVpw
+ARTIFACT/external/code-from-spec/manifest-format;path:code-from-spec/external/code-from-spec/manifest-format/output.md;checksum:bWUSHs-3s0lgoV86rpxRR1t_H7g;chain:GMcAic98XVqd9Dwt4r-k836u3H4
 ARTIFACT/golang/implementation/cache;path:internal/cache/cache.go;checksum:XC-_zAyHxyvNLDJ8IPUeqTcKGk8;chain:ltTC5agywZQ27JZIaNTppyc3LsA
 ARTIFACT/golang/implementation/chain/hash;path:internal/chainhash/chainhash.go;checksum:78X6OuoHDc3gSKYlM73KVDMYF1A;chain:iSDfaxcjBJcFYAHhZCjL5MOX8qI
 ARTIFACT/golang/implementation/chain/resolver;path:internal/chainresolver/chainresolver.go;checksum:dkH2qx86FSF7IxnYKHmcuOvrReI;chain:XVIq8Yg_tno_dzqm88_YBZiLw8c

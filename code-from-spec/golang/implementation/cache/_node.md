@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ARTIFACT/domain/code-from-spec/cache-details
+  - ARTIFACT/external/code-from-spec/cache-details
   - SPEC/golang/implementation/chain/hash
   - SPEC/golang/implementation/oslayer(interface)
 output: internal/cache/cache.go

@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - SPEC/domain/owasp-path-traversal
+  - SPEC/external/owasp-path-traversal
 output: internal/oslayer/path.go
 ---
 

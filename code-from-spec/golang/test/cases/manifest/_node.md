@@ -1,7 +1,7 @@
 ---
 depends_on:
   - SPEC/golang/test/utils/chdir
-  - ARTIFACT/domain/code-from-spec/manifest-format
+  - ARTIFACT/external/code-from-spec/manifest-format
   - SPEC/golang/implementation/oslayer(interface)
   - SPEC/golang/implementation/manifest
 output: internal/manifest/manifest_test.go
