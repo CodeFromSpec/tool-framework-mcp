@@ -1,5 +1,26 @@
 # Changelog
 
+## [6.1.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v6.0.0...v6.1.0) (2026-08-10)
+
+
+### Features
+
+* add 'type: verdict' support ([#44](https://github.com/CodeFromSpec/tool-framework-mcp/issues/44)) ([abcbf8b](https://github.com/CodeFromSpec/tool-framework-mcp/commit/abcbf8b8f5032e3fa9ddc0b74b12ad57b055578b))
+* add custom frontmatter field and reject unknown fields ([#41](https://github.com/CodeFromSpec/tool-framework-mcp/issues/41)) ([79b14b2](https://github.com/CodeFromSpec/tool-framework-mcp/commit/79b14b2451cf1e38b74740800504bc4dae158aa1))
+* add frontmatter `type` field and default output path ([#43](https://github.com/CodeFromSpec/tool-framework-mcp/issues/43)) ([9d1acc0](https://github.com/CodeFromSpec/tool-framework-mcp/commit/9d1acc0bfb0ec23fd2ff2b7bdc3fd9437d69f2dd))
+* add glob expansion for imports and input fields ([#46](https://github.com/CodeFromSpec/tool-framework-mcp/issues/46)) ([1e86457](https://github.com/CodeFromSpec/tool-framework-mcp/commit/1e864570111c17dab501f3eeeb907cd439552202))
+* add wait_on frontmatter field with blocking support ([#47](https://github.com/CodeFromSpec/tool-framework-mcp/issues/47)) ([f5e875f](https://github.com/CodeFromSpec/tool-framework-mcp/commit/f5e875ff4767c3eec2e7f72e01cdeeb81d13ccef))
+* multiple inputs ([#39](https://github.com/CodeFromSpec/tool-framework-mcp/issues/39)) ([d863834](https://github.com/CodeFromSpec/tool-framework-mcp/commit/d86383493fa3370327faed9a8b3f07b00c23c03c))
+* Rename write_file MCP tool to write_artifact ([#45](https://github.com/CodeFromSpec/tool-framework-mcp/issues/45)) ([11b8c15](https://github.com/CodeFromSpec/tool-framework-mcp/commit/11b8c151f0cdf20d9a825d02acf569d46f99486a))
+* renamed frontmatter field "depends_on" to "imports"  ([#38](https://github.com/CodeFromSpec/tool-framework-mcp/issues/38)) ([07cebf4](https://github.com/CodeFromSpec/tool-framework-mcp/commit/07cebf42f6fd18f9e81d0c774e4d9cc130009ffe))
+* separate imports into dedicated &lt;references&gt; section in chain XML ([#40](https://github.com/CodeFromSpec/tool-framework-mcp/issues/40)) ([51ea0cb](https://github.com/CodeFromSpec/tool-framework-mcp/commit/51ea0cb942d60fd6b8ffdfd90748c7a2429c1cfc))
+
+
+### Bug Fixes
+
+* imports, go mod updated to v6 ([#36](https://github.com/CodeFromSpec/tool-framework-mcp/issues/36)) ([9e79d4a](https://github.com/CodeFromSpec/tool-framework-mcp/commit/9e79d4a2730f88e421a4fef8b1a9c7da9dcc8345))
+* move domain/ specs to external/ ([#42](https://github.com/CodeFromSpec/tool-framework-mcp/issues/42)) ([683e679](https://github.com/CodeFromSpec/tool-framework-mcp/commit/683e679c680af0f2ffa07de1295d180967fa29e4))
+
 ## [6.0.0](https://github.com/CodeFromSpec/tool-framework-mcp/compare/v5.1.0...v6.0.0) (2026-08-07)
 
 
