@@ -79,8 +79,11 @@ Implement the prune orphans tool as a Go package.
 ### Step 3 — Identify orphans
 
 4. For each entry in `m.Entries`:
-   Derive the generating node's logical name: strip
-   "ARTIFACT/" prefix and prepend "SPEC/".
+   Derive the generating node's logical name: if the
+   key starts with "ARTIFACT/", strip "ARTIFACT/"
+   prefix and prepend "SPEC/". If the key starts with
+   "VERDICT/", strip "VERDICT/" prefix and prepend
+   "SPEC/". Otherwise skip (unknown prefix).
    An entry is orphan if:
    - No parsed node has that logical name, OR
    - The node's frontmatter Type is nil.

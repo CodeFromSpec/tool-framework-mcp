@@ -137,6 +137,21 @@ Actions:
 Expected:
 - Error `mcpwritefile.ErrNoOutput`.
 
+#### Verdict node — ErrNotAnArtifact
+
+Setup:
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
+  frontmatter `type: verdict`.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
+   → `token`.
+2. Call `mcpwritefile.MCPWriteFile(token, "content")`.
+
+Expected:
+- Error `mcpwritefile.ErrNotAnArtifact`.
+
 #### Default output path when output absent
 
 Setup:

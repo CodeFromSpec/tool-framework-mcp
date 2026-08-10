@@ -55,7 +55,9 @@ Implement the reconstruct cache tool as a Go package.
 
 3. For each entry in `m.Entries` (iterate in any order):
 
-   a. Derive the spec logical name: strip "ARTIFACT/"
+   a. If the entry key does not start with "ARTIFACT/",
+      skip this entry (verdict chains are not cached).
+      Derive the spec logical name: strip "ARTIFACT/"
       prefix from the entry key and prepend "SPEC/".
 
    b. Call `parsing.ParseNode(specName)`. If it fails,

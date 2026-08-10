@@ -97,6 +97,26 @@ Expected:
 - No error.
 - Returns a non-empty string.
 
+#### Skips VERDICT entries in manifest
+
+Setup:
+- Create a spec tree with one artifact node and one
+  verdict node.
+- Create both output files on disk.
+- Create a `.manifest` with both an `ARTIFACT/` entry
+  and a `VERDICT/` entry, with valid checksums and
+  chain hashes.
+
+Actions:
+1. Call `mcpreconstructcache.MCPReconstructCache()`.
+
+Expected:
+- No error.
+- Summary message shows only 1 entry processed (the
+  artifact, not the verdict).
+- Cache contains chain and content files for the
+  artifact entry only.
+
 #### Empty manifest — zero entries processed
 
 Setup:

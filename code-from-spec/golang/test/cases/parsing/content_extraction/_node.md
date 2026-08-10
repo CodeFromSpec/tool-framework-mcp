@@ -235,6 +235,27 @@ Actions:
 Expected: pointer to
 "code-from-spec/payments/fees/calculation/artifact.md".
 
+#### Default path for verdict type
+
+Actions:
+1. Build a `parsing.Node` with Reference.LogicalName =
+   "SPEC/review/fees", Type = pointer to "verdict",
+   Output = nil.
+2. Call `parsing.ResolvedOutput(node)`.
+
+Expected: pointer to
+"code-from-spec/review/fees/verdict.md".
+
+#### Explicit output for verdict type
+
+Actions:
+1. Build a `parsing.Node` with Reference.LogicalName =
+   "SPEC/review/fees", Type = pointer to "verdict",
+   Output = pointer to "reports/fees-verdict.md".
+2. Call `parsing.ResolvedOutput(node)`.
+
+Expected: pointer to "reports/fees-verdict.md".
+
 ## Go-specific guidance
 
 - The package name is `parsing_test` (external test

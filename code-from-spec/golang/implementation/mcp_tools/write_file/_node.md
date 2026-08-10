@@ -50,6 +50,8 @@ the output path read from the node's frontmatter.
 - `ErrUnreadableFrontmatter`: the node's frontmatter
   cannot be parsed.
 - `ErrNoOutput`: target node has no type field.
+- `ErrNotAnArtifact`: target node's type is not
+  `"artifact"`.
 - Propagated errors from `subagenttoken`, `parsing`,
   `oslayer` packages.
 
@@ -68,7 +70,11 @@ Implement the write file tool as a Go package.
    If it fails, return ErrUnreadableFrontmatter.
    Store the result as node.
 
-4. Let `resolved_output` =
+4. If `node.Frontmatter.Type` is nil, return ErrNoOutput.
+   If `*node.Frontmatter.Type` is not `"artifact"`,
+   return ErrNotAnArtifact.
+
+5. Let `resolved_output` =
    `parsing.ResolvedOutput(node)`. If `resolved_output`
    is nil, return error ErrNoOutput.
 
