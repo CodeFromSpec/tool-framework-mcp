@@ -138,6 +138,24 @@ Three scenarios determine which sections are present:
   and `<input>` carry disposition attributes showing
   exactly what changed.
 
+These scenarios apply to artifact nodes.
+
+---
+
+## Verdict chains
+
+For nodes with `type: verdict`, the chain contains only
+`<constraints>`, `<references>`, `<instructions>`, and
+`<input>`, assembled by the same rules as for artifact
+nodes. `<existing_artifact>` and the `<previous_*>`
+sections are never present, regardless of cache state or
+files on disk — not even the node's own previous verdict
+document. Entries carry no `disposition` attributes.
+
+The judging subagent performs a cold read: it judges the
+current state of the chain, with no memory of previous
+runs.
+
 ---
 
 ## Constraints assembly order
