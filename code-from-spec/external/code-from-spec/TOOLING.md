@@ -89,7 +89,7 @@ an error.
 
 ---
 
-## write_file
+## write_artifact
 
 Write a generated artifact to disk and update the manifest.
 
@@ -164,7 +164,8 @@ Mint an opaque token for a logical name.
 
 **Behavior:**
 
-Generate a token that `load_chain` and `write_file` accept in place of
+Generate a token that `load_chain`, `write_artifact`, and
+`write_verdict` accept in place of
 a raw logical name, and that only this operation can produce. This
 lets an orchestrator hand a generation subagent a token instead of a
 logical name: since the subagent has no way to mint a token itself, it
