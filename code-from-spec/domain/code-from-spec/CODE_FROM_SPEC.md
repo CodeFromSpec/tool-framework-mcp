@@ -124,12 +124,13 @@ the artifact it consumes is up to date.
 Frontmatter is optional YAML metadata in spec nodes.
 It is not part of the node's content — it does not
 participate in inheritance or `imports`. The framework
-recognizes specific fields (described below). Unrecognized
-fields are ignored and may be used as custom fields by
-projects.
+recognizes specific fields (described below). Any other
+top-level field is a format error. Project-specific
+fields live under `custom:`.
 
-The following fields are recognized by the framework. All
-are optional and only permitted on leaf nodes.
+The following fields are recognized by the framework.
+All are optional. `custom` is permitted on any node;
+the remaining fields only on leaf nodes.
 
 #### imports
 
@@ -201,6 +202,27 @@ output: internal/transfers/handler.go
 ---
 ```
 
+#### custom
+
+Optional. A container for project-specific fields.
+Permitted on any node. The value must be a YAML mapping;
+anything else is a format error. The framework never
+inspects the content. `custom` does not participate in
+inheritance, chain assembly, or the chain hash.
+
+```yaml
+---
+custom:
+  owner: payments-team
+  jira: PAY-1234
+  review:
+    approvers:
+      - alice
+      - bob
+    required: true
+---
+```
+
 #### Full example
 
 A leaf node with all fields:
@@ -213,6 +235,8 @@ imports:
   - EXTERNAL/proto/payments/v1/transfers.proto
 input: ARTIFACT/functional/transfers
 output: internal/transfers/handler.go
+custom:
+  owner: payments-team
 ---
 ```
 

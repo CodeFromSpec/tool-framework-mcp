@@ -99,6 +99,7 @@ Errors:
 - `ErrDuplicateAgentSection`
 - `ErrDuplicatePrivateSection`
 - `ErrUnrecognizedSection`
+- `ErrUnknownFrontmatterField`
 - `ErrDuplicateSubsection`
 
 ### Content extraction

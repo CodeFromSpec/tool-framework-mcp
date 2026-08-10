@@ -3,8 +3,9 @@ package parsing
 import "errors"
 
 var (
-	ErrFileUnreadable = errors.New("file unreadable")
-	ErrMalformedYAML  = errors.New("malformed YAML")
+	ErrFileUnreadable          = errors.New("file unreadable")
+	ErrMalformedYAML           = errors.New("malformed YAML")
+	ErrUnknownFrontmatterField = errors.New("unknown frontmatter field")
 
 	ErrNotASpecReference                   = errors.New("not a SPEC/ reference")
 	ErrHasQualifier                        = errors.New("logical name has qualifier")
