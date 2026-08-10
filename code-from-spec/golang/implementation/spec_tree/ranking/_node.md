@@ -71,7 +71,12 @@ For each node in entries:
      - deps: list containing the generating node's logical name
      - rank: 0
 
-### Step 2 — Build dependency edges
+### Step 2 — Build known spec nodes list
+
+Build `knownSpecNodes` as a list of strings: for each
+entry in entries, append entry.Reference.LogicalName.
+
+### Step 3 — Build dependency edges
 
 For each spec node entry in the entry map:
 
@@ -81,8 +86,21 @@ For each spec node entry in the entry map:
 2. **Parent dependency**: If ParentName is not nil, add *ParentName to
    the entry's deps list.
 
-3. **imports dependencies**: If node.Frontmatter is not nil, for
-   each reference in node.Frontmatter.Imports:
+3. **imports dependencies**: If node.Frontmatter is not nil:
+
+   First, expand globs: initialize `expandedImports`
+   as an empty list. For each reference in
+   node.Frontmatter.Imports:
+     If reference ends with `/*`:
+       Call parsing.ExpandGlob(reference,
+       knownSpecNodes,
+       &node.Reference.LogicalName).
+       If it fails, raise ErrUnresolvableReference.
+       Append all results to `expandedImports`.
+     Else:
+       Append reference to `expandedImports`.
+
+   Then, for each reference in `expandedImports`:
    - If reference starts with "SPEC/":
      - Extract the unqualified logical name: if the reference contains
        "(", take the portion before it; otherwise use the reference
@@ -97,8 +115,21 @@ For each spec node entry in the entry map:
    - Else if reference starts with "EXTERNAL/": skip.
    - Else: raise ErrUnresolvableReference.
 
-4. **input dependencies**: If node.Frontmatter is not nil, for
-   each reference in node.Frontmatter.Input:
+4. **input dependencies**: If node.Frontmatter is not nil:
+
+   First, expand globs: initialize `expandedInput`
+   as an empty list. For each reference in
+   node.Frontmatter.Input:
+     If reference ends with `/*`:
+       Call parsing.ExpandGlob(reference,
+       knownSpecNodes,
+       &node.Reference.LogicalName).
+       If it fails, raise ErrUnresolvableReference.
+       Append all results to `expandedInput`.
+     Else:
+       Append reference to `expandedInput`.
+
+   Then, for each reference in `expandedInput`:
    - If reference starts with "SPEC/":
      - Extract the unqualified logical name: if the reference contains
        "(", take the portion before it; otherwise use the reference
@@ -112,11 +143,11 @@ For each spec node entry in the entry map:
      - Add reference to the entry's deps list.
    - Else if reference starts with "EXTERNAL/": skip.
 
-### Step 3 — Initialize ranks
+### Step 4 — Initialize ranks
 
 All entries start with rank 0.
 
-### Step 4 — Iterate and detect cycles
+### Step 5 — Iterate and detect cycles
 
 - Let N = total number of entries in the entry map.
 - Let cycle_candidates = empty list.
@@ -135,7 +166,7 @@ All entries start with rank 0.
   pass N: set cycles = cycle_candidates.
 - Else: set cycles = empty list.
 
-### Step 5 — Output
+### Step 6 — Output
 
 - Build ranked list: for each entry in the entry map, append
   NodeRankEntry with Reference = entry.ref, Rank = entry.rank.

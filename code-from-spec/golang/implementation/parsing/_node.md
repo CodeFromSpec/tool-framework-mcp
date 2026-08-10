@@ -263,3 +263,29 @@ fully resolved.
 Errors:
 - `ErrInvalidPath`: the path does not match the
   expected `code-from-spec/.../_node.md` pattern.
+
+### Glob expansion
+
+```go
+func ExpandGlob(pattern string, knownNodes []string, declaringNode *string) ([]string, error)
+```
+
+Expands a glob reference (`SPEC/x/*` or `ARTIFACT/x/*`)
+against the list of known `SPEC/` logical names. Returns
+the sorted list of matching concrete logical names with
+the correct prefix. When `declaringNode` is non-nil, the
+declaring node and its ancestors are excluded from
+results.
+
+`EXTERNAL/` and `VERDICT/` globs, partial wildcards
+(`foo*`), multiple wildcards, and qualifiers on globs
+are format errors.
+
+An empty match is not an error — the glob contributes
+nothing.
+
+Errors:
+- `ErrInvalidGlob`: the pattern is malformed.
+- `ErrEmptyNodeList`: `knownNodes` is nil or empty.
+- `ErrInvalidName`: `declaringNode` is non-nil but
+  does not start with `SPEC/`.

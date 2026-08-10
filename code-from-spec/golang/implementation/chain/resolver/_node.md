@@ -29,7 +29,7 @@ type Chain struct {
 	Input     []parsing.CfsReference
 }
 
-func ChainResolve(targetLogicalName string) (Chain, error)
+func ChainResolve(targetLogicalName string, knownSpecNodes []string) (Chain, error)
 ```
 
 ### Chain assembly order
@@ -91,9 +91,19 @@ If it fails, raise ErrUnreadableFrontmatter.
 Let `node` be the result. Let `fm` =
 node.Frontmatter.
 
+First, expand globs: initialize `expandedImports`
+as an empty list. For each entry in fm.Imports:
+  If entry ends with `/*`:
+    Call parsing.ExpandGlob(entry,
+    knownSpecNodes, &target_logical_name).
+    If it fails, propagate the error.
+    Append all results to `expandedImports`.
+  Else:
+    Append entry to `expandedImports`.
+
 Initialize an empty import list.
 
-For each entry in fm.Imports:
+For each entry in `expandedImports`:
 
   Call parsing.CfsReferenceFromName(entry).
   If it fails, raise ErrUnresolvableArtifact
@@ -134,9 +144,19 @@ list.
 
 ### Step 4 — Resolve input
 
+First, expand globs: initialize `expandedInput`
+as an empty list. For each entry in fm.Input:
+  If entry ends with `/*`:
+    Call parsing.ExpandGlob(entry,
+    knownSpecNodes, &target_logical_name).
+    If it fails, propagate the error.
+    Append all results to `expandedInput`.
+  Else:
+    Append entry to `expandedInput`.
+
 Initialize an empty input list.
 
-For each entry in fm.Input:
+For each entry in `expandedInput`:
 
   Call parsing.CfsReferenceFromName(entry).
   If it fails, raise ErrUnresolvableArtifact
