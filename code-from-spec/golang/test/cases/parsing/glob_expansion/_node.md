@@ -165,60 +165,72 @@ Expected: Error parsing.ErrInvalidName.
 
 ### Invalid patterns
 
+All invalid pattern tests use a valid `knownNodes` to
+isolate the pattern error — only one error condition
+per test.
+
+Setup (shared):
+- knownNodes = ["SPEC/dummy"].
+
 #### EXTERNAL glob — error
 
 Actions:
-1. Call parsing.ExpandGlob("EXTERNAL/docs/*", nil, nil).
+1. Call parsing.ExpandGlob("EXTERNAL/docs/*", knownNodes,
+   nil).
 
 Expected: Error parsing.ErrInvalidGlob.
 
 #### VERDICT glob — error
 
 Actions:
-1. Call parsing.ExpandGlob("VERDICT/a/*", nil, nil).
+1. Call parsing.ExpandGlob("VERDICT/a/*", knownNodes,
+   nil).
 
 Expected: Error parsing.ErrInvalidGlob.
 
 #### Partial wildcard — error
 
 Actions:
-1. Call parsing.ExpandGlob("SPEC/a/foo*", nil, nil).
+1. Call parsing.ExpandGlob("SPEC/a/foo*", knownNodes,
+   nil).
 
 Expected: Error parsing.ErrInvalidGlob.
 
 #### Multiple wildcards — error
 
 Actions:
-1. Call parsing.ExpandGlob("SPEC/*/a/*", nil, nil).
+1. Call parsing.ExpandGlob("SPEC/*/a/*", knownNodes,
+   nil).
 
 Expected: Error parsing.ErrInvalidGlob.
 
 #### Qualifier on glob — error
 
 Actions:
-1. Call parsing.ExpandGlob("SPEC/a/*(interface)", nil,
-   nil).
+1. Call parsing.ExpandGlob("SPEC/a/*(interface)",
+   knownNodes, nil).
 
 Expected: Error parsing.ErrInvalidGlob.
 
 #### Missing relative path — error
 
 Actions:
-1. Call parsing.ExpandGlob("SPEC/*", nil, nil).
+1. Call parsing.ExpandGlob("SPEC/*", knownNodes, nil).
 
 Expected: Error parsing.ErrInvalidGlob.
 
 #### Unrecognized prefix — error
 
 Actions:
-1. Call parsing.ExpandGlob("UNKNOWN/a/*", nil, nil).
+1. Call parsing.ExpandGlob("UNKNOWN/a/*", knownNodes,
+   nil).
 
 Expected: Error parsing.ErrInvalidGlob.
 
 #### Pattern without glob suffix — error
 
 Actions:
-1. Call parsing.ExpandGlob("SPEC/a/b", nil, nil).
+1. Call parsing.ExpandGlob("SPEC/a/b", knownNodes, nil).
 
 Expected: Error parsing.ErrInvalidGlob.
 

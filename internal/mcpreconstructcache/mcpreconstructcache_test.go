@@ -41,7 +41,7 @@ func setupSingleEntryManifest(t *testing.T) (string, []chainhash.ContentHash, st
 		t.Fatalf("failed to write artifact file: %v", err)
 	}
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", nil)
 	if err != nil {
 		t.Fatalf("ChainResolve failed: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestMCPReconstructCache_SkipsVERDICTEntriesInManifest(t *testing.T) {
 		t.Fatalf("failed to write verdict file: %v", err)
 	}
 
-	artifactChain, err := chainresolver.ChainResolve("SPEC/root/a")
+	artifactChain, err := chainresolver.ChainResolve("SPEC/root/a", nil)
 	if err != nil {
 		t.Fatalf("ChainResolve for artifact failed: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestMCPReconstructCache_SkipsVERDICTEntriesInManifest(t *testing.T) {
 		t.Fatalf("ChainHashCompute for artifact failed: %v", err)
 	}
 
-	verdictChain, err := chainresolver.ChainResolve("SPEC/root/v")
+	verdictChain, err := chainresolver.ChainResolve("SPEC/root/v", nil)
 	if err != nil {
 		t.Fatalf("ChainResolve for verdict failed: %v", err)
 	}

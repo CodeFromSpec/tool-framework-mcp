@@ -10,6 +10,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/chainresolver"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpvalidatespecs"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectree"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/testutils"
 )
 
@@ -23,7 +24,15 @@ func fileChecksum(content string) string {
 
 func computeChainHash(t *testing.T, logicalName string) string {
 	t.Helper()
-	chain, err := chainresolver.ChainResolve(logicalName)
+	refs, err := spectree.SpecTreeScan()
+	if err != nil {
+		t.Fatalf("SpecTreeScan: %v", err)
+	}
+	knownNodes := make([]string, len(refs))
+	for i, ref := range refs {
+		knownNodes[i] = ref.LogicalName
+	}
+	chain, err := chainresolver.ChainResolve(logicalName, knownNodes)
 	if err != nil {
 		t.Fatalf("ChainResolve(%q): %v", logicalName, err)
 	}
