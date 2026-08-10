@@ -807,6 +807,71 @@ func TestImportTargets_VERDICTReferenceRejected(t *testing.T) {
 	}
 }
 
+func TestImportTargets_ValidSPECGlob(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Imports: []string{"SPEC/root/b/*"},
+	})
+	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+	nodeBX := makeNode("SPEC/root/b/x", testutils.Ptr("SPEC/root/b"))
+	nodeBY := makeNode("SPEC/root/b/y", testutils.Ptr("SPEC/root/b"))
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB, nodeBX, nodeBY}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+		"code-from-spec/root/b/x",
+		"code-from-spec/root/b/y",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected no import_targets error for valid SPEC glob, got %v", errs)
+	}
+}
+
+func TestImportTargets_InvalidGlobSyntax(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Imports: []string{"EXTERNAL/docs/*"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected import_targets error for invalid glob syntax, got %v", errs)
+	}
+}
+
+func TestImportTargets_GlobEmptyMatch(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Imports: []string{"SPEC/root/empty/*"},
+	})
+	nodeEmpty := makeNode("SPEC/root/empty", testutils.Ptr("SPEC/root"))
+
+	entries := []parsing.Node{rootNode, nodeA, nodeEmpty}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/empty",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "import_targets") {
+		t.Errorf("expected no import_targets error for glob with empty match, got %v", errs)
+	}
+}
+
 func TestInputTarget_ValidARTIFACT(t *testing.T) {
 	testutils.Chdir(t)
 
@@ -1072,6 +1137,50 @@ func TestInputTarget_VERDICTReferenceRejected(t *testing.T) {
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
 	if !hasError(errs, "SPEC/root/b", "input_target") {
 		t.Errorf("expected input_target error for VERDICT reference in input, got %v", errs)
+	}
+}
+
+func TestInputTarget_ValidSPECGlob(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Input: []string{"SPEC/root/b/*"},
+	})
+	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+	nodeBX := makeNode("SPEC/root/b/x", testutils.Ptr("SPEC/root/b"))
+	nodeBY := makeNode("SPEC/root/b/y", testutils.Ptr("SPEC/root/b"))
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB, nodeBX, nodeBY}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+		"code-from-spec/root/b/x",
+		"code-from-spec/root/b/y",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "input_target") {
+		t.Errorf("expected no input_target error for valid SPEC glob, got %v", errs)
+	}
+}
+
+func TestInputTarget_InvalidGlobSyntax(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Input: []string{"EXTERNAL/docs/*"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "input_target") {
+		t.Errorf("expected input_target error for invalid glob syntax, got %v", errs)
 	}
 }
 

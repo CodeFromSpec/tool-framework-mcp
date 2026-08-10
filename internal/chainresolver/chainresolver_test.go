@@ -14,7 +14,9 @@ func TestChainResolve_RootAsTarget(t *testing.T) {
 
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root")
+	knownSpecNodes := []string{"SPEC/root"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -42,7 +44,9 @@ func TestChainResolve_LinearChain(t *testing.T) {
 	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
 	testutils.CreateSpecNode(t, "SPEC/root/a/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a/b")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/a/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a/b", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +70,9 @@ func TestChainResolve_SingleParent(t *testing.T) {
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -87,7 +93,9 @@ func TestChainResolve_EmptyFrontmatter(t *testing.T) {
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -117,7 +125,9 @@ func TestChainResolve_DependencyWithoutQualifier(t *testing.T) {
 	b.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -142,7 +152,9 @@ func TestChainResolve_DependencyWithQualifier(t *testing.T) {
 	b.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -171,7 +183,9 @@ func TestChainResolve_ImportsSortedByLogicalName(t *testing.T) {
 	testutils.CreateSpecNode(t, "SPEC/root/m").Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b", "SPEC/root/m", "SPEC/root/z"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -198,7 +212,9 @@ func TestChainResolve_ArtifactDependencyResolved(t *testing.T) {
 	bNode.SetOutput("out/lib.go")
 	bNode.Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -223,7 +239,9 @@ func TestChainResolve_ArtifactGeneratingNodeNoOutput(t *testing.T) {
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	_, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	_, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -244,7 +262,9 @@ func TestChainResolve_ArtifactFileDoesNotExistOnDisk(t *testing.T) {
 	bNode.SetOutput("out/lib.go")
 	bNode.Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -271,7 +291,9 @@ func TestChainResolve_MixedImports(t *testing.T) {
 	bNode.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/c").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b", "SPEC/root/c"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -296,7 +318,9 @@ func TestChainResolve_ExactDuplicate(t *testing.T) {
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -315,7 +339,9 @@ func TestChainResolve_NoQualifierSubsumesQualifier(t *testing.T) {
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -337,7 +363,9 @@ func TestChainResolve_QualifierBeforeNoQualifier(t *testing.T) {
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -359,7 +387,9 @@ func TestChainResolve_SameFileDifferentQualifiers(t *testing.T) {
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -387,7 +417,9 @@ func TestChainResolve_DuplicateArtifact(t *testing.T) {
 	bNode.SetOutput("out/lib.go")
 	bNode.Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -404,7 +436,9 @@ func TestChainResolve_ExternalDependencyResolvedToPath(t *testing.T) {
 	a.AddImport("EXTERNAL/docs/api.yaml")
 	a.Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -432,7 +466,9 @@ func TestChainResolve_MultipleExternalImportsSorted(t *testing.T) {
 	a.AddImport("EXTERNAL/docs/api.yaml")
 	a.Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -456,7 +492,9 @@ func TestChainResolve_DuplicateExternal(t *testing.T) {
 	a.AddImport("EXTERNAL/x.proto")
 	a.Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -477,7 +515,9 @@ func TestChainResolve_InputArtifactResolved(t *testing.T) {
 	bNode.SetOutput("out/data.json")
 	bNode.Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -500,7 +540,9 @@ func TestChainResolve_ExternalInputResolvedToPath(t *testing.T) {
 	a.SetInputScalar("EXTERNAL/docs/vendor/spec.yaml")
 	a.Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -524,7 +566,9 @@ func TestChainResolve_SpecInputResolved(t *testing.T) {
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -551,7 +595,9 @@ func TestChainResolve_SpecInputWithQualifier(t *testing.T) {
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -579,7 +625,9 @@ func TestChainResolve_MultipleInputsSorted(t *testing.T) {
 	testutils.CreateSpecNode(t, "SPEC/root/z").Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b", "SPEC/root/z"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -603,7 +651,9 @@ func TestChainResolve_DuplicateInput(t *testing.T) {
 	a.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -618,7 +668,9 @@ func TestChainResolve_NoInput(t *testing.T) {
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
 
-	chain, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -635,7 +687,9 @@ func TestChainResolve_UnrecognizedPrefixInImports(t *testing.T) {
 	a.AddImport("UNKNOWN/something")
 	a.Write()
 
-	_, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	_, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -647,7 +701,7 @@ func TestChainResolve_UnrecognizedPrefixInImports(t *testing.T) {
 func TestChainResolve_InvalidTargetLogicalName(t *testing.T) {
 	testutils.Chdir(t)
 
-	_, err := chainresolver.ChainResolve("INVALID/something")
+	_, err := chainresolver.ChainResolve("INVALID/something", nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -664,7 +718,9 @@ func TestChainResolve_InputArtifactGeneratingNodeNotFound(t *testing.T) {
 	a.SetInputScalar("ARTIFACT/root/missing")
 	a.Write()
 
-	_, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	_, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -676,11 +732,210 @@ func TestChainResolve_UnreadableFrontmatter(t *testing.T) {
 	testutils.CreateSpecNode(t, "SPEC/root").Write()
 	testutils.WriteRawNode(t, "SPEC/root/a", "---\ninvalid: yaml: [\n---\n# SPEC/root/a\n")
 
-	_, err := chainresolver.ChainResolve("SPEC/root/a")
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a"}
+
+	_, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !errors.Is(err, chainresolver.ErrUnreadableFrontmatter) {
 		t.Errorf("expected ErrUnreadableFrontmatter, got %v", err)
+	}
+}
+
+func TestChainResolve_SpecGlobExpandsToDescendants(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.AddImport("SPEC/root/b/*")
+	a.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/x").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/y").Write()
+
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b", "SPEC/root/b/x", "SPEC/root/b/y"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Imports) != 2 {
+		t.Fatalf("expected 2 imports, got %d", len(chain.Imports))
+	}
+	if chain.Imports[0].LogicalName != "SPEC/root/b/x" {
+		t.Errorf("expected import[0] = SPEC/root/b/x, got %q", chain.Imports[0].LogicalName)
+	}
+	if chain.Imports[1].LogicalName != "SPEC/root/b/y" {
+		t.Errorf("expected import[1] = SPEC/root/b/y, got %q", chain.Imports[1].LogicalName)
+	}
+}
+
+func TestChainResolve_SpecGlobExpandsToDeepDescendants(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.AddImport("SPEC/root/b/*")
+	a.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/x").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/x/deep").Write()
+
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b", "SPEC/root/b/x", "SPEC/root/b/x/deep"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Imports) != 2 {
+		t.Fatalf("expected 2 imports, got %d", len(chain.Imports))
+	}
+	if chain.Imports[0].LogicalName != "SPEC/root/b/x" {
+		t.Errorf("expected import[0] = SPEC/root/b/x, got %q", chain.Imports[0].LogicalName)
+	}
+	if chain.Imports[1].LogicalName != "SPEC/root/b/x/deep" {
+		t.Errorf("expected import[1] = SPEC/root/b/x/deep, got %q", chain.Imports[1].LogicalName)
+	}
+}
+
+func TestChainResolve_ArtifactGlobExpandsWithPrefixConversion(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.AddImport("ARTIFACT/root/b/*")
+	a.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	xNode := testutils.CreateSpecNode(t, "SPEC/root/b/x")
+	xNode.SetType("artifact")
+	xNode.SetOutput("out/x.go")
+	xNode.Write()
+	yNode := testutils.CreateSpecNode(t, "SPEC/root/b/y")
+	yNode.SetType("artifact")
+	yNode.SetOutput("out/y.go")
+	yNode.Write()
+
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b", "SPEC/root/b/x", "SPEC/root/b/y"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Imports) != 2 {
+		t.Fatalf("expected 2 imports, got %d", len(chain.Imports))
+	}
+	if chain.Imports[0].LogicalName != "ARTIFACT/root/b/x" {
+		t.Errorf("expected import[0] = ARTIFACT/root/b/x, got %q", chain.Imports[0].LogicalName)
+	}
+	if chain.Imports[0].Path != "out/x.go" {
+		t.Errorf("expected import[0].Path = out/x.go, got %q", chain.Imports[0].Path)
+	}
+	if chain.Imports[1].LogicalName != "ARTIFACT/root/b/y" {
+		t.Errorf("expected import[1] = ARTIFACT/root/b/y, got %q", chain.Imports[1].LogicalName)
+	}
+	if chain.Imports[1].Path != "out/y.go" {
+		t.Errorf("expected import[1].Path = out/y.go, got %q", chain.Imports[1].Path)
+	}
+}
+
+func TestChainResolve_GlobExcludesDeclaringNodeAndAncestors(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
+	ab := testutils.CreateSpecNode(t, "SPEC/root/a/b")
+	ab.AddImport("SPEC/root/*")
+	ab.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/c").Write()
+
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/a/b", "SPEC/root/c"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a/b", knownSpecNodes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Imports) != 1 {
+		t.Fatalf("expected 1 import, got %d", len(chain.Imports))
+	}
+	if chain.Imports[0].LogicalName != "SPEC/root/c" {
+		t.Errorf("expected import = SPEC/root/c, got %q", chain.Imports[0].LogicalName)
+	}
+}
+
+func TestChainResolve_GlobWithEmptyMatch(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.AddImport("SPEC/root/empty/*")
+	a.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/empty").Write()
+
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/empty"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Imports) != 0 {
+		t.Errorf("expected empty imports, got %d", len(chain.Imports))
+	}
+}
+
+func TestChainResolve_GlobDeduplicatesWithExplicitEntries(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.AddImport("SPEC/root/b/x")
+	a.AddImport("SPEC/root/b/*")
+	a.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/x").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/y").Write()
+
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b", "SPEC/root/b/x", "SPEC/root/b/y"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Imports) != 2 {
+		t.Fatalf("expected 2 imports (deduped), got %d", len(chain.Imports))
+	}
+	if chain.Imports[0].LogicalName != "SPEC/root/b/x" {
+		t.Errorf("expected import[0] = SPEC/root/b/x, got %q", chain.Imports[0].LogicalName)
+	}
+	if chain.Imports[1].LogicalName != "SPEC/root/b/y" {
+		t.Errorf("expected import[1] = SPEC/root/b/y, got %q", chain.Imports[1].LogicalName)
+	}
+}
+
+func TestChainResolve_SpecGlobInInput(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetInputList([]string{"SPEC/root/b/*"})
+	a.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/x").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/y").Write()
+
+	knownSpecNodes := []string{"SPEC/root", "SPEC/root/a", "SPEC/root/b", "SPEC/root/b/x", "SPEC/root/b/y"}
+
+	chain, err := chainresolver.ChainResolve("SPEC/root/a", knownSpecNodes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chain.Input) != 2 {
+		t.Fatalf("expected 2 inputs, got %d", len(chain.Input))
+	}
+	if chain.Input[0].LogicalName != "SPEC/root/b/x" {
+		t.Errorf("expected input[0] = SPEC/root/b/x, got %q", chain.Input[0].LogicalName)
+	}
+	if chain.Input[1].LogicalName != "SPEC/root/b/y" {
+		t.Errorf("expected input[1] = SPEC/root/b/y, got %q", chain.Input[1].LogicalName)
 	}
 }

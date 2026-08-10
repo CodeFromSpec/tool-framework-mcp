@@ -11,6 +11,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectree"
 )
 
 func MCPReconstructCache() (string, error) {
@@ -22,6 +23,14 @@ func MCPReconstructCache() (string, error) {
 	entriesProcessed := 0
 	contentWritten := 0
 	chainWritten := 0
+
+	var knownSpecNodes []string
+	refs, err := spectree.SpecTreeScan()
+	if err == nil {
+		for _, ref := range refs {
+			knownSpecNodes = append(knownSpecNodes, ref.LogicalName)
+		}
+	}
 
 	for key := range m.Entries {
 		if !strings.HasPrefix(key, "ARTIFACT/") {
@@ -39,7 +48,7 @@ func MCPReconstructCache() (string, error) {
 			continue
 		}
 
-		chain, err := chainresolver.ChainResolve(specName)
+		chain, err := chainresolver.ChainResolve(specName, knownSpecNodes)
 		if err != nil {
 			continue
 		}

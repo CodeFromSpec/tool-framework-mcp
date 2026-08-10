@@ -19,7 +19,7 @@ type Chain struct {
 	Input     []parsing.CfsReference
 }
 
-func ChainResolve(targetLogicalName string) (Chain, error) {
+func ChainResolve(targetLogicalName string, knownSpecNodes []string) (Chain, error) {
 	targetRef, err := parsing.CfsReferenceFromName(targetLogicalName)
 	if err != nil {
 		return Chain{}, err
@@ -40,12 +40,22 @@ func ChainResolve(targetLogicalName string) (Chain, error) {
 		fm = node.Frontmatter
 	}
 
-	imports, err := resolveAndDeduplicateRefs(getImports(fm))
+	expandedImports, err := expandGlobs(getImports(fm), knownSpecNodes, targetLogicalName)
 	if err != nil {
 		return Chain{}, err
 	}
 
-	input, err := resolveAndDeduplicateRefs(getInput(fm))
+	imports, err := resolveAndDeduplicateRefs(expandedImports)
+	if err != nil {
+		return Chain{}, err
+	}
+
+	expandedInput, err := expandGlobs(getInput(fm), knownSpecNodes, targetLogicalName)
+	if err != nil {
+		return Chain{}, err
+	}
+
+	input, err := resolveAndDeduplicateRefs(expandedInput)
 	if err != nil {
 		return Chain{}, err
 	}
@@ -70,6 +80,22 @@ func getInput(fm *parsing.NodeFrontmatter) []string {
 		return nil
 	}
 	return fm.Input
+}
+
+func expandGlobs(entries []string, knownSpecNodes []string, declaringNode string) ([]string, error) {
+	result := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if strings.HasSuffix(entry, "/*") {
+			expanded, err := parsing.ExpandGlob(entry, knownSpecNodes, &declaringNode)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, expanded...)
+		} else {
+			result = append(result, entry)
+		}
+	}
+	return result, nil
 }
 
 func resolveAncestorsAndTarget(targetRef *parsing.CfsReference) ([]parsing.CfsReference, parsing.CfsReference, error) {

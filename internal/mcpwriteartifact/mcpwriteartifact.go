@@ -13,6 +13,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/manifest"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/oslayer"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/parsing"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/spectree"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/subagenttoken"
 )
 
@@ -67,7 +68,17 @@ func MCPWriteArtifact(token, content string) (string, error) {
 
 	checksum := computeChecksum(content)
 
-	chain, err := chainresolver.ChainResolve(logicalName)
+	refs, err := spectree.SpecTreeScan()
+	if err != nil {
+		return "", err
+	}
+
+	knownSpecNodes := make([]string, len(refs))
+	for i, ref := range refs {
+		knownSpecNodes[i] = ref.LogicalName
+	}
+
+	chain, err := chainresolver.ChainResolve(logicalName, knownSpecNodes)
 	if err != nil {
 		return "", err
 	}

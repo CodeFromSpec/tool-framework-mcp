@@ -793,6 +793,134 @@ func TestNodeRankCompute_CycleDoesNotPreventRankingUnrelatedNodes(t *testing.T) 
 	}
 }
 
+func TestNodeRankCompute_SpecGlobCreatesDependencyEdges(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Imports: []string{"SPEC/root/b/*"},
+		}),
+		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), nil),
+		specNode("SPEC/root/b/x", testutils.Ptr("SPEC/root/b"), nil),
+		specNode("SPEC/root/b/y", testutils.Ptr("SPEC/root/b"), nil),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	ra, ok := findRank(ranked, "SPEC/root/a")
+	if !ok {
+		t.Fatal("SPEC/root/a not found")
+	}
+	rbx, ok := findRank(ranked, "SPEC/root/b/x")
+	if !ok {
+		t.Fatal("SPEC/root/b/x not found")
+	}
+	rby, ok := findRank(ranked, "SPEC/root/b/y")
+	if !ok {
+		t.Fatal("SPEC/root/b/y not found")
+	}
+	if ra <= rbx {
+		t.Fatalf("expected rank of SPEC/root/a > rank of SPEC/root/b/x, got a=%d bx=%d", ra, rbx)
+	}
+	if ra <= rby {
+		t.Fatalf("expected rank of SPEC/root/a > rank of SPEC/root/b/y, got a=%d by=%d", ra, rby)
+	}
+}
+
+func TestNodeRankCompute_ArtifactGlobCreatesDependencyEdges(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Imports: []string{"ARTIFACT/root/b/*"},
+		}),
+		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), nil),
+		specNode("SPEC/root/b/x", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+			Output: testutils.Ptr("x.go"),
+		}),
+		specNode("SPEC/root/b/y", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+			Output: testutils.Ptr("y.go"),
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	ra, ok := findRank(ranked, "SPEC/root/a")
+	if !ok {
+		t.Fatal("SPEC/root/a not found")
+	}
+	rartbx, ok := findRank(ranked, "ARTIFACT/root/b/x")
+	if !ok {
+		t.Fatal("ARTIFACT/root/b/x not found")
+	}
+	rartby, ok := findRank(ranked, "ARTIFACT/root/b/y")
+	if !ok {
+		t.Fatal("ARTIFACT/root/b/y not found")
+	}
+	if ra <= rartbx {
+		t.Fatalf("expected rank of SPEC/root/a > rank of ARTIFACT/root/b/x, got a=%d bx=%d", ra, rartbx)
+	}
+	if ra <= rartby {
+		t.Fatalf("expected rank of SPEC/root/a > rank of ARTIFACT/root/b/y, got a=%d by=%d", ra, rartby)
+	}
+}
+
+func TestNodeRankCompute_GlobEmptyMatchNoError(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Imports: []string{"SPEC/root/empty/*"},
+		}),
+		specNode("SPEC/root/empty", testutils.Ptr("SPEC/root"), nil),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	ra, ok := findRank(ranked, "SPEC/root/a")
+	if !ok {
+		t.Fatal("SPEC/root/a not found")
+	}
+	if ra != 1 {
+		t.Fatalf("expected SPEC/root/a rank 1, got %d", ra)
+	}
+}
+
+func TestNodeRankCompute_CycleThroughGlobExpandsToNothing(t *testing.T) {
+	entries := []parsing.Node{
+		specNode("SPEC/root", nil, nil),
+		specNode("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Imports: []string{"SPEC/root/b/*"},
+		}),
+		specNode("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Imports: []string{"SPEC/root/a"},
+		}),
+	}
+	ranked, cycles, err := noderanking.NodeRankCompute(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cycles) != 0 {
+		t.Fatalf("expected no cycles, got %v", cycles)
+	}
+	ra, ok := findRank(ranked, "SPEC/root/a")
+	if !ok {
+		t.Fatal("SPEC/root/a not found")
+	}
+	if ra != 1 {
+		t.Fatalf("expected SPEC/root/a rank 1, got %d", ra)
+	}
+}
+
 func TestNodeRankCompute_UnresolvableSpecReference(t *testing.T) {
 	entries := []parsing.Node{
 		specNode("SPEC/root", nil, nil),
