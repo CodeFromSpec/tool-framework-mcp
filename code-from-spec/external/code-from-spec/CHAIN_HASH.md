@@ -90,6 +90,11 @@ qualifier).
 independently of `imports` — deduplication never crosses
 between the two fields.
 
+Glob references (see CODE_FROM_SPEC.md, "Glob references")
+are expanded before deduplication and ordering. Each
+matched node contributes its content hash exactly as if it
+had been declared explicitly.
+
 The `0x49` marker is prepended to every `input` entry's
 content hash individually. This ensures that moving a
 reference from `imports` to `input` (or vice versa) always
