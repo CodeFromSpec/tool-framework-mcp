@@ -10,10 +10,11 @@ output: internal/mcpaccept/mcpaccept.go
 
 # SPEC/golang/implementation/mcp_tools/accept
 
-Accepts an artifact without regenerating it. Updates
-the manifest entry to match the current state:
+Accepts an artifact or verdict without regenerating it.
+Updates the manifest entry to match the current state:
 checksum from the file on disk, chain hash from the
-current spec tree.
+current spec tree. For verdicts, sets the result to
+`accepted`.
 
 # Public
 
@@ -33,22 +34,23 @@ func MCPAccept(logicalName string) (string, error)
 
 | Parameter | Required | Description |
 |---|---|---|
-| `logicalName` | yes | Logical name of the node whose artifact should be accepted. |
+| `logicalName` | yes | Logical name of the artifact or verdict to accept: `ARTIFACT/<name>` or `VERDICT/<name>`. |
 
 ### Output
 
-A success message: `"accepted <artifact_path>"`.
+A success message: `"accepted <output_path>"`.
 
 ### Errors
 
-- `ErrNotASpecReference`: the logical name is not a
-  SPEC/ reference.
+- `ErrInvalidPrefix`: the logical name does not start
+  with `ARTIFACT/` or `VERDICT/`.
 - `ErrUnreadableFrontmatter`: the node's frontmatter
   cannot be parsed.
-- `ErrNoOutput`: target node has no output field.
-- `ErrAlreadyUpToDate`: the artifact is already up to
-  date (manifest entry exists and both checksum and
-  chain hash match current values).
+- `ErrNoOutput`: target node has no type field.
+- `ErrAlreadyUpToDate`: the entry is already up to
+  date (manifest entry exists, both checksum and chain
+  hash match current values, and — for `VERDICT/`
+  entries — result is already `accepted`).
 - Propagated errors from `parsing`, `manifest`,
   `oslayer`, `chainresolver`, `chainhash` packages.
 
@@ -58,56 +60,69 @@ Implement the accept tool as a Go package.
 
 ## Logic
 
-1. If logical_name does not start with "SPEC/",
-   return ErrNotASpecReference.
+1. Determine the prefix and derive the spec name:
+   If logical_name starts with "ARTIFACT/":
+     Let `spec_name` = "SPEC/" + logical_name with
+     "ARTIFACT/" prefix removed.
+     Let `is_verdict` = false.
+   Else if logical_name starts with "VERDICT/":
+     Let `spec_name` = "SPEC/" + logical_name with
+     "VERDICT/" prefix removed.
+     Let `is_verdict` = true.
+   Else:
+     Return ErrInvalidPrefix.
 
-2. Call `parsing.ParseNode(logical_name)`.
+2. Call `parsing.ParseNode(spec_name)`.
    If it fails, return ErrUnreadableFrontmatter.
    Store as node.
 
-3. If `node.Frontmatter.Output` is nil, return ErrNoOutput.
+3. Let `resolved_output` =
+   `parsing.ResolvedOutput(node)`. If `resolved_output`
+   is nil, return ErrNoOutput.
 
-4. Derive the artifact logical name: strip "SPEC/"
-   prefix from logical_name and prepend "ARTIFACT/".
-
-5. Construct oslayer.CfsPath from `*node.Frontmatter.Output`.
+4. Construct oslayer.CfsPath from `*resolved_output`.
    Call `oslayer.OpenFile(path, "read", 30000)`. If it
    fails, propagate the error.
 
-6. Read the full file content. Compute its SHA-1
+5. Read the full file content. Compute its SHA-1
    hash (base64url, 27 chars) using the same
    normalization as write_file (CRLF→LF, trailing
    LF). Call `handle.Close()`. Store as `checksum`.
 
-7. Call `chainresolver.ChainResolve(logical_name)`.
+6. Call `chainresolver.ChainResolve(spec_name)`.
    If it fails, propagate the error.
 
-8. Call `chainhash.ChainHashCompute(chain)`. It returns
+7. Call `chainhash.ChainHashCompute(chain)`. It returns
    `(chainHash, positions, err)`. If it fails,
    propagate the error. Ignore `positions`.
 
-9. Call `manifest.OpenManifest(false)`. If it fails,
+8. Call `manifest.OpenManifest(false)`. If it fails,
    propagate the error. Store as m.
    Defer `m.Discard()`.
 
-10. Look up the artifact logical name in m.Entries.
-    If no entry exists:
-      Set m.Entries[artifactName] =
-      ManifestEntry{Path: *node.Frontmatter.Output,
-      Checksum: checksum, ChainHash: chainHash}.
-      Call `m.Save()`. Return
-      "accepted <*node.Frontmatter.Output>".
+9. Look up logical_name in m.Entries.
+   If no entry exists:
+     Let entry = ManifestEntry{Path: *resolved_output,
+     Checksum: checksum, ChainHash: chainHash}.
+     If is_verdict: set entry.Result = "accepted".
+     Set m.Entries[logical_name] = entry.
+     Call `m.Save()`. Return
+     "accepted <*resolved_output>".
 
-11. If entry exists and entry.Checksum equals checksum
+10. If entry exists and entry.Checksum equals checksum
     and entry.ChainHash equals chainHash:
-      Return ErrAlreadyUpToDate.
+      If is_verdict and entry.Result is not "accepted":
+        (continue to step 11 — result needs updating)
+      Else:
+        Return ErrAlreadyUpToDate.
 
-12. Update entry.Checksum to checksum.
+11. Update entry.Checksum to checksum.
     Update entry.ChainHash to chainHash.
+    If is_verdict: set entry.Result = "accepted".
 
-13. Call `m.Save()`. If it fails, propagate the error.
+12. Call `m.Save()`. If it fails, propagate the error.
 
-14. Return "accepted <*node.Frontmatter.Output>".
+13. Return "accepted <*resolved_output>".
 
 ## Go-specific guidance
 
@@ -120,7 +135,7 @@ Implement the accept tool as a Go package.
   `.ReadLine()`, `.Close()`, and `CfsPath`.
 - Use `crypto/sha1` and `encoding/base64`
   (base64.RawURLEncoding) for checksum computation.
-- Define sentinel errors: `ErrNotASpecReference`,
+- Define sentinel errors: `ErrInvalidPrefix`,
   `ErrUnreadableFrontmatter`, `ErrNoOutput`,
   `ErrAlreadyUpToDate`.
 - The package name should be `mcpaccept`.
