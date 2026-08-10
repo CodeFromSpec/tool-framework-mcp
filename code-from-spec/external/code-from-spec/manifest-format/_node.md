@@ -1,9 +1,9 @@
 ---
-input: EXTERNAL/code-from-spec/domain/code-from-spec/MANIFEST.md
-output: code-from-spec/domain/code-from-spec/manifest-format/output.md
+input: EXTERNAL/code-from-spec/external/code-from-spec/MANIFEST.md
+output: code-from-spec/external/code-from-spec/manifest-format/output.md
 ---
 
-# SPEC/domain/code-from-spec/manifest-format
+# SPEC/external/code-from-spec/manifest-format
 
 Extracts manifest file format information from the
 Code from Spec v5 MANIFEST.md specification document.

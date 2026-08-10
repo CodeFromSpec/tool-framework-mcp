@@ -1,6 +1,6 @@
 ---
 depends_on:
-  - ARTIFACT/domain/code-from-spec/manifest-format
+  - ARTIFACT/external/code-from-spec/manifest-format
   - SPEC/golang/implementation/oslayer(interface)
 output: internal/manifest/manifest.go
 ---

@@ -1,9 +1,9 @@
 ---
-input: EXTERNAL/code-from-spec/domain/code-from-spec/CHAIN_ASSEMBLY.md
-output: code-from-spec/domain/code-from-spec/chain-assembly-details/output.md
+input: EXTERNAL/code-from-spec/external/code-from-spec/CHAIN_ASSEMBLY.md
+output: code-from-spec/external/code-from-spec/chain-assembly-details/output.md
 ---
 
-# SPEC/domain/code-from-spec/chain-assembly-details
+# SPEC/external/code-from-spec/chain-assembly-details
 
 Extracts spec chain XML assembly details from the Code
 from Spec v5 CHAIN_ASSEMBLY.md specification document.

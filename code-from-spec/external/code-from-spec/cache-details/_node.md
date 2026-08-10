@@ -1,9 +1,9 @@
 ---
-input: EXTERNAL/code-from-spec/domain/code-from-spec/CACHE.md
-output: code-from-spec/domain/code-from-spec/cache-details/output.md
+input: EXTERNAL/code-from-spec/external/code-from-spec/CACHE.md
+output: code-from-spec/external/code-from-spec/cache-details/output.md
 ---
 
-# SPEC/domain/code-from-spec/cache-details
+# SPEC/external/code-from-spec/cache-details
 
 Extracts cache storage details from the Code from Spec
 v5 CACHE.md specification document.

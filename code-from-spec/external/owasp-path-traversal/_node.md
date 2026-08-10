@@ -1,4 +1,4 @@
-# SPEC/domain/owasp-path-traversal
+# SPEC/external/owasp-path-traversal
 
 OWASP guidance on path traversal attacks: attack vectors,
 common bypass techniques, and prevention recommendations.
