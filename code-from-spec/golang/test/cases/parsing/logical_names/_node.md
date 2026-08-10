@@ -202,6 +202,71 @@ Input: "ARTIFACT/nonexistent/node".
 Expect error: propagated from ParseNode
 (generator's _node.md file is missing).
 
+### CfsReferenceFromName — VERDICT type
+
+These tests use the `testutils.Chdir` pattern, same as
+ARTIFACT tests.
+
+#### Simple verdict
+
+Setup: create file
+`code-from-spec/review/fees/_node.md` with:
+```
+---
+type: verdict
+output: code-from-spec/review/fees/verdict.md
+---
+# SPEC/review/fees
+```
+
+Input: "VERDICT/review/fees".
+Expect: NodeType = parsing.CfsNodeTypeVerdict,
+LogicalName = "VERDICT/review/fees",
+Qualifier = nil,
+Path = "code-from-spec/review/fees/verdict.md",
+ParentName = pointer to "SPEC/review/fees".
+
+#### Verdict with default output (no output field)
+
+Setup: create file
+`code-from-spec/review/api/_node.md` with:
+```
+---
+type: verdict
+---
+# SPEC/review/api
+```
+
+Input: "VERDICT/review/api".
+Expect: NodeType = parsing.CfsNodeTypeVerdict,
+LogicalName = "VERDICT/review/api",
+Qualifier = nil,
+Path = "code-from-spec/review/api/verdict.md",
+ParentName = pointer to "SPEC/review/api".
+
+#### Verdict generator has no type
+
+Setup: create file
+`code-from-spec/review/api/_node.md` with:
+```
+---
+---
+# SPEC/review/api
+```
+
+Input: "VERDICT/review/api".
+Expect error: ErrNoOutput.
+
+#### VERDICT/ with empty relative path
+
+Input: "VERDICT/".
+Expect error: ErrInvalidName.
+
+#### Bare VERDICT is invalid
+
+Input: "VERDICT".
+Expect error: ErrUnrecognizedPrefix.
+
 ### CfsReferenceFromName — errors
 
 #### Unrecognized prefix

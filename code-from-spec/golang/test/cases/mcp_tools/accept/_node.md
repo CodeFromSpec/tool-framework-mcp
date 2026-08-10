@@ -49,7 +49,7 @@ Setup:
   and the current chain hash.
 
 Actions:
-1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("ARTIFACT/root/a")`.
 
 Expected:
 - Return value = `"accepted out/a.go"`.
@@ -72,7 +72,7 @@ Setup:
   (e.g. `AAAAAAAAAAAAAAAAAAAAAAAAAAA`).
 
 Actions:
-1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("ARTIFACT/root/a")`.
 
 Expected:
 - Return value = `"accepted out/a.go"`.
@@ -93,46 +93,94 @@ Setup:
   Create the `.manifest.lock` file.
 
 Actions:
-1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("ARTIFACT/root/a")`.
 
 Expected:
 - Return value = `"accepted out/a.go"`.
 - Read manifest: entry for ARTIFACT/root/a exists
   with correct checksum and chain hash.
 
-### Error cases
-
-#### Not a SPEC reference
-
-Actions:
-1. Call `mcpaccept.MCPAccept("ARTIFACT/root/a")`.
-
-Expected:
-- Error `mcpaccept.ErrNotASpecReference`.
-
-#### Nonexistent node file
-
-Actions:
-1. Call `mcpaccept.MCPAccept("SPEC/root/missing")`.
-
-Expected:
-- Error `mcpaccept.ErrUnreadableFrontmatter`.
-
-#### No output declared
+#### Accepts verdict and sets result to accepted
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
-  `# SPEC/root`.
-- Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`. No output in frontmatter.
+  `# SPEC/root`, `# Public` → `## Context` with
+  content.
+- Create `code-from-spec/root/v/_node.md` with
+  `# SPEC/root/v`, frontmatter `type: verdict`,
+  `output: code-from-spec/root/v/verdict.md`.
+- Create `code-from-spec/root/v/verdict.md` with
+  content "verdict content".
+- Compute the current chain hash for SPEC/root/v.
+- Create `.manifest` with entry for VERDICT/root/v
+  with the correct checksum, chain hash, and
+  `Result` = `"fail"`.
+
+Actions:
+1. Call `mcpaccept.MCPAccept("VERDICT/root/v")`.
+
+Expected:
+- Return value = `"accepted code-from-spec/root/v/verdict.md"`.
+- Read manifest: entry for VERDICT/root/v has
+  `Result` = `"accepted"`.
+
+#### Accepts failed verdict even when hashes match
+
+Setup:
+- Create spec tree and verdict file as above.
+- Compute both checksum and chain hash.
+- Create `.manifest` with entry for VERDICT/root/v
+  with matching checksum, matching chain hash, and
+  `Result` = `"fail"`.
+
+Actions:
+1. Call `mcpaccept.MCPAccept("VERDICT/root/v")`.
+
+Expected:
+- Return value includes "accepted".
+- Read manifest: `Result` = `"accepted"`.
+
+### Error cases
+
+#### Invalid prefix — SPEC reference
 
 Actions:
 1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
 
 Expected:
+- Error `mcpaccept.ErrInvalidPrefix`.
+
+#### Invalid prefix — EXTERNAL reference
+
+Actions:
+1. Call `mcpaccept.MCPAccept("EXTERNAL/file.txt")`.
+
+Expected:
+- Error `mcpaccept.ErrInvalidPrefix`.
+
+#### Nonexistent node file
+
+Actions:
+1. Call `mcpaccept.MCPAccept("ARTIFACT/root/missing")`.
+
+Expected:
+- Error `mcpaccept.ErrUnreadableFrontmatter`.
+
+#### No type declared
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`. No type in frontmatter.
+
+Actions:
+1. Call `mcpaccept.MCPAccept("ARTIFACT/root/a")`.
+
+Expected:
 - Error `mcpaccept.ErrNoOutput`.
 
-#### Artifact file does not exist on disk
+#### File does not exist on disk
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
@@ -142,13 +190,13 @@ Setup:
 - Do not create `out/a.go` on disk.
 
 Actions:
-1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("ARTIFACT/root/a")`.
 
 Expected:
 - Error propagated from oslayer (cannot read file
   to compute hash).
 
-#### Already up to date
+#### Already up to date — artifact
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
@@ -162,7 +210,22 @@ Setup:
   with matching checksum and matching chain hash.
 
 Actions:
-1. Call `mcpaccept.MCPAccept("SPEC/root/a")`.
+1. Call `mcpaccept.MCPAccept("ARTIFACT/root/a")`.
+
+Expected:
+- Error `mcpaccept.ErrAlreadyUpToDate`.
+
+#### Already up to date — verdict with result accepted
+
+Setup:
+- Create spec tree and verdict file.
+- Compute checksum and chain hash.
+- Create `.manifest` with VERDICT/ entry with matching
+  checksum, matching chain hash, and
+  `Result` = `"accepted"`.
+
+Actions:
+1. Call `mcpaccept.MCPAccept("VERDICT/root/v")`.
 
 Expected:
 - Error `mcpaccept.ErrAlreadyUpToDate`.
