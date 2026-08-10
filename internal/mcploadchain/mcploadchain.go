@@ -21,6 +21,7 @@ var (
 	ErrNoOutput          = errors.New("target node has no type field")
 	ErrInvalidOutputPath = errors.New("output path is invalid")
 	ErrModified          = errors.New("artifact file was modified outside the framework")
+	ErrBlocked           = errors.New("a wait_on target is not satisfied or an ARTIFACT dependency is not up to date")
 )
 
 func MCPLoadChain(token string) (string, error) {
@@ -73,6 +74,34 @@ func MCPLoadChain(token string) (string, error) {
 	knownSpecNodes := make([]string, 0, len(specRefs))
 	for _, ref := range specRefs {
 		knownSpecNodes = append(knownSpecNodes, ref.LogicalName)
+	}
+
+	if node.Frontmatter != nil && len(node.Frontmatter.WaitOn) > 0 {
+		expandedWaitOn, expandErr := expandReferences(node.Frontmatter.WaitOn, knownSpecNodes, logicalName)
+		if expandErr != nil {
+			return "", fmt.Errorf("expanding wait_on: %w", expandErr)
+		}
+		for _, target := range expandedWaitOn {
+			if blockErr := checkBlockingEntry(target, m, knownSpecNodes); blockErr != nil {
+				return "", blockErr
+			}
+		}
+	}
+
+	if node.Frontmatter != nil {
+		rawDeps := append(append([]string{}, node.Frontmatter.Imports...), node.Frontmatter.Input...)
+		expandedDeps, expandErr := expandReferences(rawDeps, knownSpecNodes, logicalName)
+		if expandErr != nil {
+			return "", fmt.Errorf("expanding dependencies: %w", expandErr)
+		}
+		for _, dep := range expandedDeps {
+			if !strings.HasPrefix(dep, "ARTIFACT/") {
+				continue
+			}
+			if blockErr := checkBlockingEntry(dep, m, knownSpecNodes); blockErr != nil {
+				return "", blockErr
+			}
+		}
 	}
 
 	chain, err := chainresolver.ChainResolve(logicalName, knownSpecNodes)
@@ -396,6 +425,71 @@ func MCPLoadChain(token string) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+func expandReferences(refs []string, knownSpecNodes []string, declaringNode string) ([]string, error) {
+	var result []string
+	for _, ref := range refs {
+		if strings.Contains(ref, "*") {
+			dn := declaringNode
+			expanded, err := parsing.ExpandGlob(ref, knownSpecNodes, &dn)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, expanded...)
+		} else {
+			result = append(result, ref)
+		}
+	}
+	return result, nil
+}
+
+func checkBlockingEntry(manifestKey string, m *manifest.Manifest, knownSpecNodes []string) error {
+	if m == nil {
+		return ErrBlocked
+	}
+	entry, ok := m.Entries[manifestKey]
+	if !ok {
+		return ErrBlocked
+	}
+
+	var specNodeName string
+	switch {
+	case strings.HasPrefix(manifestKey, "ARTIFACT/"):
+		specNodeName = "SPEC/" + strings.TrimPrefix(manifestKey, "ARTIFACT/")
+	case strings.HasPrefix(manifestKey, "VERDICT/"):
+		specNodeName = "SPEC/" + strings.TrimPrefix(manifestKey, "VERDICT/")
+	default:
+		return ErrBlocked
+	}
+
+	targetChain, err := chainresolver.ChainResolve(specNodeName, knownSpecNodes)
+	if err != nil {
+		return fmt.Errorf("resolving chain for %s: %w", manifestKey, err)
+	}
+	currentChainHash, _, err := chainhash.ChainHashCompute(targetChain)
+	if err != nil {
+		return fmt.Errorf("computing chain hash for %s: %w", manifestKey, err)
+	}
+	if entry.ChainHash != currentChainHash {
+		return ErrBlocked
+	}
+
+	fileChecksum, checksumErr := computeFileChecksum(oslayer.CfsPath(entry.Path))
+	if checksumErr != nil {
+		return ErrBlocked
+	}
+	if entry.Checksum != fileChecksum {
+		return ErrBlocked
+	}
+
+	if strings.HasPrefix(manifestKey, "VERDICT/") {
+		if entry.Result != "pass" && entry.Result != "accepted" {
+			return ErrBlocked
+		}
+	}
+
+	return nil
 }
 
 func computeDisposition(label string, currentHashByLabel, cachedHashByLabel map[string]string, diffEnabled bool) string {

@@ -194,6 +194,78 @@ func TestInputWithInvalidYAMLShape(t *testing.T) {
 	}
 }
 
+func TestParsesFrontmatterScalarWaitOnField(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\nwait_on: ARTIFACT/x\n---\n# SPEC/a\n")
+
+	node, err := parsing.ParseNode("SPEC/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if node.Frontmatter == nil {
+		t.Fatal("expected Frontmatter to be non-nil")
+	}
+	if len(node.Frontmatter.WaitOn) != 1 {
+		t.Fatalf("expected WaitOn to have 1 element, got %d", len(node.Frontmatter.WaitOn))
+	}
+	if node.Frontmatter.WaitOn[0] != "ARTIFACT/x" {
+		t.Errorf("unexpected WaitOn[0]: %q", node.Frontmatter.WaitOn[0])
+	}
+	if node.Frontmatter.Imports != nil {
+		t.Errorf("expected Imports to be nil")
+	}
+	if node.Frontmatter.Input != nil {
+		t.Errorf("expected Input to be nil")
+	}
+	if node.Frontmatter.Output != nil {
+		t.Errorf("expected Output to be nil")
+	}
+}
+
+func TestParsesFrontmatterWaitOnAsList(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\nwait_on:\n  - ARTIFACT/x\n  - VERDICT/y\n---\n# SPEC/a\n")
+
+	node, err := parsing.ParseNode("SPEC/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if node.Frontmatter == nil {
+		t.Fatal("expected Frontmatter to be non-nil")
+	}
+	if len(node.Frontmatter.WaitOn) != 2 {
+		t.Fatalf("expected WaitOn to have 2 elements, got %d", len(node.Frontmatter.WaitOn))
+	}
+	if node.Frontmatter.WaitOn[0] != "ARTIFACT/x" {
+		t.Errorf("unexpected WaitOn[0]: %q", node.Frontmatter.WaitOn[0])
+	}
+	if node.Frontmatter.WaitOn[1] != "VERDICT/y" {
+		t.Errorf("unexpected WaitOn[1]: %q", node.Frontmatter.WaitOn[1])
+	}
+	if node.Frontmatter.Imports != nil {
+		t.Errorf("expected Imports to be nil")
+	}
+	if node.Frontmatter.Input != nil {
+		t.Errorf("expected Input to be nil")
+	}
+	if node.Frontmatter.Output != nil {
+		t.Errorf("expected Output to be nil")
+	}
+}
+
+func TestWaitOnWithInvalidYAMLShape(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\nwait_on:\n  key: value\n---\n# SPEC/a\n")
+
+	_, err := parsing.ParseNode("SPEC/a")
+	if !errors.Is(err, parsing.ErrMalformedYAML) {
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
+	}
+}
+
 func TestRejectsUnknownFrontmatterFields(t *testing.T) {
 	testutils.Chdir(t)
 

@@ -85,8 +85,8 @@ types) must use the suffix `NP`.
 
 - From the parsed YAML, check all top-level keys.
   Recognized keys are: `type`, `imports`, `input`,
-  `output`, `custom`. If any other top-level key is
-  present, raise ErrUnknownFrontmatterField.
+  `output`, `wait_on`, `custom`. If any other top-level
+  key is present, raise ErrUnknownFrontmatterField.
 
 - Extract the following fields:
   - type: *string. If absent or null, use nil. If
@@ -101,14 +101,19 @@ types) must use the suffix `NP`.
     a list of strings (e.g. a number or mapping), raise
     ErrMalformedYAML.
   - output: *string. If absent or null, use nil.
+  - wait_on: a single scalar string or a list of
+    strings. Same normalization as `input`: nil stays
+    nil; a scalar string becomes a single-element list;
+    a list is converted element-by-element; any other
+    type raises ErrMalformedYAML.
   - custom: if present, validate that the value is a
     YAML mapping. If it is any other type (scalar, list,
     null), raise ErrMalformedYAML. The content is
     discarded — it does not appear in NodeFrontmatter.
 
 - Build a NodeFrontmatter record with the extracted
-  fields (type, imports, input, output). Set frontmatter
-  to a pointer to this record.
+  fields (type, imports, input, output, wait_on). Set
+  frontmatter to a pointer to this record.
 
 ### Step 4 — Parse body with goldmark
 
@@ -218,8 +223,8 @@ name_section, public, agent, private.
 - Use `github.com/goccy/go-yaml` for YAML unmarshalling.
   Unmarshal `yaml_text` into `map[string]any`. Check
   all top-level keys against the recognized set
-  (`type`, `imports`, `input`, `output`, `custom`). If any
-  unrecognized key exists, raise
+  (`type`, `imports`, `input`, `output`, `wait_on`,
+  `custom`). If any unrecognized key exists, raise
   ErrUnknownFrontmatterField. Then extract the
   recognized fields from the map and convert to the
   exported NodeFrontmatter type.

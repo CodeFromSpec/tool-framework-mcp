@@ -41,6 +41,12 @@ func TestExpandGlob_ValidPatterns(t *testing.T) {
 			want:       []string{"ARTIFACT/a/b", "ARTIFACT/a/c"},
 		},
 		{
+			name:       "verdict glob converts prefix",
+			pattern:    "VERDICT/a/*",
+			knownNodes: []string{"SPEC/a", "SPEC/a/b", "SPEC/a/c"},
+			want:       []string{"VERDICT/a/b", "VERDICT/a/c"},
+		},
+		{
 			name:          "glob excludes declaring node",
 			pattern:       "SPEC/a/*",
 			knownNodes:    []string{"SPEC/a", "SPEC/a/b", "SPEC/a/c"},
@@ -150,10 +156,6 @@ func TestExpandGlob_InvalidPatterns(t *testing.T) {
 		{
 			name:    "external glob",
 			pattern: "EXTERNAL/docs/*",
-		},
-		{
-			name:    "verdict glob",
-			pattern: "VERDICT/a/*",
 		},
 		{
 			name:    "partial wildcard",

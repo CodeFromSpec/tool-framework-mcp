@@ -419,6 +419,34 @@ func TestRequiresType_FieldsWithType_NoError(t *testing.T) {
 	}
 }
 
+func TestRequiresType_WaitOnWithoutType(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
+		Output: testutils.Ptr("a.go"),
+	})
+	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		WaitOn: []string{"ARTIFACT/root/a"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	found := findErrors(errs, "SPEC/root/b", "requires_type")
+	if len(found) == 0 {
+		t.Errorf("expected requires_type error for wait_on without type, got %v", errs)
+	}
+	if len(found) > 0 && found[0].Detail == "" {
+		t.Errorf("expected non-empty Detail in requires_type error")
+	}
+}
+
 func TestLeafOnlyFields_IntermediateWithImports(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -479,6 +507,31 @@ func TestLeafOnlyFields_IntermediateWithInput(t *testing.T) {
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
 	if !hasError(errs, "SPEC/root/a", "leaf_only_fields") {
 		t.Errorf("expected leaf_only_fields error, got %v", errs)
+	}
+}
+
+func TestLeafOnlyFields_IntermediateWithWaitOn(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		WaitOn: []string{"ARTIFACT/root/c"},
+	})
+	nodeAB := makeNode("SPEC/root/a/b", testutils.Ptr("SPEC/root/a"))
+
+	entries := []parsing.Node{rootNode, nodeA, nodeAB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/a/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	found := findErrors(errs, "SPEC/root/a", "leaf_only_fields")
+	if len(found) == 0 {
+		t.Errorf("expected leaf_only_fields error for intermediate node with wait_on, got %v", errs)
+	}
+	if len(found) > 0 && found[0].Detail == "" {
+		t.Errorf("expected non-empty Detail in leaf_only_fields error")
 	}
 }
 
@@ -1181,6 +1234,263 @@ func TestInputTarget_InvalidGlobSyntax(t *testing.T) {
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
 	if !hasError(errs, "SPEC/root/a", "input_target") {
 		t.Errorf("expected input_target error for invalid glob syntax, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_ValidARTIFACT(t *testing.T) {
+	testutils.Chdir(t)
+
+	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetOutput("a.go")
+	b.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
+		Output: testutils.Ptr("a.go"),
+	})
+	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"ARTIFACT/root/a"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/b", "wait_on_targets") {
+		t.Errorf("expected no wait_on_targets error for valid ARTIFACT reference, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_ValidVERDICT(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("verdict"),
+	})
+	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"VERDICT/root/a"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/b", "wait_on_targets") {
+		t.Errorf("expected no wait_on_targets error for valid VERDICT reference, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_NonExistentARTIFACT(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
+
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"ARTIFACT/root/missing"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "wait_on_targets") {
+		t.Errorf("expected wait_on_targets error for non-existent ARTIFACT, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_NonExistentVERDICT(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
+
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"VERDICT/root/missing"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "wait_on_targets") {
+		t.Errorf("expected wait_on_targets error for non-existent VERDICT, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_SPECPrefixRejected(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+	nodeB := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"SPEC/root/b"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "wait_on_targets") {
+		t.Errorf("expected wait_on_targets error for SPEC prefix in wait_on, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_EXTERNALPrefixRejected(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"EXTERNAL/docs/api.yaml"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "wait_on_targets") {
+		t.Errorf("expected wait_on_targets error for EXTERNAL prefix in wait_on, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_ValidARTIFACTGlob(t *testing.T) {
+	testutils.Chdir(t)
+
+	bx := testutils.CreateSpecNode(t, "SPEC/root/b/x")
+	bx.SetOutput("x.go")
+	bx.Write()
+	by := testutils.CreateSpecNode(t, "SPEC/root/b/y")
+	by.SetOutput("y.go")
+	by.Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"ARTIFACT/root/b/*"},
+	})
+	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+	nodeBX := makeNodeWithFrontmatter("SPEC/root/b/x", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
+		Output: testutils.Ptr("x.go"),
+	})
+	nodeBY := makeNodeWithFrontmatter("SPEC/root/b/y", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
+		Output: testutils.Ptr("y.go"),
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB, nodeBX, nodeBY}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+		"code-from-spec/root/b/x",
+		"code-from-spec/root/b/y",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "wait_on_targets") {
+		t.Errorf("expected no wait_on_targets error for valid ARTIFACT glob, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_ValidVERDICTGlob(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.CreateSpecNode(t, "SPEC/root/b/x").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b/y").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/b").Write()
+	testutils.CreateSpecNode(t, "SPEC/root/a").Write()
+	testutils.CreateSpecNode(t, "SPEC/root").Write()
+
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"VERDICT/root/b/*"},
+	})
+	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+	nodeBX := makeNodeWithFrontmatter("SPEC/root/b/x", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("verdict"),
+	})
+	nodeBY := makeNodeWithFrontmatter("SPEC/root/b/y", testutils.Ptr("SPEC/root/b"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("verdict"),
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB, nodeBX, nodeBY}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+		"code-from-spec/root/b/x",
+		"code-from-spec/root/b/y",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "wait_on_targets") {
+		t.Errorf("expected no wait_on_targets error for valid VERDICT glob, got %v", errs)
+	}
+}
+
+func TestWaitOnTargets_InvalidGlobSyntax(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("verdict"),
+		WaitOn: []string{"EXTERNAL/docs/*"},
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "wait_on_targets") {
+		t.Errorf("expected wait_on_targets error for invalid glob syntax, got %v", errs)
 	}
 }
 

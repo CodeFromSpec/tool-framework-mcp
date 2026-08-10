@@ -100,6 +100,13 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 						Detail: "output requires type",
 					})
 				}
+				if entry.Frontmatter != nil && len(entry.Frontmatter.WaitOn) > 0 {
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "requires_type",
+						Detail: "wait_on requires type",
+					})
+				}
 				if entry.Agent != nil {
 					errs = append(errs, FormatError{
 						Node:   entry.Reference.LogicalName,
@@ -130,6 +137,13 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 					Node:   entry.Reference.LogicalName,
 					Rule:   "leaf_only_fields",
 					Detail: "output is only permitted on leaf nodes",
+				})
+			}
+			if entry.Frontmatter != nil && len(entry.Frontmatter.WaitOn) > 0 {
+				errs = append(errs, FormatError{
+					Node:   entry.Reference.LogicalName,
+					Rule:   "leaf_only_fields",
+					Detail: "wait_on is only permitted on leaf nodes",
 				})
 			}
 		}
@@ -307,6 +321,53 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 						Node:   entry.Reference.LogicalName,
 						Rule:   "input_target",
 						Detail: "input entry has unrecognized prefix: " + inp,
+					})
+				}
+			}
+		}
+
+		if entry.Frontmatter != nil {
+			declaringNode := entry.Reference.LogicalName
+			var expandedWaitOn []string
+			for _, wo := range entry.Frontmatter.WaitOn {
+				if strings.HasSuffix(wo, "/*") {
+					results, err := parsing.ExpandGlob(wo, knownSpecNodes, &declaringNode)
+					if err != nil {
+						errs = append(errs, FormatError{
+							Node:   entry.Reference.LogicalName,
+							Rule:   "wait_on_targets",
+							Detail: "wait_on has invalid glob: " + wo + ": " + err.Error(),
+						})
+						continue
+					}
+					expandedWaitOn = append(expandedWaitOn, results...)
+				} else {
+					expandedWaitOn = append(expandedWaitOn, wo)
+				}
+			}
+
+			for _, wo := range expandedWaitOn {
+				if strings.HasPrefix(wo, "ARTIFACT/") {
+					if !knownNames[wo] {
+						errs = append(errs, FormatError{
+							Node:   entry.Reference.LogicalName,
+							Rule:   "wait_on_targets",
+							Detail: "wait_on references unknown ARTIFACT: " + wo,
+						})
+					}
+				} else if strings.HasPrefix(wo, "VERDICT/") {
+					if !knownNames[wo] {
+						errs = append(errs, FormatError{
+							Node:   entry.Reference.LogicalName,
+							Rule:   "wait_on_targets",
+							Detail: "wait_on references unknown VERDICT: " + wo,
+						})
+					}
+				} else {
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "wait_on_targets",
+						Detail: "wait_on entry has unrecognized prefix: " + wo,
 					})
 				}
 			}

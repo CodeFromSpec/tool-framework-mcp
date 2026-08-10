@@ -91,7 +91,8 @@ Expected: No error. SPEC/root/a rank = 1. cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  output = "out.go", SPEC/root/b with
+  type = "artifact" and output = "out.go",
+  SPEC/root/b with
   input = ["ARTIFACT/root/a"]].
 
 Expected: rank of SPEC/root/b > rank of
@@ -118,7 +119,9 @@ Expected: No error. SPEC/root/a rank = 1. cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  output = "a.go", SPEC/root/b with output = "b.go",
+  type = "artifact" and output = "a.go",
+  SPEC/root/b with type = "artifact" and
+  output = "b.go",
   SPEC/root/c with
   input = ["ARTIFACT/root/a", "ARTIFACT/root/b"]].
 
@@ -130,7 +133,7 @@ cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  output = "foo.go"].
+  type = "artifact" and output = "foo.go"].
 
 Expected: ARTIFACT/root/a rank =
 rank of SPEC/root/a + 1. cycles = [].
@@ -139,7 +142,7 @@ rank of SPEC/root/a + 1. cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  output = "x.go"].
+  type = "artifact" and output = "x.go"].
 
 Expected: ranked contains ARTIFACT/root/a with
 rank = rank of SPEC/root/a + 1. cycles = [].
@@ -148,7 +151,8 @@ rank = rank of SPEC/root/a + 1. cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  output = "lib.go", SPEC/root/b with
+  type = "artifact" and output = "lib.go",
+  SPEC/root/b with
   imports = ["ARTIFACT/root/a"]].
 
 Expected: rank of SPEC/root/b >
@@ -212,7 +216,8 @@ SPEC/root/c=3, SPEC/root/d=4. cycles = [].
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  output = "a.go", SPEC/root/b, SPEC/root/c with
+  type = "artifact" and output = "a.go",
+  SPEC/root/b, SPEC/root/c with
   imports = ["SPEC/root/b"] and
   input = ["ARTIFACT/root/a"]].
 
@@ -226,6 +231,98 @@ Setup:
 - entries = [].
 
 Expected: ranked = [], cycles = [].
+
+#### Verdict node produces VERDICT virtual entry
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "verdict"].
+
+Expected: ranked contains VERDICT/root/a with
+rank = rank of SPEC/root/a + 1. cycles = [].
+
+#### Verdict node with default output produces virtual entry
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "verdict", no explicit output].
+
+Expected: ranked contains VERDICT/root/a. No error.
+
+#### Artifact node with default output produces virtual entry
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "artifact", no explicit output].
+
+Expected: ranked contains ARTIFACT/root/a. No error.
+
+#### wait_on ARTIFACT raises rank
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "artifact" and output = "a.go",
+  SPEC/root/b with type = "verdict" and
+  wait_on = ["ARTIFACT/root/a"]].
+
+Expected: rank of SPEC/root/b > rank of
+ARTIFACT/root/a. cycles = [].
+
+#### wait_on VERDICT raises rank
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "verdict",
+  SPEC/root/b with type = "verdict" and
+  wait_on = ["VERDICT/root/a"]].
+
+Expected: rank of SPEC/root/b > rank of
+VERDICT/root/a. cycles = [].
+
+#### wait_on with ARTIFACT glob
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "verdict" and
+  wait_on = ["ARTIFACT/root/b/*"],
+  SPEC/root/b,
+  SPEC/root/b/x with type = "artifact" and
+  output = "x.go",
+  SPEC/root/b/y with type = "artifact" and
+  output = "y.go"].
+
+Expected: SPEC/root/a rank > ARTIFACT/root/b/x rank
+and > ARTIFACT/root/b/y rank.
+
+#### wait_on cycle detected
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "artifact" and output = "a.go" and
+  wait_on = ["ARTIFACT/root/b"],
+  SPEC/root/b with type = "artifact" and
+  output = "b.go" and
+  wait_on = ["ARTIFACT/root/a"]].
+
+Expected: cycles is not empty.
+
+#### Unresolvable wait_on ARTIFACT reference
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "verdict" and
+  wait_on = ["ARTIFACT/root/missing"]].
+
+Expected: Error noderanking.ErrUnresolvableReference.
+
+#### Unresolvable wait_on VERDICT reference
+
+Setup:
+- entries = [SPEC/root, SPEC/root/a with
+  type = "verdict" and
+  wait_on = ["VERDICT/root/missing"]].
+
+Expected: Error noderanking.ErrUnresolvableReference.
 
 ### Cycle detection
 
@@ -251,9 +348,9 @@ of SPEC/root/a or SPEC/root/b.
 
 Setup:
 - entries = [SPEC/root, SPEC/root/a with
-  output = "a.go" and
+  type = "artifact" and output = "a.go" and
   imports = ["ARTIFACT/root/b"], SPEC/root/b with
-  output = "b.go" and
+  type = "artifact" and output = "b.go" and
   imports = ["ARTIFACT/root/a"]].
 
 Expected: cycles is not empty.
@@ -288,8 +385,10 @@ Setup:
 - entries = [SPEC/root, SPEC/root/a with
   imports = ["ARTIFACT/root/b/*"],
   SPEC/root/b,
-  SPEC/root/b/x with output = "x.go",
-  SPEC/root/b/y with output = "y.go"].
+  SPEC/root/b/x with type = "artifact" and
+  output = "x.go",
+  SPEC/root/b/y with type = "artifact" and
+  output = "y.go"].
 
 Expected: SPEC/root/a rank > ARTIFACT/root/b/x rank
 and > ARTIFACT/root/b/y rank.

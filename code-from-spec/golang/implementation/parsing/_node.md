@@ -40,6 +40,7 @@ type NodeFrontmatter struct {
     Imports []string
     Input   []string
     Output  *string
+    WaitOn  []string
 }
 
 type NodeSubsection struct {
@@ -68,11 +69,11 @@ func ParseNode(logicalName string) (*Node, error)
 ```
 
 `NodeFrontmatter` fields are nil when absent from the
-YAML. `Type` is nil when absent. `Imports` and `Input`
-default to nil (not empty slice) when absent. `Input`
-accepts either a single scalar string or a YAML list
-in the source file — both forms normalize to
-`Input []string`.
+YAML. `Type` is nil when absent. `Imports`, `Input`,
+and `WaitOn` default to nil (not empty slice) when
+absent. `Input` and `WaitOn` each accept either a
+single scalar string or a YAML list in the source
+file — both forms normalize to `[]string`.
 
 `Heading` is the normalized form (after `NormalizeText`),
 used for comparisons and lookups. `RawHeading` is the
@@ -270,16 +271,15 @@ Errors:
 func ExpandGlob(pattern string, knownNodes []string, declaringNode *string) ([]string, error)
 ```
 
-Expands a glob reference (`SPEC/x/*` or `ARTIFACT/x/*`)
-against the list of known `SPEC/` logical names. Returns
-the sorted list of matching concrete logical names with
-the correct prefix. When `declaringNode` is non-nil, the
-declaring node and its ancestors are excluded from
-results.
+Expands a glob reference (`SPEC/x/*`, `ARTIFACT/x/*`,
+or `VERDICT/x/*`) against the list of known `SPEC/`
+logical names. Returns the sorted list of matching
+concrete logical names with the correct prefix. When
+`declaringNode` is non-nil, the declaring node and its
+ancestors are excluded from results.
 
-`EXTERNAL/` and `VERDICT/` globs, partial wildcards
-(`foo*`), multiple wildcards, and qualifiers on globs
-are format errors.
+`EXTERNAL/` globs, partial wildcards (`foo*`), multiple
+wildcards, and qualifiers on globs are format errors.
 
 An empty match is not an error — the glob contributes
 nothing.

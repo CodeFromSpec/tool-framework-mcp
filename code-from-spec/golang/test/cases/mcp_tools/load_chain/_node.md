@@ -186,6 +186,10 @@ Setup:
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/b.go`.
 - Create `out/b.go` with known content.
+- Compute the current chain hash for SPEC/root/b and
+  the checksum of `out/b.go`. Create `.manifest` with
+  a valid entry for ARTIFACT/root/b (matching chain
+  hash and checksum).
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`,
   `imports: ["ARTIFACT/root/b"]`.
@@ -262,6 +266,10 @@ Setup:
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/data.json`.
 - Create `out/data.json` with known content.
+- Compute the current chain hash for SPEC/root/b and
+  the checksum of `out/data.json`. Create `.manifest`
+  with a valid entry for ARTIFACT/root/b (matching
+  chain hash and checksum).
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `input: ARTIFACT/root/b` (scalar form).
@@ -322,6 +330,10 @@ Setup:
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/b.json`.
 - Create `out/b.json` with known content.
+- Compute the current chain hash for SPEC/root/b and
+  the checksum of `out/b.json`. Create `.manifest`
+  with a valid entry for ARTIFACT/root/b (matching
+  chain hash and checksum).
 - Create `code-from-spec/root/c/_node.md` with
   `# SPEC/root/c`, `# Public` → `## Acceptance tests`
   with content.
@@ -528,6 +540,137 @@ Expected:
 - Returns an error — the missing node is detected
   during chain processing.
 
+### Blocking preconditions
+
+#### Blocked by unsatisfied wait_on — missing artifact
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with content.
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `type: artifact`,
+  `output: out/a.go`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `type: verdict`,
+  `wait_on: ["ARTIFACT/root/a"]`.
+- No manifest entry for ARTIFACT/root/a. No `out/a.go`.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/b")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- Returns error `mcploadchain.ErrBlocked`.
+
+#### Blocked by unsatisfied wait_on — stale artifact
+
+Setup:
+- Create spec tree as above.
+- Create `out/a.go` on disk.
+- Create `.manifest` with `ARTIFACT/root/a` entry with
+  matching checksum but wrong chain hash (stale).
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/b")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- Returns error `mcploadchain.ErrBlocked`.
+
+#### Blocked by unsatisfied wait_on — verdict failed
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with content.
+- Create `code-from-spec/root/v/_node.md` with
+  `# SPEC/root/v`, frontmatter `type: verdict`,
+  `output: code-from-spec/root/v/verdict.md`.
+- Create `code-from-spec/root/v/verdict.md` on disk.
+- Create `.manifest` with `VERDICT/root/v` entry with
+  matching chain hash and checksum, `result: fail`.
+- Create `code-from-spec/root/b/_node.md` with
+  `# SPEC/root/b`, frontmatter `type: verdict`,
+  `wait_on: ["VERDICT/root/v"]`.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/b")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- Returns error `mcploadchain.ErrBlocked`.
+
+#### Satisfied wait_on — artifact current
+
+Setup:
+- Create spec tree with SPEC/root/a (artifact, up to
+  date in manifest) and SPEC/root/b (verdict,
+  wait_on: ["ARTIFACT/root/a"]).
+- Create `.manifest` with ARTIFACT/root/a entry with
+  matching chain hash and checksum.
+- Create `out/a.go` with matching content.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/b")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- No error. Chain is loaded normally.
+
+#### Satisfied wait_on — verdict passed
+
+Setup:
+- Create spec tree with SPEC/root/v (verdict, up to
+  date, result: pass) and SPEC/root/b (verdict,
+  wait_on: ["VERDICT/root/v"]).
+- Create `.manifest` with VERDICT/root/v entry with
+  matching chain hash, checksum, and result: pass.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/b")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- No error. Chain is loaded normally.
+
+#### Blocked by stale ARTIFACT dependency in imports
+
+Setup:
+- Create `code-from-spec/root/_node.md` with
+  `# SPEC/root`, `# Public` → `## Context` with content.
+- Create `code-from-spec/root/dep/_node.md` with
+  `# SPEC/root/dep`, frontmatter `type: artifact`,
+  `output: out/dep.go`.
+- Create `out/dep.go` on disk.
+- Create `.manifest` with `ARTIFACT/root/dep` entry with
+  matching checksum but wrong chain hash (stale).
+- Create `code-from-spec/root/a/_node.md` with
+  `# SPEC/root/a`, frontmatter `type: artifact`,
+  `output: out/a.go`,
+  `imports: ["ARTIFACT/root/dep"]`.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- Returns error `mcploadchain.ErrBlocked`.
+
+#### Blocked by modified ARTIFACT dependency in input
+
+Setup:
+- Create spec tree with SPEC/root/dep (artifact, with
+  manifest entry whose checksum does not match file on
+  disk — modified).
+- Create SPEC/root/a with
+  `input: ["ARTIFACT/root/dep"]`.
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
+2. Call `mcploadchain.MCPLoadChain(token)`.
+
+Expected:
+- Returns error `mcploadchain.ErrBlocked`.
+
 ### Verdict chains
 
 #### Verdict chain — no existing artifact section
@@ -610,3 +753,7 @@ Expected:
 - The manifest file path is `code-from-spec/.manifest`
   — write manifest fixtures there, not at `.manifest`
   in the working directory root.
+- File checksums must match what the oslayer package
+  produces when reading the file: CRLF converted to
+  LF, trailing LF appended if absent. Apply the same
+  normalization in the test helper before hashing.

@@ -25,6 +25,8 @@ type StalenessEntry struct {
 	Detail       string
 	Rank         int
 	Result       string
+	Blocked      bool
+	BlockedBy    string
 }
 
 type ValidationReport struct {
@@ -143,6 +145,8 @@ func MCPValidateSpecs() ValidationReport {
 		})
 	}
 
+	blockedSet := make(map[string]string)
+
 	for _, nwr := range nodesToProcess {
 		n := nwr.node
 		rank := nwr.rank
@@ -160,89 +164,111 @@ func MCPValidateSpecs() ValidationReport {
 			manifestKey = "ARTIFACT/" + suffix
 		}
 
+		var currentEntry *StalenessEntry
+
 		chain, chainErr := chainresolver.ChainResolve(n.Reference.LogicalName, knownSpecNodes)
 		if chainErr != nil {
-			stalenessEntries = append(stalenessEntries, StalenessEntry{
+			e := StalenessEntry{
 				Node:         n.Reference.LogicalName,
 				ArtifactPath: artifactPath,
 				Status:       "missing",
 				Detail:       chainErr.Error(),
 				Rank:         rank,
-			})
-			continue
+			}
+			currentEntry = &e
+		} else {
+			computedHash, _, hashErr := chainhash.ChainHashCompute(chain)
+			if hashErr != nil {
+				e := StalenessEntry{
+					Node:         n.Reference.LogicalName,
+					ArtifactPath: artifactPath,
+					Status:       "missing",
+					Detail:       hashErr.Error(),
+					Rank:         rank,
+				}
+				currentEntry = &e
+			} else {
+				mEntry, entryExists := manifestEntries[manifestKey]
+				if !entryExists {
+					e := StalenessEntry{
+						Node:         n.Reference.LogicalName,
+						ArtifactPath: artifactPath,
+						Status:       "missing",
+						Detail:       "no manifest entry",
+						Rank:         rank,
+					}
+					currentEntry = &e
+				} else if mEntry.ChainHash != computedHash {
+					e := StalenessEntry{
+						Node:         n.Reference.LogicalName,
+						ArtifactPath: artifactPath,
+						Status:       "stale",
+						Detail:       "manifest chain hash " + mEntry.ChainHash + " does not match expected hash " + computedHash,
+						Rank:         rank,
+						Result:       mEntry.Result,
+					}
+					currentEntry = &e
+				} else {
+					filePath := oslayer.CfsPath(artifactPath)
+					handle, openErr := oslayer.OpenFile(filePath, "read", 30000)
+					if openErr != nil {
+						e := StalenessEntry{
+							Node:         n.Reference.LogicalName,
+							ArtifactPath: artifactPath,
+							Status:       "missing",
+							Detail:       openErr.Error(),
+							Rank:         rank,
+						}
+						currentEntry = &e
+					} else {
+						fileChecksum, readErr := computeFileChecksum(handle)
+						handle.Close()
+						if readErr != nil {
+							e := StalenessEntry{
+								Node:         n.Reference.LogicalName,
+								ArtifactPath: artifactPath,
+								Status:       "missing",
+								Detail:       readErr.Error(),
+								Rank:         rank,
+							}
+							currentEntry = &e
+						} else if fileChecksum != mEntry.Checksum {
+							e := StalenessEntry{
+								Node:         n.Reference.LogicalName,
+								ArtifactPath: artifactPath,
+								Status:       "modified",
+								Detail:       "file checksum does not match manifest checksum",
+								Rank:         rank,
+								Result:       mEntry.Result,
+							}
+							currentEntry = &e
+						}
+					}
+				}
+			}
 		}
 
-		computedHash, _, hashErr := chainhash.ChainHashCompute(chain)
-		if hashErr != nil {
-			stalenessEntries = append(stalenessEntries, StalenessEntry{
-				Node:         n.Reference.LogicalName,
-				ArtifactPath: artifactPath,
-				Status:       "missing",
-				Detail:       hashErr.Error(),
-				Rank:         rank,
-			})
-			continue
-		}
+		blocked, reason := computeBlocking(&n, manifestEntries, knownSpecNodes, blockedSet)
 
-		entry, entryExists := manifestEntries[manifestKey]
-		if !entryExists {
-			stalenessEntries = append(stalenessEntries, StalenessEntry{
-				Node:         n.Reference.LogicalName,
-				ArtifactPath: artifactPath,
-				Status:       "missing",
-				Detail:       "no manifest entry",
-				Rank:         rank,
-			})
-			continue
-		}
-
-		if entry.ChainHash != computedHash {
-			stalenessEntries = append(stalenessEntries, StalenessEntry{
-				Node:         n.Reference.LogicalName,
-				ArtifactPath: artifactPath,
-				Status:       "stale",
-				Detail:       "manifest chain hash " + entry.ChainHash + " does not match expected hash " + computedHash,
-				Rank:         rank,
-				Result:       entry.Result,
-			})
-			continue
-		}
-
-		filePath := oslayer.CfsPath(artifactPath)
-		handle, openErr := oslayer.OpenFile(filePath, "read", 30000)
-		if openErr != nil {
-			stalenessEntries = append(stalenessEntries, StalenessEntry{
-				Node:         n.Reference.LogicalName,
-				ArtifactPath: artifactPath,
-				Status:       "missing",
-				Detail:       openErr.Error(),
-				Rank:         rank,
-			})
-			continue
-		}
-
-		fileChecksum, readErr := computeFileChecksum(handle)
-		handle.Close()
-		if readErr != nil {
-			stalenessEntries = append(stalenessEntries, StalenessEntry{
-				Node:         n.Reference.LogicalName,
-				ArtifactPath: artifactPath,
-				Status:       "missing",
-				Detail:       readErr.Error(),
-				Rank:         rank,
-			})
-			continue
-		}
-
-		if fileChecksum != entry.Checksum {
-			stalenessEntries = append(stalenessEntries, StalenessEntry{
-				Node:         n.Reference.LogicalName,
-				ArtifactPath: artifactPath,
-				Status:       "modified",
-				Detail:       "file checksum does not match manifest checksum",
-				Rank:         rank,
-				Result:       entry.Result,
-			})
+		if blocked {
+			if currentEntry == nil {
+				e := StalenessEntry{
+					Node:         n.Reference.LogicalName,
+					ArtifactPath: artifactPath,
+					Status:       "",
+					Rank:         rank,
+					Blocked:      true,
+					BlockedBy:    reason,
+				}
+				stalenessEntries = append(stalenessEntries, e)
+			} else {
+				currentEntry.Blocked = true
+				currentEntry.BlockedBy = reason
+				stalenessEntries = append(stalenessEntries, *currentEntry)
+			}
+			blockedSet[manifestKey] = reason
+		} else if currentEntry != nil {
+			stalenessEntries = append(stalenessEntries, *currentEntry)
 		}
 	}
 
@@ -286,6 +312,120 @@ func MCPValidateSpecs() ValidationReport {
 		Cycles:       cycles,
 		Staleness:    stalenessEntries,
 	}
+}
+
+func computeBlocking(n *parsing.Node, manifestEntries map[string]manifest.ManifestEntry, knownSpecNodes []string, blockedSet map[string]string) (bool, string) {
+	if n.Frontmatter == nil {
+		return false, ""
+	}
+
+	declaringNode := n.Reference.LogicalName
+
+	waitOnTargets := expandRefs(n.Frontmatter.WaitOn, knownSpecNodes, &declaringNode)
+	for _, target := range waitOnTargets {
+		if !isWaitOnTargetSatisfied(target, manifestEntries, knownSpecNodes) {
+			return true, "wait_on target not satisfied: " + target
+		}
+	}
+
+	allImportsInput := append(append([]string{}, n.Frontmatter.Imports...), n.Frontmatter.Input...)
+	expandedDeps := expandRefs(allImportsInput, knownSpecNodes, &declaringNode)
+	var artifactDeps []string
+	for _, dep := range expandedDeps {
+		if strings.HasPrefix(dep, "ARTIFACT/") {
+			artifactDeps = append(artifactDeps, dep)
+		}
+	}
+	for _, dep := range artifactDeps {
+		entry, exists := manifestEntries[dep]
+		if exists && !checksumMatchesFile(entry) {
+			return true, "dependency artifact modified: " + dep
+		}
+	}
+
+	for _, target := range waitOnTargets {
+		if _, inBlockedSet := blockedSet[target]; inBlockedSet {
+			return true, "dependency blocked: " + target
+		}
+	}
+	for _, dep := range artifactDeps {
+		if _, inBlockedSet := blockedSet[dep]; inBlockedSet {
+			return true, "dependency blocked: " + dep
+		}
+	}
+
+	return false, ""
+}
+
+func expandRefs(patterns []string, knownSpecNodes []string, declaringNode *string) []string {
+	var result []string
+	for _, pattern := range patterns {
+		if strings.Contains(pattern, "*") {
+			expanded, err := parsing.ExpandGlob(pattern, knownSpecNodes, declaringNode)
+			if err == nil {
+				result = append(result, expanded...)
+			}
+		} else {
+			result = append(result, pattern)
+		}
+	}
+	return result
+}
+
+func isWaitOnTargetSatisfied(target string, manifestEntries map[string]manifest.ManifestEntry, knownSpecNodes []string) bool {
+	entry, exists := manifestEntries[target]
+	if !exists {
+		return false
+	}
+
+	var specName string
+	if strings.HasPrefix(target, "ARTIFACT/") {
+		specName = "SPEC/" + strings.TrimPrefix(target, "ARTIFACT/")
+	} else if strings.HasPrefix(target, "VERDICT/") {
+		specName = "SPEC/" + strings.TrimPrefix(target, "VERDICT/")
+	} else {
+		return false
+	}
+
+	chain, err := chainresolver.ChainResolve(specName, knownSpecNodes)
+	if err != nil {
+		return false
+	}
+
+	computedHash, _, err := chainhash.ChainHashCompute(chain)
+	if err != nil {
+		return false
+	}
+
+	if entry.ChainHash != computedHash {
+		return false
+	}
+
+	if !checksumMatchesFile(entry) {
+		return false
+	}
+
+	if strings.HasPrefix(target, "VERDICT/") {
+		if entry.Result != "pass" && entry.Result != "accepted" {
+			return false
+		}
+	}
+
+	return true
+}
+
+func checksumMatchesFile(entry manifest.ManifestEntry) bool {
+	filePath := oslayer.CfsPath(entry.Path)
+	handle, err := oslayer.OpenFile(filePath, "read", 30000)
+	if err != nil {
+		return true
+	}
+	checksum, err := computeFileChecksum(handle)
+	handle.Close()
+	if err != nil {
+		return true
+	}
+	return checksum == entry.Checksum
 }
 
 func computeFileChecksum(handle *oslayer.File) (string, error) {

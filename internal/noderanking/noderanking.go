@@ -40,21 +40,39 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 			rank: 0,
 		}
 
-		if node.Frontmatter != nil && node.Frontmatter.Output != nil {
+		resolvedOutput := parsing.ResolvedOutput(&node)
+		if resolvedOutput != nil {
 			bare := strings.TrimPrefix(node.Reference.LogicalName, "SPEC/")
-			artifactName := "ARTIFACT/" + bare
-			parentName := node.Reference.LogicalName
-			artifactRef := parsing.CfsReference{
-				NodeType:    parsing.CfsNodeTypeArtifact,
-				LogicalName: artifactName,
-				Qualifier:   nil,
-				Path:        *node.Frontmatter.Output,
-				ParentName:  &parentName,
-			}
-			entryMap[artifactName] = &rankEntry{
-				ref:  artifactRef,
-				deps: []string{node.Reference.LogicalName},
-				rank: 0,
+			if node.Frontmatter != nil && node.Frontmatter.Type != nil && *node.Frontmatter.Type == "artifact" {
+				artifactName := "ARTIFACT/" + bare
+				parentName := node.Reference.LogicalName
+				artifactRef := parsing.CfsReference{
+					NodeType:    parsing.CfsNodeTypeArtifact,
+					LogicalName: artifactName,
+					Qualifier:   nil,
+					Path:        *resolvedOutput,
+					ParentName:  &parentName,
+				}
+				entryMap[artifactName] = &rankEntry{
+					ref:  artifactRef,
+					deps: []string{node.Reference.LogicalName},
+					rank: 0,
+				}
+			} else if node.Frontmatter != nil && node.Frontmatter.Type != nil && *node.Frontmatter.Type == "verdict" {
+				verdictName := "VERDICT/" + bare
+				parentName := node.Reference.LogicalName
+				verdictRef := parsing.CfsReference{
+					NodeType:    parsing.CfsNodeTypeVerdict,
+					LogicalName: verdictName,
+					Qualifier:   nil,
+					Path:        *resolvedOutput,
+					ParentName:  &parentName,
+				}
+				entryMap[verdictName] = &rankEntry{
+					ref:  verdictRef,
+					deps: []string{node.Reference.LogicalName},
+					rank: 0,
+				}
 			}
 		}
 	}
@@ -134,6 +152,33 @@ func NodeRankCompute(entries []parsing.Node) ([]NodeRankEntry, []string, error) 
 				entry.deps = append(entry.deps, inp)
 			} else if strings.HasPrefix(inp, "EXTERNAL/") {
 				continue
+			}
+		}
+
+		expandedWaitOn := []string{}
+		for _, ref := range node.Frontmatter.WaitOn {
+			if strings.HasSuffix(ref, "/*") {
+				results, err := parsing.ExpandGlob(ref, knownSpecNodes, &node.Reference.LogicalName)
+				if err != nil {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
+				}
+				expandedWaitOn = append(expandedWaitOn, results...)
+			} else {
+				expandedWaitOn = append(expandedWaitOn, ref)
+			}
+		}
+
+		for _, ref := range expandedWaitOn {
+			if strings.HasPrefix(ref, "ARTIFACT/") {
+				if _, ok := entryMap[ref]; !ok {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
+				}
+				entry.deps = append(entry.deps, ref)
+			} else if strings.HasPrefix(ref, "VERDICT/") {
+				if _, ok := entryMap[ref]; !ok {
+					return nil, nil, fmt.Errorf("%w: %s", ErrUnresolvableReference, ref)
+				}
+				entry.deps = append(entry.deps, ref)
 			}
 		}
 	}

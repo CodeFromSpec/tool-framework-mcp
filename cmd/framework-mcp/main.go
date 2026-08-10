@@ -283,11 +283,37 @@ func formatValidationReport(report mcpvalidatespecs.ValidationReport) string {
 	if len(report.Staleness) > 0 {
 		sb.WriteString("Staleness:\n")
 		for _, se := range report.Staleness {
-			sb.WriteString(fmt.Sprintf("  [%s] %s (%s) rank=%d", se.Status, se.Node, se.ArtifactPath, se.Rank))
-			if se.Detail != "" {
-				sb.WriteString(fmt.Sprintf(": %s", se.Detail))
+			var statusLabel string
+			if se.Status == "" && se.Blocked {
+				statusLabel = "blocked"
+			} else if se.Blocked {
+				statusLabel = se.Status + ", blocked"
+			} else {
+				statusLabel = se.Status
 			}
-			sb.WriteString("\n")
+
+			rankPart := fmt.Sprintf("rank=%d", se.Rank)
+			if se.Result != "" {
+				rankPart = fmt.Sprintf("rank=%d result=%s", se.Rank, se.Result)
+			}
+
+			if se.Status == "" && se.Blocked {
+				sb.WriteString(fmt.Sprintf("  [%s] %s (%s) %s: %s\n", statusLabel, se.Node, se.ArtifactPath, rankPart, se.BlockedBy))
+			} else if se.Blocked {
+				detail := se.Detail
+				if detail != "" {
+					detail = fmt.Sprintf("%s (blocked by: %s)", detail, se.BlockedBy)
+				} else {
+					detail = fmt.Sprintf("(blocked by: %s)", se.BlockedBy)
+				}
+				sb.WriteString(fmt.Sprintf("  [%s] %s (%s) %s: %s\n", statusLabel, se.Node, se.ArtifactPath, rankPart, detail))
+			} else {
+				sb.WriteString(fmt.Sprintf("  [%s] %s (%s) %s", statusLabel, se.Node, se.ArtifactPath, rankPart))
+				if se.Detail != "" {
+					sb.WriteString(fmt.Sprintf(": %s", se.Detail))
+				}
+				sb.WriteString("\n")
+			}
 		}
 	}
 

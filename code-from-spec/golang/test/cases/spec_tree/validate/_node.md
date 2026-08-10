@@ -233,7 +233,31 @@ Setup:
 
 Expected: No requires_type error.
 
+#### wait_on without type
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
+  output = "a.go"),
+  SPEC/root/b (leaf, type = nil,
+  wait_on = ["ARTIFACT/root/a"]).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/b",
+Rule: "requires_type",
+Detail: "wait_on requires type" }.
+
 ### leaf_only_fields
+
+#### Intermediate node with wait_on
+
+Setup:
+- SPEC/root, SPEC/root/a (intermediate, has child
+  SPEC/root/a/b,
+  wait_on = ["ARTIFACT/root/c"]),
+  SPEC/root/a/b (leaf).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "leaf_only_fields",
+Detail: "wait_on is only permitted on leaf nodes" }.
 
 #### Intermediate node with imports
 
@@ -515,6 +539,97 @@ Setup:
 
 Expected: spectreevalidate.FormatError { Node:
 "SPEC/root/b", Rule: "input_target" }.
+
+### wait_on_targets
+
+#### Valid ARTIFACT wait_on reference
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
+  output = "a.go"),
+  SPEC/root/b (leaf, type = "verdict",
+  wait_on = ["ARTIFACT/root/a"]).
+
+Expected: No wait_on_targets error.
+
+#### Valid VERDICT wait_on reference
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict"),
+  SPEC/root/b (leaf, type = "verdict",
+  wait_on = ["VERDICT/root/a"]).
+
+Expected: No wait_on_targets error.
+
+#### wait_on with non-existent ARTIFACT
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict",
+  wait_on = ["ARTIFACT/root/missing"]).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "wait_on_targets" }.
+
+#### wait_on with non-existent VERDICT
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict",
+  wait_on = ["VERDICT/root/missing"]).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "wait_on_targets" }.
+
+#### wait_on with SPEC prefix — rejected
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict",
+  wait_on = ["SPEC/root/b"]),
+  SPEC/root/b (leaf).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "wait_on_targets" }.
+
+#### wait_on with EXTERNAL prefix — rejected
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict",
+  wait_on = ["EXTERNAL/docs/api.yaml"]).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "wait_on_targets" }.
+
+#### wait_on with valid ARTIFACT glob
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict",
+  wait_on = ["ARTIFACT/root/b/*"]),
+  SPEC/root/b (intermediate),
+  SPEC/root/b/x (leaf, type = "artifact",
+  output = "x.go"),
+  SPEC/root/b/y (leaf, type = "artifact",
+  output = "y.go").
+
+Expected: No wait_on_targets error.
+
+#### wait_on with valid VERDICT glob
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict",
+  wait_on = ["VERDICT/root/b/*"]),
+  SPEC/root/b (intermediate),
+  SPEC/root/b/x (leaf, type = "verdict"),
+  SPEC/root/b/y (leaf, type = "verdict").
+
+Expected: No wait_on_targets error.
+
+#### wait_on with invalid glob syntax
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "verdict",
+  wait_on = ["EXTERNAL/docs/*"]).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "wait_on_targets" }.
 
 ### missing_node_md
 
