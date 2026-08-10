@@ -14,7 +14,7 @@ import (
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcppruneorphans"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpreconstructcache"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpvalidatespecs"
-	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwritefile"
+	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwriteartifact"
 	"github.com/CodeFromSpec/tool-framework-mcp/v6/internal/mcpwriteverdict"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -28,7 +28,7 @@ projects.
 
 Tools:
   load_chain          Load the spec chain for a node.
-  write_file          Write a generated artifact to disk.
+  write_artifact      Write a generated artifact to disk.
   write_verdict       Write a verdict document to disk.
   validate_specs      Validate specs and check staleness.
   accept              Accept a modified artifact.
@@ -85,15 +85,15 @@ func main() {
 		}, nil, nil
 	})
 
-	type WriteFileArgs struct {
+	type WriteArtifactArgs struct {
 		Token   string `json:"token" jsonschema:"Opaque token identifying the node whose output declares the target path, as returned by create_token."`
 		Content string `json:"content" jsonschema:"Complete file content (UTF-8 text)."`
 	}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "write_file",
+		Name:        "write_artifact",
 		Description: "Write a generated artifact to disk.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteFileArgs) (*mcp.CallToolResult, any, error) {
-		result, err := mcpwritefile.MCPWriteFile(args.Token, args.Content)
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args WriteArtifactArgs) (*mcp.CallToolResult, any, error) {
+		result, err := mcpwriteartifact.MCPWriteArtifact(args.Token, args.Content)
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
