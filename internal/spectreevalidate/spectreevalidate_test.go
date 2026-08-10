@@ -83,6 +83,7 @@ func hasErrorWithRule(errs []spectreevalidate.FormatError, rule string) bool {
 func TestHappyPath_ValidLeafNode(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:    testutils.Ptr("artifact"),
 		Imports: []string{"SPEC/root/b"},
 		Output:  testutils.Ptr("internal/out.go"),
 	})
@@ -169,6 +170,233 @@ func TestNameHeading_DoesNotMatch(t *testing.T) {
 	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
 	if !hasError(errs, "SPEC/root/a", "name_heading") {
 		t.Errorf("expected name_heading error, got %v", errs)
+	}
+}
+
+func TestLeafOnlyType_IntermediateWithType(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("artifact"),
+	})
+	nodeAB := makeNode("SPEC/root/a/b", testutils.Ptr("SPEC/root/a"))
+
+	entries := []parsing.Node{rootNode, nodeA, nodeAB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/a/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "leaf_only_type") {
+		t.Errorf("expected leaf_only_type error for intermediate node with type, got %v", errs)
+	}
+}
+
+func TestLeafOnlyType_LeafWithType_NoError(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("artifact"),
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "leaf_only_type") {
+		t.Errorf("expected no leaf_only_type error for leaf node with type")
+	}
+}
+
+func TestTypeValue_UnrecognizedType(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("unknown"),
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if !hasError(errs, "SPEC/root/a", "type_value") {
+		t.Errorf("expected type_value error for unrecognized type, got %v", errs)
+	}
+}
+
+func TestTypeValue_ArtifactIsValid_NoError(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type: testutils.Ptr("artifact"),
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "type_value") {
+		t.Errorf("expected no type_value error for artifact type")
+	}
+}
+
+func TestRequiresType_ImportsWithoutType(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Imports: []string{"SPEC/root/b"},
+	})
+	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	found := findErrors(errs, "SPEC/root/a", "requires_type")
+	if len(found) == 0 {
+		t.Errorf("expected requires_type error for imports without type, got %v", errs)
+	}
+	if len(found) > 0 && found[0].Detail == "" {
+		t.Errorf("expected non-empty Detail in requires_type error")
+	}
+}
+
+func TestRequiresType_InputWithoutType(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Input: []string{"ARTIFACT/root/b"},
+	})
+	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
+		Output: testutils.Ptr("b.go"),
+	})
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	found := findErrors(errs, "SPEC/root/a", "requires_type")
+	if len(found) == 0 {
+		t.Errorf("expected requires_type error for input without type, got %v", errs)
+	}
+	if len(found) > 0 && found[0].Detail == "" {
+		t.Errorf("expected non-empty Detail in requires_type error")
+	}
+}
+
+func TestRequiresType_OutputWithoutType(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Output: testutils.Ptr("x.go"),
+	})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	found := findErrors(errs, "SPEC/root/a", "requires_type")
+	if len(found) == 0 {
+		t.Errorf("expected requires_type error for output without type, got %v", errs)
+	}
+	if len(found) > 0 && found[0].Detail == "" {
+		t.Errorf("expected non-empty Detail in requires_type error")
+	}
+}
+
+func TestRequiresType_AgentWithoutType(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := withAgent(makeNode("SPEC/root/a", testutils.Ptr("SPEC/root")), []string{"some content"})
+
+	entries := []parsing.Node{rootNode, nodeA}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	found := findErrors(errs, "SPEC/root/a", "requires_type")
+	if len(found) == 0 {
+		t.Errorf("expected requires_type error for agent section without type, got %v", errs)
+	}
+	if len(found) > 0 && found[0].Detail == "" {
+		t.Errorf("expected non-empty Detail in requires_type error")
+	}
+}
+
+func TestRequiresType_MultipleFieldsWithoutType(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := withAgent(
+		makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Imports: []string{"SPEC/root/b"},
+			Output:  testutils.Ptr("x.go"),
+		}),
+		[]string{"some content"},
+	)
+	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	found := findErrors(errs, "SPEC/root/a", "requires_type")
+	if len(found) != 3 {
+		t.Errorf("expected 3 requires_type errors, got %d: %v", len(found), errs)
+	}
+}
+
+func TestRequiresType_FieldsWithType_NoError(t *testing.T) {
+	rootNode := makeNode("SPEC/root", nil)
+	nodeA := withAgent(
+		makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+			Type:    testutils.Ptr("artifact"),
+			Imports: []string{"SPEC/root/b"},
+			Output:  testutils.Ptr("x.go"),
+		}),
+		[]string{"some content"},
+	)
+	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
+
+	entries := []parsing.Node{rootNode, nodeA, nodeB}
+	allDirs := []string{
+		"code-from-spec",
+		"code-from-spec/root",
+		"code-from-spec/root/a",
+		"code-from-spec/root/b",
+	}
+
+	errs := spectreevalidate.SpecTreeValidate(entries, allDirs)
+	if hasError(errs, "SPEC/root/a", "requires_type") {
+		t.Errorf("expected no requires_type error when type is present, got %v", errs)
 	}
 }
 
@@ -398,6 +626,7 @@ func TestImportTargets_ValidARTIFACT(t *testing.T) {
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
 		Output: testutils.Ptr("lib.go"),
 	})
 	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -547,6 +776,7 @@ func TestInputTarget_ValidARTIFACT(t *testing.T) {
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
 		Output: testutils.Ptr("a.go"),
 	})
 	nodeB := makeNodeWithFrontmatter("SPEC/root/b", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
@@ -649,6 +879,7 @@ func TestInputTarget_MultipleValidEntries(t *testing.T) {
 
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
 		Output: testutils.Ptr("a.go"),
 	})
 	nodeB := makeNode("SPEC/root/b", testutils.Ptr("SPEC/root"))
@@ -852,6 +1083,7 @@ func TestMissingNodeMd_AllHaveNodes_NoError(t *testing.T) {
 func TestOutputPaths_ValidPath(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
 		Output: testutils.Ptr("internal/x.go"),
 	})
 
@@ -871,6 +1103,7 @@ func TestOutputPaths_ValidPath(t *testing.T) {
 func TestOutputPaths_TraversalPath(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
 		Output: testutils.Ptr("../../etc/passwd"),
 	})
 
@@ -890,6 +1123,7 @@ func TestOutputPaths_TraversalPath(t *testing.T) {
 func TestOutputPaths_BackslashPath(t *testing.T) {
 	rootNode := makeNode("SPEC/root", nil)
 	nodeA := makeNodeWithFrontmatter("SPEC/root/a", testutils.Ptr("SPEC/root"), &parsing.NodeFrontmatter{
+		Type:   testutils.Ptr("artifact"),
 		Output: testutils.Ptr(`internal\x.go`),
 	})
 
@@ -932,7 +1166,7 @@ func TestPublicSubsectionRequired_ContentBeforeSubsection(t *testing.T) {
 	if len(found) == 0 {
 		t.Errorf("expected public_subsection_required error, got %v", errs)
 	}
-	if found[0].Detail == "" {
+	if len(found) > 0 && found[0].Detail == "" {
 		t.Errorf("expected non-empty Detail in public_subsection_required error")
 	}
 }

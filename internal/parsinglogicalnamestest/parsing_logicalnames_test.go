@@ -211,6 +211,7 @@ func TestCfsReferenceFromName_ArtifactType(t *testing.T) {
 		testutils.Chdir(t)
 
 		b := testutils.CreateSpecNode(t, "SPEC/extraction/proto")
+		b.SetType("artifact")
 		b.SetOutput("internal/extraction/proto.go")
 		b.Write()
 
@@ -241,6 +242,7 @@ func TestCfsReferenceFromName_ArtifactType(t *testing.T) {
 		testutils.Chdir(t)
 
 		b := testutils.CreateSpecNode(t, "SPEC/payments/fees/calculation")
+		b.SetType("artifact")
 		b.SetOutput("internal/fees/calculation.go")
 		b.Write()
 
@@ -267,7 +269,37 @@ func TestCfsReferenceFromName_ArtifactType(t *testing.T) {
 		}
 	})
 
-	t.Run("artifact generator has no output", func(t *testing.T) {
+	t.Run("artifact with default output no output field", func(t *testing.T) {
+		testutils.Chdir(t)
+
+		b := testutils.CreateSpecNode(t, "SPEC/docs/overview")
+		b.SetType("artifact")
+		b.Write()
+
+		ref, err := parsing.CfsReferenceFromName("ARTIFACT/docs/overview")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ref.NodeType != parsing.CfsNodeTypeArtifact {
+			t.Errorf("NodeType = %v, want CfsNodeTypeArtifact", ref.NodeType)
+		}
+		if ref.LogicalName != "ARTIFACT/docs/overview" {
+			t.Errorf("LogicalName = %q, want %q", ref.LogicalName, "ARTIFACT/docs/overview")
+		}
+		if ref.Qualifier != nil {
+			t.Errorf("Qualifier = %v, want nil", ref.Qualifier)
+		}
+		if ref.Path != "code-from-spec/docs/overview/artifact.md" {
+			t.Errorf("Path = %q, want %q", ref.Path, "code-from-spec/docs/overview/artifact.md")
+		}
+		if ref.ParentName == nil {
+			t.Errorf("ParentName = nil, want pointer to %q", "SPEC/docs/overview")
+		} else if *ref.ParentName != "SPEC/docs/overview" {
+			t.Errorf("ParentName = %q, want %q", *ref.ParentName, "SPEC/docs/overview")
+		}
+	})
+
+	t.Run("artifact generator has no type", func(t *testing.T) {
 		testutils.Chdir(t)
 
 		testutils.WriteRawNode(t, "SPEC/docs/overview", "---\n---\n# SPEC/docs/overview\n")

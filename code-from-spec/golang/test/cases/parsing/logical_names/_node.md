@@ -23,8 +23,9 @@ Tests for `parsing.CfsReferenceFromName` and
 SPEC and EXTERNAL tests are pure string parsing — no
 filesystem needed. ARTIFACT tests require a temp
 directory with a `_node.md` file containing frontmatter
-with an `output` field, because `CfsReferenceFromName`
-reads the generator's frontmatter via `ParseNode`.
+with a `type` field (and optionally `output`), because
+`CfsReferenceFromName` reads the generator's frontmatter
+via `ParseNode`.
 
 ARTIFACT tests use the `testutils.Chdir` pattern: create a
 temp dir, chdir to it, create the necessary
@@ -130,6 +131,7 @@ Setup: create file
 `code-from-spec/extraction/proto/_node.md` with:
 ```
 ---
+type: artifact
 output: internal/extraction/proto.go
 ---
 # SPEC/extraction/proto
@@ -149,6 +151,7 @@ Setup: create file
 with:
 ```
 ---
+type: artifact
 output: internal/fees/calculation.go
 ---
 # SPEC/payments/fees/calculation
@@ -162,7 +165,25 @@ Path = "internal/fees/calculation.go",
 ParentName = pointer to
 "SPEC/payments/fees/calculation".
 
-#### Artifact generator has no output
+#### Artifact with default output (no output field)
+
+Setup: create file
+`code-from-spec/docs/overview/_node.md` with:
+```
+---
+type: artifact
+---
+# SPEC/docs/overview
+```
+
+Input: "ARTIFACT/docs/overview".
+Expect: NodeType = parsing.CfsNodeTypeArtifact,
+LogicalName = "ARTIFACT/docs/overview",
+Qualifier = nil,
+Path = "code-from-spec/docs/overview/artifact.md",
+ParentName = pointer to "SPEC/docs/overview".
+
+#### Artifact generator has no type
 
 Setup: create file
 `code-from-spec/docs/overview/_node.md` with:

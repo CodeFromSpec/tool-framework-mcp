@@ -28,6 +28,7 @@ func setupSingleEntryManifest(t *testing.T) (string, []chainhash.ContentHash, st
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.SetPublic("## Interface\ninterface content")
 	a.Write()

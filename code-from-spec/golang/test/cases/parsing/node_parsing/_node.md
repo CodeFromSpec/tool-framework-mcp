@@ -66,7 +66,7 @@ to derive the expected number.
 
 Setup:
 - Create `code-from-spec/a/_node.md` with frontmatter
-  containing imports (SPEC/, ARTIFACT/, EXTERNAL/
+  containing type, imports (SPEC/, ARTIFACT/, EXTERNAL/
   entries), input, and output. Body has `# SPEC/a`
   heading.
 
@@ -75,6 +75,7 @@ Actions:
 
 Expected:
 - node.Frontmatter is not nil.
+- *node.Frontmatter.Type matches.
 - node.Frontmatter.Imports contains all listed
   entries.
 - node.Frontmatter.Input matches.
@@ -164,6 +165,36 @@ Setup:
   frontmatter, followed by valid body.
 
 Expected: Error `ErrMalformedYAML`.
+
+#### Parses frontmatter with type field
+
+Setup:
+- `_node.md` with `type: artifact` in frontmatter.
+  Body has valid heading.
+
+Expected: No error. *node.Frontmatter.Type = "artifact".
+Imports nil, Input nil, Output nil.
+
+#### Type field with non-string value is rejected
+
+Setup:
+- `_node.md` with `type: 123` in frontmatter.
+
+Expected: Error `ErrMalformedYAML`.
+
+#### Type field with list value is rejected
+
+Setup:
+- `_node.md` with `type:\n  - artifact` in frontmatter.
+
+Expected: Error `ErrMalformedYAML`.
+
+#### Type field with null value
+
+Setup:
+- `_node.md` with `type:` (null) in frontmatter.
+
+Expected: No error. node.Frontmatter.Type is nil.
 
 #### Custom field alone without leaf-only fields
 

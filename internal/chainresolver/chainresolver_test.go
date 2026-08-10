@@ -194,6 +194,7 @@ func TestChainResolve_ArtifactDependencyResolved(t *testing.T) {
 	a.AddImport("ARTIFACT/root/b")
 	a.Write()
 	bNode := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bNode.SetType("artifact")
 	bNode.SetOutput("out/lib.go")
 	bNode.Write()
 
@@ -239,6 +240,7 @@ func TestChainResolve_ArtifactFileDoesNotExistOnDisk(t *testing.T) {
 	a.AddImport("ARTIFACT/root/b")
 	a.Write()
 	bNode := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bNode.SetType("artifact")
 	bNode.SetOutput("out/lib.go")
 	bNode.Write()
 
@@ -264,6 +266,7 @@ func TestChainResolve_MixedImports(t *testing.T) {
 	a.AddImport("EXTERNAL/proto/api.proto")
 	a.Write()
 	bNode := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bNode.SetType("artifact")
 	bNode.SetOutput("out/lib.go")
 	bNode.Write()
 	testutils.CreateSpecNode(t, "SPEC/root/c").Write()
@@ -380,6 +383,7 @@ func TestChainResolve_DuplicateArtifact(t *testing.T) {
 	a.AddImport("ARTIFACT/root/b")
 	a.Write()
 	bNode := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bNode.SetType("artifact")
 	bNode.SetOutput("out/lib.go")
 	bNode.Write()
 
@@ -469,6 +473,7 @@ func TestChainResolve_InputArtifactResolved(t *testing.T) {
 	a.SetInputScalar("ARTIFACT/root/b")
 	a.Write()
 	bNode := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bNode.SetType("artifact")
 	bNode.SetOutput("out/data.json")
 	bNode.Write()
 

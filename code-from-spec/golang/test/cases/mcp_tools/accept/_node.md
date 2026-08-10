@@ -40,7 +40,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with content "modified content".
 - Compute the current chain hash for SPEC/root/a.
 - Create `.manifest` with entry for ARTIFACT/root/a
@@ -64,7 +64,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with content "artifact content".
 - Compute the current checksum for "artifact content".
 - Create `.manifest` with entry for ARTIFACT/root/a
@@ -87,7 +87,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with content "new content".
 - Create an empty `.manifest` (header only, no entries).
   Create the `.manifest.lock` file.
@@ -138,7 +138,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Do not create `out/a.go` on disk.
 
 Actions:
@@ -155,7 +155,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with content "same content".
 - Compute both the current checksum and chain hash.
 - Create `.manifest` with entry for ARTIFACT/root/a

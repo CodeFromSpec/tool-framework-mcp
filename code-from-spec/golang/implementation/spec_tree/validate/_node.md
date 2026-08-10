@@ -50,7 +50,7 @@ Implement the spec tree validation as a Go package.
 2. Build `known_logical_names` as an empty set of strings.
    For each entry in entries:
      Add entry.Reference.LogicalName to `known_logical_names`.
-     If entry.Frontmatter.Output is not nil:
+     If entry.Frontmatter.Type is not nil:
        Derive the artifact logical name by stripping
        the `SPEC/` prefix from entry.Reference.LogicalName and
        prepending `ARTIFACT/`.
@@ -76,6 +76,38 @@ Implement the spec tree validation as a Go package.
      rule: "name_heading"
      detail: "first heading does not match the node
      logical name"
+
+### Rule: leaf_only_type (per entry)
+
+   If `has_children` is true and entry.Frontmatter.Type
+   is not nil:
+     Append FormatError with rule "leaf_only_type",
+     detail "type is only permitted on leaf nodes".
+
+### Rule: type_value (per entry)
+
+   If entry.Frontmatter.Type is not nil and
+   *entry.Frontmatter.Type is not "artifact":
+     Append FormatError with rule "type_value",
+     detail "unrecognized type value:
+     <*entry.Frontmatter.Type>".
+
+### Rule: requires_type (per entry)
+
+   If `has_children` is false and
+   entry.Frontmatter.Type is nil:
+     If entry.Frontmatter.Imports is non-empty:
+       Append FormatError with rule "requires_type",
+       detail "imports requires type".
+     If entry.Frontmatter.Input is non-empty:
+       Append FormatError with rule "requires_type",
+       detail "input requires type".
+     If entry.Frontmatter.Output is not nil:
+       Append FormatError with rule "requires_type",
+       detail "output requires type".
+     If entry.agent is present:
+       Append FormatError with rule "requires_type",
+       detail "# Agent section requires type".
 
 ### Rule: leaf_only_fields (per entry)
 

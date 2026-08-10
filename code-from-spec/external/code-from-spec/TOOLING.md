@@ -23,7 +23,7 @@ collected in the report.
    FILE_FORMAT.md and CODE_FROM_SPEC.md).
 2. Detect circular references across `imports`, `input`, and
    inheritance. Report cycle participants.
-3. For each node that declares `output`, determine the artifact status
+3. For each node that declares `type: artifact`, determine the artifact status
    by comparing the manifest against the current spec tree and file
    system (see MANIFEST.md, "Artifact status"). Each entry includes the
    node's rank — entries with equal rank have no dependency between
@@ -31,7 +31,7 @@ collected in the report.
 4. Report all findings: format errors, cycles, and artifact status
    (stale, modified, missing, orphan).
 
-Nodes without `output` are not checked for staleness — they do not
+Nodes without `type` are not checked for staleness — they do not
 generate artifacts.
 
 ---
@@ -43,7 +43,7 @@ Load the complete spec chain for a given node.
 **Parameters:**
 
 - `token` (string, required) — an opaque token identifying the target
-  node, as returned by `create_token`. The node must declare `output`.
+  node, as returned by `create_token`. The node must declare `type`.
 
 **Returns:** an XML document as defined in CHAIN_ASSEMBLY.md. The
 document contains these core sections:
@@ -96,7 +96,8 @@ Write a generated artifact to disk and update the manifest.
 **Behavior:**
 
 1. Resolve `token` to the target node's logical name. Read the node's
-   frontmatter and derive the output path from its `output` field.
+   frontmatter and derive the output path from its `output` field,
+   applying the default when the field is absent.
 2. Write the file to disk at the derived path.
 3. Compute the checksum (hash of the written content) and the current
    chain hash.
@@ -213,7 +214,7 @@ Save the spec chain for a given node to a file for inspection.
 **Parameters:**
 
 - `logical_name` (string, required) — the logical name of the target
-  node. The node must declare `output`.
+  node. The node must declare `type`.
 
 **Behavior:**
 
@@ -236,7 +237,7 @@ Remove orphan manifest entries and their artifact files.
 **Behavior:**
 
 1. Scan the spec tree and identify manifest entries whose corresponding
-   spec node no longer exists or no longer declares `output`.
+   spec node no longer exists or no longer declares `type`.
 2. For each orphan entry, delete the artifact file from disk first, then
    remove the entry from the manifest. This order ensures that if the
    file deletion fails, the manifest entry is preserved — the orphan

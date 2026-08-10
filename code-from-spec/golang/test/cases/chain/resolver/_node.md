@@ -133,7 +133,7 @@ Expected:
 Setup:
 - Create SPEC/root, SPEC/root/a
   (imports = ["ARTIFACT/root/b"]),
-  SPEC/root/b (output = "out/lib.go").
+  SPEC/root/b (type = "artifact", output = "out/lib.go").
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
@@ -160,7 +160,7 @@ Expected: Error chainresolver.ErrUnresolvableArtifact.
 Setup:
 - Create SPEC/root, SPEC/root/a
   (imports = ["ARTIFACT/root/b"]),
-  SPEC/root/b (output = "out/lib.go").
+  SPEC/root/b (type = "artifact", output = "out/lib.go").
 - Do NOT create "out/lib.go" on disk.
 
 Actions:
@@ -177,7 +177,7 @@ Setup:
 - Create SPEC/root, SPEC/root/a
   (imports = ["SPEC/root/c", "ARTIFACT/root/b",
   "EXTERNAL/proto/api.proto"]),
-  SPEC/root/b (output = "out/lib.go"), SPEC/root/c.
+  SPEC/root/b (type = "artifact", output = "out/lib.go"), SPEC/root/c.
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
@@ -247,7 +247,7 @@ Setup:
 - Create SPEC/root, SPEC/root/a
   (imports = ["ARTIFACT/root/b",
   "ARTIFACT/root/b"]),
-  SPEC/root/b (output = "out/lib.go").
+  SPEC/root/b (type = "artifact", output = "out/lib.go").
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").
@@ -301,7 +301,7 @@ Expected: dependencies contains one EXTERNAL entry.
 Setup:
 - Create SPEC/root, SPEC/root/a
   (input = ["ARTIFACT/root/b"]),
-  SPEC/root/b (output = "out/data.json").
+  SPEC/root/b (type = "artifact", output = "out/data.json").
 
 Actions:
 1. Call chainresolver.ChainResolve("SPEC/root/a").

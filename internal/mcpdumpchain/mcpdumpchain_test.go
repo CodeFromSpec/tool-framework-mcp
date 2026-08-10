@@ -20,6 +20,7 @@ func TestMCPDumpChain_WritesDumpFile(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.Write()
 
@@ -59,6 +60,7 @@ func TestMCPDumpChain_ContentMatchesMCPLoadChain(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.SetAgent("agent instructions here")
 	a.Write()
@@ -95,6 +97,7 @@ func TestMCPDumpChain_OverwritesExistingFile(t *testing.T) {
 	root.Write()
 
 	a := testutils.CreateSpecNode(t, "SPEC/root/a")
+	a.SetType("artifact")
 	a.SetOutput("out/a.go")
 	a.Write()
 

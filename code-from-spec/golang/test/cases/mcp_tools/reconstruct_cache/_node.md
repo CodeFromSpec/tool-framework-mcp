@@ -40,7 +40,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`,
   `# Public` → `## Interface` with content.
 - Create `out/a.go` with known content.
 - Create a valid `.manifest` entry for ARTIFACT/root/a

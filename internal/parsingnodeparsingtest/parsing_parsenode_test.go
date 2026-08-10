@@ -13,6 +13,7 @@ func TestParsesCompleteFrontmatter(t *testing.T) {
 	testutils.Chdir(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/a")
+	b.SetType("artifact")
 	b.AddImport("SPEC/other")
 	b.AddImport("ARTIFACT/thing")
 	b.AddImport("EXTERNAL/proto/api.proto")
@@ -26,6 +27,12 @@ func TestParsesCompleteFrontmatter(t *testing.T) {
 	}
 	if node.Frontmatter == nil {
 		t.Fatal("expected Frontmatter to be non-nil")
+	}
+	if node.Frontmatter.Type == nil {
+		t.Fatal("expected Type to be non-nil")
+	}
+	if *node.Frontmatter.Type != "artifact" {
+		t.Errorf("expected Type = %q, got %q", "artifact", *node.Frontmatter.Type)
 	}
 	if len(node.Frontmatter.Imports) != 3 {
 		t.Fatalf("expected 3 Imports entries, got %d", len(node.Frontmatter.Imports))
@@ -237,6 +244,76 @@ func TestCustomFieldWithListValueRejected(t *testing.T) {
 	_, err := parsing.ParseNode("SPEC/a")
 	if !errors.Is(err, parsing.ErrMalformedYAML) {
 		t.Errorf("expected ErrMalformedYAML, got %v", err)
+	}
+}
+
+func TestParsesFrontmatterWithTypeField(t *testing.T) {
+	testutils.Chdir(t)
+
+	b := testutils.CreateSpecNode(t, "SPEC/a")
+	b.SetType("artifact")
+	b.Write()
+
+	node, err := parsing.ParseNode("SPEC/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if node.Frontmatter == nil {
+		t.Fatal("expected Frontmatter to be non-nil")
+	}
+	if node.Frontmatter.Type == nil {
+		t.Fatal("expected Type to be non-nil")
+	}
+	if *node.Frontmatter.Type != "artifact" {
+		t.Errorf("expected Type = %q, got %q", "artifact", *node.Frontmatter.Type)
+	}
+	if node.Frontmatter.Imports != nil {
+		t.Errorf("expected Imports to be nil")
+	}
+	if node.Frontmatter.Input != nil {
+		t.Errorf("expected Input to be nil")
+	}
+	if node.Frontmatter.Output != nil {
+		t.Errorf("expected Output to be nil")
+	}
+}
+
+func TestTypeFieldWithNonStringValueRejected(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\ntype: 123\n---\n# SPEC/a\n")
+
+	_, err := parsing.ParseNode("SPEC/a")
+	if !errors.Is(err, parsing.ErrMalformedYAML) {
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
+	}
+}
+
+func TestTypeFieldWithListValueRejected(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\ntype:\n  - artifact\n---\n# SPEC/a\n")
+
+	_, err := parsing.ParseNode("SPEC/a")
+	if !errors.Is(err, parsing.ErrMalformedYAML) {
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
+	}
+}
+
+func TestTypeFieldWithNullValue(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\ntype:\n---\n# SPEC/a\n")
+
+	node, err := parsing.ParseNode("SPEC/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if node.Frontmatter == nil {
+		t.Fatal("expected Frontmatter to be non-nil")
+	}
+	if node.Frontmatter.Type != nil {
+		t.Errorf("expected Type to be nil, got %q", *node.Frontmatter.Type)
 	}
 }
 

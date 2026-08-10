@@ -183,6 +183,58 @@ Actions:
 
 Expected: error wrapping `oslayer.ErrFileUnreadable`.
 
+### ResolvedOutput
+
+#### Returns nil when Type is nil
+
+Actions:
+1. Build a `parsing.Node` with Reference.LogicalName =
+   "SPEC/root/a" and Frontmatter with Type = nil,
+   Output = nil.
+2. Call `parsing.ResolvedOutput(node)`.
+
+Expected: nil.
+
+#### Returns nil when Frontmatter is nil
+
+Actions:
+1. Build a `parsing.Node` with Reference.LogicalName =
+   "SPEC/root/a" and Frontmatter = nil.
+2. Call `parsing.ResolvedOutput(node)`.
+
+Expected: nil.
+
+#### Returns explicit Output when set
+
+Actions:
+1. Build a `parsing.Node` with Reference.LogicalName =
+   "SPEC/root/a", Type = pointer to "artifact",
+   Output = pointer to "internal/out.go".
+2. Call `parsing.ResolvedOutput(node)`.
+
+Expected: pointer to "internal/out.go".
+
+#### Returns default path when Output is nil but Type is set
+
+Actions:
+1. Build a `parsing.Node` with Reference.LogicalName =
+   "SPEC/root/a", Type = pointer to "artifact",
+   Output = nil.
+2. Call `parsing.ResolvedOutput(node)`.
+
+Expected: pointer to "code-from-spec/root/a/artifact.md".
+
+#### Default path for nested node
+
+Actions:
+1. Build a `parsing.Node` with Reference.LogicalName =
+   "SPEC/payments/fees/calculation",
+   Type = pointer to "artifact", Output = nil.
+2. Call `parsing.ResolvedOutput(node)`.
+
+Expected: pointer to
+"code-from-spec/payments/fees/calculation/artifact.md".
+
 ## Go-specific guidance
 
 - The package name is `parsing_test` (external test

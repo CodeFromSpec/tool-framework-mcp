@@ -19,7 +19,7 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 	knownNames := make(map[string]bool)
 	for _, entry := range entries {
 		knownNames[entry.Reference.LogicalName] = true
-		if entry.Frontmatter != nil && entry.Frontmatter.Output != nil {
+		if entry.Frontmatter != nil && entry.Frontmatter.Type != nil {
 			suffix := strings.TrimPrefix(entry.Reference.LogicalName, "SPEC/")
 			artifactName := "ARTIFACT/" + suffix
 			knownNames[artifactName] = true
@@ -49,6 +49,59 @@ func SpecTreeValidate(entries []parsing.Node, allDirs []string) []FormatError {
 				Rule:   "name_heading",
 				Detail: "first heading does not match the node logical name",
 			})
+		}
+
+		if hasChildren[entry.Reference.LogicalName] {
+			if entry.Frontmatter != nil && entry.Frontmatter.Type != nil {
+				errs = append(errs, FormatError{
+					Node:   entry.Reference.LogicalName,
+					Rule:   "leaf_only_type",
+					Detail: "type is only permitted on leaf nodes",
+				})
+			}
+		}
+
+		if entry.Frontmatter != nil && entry.Frontmatter.Type != nil {
+			if *entry.Frontmatter.Type != "artifact" {
+				errs = append(errs, FormatError{
+					Node:   entry.Reference.LogicalName,
+					Rule:   "type_value",
+					Detail: "unrecognized type value: " + *entry.Frontmatter.Type,
+				})
+			}
+		}
+
+		if !hasChildren[entry.Reference.LogicalName] {
+			if entry.Frontmatter == nil || entry.Frontmatter.Type == nil {
+				if entry.Frontmatter != nil && len(entry.Frontmatter.Imports) > 0 {
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "requires_type",
+						Detail: "imports requires type",
+					})
+				}
+				if entry.Frontmatter != nil && len(entry.Frontmatter.Input) > 0 {
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "requires_type",
+						Detail: "input requires type",
+					})
+				}
+				if entry.Frontmatter != nil && entry.Frontmatter.Output != nil {
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "requires_type",
+						Detail: "output requires type",
+					})
+				}
+				if entry.Agent != nil {
+					errs = append(errs, FormatError{
+						Node:   entry.Reference.LogicalName,
+						Rule:   "requires_type",
+						Detail: "# Agent section requires type",
+					})
+				}
+			}
 		}
 
 		if hasChildren[entry.Reference.LogicalName] {

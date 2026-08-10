@@ -25,6 +25,7 @@ guaranteed), and a raw writer for arbitrary content
 type NodeBuilder struct { /* unexported fields */ }
 
 func CreateSpecNode(t *testing.T, logicalName string) *NodeBuilder
+func (b *NodeBuilder) SetType(value string)
 func (b *NodeBuilder) SetOutput(value string)
 func (b *NodeBuilder) SetInputScalar(value string)
 func (b *NodeBuilder) SetInputList(values []string)
@@ -40,6 +41,10 @@ func (b *NodeBuilder) Write()
 Creates a `NodeBuilder` for the given logical name
 (e.g. `SPEC/a/b`). The builder stores `t` and the
 logical name for later use by `Write`.
+
+#### SetType
+
+Set the `type` frontmatter field.
 
 #### SetOutput
 
@@ -81,8 +86,8 @@ path from the logical name (`SPEC/a/b` →
 `code-from-spec/a/b/_node.md`). Creates intermediate
 directories. Assembles the file content:
 
-1. Frontmatter block (if any field was set): `output`,
-   `input`, `imports` between `---` delimiters.
+1. Frontmatter block (if any field was set): `type`,
+   `output`, `input`, `imports` between `---` delimiters.
 2. Node name heading: `# <logicalName>`.
 3. `# Public` section (if set).
 4. `# Agent` section (if set).
@@ -126,6 +131,7 @@ types) must use the suffix `CSN`.
 type NodeBuilder struct {
 	t           *testing.T
 	logicalName string
+	nodeType    *string
 	output      *string
 	inputScalar *string
 	inputList   []string
@@ -140,7 +146,8 @@ func CreateSpecNode(t *testing.T, logicalName string) *NodeBuilder {
 	return &NodeBuilder{t: t, logicalName: logicalName}
 }
 
-func (b *NodeBuilder) SetOutput(value string)        { b.output = &value }
+func (b *NodeBuilder) SetType(value string)           { b.nodeType = &value }
+func (b *NodeBuilder) SetOutput(value string)         { b.output = &value }
 func (b *NodeBuilder) SetInputScalar(value string)   { b.inputScalar = &value }
 func (b *NodeBuilder) SetInputList(values []string)  { b.inputList = values }
 func (b *NodeBuilder) AddImport(value string)        { b.imports = append(b.imports, value) }
@@ -157,8 +164,11 @@ func (b *NodeBuilder) Write() {
 
 	var buf strings.Builder
 
-	if b.output != nil || b.inputScalar != nil || len(b.inputList) > 0 || len(b.imports) > 0 {
+	if b.nodeType != nil || b.output != nil || b.inputScalar != nil || len(b.inputList) > 0 || len(b.imports) > 0 {
 		buf.WriteString("---\n")
+		if b.nodeType != nil {
+			buf.WriteString("type: " + *b.nodeType + "\n")
+		}
 		if len(b.imports) > 0 {
 			buf.WriteString("imports:\n")
 			for _, dep := range b.imports {

@@ -64,6 +64,7 @@ func TestCleanTree(t *testing.T) {
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetType("artifact")
 	b.SetOutput("out/a.go")
 	b.Write()
 
@@ -99,6 +100,7 @@ func TestStaleArtifact(t *testing.T) {
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetType("artifact")
 	b.SetOutput("out/a.go")
 	b.Write()
 
@@ -135,6 +137,7 @@ func TestMissingArtifactNoManifestEntry(t *testing.T) {
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetType("artifact")
 	b.SetOutput("out/a.go")
 	b.Write()
 
@@ -158,6 +161,7 @@ func TestMissingArtifactFileDoesNotExist(t *testing.T) {
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetType("artifact")
 	b.SetOutput("out/a.go")
 	b.Write()
 
@@ -186,6 +190,7 @@ func TestModifiedArtifact(t *testing.T) {
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetType("artifact")
 	b.SetOutput("out/a.go")
 	b.Write()
 
@@ -249,10 +254,12 @@ func TestStalenessEntriesIncludeRank(t *testing.T) {
 	createRootNode(t)
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.SetOutput("out/a.go")
 	ba.Write()
 
 	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("artifact")
 	bb.SetOutput("out/b.go")
 	bb.AddImport("SPEC/root/a")
 	bb.Write()
@@ -288,10 +295,12 @@ func TestStalenessOrderedByRankThenName(t *testing.T) {
 	createRootNode(t)
 
 	bz := testutils.CreateSpecNode(t, "SPEC/root/z")
+	bz.SetType("artifact")
 	bz.SetOutput("out/z.go")
 	bz.Write()
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.SetOutput("out/a.go")
 	ba.Write()
 
@@ -323,6 +332,7 @@ func TestFormatErrorInvalidImports(t *testing.T) {
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetType("artifact")
 	b.AddImport("SPEC/root/missing")
 	b.Write()
 
@@ -369,6 +379,7 @@ func TestContinuesAfterParseFailure(t *testing.T) {
 	testutils.WriteRawNode(t, "SPEC/root/a", "plain text before any heading\n")
 
 	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("artifact")
 	bb.SetOutput("out/b.go")
 	bb.Write()
 
@@ -403,10 +414,12 @@ func TestSimpleCycleDetected(t *testing.T) {
 	createRootNode(t)
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.AddImport("SPEC/root/b")
 	ba.Write()
 
 	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("artifact")
 	bb.AddImport("SPEC/root/a")
 	bb.Write()
 
@@ -434,10 +447,12 @@ func TestRankingSkippedWhenFormatErrorsExist(t *testing.T) {
 	createRootNode(t)
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.AddImport("SPEC/root/missing")
 	ba.Write()
 
 	bb := testutils.CreateSpecNode(t, "SPEC/root/b")
+	bb.SetType("artifact")
 	bb.SetOutput("out/b.go")
 	bb.Write()
 
@@ -479,7 +494,7 @@ func TestEmptySpecTreeScanFails(t *testing.T) {
 	}
 }
 
-func TestNodeWithNoOutputNotInStaleness(t *testing.T) {
+func TestNodeWithNoTypeNotInStaleness(t *testing.T) {
 	testutils.Chdir(t)
 
 	createRootNode(t)
@@ -491,7 +506,7 @@ func TestNodeWithNoOutputNotInStaleness(t *testing.T) {
 
 	for _, s := range report.Staleness {
 		if s.Node == "SPEC/root/a" {
-			t.Errorf("expected no staleness entry for SPEC/root/a (no output), got %v", s)
+			t.Errorf("expected no staleness entry for SPEC/root/a (no type), got %v", s)
 		}
 	}
 }
@@ -502,6 +517,7 @@ func TestNoManifestFileAllArtifactsMissing(t *testing.T) {
 	createRootNode(t)
 
 	b := testutils.CreateSpecNode(t, "SPEC/root/a")
+	b.SetType("artifact")
 	b.SetOutput("out/a.go")
 	b.Write()
 

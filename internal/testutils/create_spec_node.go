@@ -10,6 +10,7 @@ import (
 type NodeBuilder struct {
 	t           *testing.T
 	logicalName string
+	nodeType    *string
 	output      *string
 	inputScalar *string
 	inputList   []string
@@ -24,13 +25,14 @@ func CreateSpecNode(t *testing.T, logicalName string) *NodeBuilder {
 	return &NodeBuilder{t: t, logicalName: logicalName}
 }
 
-func (b *NodeBuilder) SetOutput(value string)       { b.output = &value }
-func (b *NodeBuilder) SetInputScalar(value string)  { b.inputScalar = &value }
-func (b *NodeBuilder) SetInputList(values []string) { b.inputList = values }
-func (b *NodeBuilder) AddImport(value string)       { b.imports = append(b.imports, value) }
-func (b *NodeBuilder) SetPublic(content string)     { b.public = &content }
-func (b *NodeBuilder) SetAgent(content string)      { b.agent = &content }
-func (b *NodeBuilder) SetPrivate(content string)    { b.private = &content }
+func (b *NodeBuilder) SetType(value string)          { b.nodeType = &value }
+func (b *NodeBuilder) SetOutput(value string)        { b.output = &value }
+func (b *NodeBuilder) SetInputScalar(value string)   { b.inputScalar = &value }
+func (b *NodeBuilder) SetInputList(values []string)  { b.inputList = values }
+func (b *NodeBuilder) AddImport(value string)        { b.imports = append(b.imports, value) }
+func (b *NodeBuilder) SetPublic(content string)      { b.public = &content }
+func (b *NodeBuilder) SetAgent(content string)       { b.agent = &content }
+func (b *NodeBuilder) SetPrivate(content string)     { b.private = &content }
 
 func (b *NodeBuilder) Write() {
 	b.t.Helper()
@@ -41,8 +43,11 @@ func (b *NodeBuilder) Write() {
 
 	var buf strings.Builder
 
-	if b.output != nil || b.inputScalar != nil || len(b.inputList) > 0 || len(b.imports) > 0 {
+	if b.nodeType != nil || b.output != nil || b.inputScalar != nil || len(b.inputList) > 0 || len(b.imports) > 0 {
 		buf.WriteString("---\n")
+		if b.nodeType != nil {
+			buf.WriteString("type: " + *b.nodeType + "\n")
+		}
 		if len(b.imports) > 0 {
 			buf.WriteString("imports:\n")
 			for _, dep := range b.imports {

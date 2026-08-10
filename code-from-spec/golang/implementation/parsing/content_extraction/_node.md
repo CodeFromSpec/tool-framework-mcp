@@ -21,7 +21,7 @@ in package `parsing`.
 This file declares and implements:
 - Functions: `ExtractBlock`, `FormatSection`,
   `ConcatenateSubsections`, `ExtractAgentContent`,
-  `ReadFileContent`
+  `ReadFileContent`, `ResolvedOutput`
 
 The following exist in other files of this package and
 can be used but must not be redeclared:
@@ -115,6 +115,22 @@ func ReadFileContent(cfsPath oslayer.CfsPath) (string, error)
    propagating.)
 5. Let `text` = join `lines` with `\n`, append `\n`.
 6. Return `text`.
+
+### ResolvedOutput
+
+```
+func ResolvedOutput(node *Node) *string
+```
+
+1. If `node.Frontmatter` is nil or
+   `node.Frontmatter.Type` is nil, return nil.
+2. If `node.Frontmatter.Output` is not nil, return
+   `node.Frontmatter.Output`.
+3. Let `relative` = `node.Reference.LogicalName` with
+   `"SPEC/"` prefix removed.
+4. Let `defaultPath` = `"code-from-spec/" + relative +
+   "/artifact.md"`.
+5. Return pointer to `defaultPath`.
 
 ## Go-specific guidance
 

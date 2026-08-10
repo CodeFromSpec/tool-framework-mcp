@@ -74,14 +74,15 @@ func CfsReferenceFromName(logicalName string) (*CfsReference, error) {
 		if err != nil {
 			return nil, fmt.Errorf("resolving artifact %q: %w", logicalName, err)
 		}
-		if node.Frontmatter == nil || node.Frontmatter.Output == nil {
+		resolvedOutput := ResolvedOutput(node)
+		if resolvedOutput == nil {
 			return nil, fmt.Errorf("%w: %q", ErrNoOutput, logicalName)
 		}
 		return &CfsReference{
 			NodeType:    CfsNodeTypeArtifact,
 			LogicalName: stripped,
 			Qualifier:   nil,
-			Path:        *node.Frontmatter.Output,
+			Path:        *resolvedOutput,
 			ParentName:  stringPtrLN(generatorName),
 		}, nil
 

@@ -21,6 +21,7 @@ func TestMCPWriteFile_WritesFileSuccessfully(t *testing.T) {
 	root.Write()
 
 	node := testutils.CreateSpecNode(t, "SPEC/root/a")
+	node.SetType("artifact")
 	node.SetOutput("output/file.go")
 	node.Write()
 
@@ -53,6 +54,7 @@ func TestMCPWriteFile_ManifestUpdatedAfterWrite(t *testing.T) {
 	root.Write()
 
 	node := testutils.CreateSpecNode(t, "SPEC/root/a")
+	node.SetType("artifact")
 	node.SetOutput("output/file.go")
 	node.Write()
 
@@ -93,6 +95,7 @@ func TestMCPWriteFile_CreatesIntermediateDirectories(t *testing.T) {
 	root.Write()
 
 	node := testutils.CreateSpecNode(t, "SPEC/root/a")
+	node.SetType("artifact")
 	node.SetOutput("deep/nested/dir/file.go")
 	node.Write()
 
@@ -118,6 +121,7 @@ func TestMCPWriteFile_OverwritesExistingFile(t *testing.T) {
 	root.Write()
 
 	node := testutils.CreateSpecNode(t, "SPEC/root/a")
+	node.SetType("artifact")
 	node.SetOutput("output/file.go")
 	node.Write()
 
@@ -170,7 +174,7 @@ func TestMCPWriteFile_NonexistentNode(t *testing.T) {
 	}
 }
 
-func TestMCPWriteFile_NoOutputDeclared(t *testing.T) {
+func TestMCPWriteFile_NoTypeDeclared(t *testing.T) {
 	testutils.Chdir(t)
 
 	root := testutils.CreateSpecNode(t, "SPEC/root")
@@ -187,5 +191,41 @@ func TestMCPWriteFile_NoOutputDeclared(t *testing.T) {
 	_, err = mcpwritefile.MCPWriteFile(token, "")
 	if !errors.Is(err, mcpwritefile.ErrNoOutput) {
 		t.Errorf("expected ErrNoOutput, got %v", err)
+	}
+}
+
+func TestMCPWriteFile_DefaultOutputPathWhenOutputAbsent(t *testing.T) {
+	testutils.Chdir(t)
+
+	root := testutils.CreateSpecNode(t, "SPEC/root")
+	root.Write()
+
+	node := testutils.CreateSpecNode(t, "SPEC/root/a")
+	node.SetType("artifact")
+	node.Write()
+
+	token, err := subagenttoken.SubagentTokenGenerate("SPEC/root/a")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	result, err := mcpwritefile.MCPWriteFile(token, "# content")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "wrote code-from-spec/root/a/artifact.md" {
+		t.Errorf("expected %q, got %q", "wrote code-from-spec/root/a/artifact.md", result)
+	}
+
+	if _, err := os.Stat("code-from-spec/root/a/artifact.md"); err != nil {
+		t.Errorf("file not found: %v", err)
+	}
+
+	data, err := os.ReadFile("code-from-spec/root/a/artifact.md")
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
+	if string(data) != "# content" {
+		t.Errorf("expected content %q, got %q", "# content", string(data))
 	}
 }

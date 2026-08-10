@@ -50,7 +50,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with known content.
 - Compute the current chain hash for SPEC/root/a.
   Compute the checksum of `out/a.go`.
@@ -73,7 +73,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with known content.
 - Create `.manifest` with a chain hash that differs
   from the current chain hash (but checksum matches
@@ -94,7 +94,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - No manifest entry for ARTIFACT/root/a. No file on
   disk.
 
@@ -112,7 +112,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `.manifest` with a valid entry for
   ARTIFACT/root/a (matching chain hash), but do not
   create `out/a.go` on disk.
@@ -131,7 +131,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with content "original".
 - Create `.manifest` with chain hash matching current,
   but checksum matching the hash of "original".
@@ -168,9 +168,9 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `code-from-spec/root/b/_node.md` with
-  `# SPEC/root/b`, frontmatter `output: out/b.go`,
+  `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/b.go`,
   `imports: ["SPEC/root/a"]`.
 - No manifest entries (both are missing).
 
@@ -189,9 +189,9 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/z/_node.md` with
-  `# SPEC/root/z`, frontmatter `output: out/z.go`.
+  `# SPEC/root/z`, frontmatter `type: artifact`, `output: out/z.go`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - No manifest entries (both are missing).
 
 Actions:
@@ -211,7 +211,7 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `imports: ["SPEC/root/missing"]`.
+  frontmatter `type: artifact`, `imports: ["SPEC/root/missing"]`.
 
 Actions:
 1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
@@ -245,7 +245,7 @@ Setup:
 - Create `code-from-spec/root/a/_node.md` with invalid
   content.
 - Create `code-from-spec/root/b/_node.md` with
-  `# SPEC/root/b`, frontmatter `output: out/b.go`.
+  `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/b.go`.
 - No manifest entry for ARTIFACT/root/b.
 
 Actions:
@@ -288,10 +288,10 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `imports: ["SPEC/root/b"]`.
+  frontmatter `type: artifact`, `imports: ["SPEC/root/b"]`.
 - Create `code-from-spec/root/b/_node.md` with
   `# SPEC/root/b`,
-  frontmatter `imports: ["SPEC/root/a"]`.
+  frontmatter `type: artifact`, `imports: ["SPEC/root/a"]`.
 
 Actions:
 1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
@@ -308,9 +308,9 @@ Setup:
   content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`,
-  frontmatter `imports: ["SPEC/root/missing"]`.
+  frontmatter `type: artifact`, `imports: ["SPEC/root/missing"]`.
 - Create `code-from-spec/root/b/_node.md` with
-  `# SPEC/root/b`, frontmatter `output: out/b.go`.
+  `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/b.go`.
 - No manifest entry for ARTIFACT/root/b.
 
 Actions:
@@ -337,14 +337,14 @@ Expected:
 - `cycles` is empty.
 - `staleness` is empty.
 
-#### Node with no output — not in staleness
+#### Node with no type — not in staleness
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`. No output in frontmatter.
+  `# SPEC/root/a`. No type in frontmatter.
 
 Actions:
 1. Call `mcpvalidatespecs.MCPValidateSpecs()`.
@@ -359,7 +359,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Do not create `.manifest`.
 
 Actions:

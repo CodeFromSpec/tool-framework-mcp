@@ -111,6 +111,7 @@ A node with mixed dependencies:
 
 ```yaml
 ---
+type: artifact
 imports:
   - SPEC/architecture/backend/config(interface)
   - EXTERNAL/proto/payments/v1/transfers.proto

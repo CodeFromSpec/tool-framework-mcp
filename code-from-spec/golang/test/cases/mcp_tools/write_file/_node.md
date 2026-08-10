@@ -36,7 +36,7 @@ Use `testutils.Chdir` and create the spec tree structure
 Setup:
 - Create `code-from-spec/root/_node.md` with `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: output/file.go`.
+  frontmatter `type: artifact`, `output: output/file.go`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
@@ -53,7 +53,7 @@ Expected:
 Setup:
 - Create `code-from-spec/root/_node.md` with `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: output/file.go`.
+  frontmatter `type: artifact`, `output: output/file.go`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
@@ -72,7 +72,7 @@ Expected:
 Setup:
 - Create `code-from-spec/root/_node.md` with `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: deep/nested/dir/file.go`.
+  frontmatter `type: artifact`, `output: deep/nested/dir/file.go`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
@@ -88,7 +88,7 @@ Expected:
 Setup:
 - Create `code-from-spec/root/_node.md` with `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
-  frontmatter `output: output/file.go`.
+  frontmatter `type: artifact`, `output: output/file.go`.
 - Create `output/file.go` with content `"old"`.
 
 Actions:
@@ -122,12 +122,12 @@ Actions:
 Expected:
 - Error `mcpwritefile.ErrUnreadableFrontmatter`.
 
-#### No output declared
+#### No type declared
 
 Setup:
 - Create `code-from-spec/root/_node.md` with `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`.
-  Empty frontmatter (no output).
+  Empty frontmatter (no type).
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
@@ -136,6 +136,24 @@ Actions:
 
 Expected:
 - Error `mcpwritefile.ErrNoOutput`.
+
+#### Default output path when output absent
+
+Setup:
+- Create `code-from-spec/root/_node.md` with `# SPEC/root`.
+- Create `code-from-spec/root/a/_node.md` with `# SPEC/root/a`,
+  frontmatter `type: artifact` (no output field).
+
+Actions:
+1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")`
+   → `token`.
+2. Call `mcpwritefile.MCPWriteFile(token, "# content")`.
+
+Expected:
+- Return value = `"wrote code-from-spec/root/a/artifact.md"`.
+- File exists on disk at
+  `code-from-spec/root/a/artifact.md` with content
+  `"# content"`.
 
 ## Go-specific guidance
 

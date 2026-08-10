@@ -114,7 +114,7 @@ func MCPValidateSpecs() ValidationReport {
 
 	var nodesToProcess []nodeWithRank
 	for _, n := range successfulNodes {
-		if n.Frontmatter == nil || n.Frontmatter.Output == nil || *n.Frontmatter.Output == "" {
+		if n.Frontmatter == nil || n.Frontmatter.Type == nil {
 			continue
 		}
 		rank := 0
@@ -140,14 +140,18 @@ func MCPValidateSpecs() ValidationReport {
 	for _, nwr := range nodesToProcess {
 		n := nwr.node
 		rank := nwr.rank
-		outputPath := *n.Frontmatter.Output
+		resolvedOutput := parsing.ResolvedOutput(&n)
+		artifactPath := ""
+		if resolvedOutput != nil {
+			artifactPath = *resolvedOutput
+		}
 		artifactLogicalName := "ARTIFACT/" + strings.TrimPrefix(n.Reference.LogicalName, "SPEC/")
 
 		chain, chainErr := chainresolver.ChainResolve(n.Reference.LogicalName)
 		if chainErr != nil {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
-				ArtifactPath: outputPath,
+				ArtifactPath: artifactPath,
 				Status:       "missing",
 				Detail:       chainErr.Error(),
 				Rank:         rank,
@@ -159,7 +163,7 @@ func MCPValidateSpecs() ValidationReport {
 		if hashErr != nil {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
-				ArtifactPath: outputPath,
+				ArtifactPath: artifactPath,
 				Status:       "missing",
 				Detail:       hashErr.Error(),
 				Rank:         rank,
@@ -171,7 +175,7 @@ func MCPValidateSpecs() ValidationReport {
 		if !entryExists {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
-				ArtifactPath: outputPath,
+				ArtifactPath: artifactPath,
 				Status:       "missing",
 				Detail:       "no manifest entry",
 				Rank:         rank,
@@ -182,7 +186,7 @@ func MCPValidateSpecs() ValidationReport {
 		if entry.ChainHash != computedHash {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
-				ArtifactPath: outputPath,
+				ArtifactPath: artifactPath,
 				Status:       "stale",
 				Detail:       "manifest chain hash " + entry.ChainHash + " does not match expected hash " + computedHash,
 				Rank:         rank,
@@ -190,12 +194,12 @@ func MCPValidateSpecs() ValidationReport {
 			continue
 		}
 
-		filePath := oslayer.CfsPath(outputPath)
+		filePath := oslayer.CfsPath(artifactPath)
 		handle, openErr := oslayer.OpenFile(filePath, "read", 30000)
 		if openErr != nil {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
-				ArtifactPath: outputPath,
+				ArtifactPath: artifactPath,
 				Status:       "missing",
 				Detail:       openErr.Error(),
 				Rank:         rank,
@@ -208,7 +212,7 @@ func MCPValidateSpecs() ValidationReport {
 		if readErr != nil {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
-				ArtifactPath: outputPath,
+				ArtifactPath: artifactPath,
 				Status:       "missing",
 				Detail:       readErr.Error(),
 				Rank:         rank,
@@ -219,7 +223,7 @@ func MCPValidateSpecs() ValidationReport {
 		if fileChecksum != entry.Checksum {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         n.Reference.LogicalName,
-				ArtifactPath: outputPath,
+				ArtifactPath: artifactPath,
 				Status:       "modified",
 				Detail:       "file checksum does not match manifest checksum",
 				Rank:         rank,
@@ -233,7 +237,7 @@ func MCPValidateSpecs() ValidationReport {
 		}
 		specLogicalName := "SPEC/" + strings.TrimPrefix(artifactKey, "ARTIFACT/")
 		node, nodeExists := parsedNodes[specLogicalName]
-		if !nodeExists || node.Frontmatter == nil || node.Frontmatter.Output == nil || *node.Frontmatter.Output == "" {
+		if !nodeExists || node.Frontmatter == nil || node.Frontmatter.Type == nil {
 			stalenessEntries = append(stalenessEntries, StalenessEntry{
 				Node:         artifactKey,
 				ArtifactPath: entry.Path,

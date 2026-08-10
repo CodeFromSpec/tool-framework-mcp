@@ -189,6 +189,7 @@ Previous frontmatter (at the time of last generation):
 
 ```yaml
 ---
+type: artifact
 imports:
   - SPEC/legacy/old-fees
 input: ARTIFACT/functional/fees/calculation
@@ -200,6 +201,7 @@ Current frontmatter:
 
 ```yaml
 ---
+type: artifact
 imports:
   - EXTERNAL/proto/payments/v1/transfers.proto
   - SPEC/integrations/database

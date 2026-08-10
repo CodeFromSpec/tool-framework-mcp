@@ -14,6 +14,7 @@ import (
 )
 
 type NodeFrontmatter struct {
+	Type    *string
 	Imports []string
 	Input   []string
 	Output  *string
@@ -101,6 +102,7 @@ func ParseNode(logicalName string) (*Node, error) {
 }
 
 var recognizedFrontmatterKeysNP = map[string]struct{}{
+	"type":    {},
 	"imports": {},
 	"input":   {},
 	"output":  {},
@@ -166,6 +168,15 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 		}
 	}
 
+	var nodeType *string
+	if typeVal, ok := rawMap["type"]; ok && typeVal != nil {
+		s, ok := typeVal.(string)
+		if !ok {
+			return nil, nil, fmt.Errorf("%w: type field must be a string", ErrMalformedYAML)
+		}
+		nodeType = &s
+	}
+
 	var imports []string
 	if importsVal, ok := rawMap["imports"]; ok && importsVal != nil {
 		switch v := importsVal.(type) {
@@ -198,6 +209,7 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 	}
 
 	fm := &NodeFrontmatter{
+		Type:    nodeType,
 		Imports: imports,
 		Input:   inputSlice,
 		Output:  output,

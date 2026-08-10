@@ -86,6 +86,7 @@ func TestMCPAccept_AcceptsModifiedArtifact(t *testing.T) {
 	b.Write()
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.SetOutput("out/a.go")
 	ba.Write()
 
@@ -129,6 +130,7 @@ func TestMCPAccept_AcceptsStaleArtifact(t *testing.T) {
 	b.Write()
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.SetOutput("out/a.go")
 	ba.Write()
 
@@ -172,6 +174,7 @@ func TestMCPAccept_CreatesEntryWhenNoneExists(t *testing.T) {
 	b.Write()
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.SetOutput("out/a.go")
 	ba.Write()
 
@@ -246,6 +249,7 @@ func TestMCPAccept_ArtifactFileDoesNotExist(t *testing.T) {
 	b.Write()
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.SetOutput("out/a.go")
 	ba.Write()
 
@@ -266,6 +270,7 @@ func TestMCPAccept_AlreadyUpToDate(t *testing.T) {
 	b.Write()
 
 	ba := testutils.CreateSpecNode(t, "SPEC/root/a")
+	ba.SetType("artifact")
 	ba.SetOutput("out/a.go")
 	ba.Write()
 
