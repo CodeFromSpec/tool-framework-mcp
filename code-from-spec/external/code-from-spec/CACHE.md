@@ -9,6 +9,12 @@ The cache is best-effort infrastructure
 cannot see what the spec looked like in the previous
 generation.
 
+The cache serves artifact generation only. Verdict
+chains are never cached — the judging subagent performs
+a cold read, and no `<previous_*>` sections or
+dispositions exist for verdicts (see CHAIN_ASSEMBLY.md,
+"Verdict chains").
+
 This document assumes familiarity with
 CODE_FROM_SPEC.md and MANIFEST.md.
 
@@ -84,8 +90,8 @@ in `.cache/.content/`.
 ## Cache population
 
 The cache is populated as a side effect of normal
-operations. Whenever the tooling processes a spec
-chain, it writes the content of each position to
+operations. Whenever the tooling processes an artifact
+node's spec chain, it writes the content of each position to
 `.cache/.content/` and the chain structure to
 `.cache/.chains/`.
 
