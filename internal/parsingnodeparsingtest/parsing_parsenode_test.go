@@ -187,10 +187,21 @@ func TestInputWithInvalidYAMLShape(t *testing.T) {
 	}
 }
 
-func TestIgnoresUnknownFrontmatterFields(t *testing.T) {
+func TestRejectsUnknownFrontmatterFields(t *testing.T) {
 	testutils.Chdir(t)
 
 	testutils.WriteRawNode(t, "SPEC/a", "---\noutput: internal/a/a.go\ncustom_field: value\n---\n# SPEC/a\n")
+
+	_, err := parsing.ParseNode("SPEC/a")
+	if !errors.Is(err, parsing.ErrUnknownFrontmatterField) {
+		t.Errorf("expected ErrUnknownFrontmatterField, got %v", err)
+	}
+}
+
+func TestCustomFieldWithValidMapping(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\noutput: out.go\ncustom:\n  owner: team-x\n  jira: PAY-123\n---\n# SPEC/a\n")
 
 	node, err := parsing.ParseNode("SPEC/a")
 	if err != nil {
@@ -202,8 +213,53 @@ func TestIgnoresUnknownFrontmatterFields(t *testing.T) {
 	if node.Frontmatter.Output == nil {
 		t.Fatal("expected Output to be non-nil")
 	}
-	if *node.Frontmatter.Output != "internal/a/a.go" {
-		t.Errorf("unexpected Output value: %q", *node.Frontmatter.Output)
+	if *node.Frontmatter.Output != "out.go" {
+		t.Errorf("unexpected Output: %q", *node.Frontmatter.Output)
+	}
+}
+
+func TestCustomFieldWithScalarValueRejected(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\ncustom: some-value\n---\n# SPEC/a\n")
+
+	_, err := parsing.ParseNode("SPEC/a")
+	if !errors.Is(err, parsing.ErrMalformedYAML) {
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
+	}
+}
+
+func TestCustomFieldWithListValueRejected(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\ncustom:\n  - item1\n  - item2\n---\n# SPEC/a\n")
+
+	_, err := parsing.ParseNode("SPEC/a")
+	if !errors.Is(err, parsing.ErrMalformedYAML) {
+		t.Errorf("expected ErrMalformedYAML, got %v", err)
+	}
+}
+
+func TestCustomFieldAloneWithoutLeafOnlyFields(t *testing.T) {
+	testutils.Chdir(t)
+
+	testutils.WriteRawNode(t, "SPEC/a", "---\ncustom:\n  owner: team-x\n---\n# SPEC/a\n")
+
+	node, err := parsing.ParseNode("SPEC/a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if node.Frontmatter == nil {
+		t.Fatal("expected Frontmatter to be non-nil")
+	}
+	if node.Frontmatter.Imports != nil {
+		t.Errorf("expected Imports to be nil")
+	}
+	if node.Frontmatter.Input != nil {
+		t.Errorf("expected Input to be nil")
+	}
+	if node.Frontmatter.Output != nil {
+		t.Errorf("expected Output to be nil")
 	}
 }
 
@@ -279,23 +335,14 @@ func TestUnclosedFrontmatterBlock(t *testing.T) {
 	}
 }
 
-func TestUnknownFieldExternalIgnored(t *testing.T) {
+func TestUnknownFieldExternalRejected(t *testing.T) {
 	testutils.Chdir(t)
 
 	testutils.WriteRawNode(t, "SPEC/a", "---\nexternal: \"some/ref\"\noutput: internal/a/a.go\n---\n# SPEC/a\n")
 
-	node, err := parsing.ParseNode("SPEC/a")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if node.Frontmatter == nil {
-		t.Fatal("expected Frontmatter to be non-nil")
-	}
-	if node.Frontmatter.Output == nil {
-		t.Fatal("expected Output to be non-nil")
-	}
-	if *node.Frontmatter.Output != "internal/a/a.go" {
-		t.Errorf("unexpected Output: %q", *node.Frontmatter.Output)
+	_, err := parsing.ParseNode("SPEC/a")
+	if !errors.Is(err, parsing.ErrUnknownFrontmatterField) {
+		t.Errorf("expected ErrUnknownFrontmatterField, got %v", err)
 	}
 }
 

@@ -41,12 +41,6 @@ type Node struct {
 	Private     *NodeSection
 }
 
-type rawFrontmatterNP struct {
-	Imports []string `yaml:"imports"`
-	Input   any      `yaml:"input"`
-	Output  *string  `yaml:"output"`
-}
-
 type headingRecordNP struct {
 	level      int
 	normalized string
@@ -106,6 +100,13 @@ func ParseNode(logicalName string) (*Node, error) {
 	return node, nil
 }
 
+var recognizedFrontmatterKeysNP = map[string]struct{}{
+	"imports": {},
+	"input":   {},
+	"output":  {},
+	"custom":  {},
+}
+
 func normalizeInputFieldNP(raw any) ([]string, error) {
 	if raw == nil {
 		return nil, nil
@@ -148,20 +149,58 @@ func extractFrontmatterNP(source []byte) (*NodeFrontmatter, []byte, error) {
 	yamlText := rest[:idx]
 	body := rest[idx+5:]
 
-	var raw rawFrontmatterNP
-	if err := yaml.Unmarshal(yamlText, &raw); err != nil {
+	var rawMap map[string]any
+	if err := yaml.Unmarshal(yamlText, &rawMap); err != nil {
 		return nil, nil, fmt.Errorf("%w: %w", ErrMalformedYAML, err)
 	}
 
-	inputSlice, err := normalizeInputFieldNP(raw.Input)
+	for key := range rawMap {
+		if _, ok := recognizedFrontmatterKeysNP[key]; !ok {
+			return nil, nil, fmt.Errorf("%w: %q", ErrUnknownFrontmatterField, key)
+		}
+	}
+
+	if customVal, ok := rawMap["custom"]; ok && customVal != nil {
+		if _, ok := customVal.(map[string]any); !ok {
+			return nil, nil, fmt.Errorf("%w: custom field must be a mapping", ErrMalformedYAML)
+		}
+	}
+
+	var imports []string
+	if importsVal, ok := rawMap["imports"]; ok && importsVal != nil {
+		switch v := importsVal.(type) {
+		case []any:
+			imports = make([]string, len(v))
+			for i, elem := range v {
+				s, ok := elem.(string)
+				if !ok {
+					return nil, nil, fmt.Errorf("%w: imports list element is not a string", ErrMalformedYAML)
+				}
+				imports[i] = s
+			}
+		default:
+			return nil, nil, fmt.Errorf("%w: imports field must be a list of strings", ErrMalformedYAML)
+		}
+	}
+
+	inputSlice, err := normalizeInputFieldNP(rawMap["input"])
 	if err != nil {
 		return nil, nil, err
 	}
 
+	var output *string
+	if outputVal, ok := rawMap["output"]; ok && outputVal != nil {
+		s, ok := outputVal.(string)
+		if !ok {
+			return nil, nil, fmt.Errorf("%w: output field must be a string", ErrMalformedYAML)
+		}
+		output = &s
+	}
+
 	fm := &NodeFrontmatter{
-		Imports: raw.Imports,
+		Imports: imports,
 		Input:   inputSlice,
-		Output:  raw.Output,
+		Output:  output,
 	}
 
 	return fm, body, nil
