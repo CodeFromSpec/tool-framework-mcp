@@ -14,7 +14,6 @@ ARTIFACT/golang/implementation/mcp_tools/prune_cache;path:internal/mcpprunecache
 ARTIFACT/golang/implementation/mcp_tools/prune_orphans;path:internal/mcppruneorphans/mcppruneorphans.go;checksum:nTRdBp05Eu2MG_QBpGx198gsw9M;chain:b5mOwsTwBe7-KBDeJgSobwnD9sk
 ARTIFACT/golang/implementation/mcp_tools/reconstruct_cache;path:internal/mcpreconstructcache/mcpreconstructcache.go;checksum:qw6sWnwbpRgAuynv1JQ590lYhYE;chain:XlwS5tfxX6phKvX2lvOzLSq4HlQ
 ARTIFACT/golang/implementation/mcp_tools/validate_specs;path:internal/mcpvalidatespecs/mcpvalidatespecs.go;checksum:mcPxZf4w25zneeGrHf2Z44UAh8U;chain:fCghqswRX9hb_z-iOh9HX9qL_8w
-ARTIFACT/golang/implementation/mcp_tools/write_file;path:internal/mcpwritefile/mcpwritefile.go;checksum:lvzymwPrfb8HFzwdHsZwsIsLiVk;chain:p-cuvK2AJEw0C6ST9Md4tFqaSIA
 ARTIFACT/golang/implementation/mcp_tools/write_verdict;path:internal/mcpwriteverdict/mcpwriteverdict.go;checksum:eMau3opzy3oKGbcQvBwrXr8XLE0;chain:QdKxgvRd7bgjkeeFSCPWVz2bAy0
 ARTIFACT/golang/implementation/oslayer/errors;path:internal/oslayer/errors.go;checksum:dutygzero6Knl0cWPohXArlQ5do;chain:FA-Fd_tyHATqfbuiGDFhMkylyC0
 ARTIFACT/golang/implementation/oslayer/file/core;path:internal/oslayer/file.go;checksum:6BtlIBTlKF5GU_yzrn30KCPT9Po;chain:F0sWXCEcjX6gJKeiSZDtx3HakzI
@@ -44,7 +43,6 @@ ARTIFACT/golang/test/cases/mcp_tools/prune_cache;path:internal/mcpprunecache/mcp
 ARTIFACT/golang/test/cases/mcp_tools/prune_orphans;path:internal/mcppruneorphans/mcppruneorphans_test.go;checksum:i03yH7NCZqHhmgXZvodAPt0vRPE;chain:soWQ1LVoZM80WJ0VN-uSO9U6wY0
 ARTIFACT/golang/test/cases/mcp_tools/reconstruct_cache;path:internal/mcpreconstructcache/mcpreconstructcache_test.go;checksum:qCgrsVEcN-enRnXT2gGUWIN-YwY;chain:DdppUc5wS5eX8rjOpzVlH7uSVMM
 ARTIFACT/golang/test/cases/mcp_tools/validate_specs;path:internal/mcpvalidatespecs/mcpvalidatespecs_test.go;checksum:oEJb58SCXARFj2wQxu7j0VrSuOM;chain:obhoVeeIXeZ-_URmWgL-BCHM1QI
-ARTIFACT/golang/test/cases/mcp_tools/write_file;path:internal/mcpwritefile/mcpwritefile_test.go;checksum:_-7L7cOmqwtiGaFmf-hSesLgGIk;chain:jR2Lrha47fbxZrgjKRkhotHxLQs
 ARTIFACT/golang/test/cases/mcp_tools/write_verdict;path:internal/mcpwriteverdict/mcpwriteverdict_test.go;checksum:VFaVqtuieetd2ARnw8UWoSZvInE;chain:826uUCV84K8UpYTW3nUxa0iYbbs
 ARTIFACT/golang/test/cases/oslayer/file;path:internal/oslayerfiletest/oslayer_file_test.go;checksum:Z0fONU7TI-g9RG30C1yCmxQimuE;chain:A0RjyEYMUKm8O9Urwyywba0Y3IY
 ARTIFACT/golang/test/cases/oslayer/list;path:internal/oslayerlisttest/oslayer_list_test.go;checksum:a7UyOlXLDjwHfkEf8OQjhJI3r7M;chain:SZisTifbI-8UrnGGmEm_60AbMZ8
