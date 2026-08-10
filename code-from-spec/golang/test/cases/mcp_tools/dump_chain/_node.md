@@ -35,7 +35,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 
 Actions:
 1. Call `mcpdumpchain.MCPDumpChain("SPEC/root/a")`.
@@ -56,7 +56,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Context` with
   content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`,
   `# Agent` with content.
 
 Actions:

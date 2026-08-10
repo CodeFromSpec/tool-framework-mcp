@@ -94,7 +94,8 @@ Implement the spec tree validation as a Go package.
 
 ### Rule: requires_type (per entry)
 
-   If entry.Frontmatter.Type is nil:
+   If `has_children` is false and
+   entry.Frontmatter.Type is nil:
      If entry.Frontmatter.Imports is non-empty:
        Append FormatError with rule "requires_type",
        detail "imports requires type".

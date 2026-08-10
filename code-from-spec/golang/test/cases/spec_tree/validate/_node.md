@@ -57,6 +57,7 @@ Setup:
 - entries: SPEC/root (intermediate, has children
   SPEC/root/a and SPEC/root/b), SPEC/root/a (leaf,
   heading = "spec/root/a",
+  type = "artifact",
   imports = ["SPEC/root/b"],
   output = "internal/out.go"),
   SPEC/root/b (leaf, heading = "spec/root/b").
@@ -121,6 +122,109 @@ Actions:
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
 Rule: "name_heading" }.
+
+### leaf_only_type
+
+#### Intermediate node with type
+
+Setup:
+- SPEC/root, SPEC/root/a (intermediate, has child
+  SPEC/root/a/b, type = "artifact"),
+  SPEC/root/a/b (leaf).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "leaf_only_type" }.
+
+#### Leaf node with type — no error
+
+Setup:
+- SPEC/root (heading = "spec/root"), SPEC/root/a
+  (leaf, heading = "spec/root/a", type = "artifact").
+
+Expected: No leaf_only_type error.
+
+### type_value
+
+#### Unrecognized type value
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "unknown").
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "type_value" }.
+
+#### Type artifact is valid — no error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "artifact").
+
+Expected: No type_value error.
+
+### requires_type
+
+#### Imports without type
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = nil,
+  imports = ["SPEC/root/b"]),
+  SPEC/root/b (leaf).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "requires_type",
+Detail: "imports requires type" }.
+
+#### Input without type
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = nil,
+  input = ["ARTIFACT/root/b"]),
+  SPEC/root/b (leaf, type = "artifact",
+  output = "b.go").
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "requires_type",
+Detail: "input requires type" }.
+
+#### Output without type
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = nil,
+  output = "x.go").
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "requires_type",
+Detail: "output requires type" }.
+
+#### Agent without type
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = nil,
+  agent present with content).
+
+Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
+Rule: "requires_type",
+Detail: "# Agent section requires type" }.
+
+#### Multiple fields without type — one error per field
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = nil,
+  imports = ["SPEC/root/b"], output = "x.go",
+  agent present),
+  SPEC/root/b (leaf).
+
+Expected: Three spectreevalidate.FormatError entries with
+Rule = "requires_type" for SPEC/root/a.
+
+#### Fields with type present — no error
+
+Setup:
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
+  imports = ["SPEC/root/b"], output = "x.go",
+  agent present),
+  SPEC/root/b (leaf).
+
+Expected: No requires_type error.
 
 ### leaf_only_fields
 
@@ -238,7 +342,8 @@ Expected: No import_targets error.
 #### imports with valid ARTIFACT reference
 
 Setup:
-- SPEC/root, SPEC/root/a (leaf, output = "lib.go"),
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
+  output = "lib.go"),
   SPEC/root/b (leaf,
   imports = ["ARTIFACT/root/a"]).
 
@@ -296,7 +401,8 @@ Rule = "import_targets" for SPEC/root/a.
 #### Valid ARTIFACT input reference
 
 Setup:
-- SPEC/root, SPEC/root/a (leaf, output = "a.go"),
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
+  output = "a.go"),
   SPEC/root/b (leaf, input = ["ARTIFACT/root/a"]).
 
 Expected: No input_target error.
@@ -329,7 +435,8 @@ Expected: No input_target error.
 #### Multiple valid input entries — no error
 
 Setup:
-- SPEC/root, SPEC/root/a (leaf, output = "a.go"),
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
+  output = "a.go"),
   SPEC/root/b (leaf), SPEC/root/c (leaf,
   input = ["ARTIFACT/root/a", "SPEC/root/b"]).
 
@@ -428,7 +535,7 @@ Expected: No missing_node_md error.
 #### Valid output path
 
 Setup:
-- SPEC/root, SPEC/root/a (leaf,
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
   output = "internal/x.go").
 
 Expected: No output_paths error.
@@ -436,7 +543,7 @@ Expected: No output_paths error.
 #### Output path with traversal
 
 Setup:
-- SPEC/root, SPEC/root/a (leaf,
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
   output = "../../etc/passwd").
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",
@@ -445,7 +552,7 @@ Rule: "output_paths" }.
 #### Output path with backslash
 
 Setup:
-- SPEC/root, SPEC/root/a (leaf,
+- SPEC/root, SPEC/root/a (leaf, type = "artifact",
   output = "internal\\x.go").
 
 Expected: spectreevalidate.FormatError { Node: "SPEC/root/a",

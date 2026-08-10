@@ -34,7 +34,7 @@ Create artifact files with `oslayer.OpenFile` in
 
 Setup:
 - Create a spec node at "alpha" with
-  `output: "out/alpha.go"` in its frontmatter and
+  `type: "artifact"`, `output: "out/alpha.go"` in its frontmatter and
   some public content.
 - Create a manifest with two entries:
   - `ARTIFACT/alpha` with path `out/alpha.go`.
@@ -57,7 +57,7 @@ Expected:
 
 Setup:
 - Create a spec node at "alpha" with
-  `output: "out/alpha.go"`.
+  `type: "artifact"`, `output: "out/alpha.go"`.
 - Create a manifest with two entries:
   - `ARTIFACT/alpha` with path `out/alpha.go`.
   - `ARTIFACT/gone` with path `out/gone.go`.
@@ -77,7 +77,7 @@ Expected:
 
 Setup:
 - Create a spec node at "alpha" with
-  `output: "out/alpha.go"`.
+  `type: "artifact"`, `output: "out/alpha.go"`.
 - Create a manifest with one entry:
   `ARTIFACT/alpha` with path `out/alpha.go`.
 
@@ -89,12 +89,12 @@ Expected:
 - Summary contains `"pruned orphans: 0 entries removed"`.
 - Manifest unchanged.
 
-#### Orphan because node has no output
+#### Orphan because node has no type
 
 Setup:
 - Create a spec node at "alpha" with
-  `output: "out/alpha.go"`.
-- Create a spec node at "docs-only" with no output
+  `type: "artifact"`, `output: "out/alpha.go"`.
+- Create a spec node at "docs-only" with no type
   in its frontmatter.
 - Create a manifest with two entries:
   - `ARTIFACT/alpha` with path `out/alpha.go`.
@@ -116,7 +116,7 @@ Expected:
 
 Setup:
 - Create a spec node at "alpha" with
-  `output: "out/alpha.go"`.
+  `type: "artifact"`, `output: "out/alpha.go"`.
 - Create a valid manifest with header only (no
   entries). Create the `.manifest.lock` file.
 

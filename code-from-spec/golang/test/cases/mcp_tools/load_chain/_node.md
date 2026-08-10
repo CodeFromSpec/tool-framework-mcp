@@ -57,7 +57,7 @@ Setup:
   subsection containing one line of content.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a` heading, frontmatter
-  `output: out/a.txt`, `# Public` with `## Interface`
+  `type: artifact`, `output: out/a.txt`, `# Public` with `## Interface`
   subsection, `# Agent` section with content.
 - Do not create `out/a.txt`.
 
@@ -86,7 +86,7 @@ Setup:
   `# SPEC/root/a`, `# Public` → `## Details` with
   content.
 - Create `code-from-spec/root/a/b/_node.md` with
-  `# SPEC/root/a/b`, frontmatter `output: out/b.txt`,
+  `# SPEC/root/a/b`, frontmatter `type: artifact`, `output: out/b.txt`,
   `# Public` → `## Contract` with content.
 
 Actions:
@@ -106,7 +106,7 @@ Setup:
   `# SPEC/root` heading only (no public section).
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, `# Public` → `## Interface` with
-  content, frontmatter `output: out/a.txt`.
+  content, frontmatter `type: artifact`, `output: out/a.txt`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -125,7 +125,7 @@ Setup:
   subsections).
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, `# Public` → `## Interface` with
-  content, frontmatter `output: out/a.txt`.
+  content, frontmatter `type: artifact`, `output: out/a.txt`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -144,7 +144,7 @@ Setup:
   `# SPEC/root/b`, `# Public` → `## Interface` +
   `## Constraints`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `imports: ["SPEC/root/b"]`.
 
 Actions:
@@ -165,7 +165,7 @@ Setup:
   `# SPEC/root/b`, `# Public` → `## Interface` +
   `## Constraints`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `imports: ["SPEC/root/b(interface)"]`.
 
 Actions:
@@ -184,10 +184,10 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/b/_node.md` with
-  `# SPEC/root/b`, frontmatter `output: out/b.go`.
+  `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/b.go`.
 - Create `out/b.go` with known content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`,
   `imports: ["ARTIFACT/root/b"]`.
 
 Actions:
@@ -206,7 +206,7 @@ Setup:
   `# SPEC/root`.
 - Create `data/config.yaml` with known content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `imports: ["EXTERNAL/data/config.yaml"]`.
 
 Actions:
@@ -224,7 +224,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `# Public` → `## Interface` with content,
   `# Agent` with content.
 
@@ -243,7 +243,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `# Public` → `## Interface` with content. No
   `# Agent` section.
 
@@ -260,10 +260,10 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/b/_node.md` with
-  `# SPEC/root/b`, frontmatter `output: out/data.json`.
+  `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/data.json`.
 - Create `out/data.json` with known content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `input: ARTIFACT/root/b` (scalar form).
 
 Actions:
@@ -282,7 +282,7 @@ Setup:
   `# SPEC/root`.
 - Create `docs/vendor/spec.yaml` with known content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `input: EXTERNAL/docs/vendor/spec.yaml` (scalar form).
 
 Actions:
@@ -303,7 +303,7 @@ Setup:
   `# SPEC/root/b`, `# Public` → `## Acceptance tests`
   with content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `input: SPEC/root/b` (scalar form).
 
 Actions:
@@ -320,13 +320,13 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/b/_node.md` with
-  `# SPEC/root/b`, frontmatter `output: out/b.json`.
+  `# SPEC/root/b`, frontmatter `type: artifact`, `output: out/b.json`.
 - Create `out/b.json` with known content.
 - Create `code-from-spec/root/c/_node.md` with
   `# SPEC/root/c`, `# Public` → `## Acceptance tests`
   with content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `input:\n    - ARTIFACT/root/b\n    - SPEC/root/c`
   (list form).
 
@@ -346,7 +346,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`.
   No input field.
 
 Actions:
@@ -362,7 +362,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with known content.
 
 Actions:
@@ -379,7 +379,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Do not create `out/a.go`.
 
 Actions:
@@ -396,7 +396,7 @@ Setup:
   `# SPEC/root`, `# Public` → `## Overview` with
   stable content.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -440,13 +440,13 @@ Expected:
 - Returns error propagated from `parsing.ParseNode`
   (`oslayer.ErrFileUnreadable`).
 
-#### No output declared
+#### No type declared
 
 Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`. No output in frontmatter.
+  `# SPEC/root/a`. No type in frontmatter.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -462,7 +462,7 @@ Setup:
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
   `# SPEC/root/a`, frontmatter
-  `output: ../../etc/passwd`.
+  `type: artifact`, `output: ../../etc/passwd`.
 
 Actions:
 1. Call `subagenttoken.SubagentTokenGenerate("SPEC/root/a")` → `token`.
@@ -477,7 +477,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with content "original".
 - Create `.manifest` with entry for ARTIFACT/root/a
   with checksum matching "original" and a valid chain
@@ -498,7 +498,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.go`.
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.go`.
 - Create `out/a.go` with known content.
 - No `.manifest` file.
 
@@ -516,7 +516,7 @@ Setup:
 - Create `code-from-spec/root/_node.md` with
   `# SPEC/root`.
 - Create `code-from-spec/root/a/_node.md` with
-  `# SPEC/root/a`, frontmatter `output: out/a.txt`,
+  `# SPEC/root/a`, frontmatter `type: artifact`, `output: out/a.txt`,
   `imports: ["SPEC/root/missing"]`.
 - Do not create `code-from-spec/root/missing/_node.md`.
 
